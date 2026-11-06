@@ -30,7 +30,11 @@ WiFi 7 全链路的四条整合也在这里做：pll 剖面替换解析相噪、
 ### C2. 信道估计平滑跨度应随相干带宽 / 音距缩放
 复现：K = 16、15 ns rms Rayleigh、`ce_smooth_tones=3` → EVM −7 dB，`=1` → −14 dB（`tests/test_link.py::test_k16_symbol_*` 用 1 音）。待做：平滑跨度按 `coherence_bandwidth_hz / scs_eff` 自动选，或改成 DFT 域去噪。
 
-### C3. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
+### C3. PER = 1e-2 处 SNR 的统计散布约 ±0.5 dB
+复现：示例 00 的 K = 8 MCS4 flat 配置，300 包 / 20 错的灵敏度行读 19.67 dB，600 包 / 30 错的正式曲线读 20.42 dB（同一代码、不同 RNG 消耗）。
+1e-2 处每点只有 ~6–30 个错包，再经对数线性插值。待做：按固定错包数（≥ 100）收敛、给出 bootstrap 置信区间，并在 external_check 的差值旁打印它；验收门限 1 dB 与这个散布同量级，现在的"OUTSIDE/within"判决对 1.0–1.3 dB 的差没有分辨力。
+
+### C4. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
 Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 原文。
 
 ## D. 报回上游的需求（合并后重新 pin）
