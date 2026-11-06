@@ -1,0 +1,218 @@
+# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/waveform/preamble.py
+# Adapted-copy policy: see src/mmw60/vendor/__init__.py
+"""Simplified L-LTF-like training preamble.
+
+Structure (per 802.11 convention, simplified — no L-STF, no channel coding):
+
+    [ GI2 | LTF | LTF ]
+
+where LTF is one OFDM symbol of known BPSK on every active tone and GI2 is a
+double-length cyclic prefix.  The exact repetition enables:
+
+* frame timing via cross-correlation,
+* CFO estimation from the phase drift between the two repeats,
+* per-tone channel estimation for the data-symbol equalizer,
+* preamble-based RX IQ/DC estimation (M3).
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+from .ofdm import OFDMConfig, OFDMWaveform, generate_ofdm
+
+
+def ltf_tones(config: OFDMConfig, seed: int = 7) -> np.ndarray:
+    """Known BPSK training values on all active tones (deterministic)."""
+    rng = np.random.default_rng(seed)
+    return (2.0 * rng.integers(0, 2, size=config.n_active) - 1.0).astype(complex)
+
+
+@dataclass
+class Frame:
+    """Preamble + data frame with the indices needed to slice captures."""
+
+    x: np.ndarray                  # full frame samples (unit average power scale of data part)
+    data: OFDMWaveform             # vendored data waveform (reference for EVM)
+    ltf: np.ndarray                # known BPSK per active tone
+    config: OFDMConfig
+    gi2_len: int                   # samples
+    ltf_len: int                   # samples per LTF repeat (FFT window only)
+    stf_len: int = 0               # samples of short training ahead of GI2 (0 = none)
+
+    @property
+    def preamble_len(self) -> int:
+        return self.stf_len + self.gi2_len + 2 * self.ltf_len
+
+    def ltf_starts(self) -> tuple[int, int]:
+        return self.stf_len + self.gi2_len, self.stf_len + self.gi2_len + self.ltf_len
+
+
+#: L-STF period: 0.8 us, i.e. tones every 1.25 MHz
+STF_PERIOD_S = 0.8e-6
+
+
+def stf_waveform(config: OFDMConfig, n_periods: int, data_scale: float,
+                 seed: int = 11) -> np.ndarray:
+    """A short training field: ``n_periods`` repeats of a 0.8 us periodic
+    symbol built on every tone that is a multiple of 1.25 MHz inside the
+    active block (the 802.11 L-STF structure, at this bandwidth's tone
+    count), BPSK-valued, at the data part's average power.  It is what
+    the AGC settles on; the estimators never look at it."""
+    step = int(round(1.25e6 / config.subcarrier_spacing_hz))
+    tones = config.active_tone_indices()
+    stf_tones = tones[(tones % step == 0)]
+    rng = np.random.default_rng(seed)
+    vals = (2.0 * rng.integers(0, 2, size=stf_tones.size) - 1.0).astype(complex)
+    os_nfft = config.fft_size * config.oversampling
+    freq = np.zeros(os_nfft, dtype=complex)
+    freq[stf_tones % os_nfft] = vals
+    sym = np.fft.ifft(freq) * os_nfft / np.sqrt(stf_tones.size) / data_scale
+    period = int(round(STF_PERIOD_S * config.sample_rate_hz))
+    one = sym[:period]
+    return np.tile(one, n_periods)
+
+
+def build_frame(config: OFDMConfig, ltf_seed: int = 7,
+                data: OFDMWaveform | None = None,
+                stf_periods: int = 0) -> Frame:
+    """Assemble [STF | GI2 | LTF | LTF | data].
+
+    ``data`` optionally supplies the payload waveform (e.g. one carrying
+    pilot tones from ``pilots.generate_ofdm_with_pilots``); it must have
+    been generated from ``config``.  Default: plain random QAM payload.
+    ``stf_periods`` prepends that many 0.8 us short-training periods
+    (10 = the 8 us L-STF the AGC is given); 0 keeps the historical
+    [GI2 | LTF | LTF | data] frame.
+    """
+    if data is None:
+        data = generate_ofdm(config)
+    elif data.tx_symbols.shape != (config.n_symbols, config.n_active):
+        raise ValueError("data waveform does not match config")
+    ltf = ltf_tones(config, ltf_seed)
+
+    os_nfft = config.fft_size * config.oversampling
+    tones = config.active_tone_indices()
+    freq = np.zeros(os_nfft, dtype=complex)
+    freq[tones % os_nfft] = ltf
+    sym = np.fft.ifft(freq) * os_nfft / np.sqrt(config.n_active)
+    sym = sym / data.scale                    # same amplitude scale as data part
+    gi2 = 2 * config.cp_len * config.oversampling
+    parts = [sym[-gi2:], sym, sym, data.x]
+    stf_len = 0
+    if stf_periods:
+        stf = stf_waveform(config, int(stf_periods), data.scale)
+        stf_len = stf.size
+        parts.insert(0, stf)
+    x = np.concatenate(parts)
+    return Frame(x=x, data=data, ltf=ltf, config=config,
+                 gi2_len=gi2, ltf_len=os_nfft, stf_len=stf_len)
+
+
+def estimate_cfo(rx: np.ndarray, frame: Frame, fs: float) -> float:
+    """CFO [Hz] from the phase drift between the two LTF repeats.
+
+    Assumes coarse frame alignment (rx[0] is the frame start).  Unambiguous
+    range is +/- fs / (2 * ltf_len) = +/- subcarrier_spacing/2 * oversampling.
+    """
+    s1, s2 = frame.ltf_starts()
+    n = frame.ltf_len
+    r1 = rx[s1:s1 + n]
+    r2 = rx[s2:s2 + n]
+    acc = np.vdot(r1, r2)  # sum conj(r1) * r2
+    dt = n / fs
+    return float(np.angle(acc) / (2 * np.pi * dt))
+
+
+def apply_cfo(x: np.ndarray, cfo_hz: float, fs: float) -> np.ndarray:
+    t = np.arange(x.size) / fs
+    return x * np.exp(2j * np.pi * cfo_hz * t)
+
+
+def channel_estimate(rx: np.ndarray, frame: Frame) -> np.ndarray:
+    """Per-active-tone channel estimate from the averaged LTF repeats."""
+    s1, s2 = frame.ltf_starts()
+    n = frame.ltf_len
+    cfg = frame.config
+    tones = cfg.active_tone_indices()
+    avg = 0.5 * (rx[s1:s1 + n] + rx[s2:s2 + n])
+    spec = np.fft.fft(avg) / (n / np.sqrt(cfg.n_active)) * frame.data.scale
+    return spec[tones % n] / frame.ltf
+
+
+#: Default cross-tone smoothing of the modem-form channel estimate (see
+#: ``smooth_channel_estimate``): 9 active tones, the width at which the
+#: calibrated 320 MHz / 4096-QAM chain's modem-form TX EVM sits 1 dB
+#: above the isolation view instead of 5 dB from the raw estimate.
+DEFAULT_CE_SMOOTH_TONES = 9
+
+
+def smooth_channel_estimate(h: np.ndarray, n_tones: int,
+                            segments=None) -> np.ndarray:
+    """Average a per-tone channel estimate over ``n_tones`` adjacent
+    active tones (complex moving average, edges renormalised).
+
+    A receiver's option, not a genie: the true channel of a conducted
+    measurement is smooth across tones, while the error an LTF estimate
+    freezes into H — its own noise, and the LTF pattern's share of a
+    residual IQ image or PA distortion, which flips sign with the BPSK
+    training values — is not.  Measured on the calibrated 320 MHz /
+    4096-QAM chain, the modem-form TX EVM reads -37.2 dB from the raw
+    estimate and -40.0 / -40.8 / -41.4 / -41.8 dB smoothed over 3 / 5 /
+    9 / 17 tones against -42.4 dB in the isolation view.  ``n_tones``
+    <= 1 returns ``h`` unchanged.
+
+    ``segments`` carries the column ranges that are contiguous *in
+    frequency* (``TonePlan.segments()``).  Without it the window is
+    applied across the whole array, which is right only while the active
+    tones are one block: with a DC gap, an inter-segment null or a
+    punctured subchannel, array neighbours are not frequency neighbours
+    and a window straddling the hole averages across a discontinuity —
+    silently, since nothing changes shape and nothing becomes NaN.
+    """
+    h = np.asarray(h, dtype=complex)
+    n = int(n_tones)
+    if n <= 1:
+        return h
+    if segments is None:
+        return _smooth_run(h, n)
+    out = np.empty_like(h)
+    for cols in segments:
+        out[cols] = _smooth_run(h[cols], n)
+    return out
+
+
+def _smooth_run(h: np.ndarray, n: int) -> np.ndarray:
+    """Moving average inside one frequency-contiguous run, edges
+    renormalised so the ends are not pulled toward zero."""
+    if h.size == 0:
+        return h
+    k = np.ones(n) / n
+    num = np.convolve(h, k, mode="same")
+    den = np.convolve(np.ones(h.size), k, mode="same")
+    return num / den
+
+
+def estimate_sco(pilot_phases: np.ndarray, pilot_tone_idx: np.ndarray,
+                 symbol_len_s: float, scs_hz: float) -> float:
+    """Sampling clock offset [ppm] from pilot phase evolution.
+
+    ``pilot_phases``: (n_symbols, n_pilots) unwrapped phase of
+    rx_pilot * conj(known_pilot).  SCO makes the per-symbol phase slope
+    across tone index grow linearly with time:
+        dphi[sym, k] = 2*pi * f_k * sco * t_sym
+    Least-squares fit over (tone frequency x symbol time).
+    """
+    n_sym, n_p = pilot_phases.shape
+    t = (np.arange(n_sym) + 0.5) * symbol_len_s
+    f_k = pilot_tone_idx * scs_hz
+    # regress phase on f_k * t (outer product), per-symbol common phase removed
+    ph = pilot_phases - pilot_phases.mean(axis=1, keepdims=True)
+    x = np.outer(t, f_k - f_k.mean()).ravel()
+    y = ph.ravel()
+    denom = float(np.dot(x, x))
+    if denom == 0.0:
+        return 0.0
+    slope = float(np.dot(x, y)) / denom       # = 2*pi*sco
+    return slope / (2 * np.pi) * 1e6          # ppm

@@ -1,0 +1,19 @@
+# Numbers the docs derive from the examples' outputs (Halo_Serdes / d2d_link method):
+# each entry says where its operands are printed and which doc text quotes the
+# result; `python tools/example_drift.py derived` checks every quote against
+# examples/expected/, and `compare` re-derives them from a new run.  In a `line`
+# pattern `{}` captures a number and `{*}` skips one.
+
+- name: ex00 K=8 MCS0, literal vs flat channel at PER 1e-2 (what the channel assumption costs)
+  values:
+    lit: {example: "00", after: "SNR at PER 1e-2", line: "8 0 {} {*} {*}"}
+    flat: {example: "00", after: "SNR at PER 1e-2", line: "8 0 {*} {*} {}"}
+  quotes:
+    - {doc: cairn/external-validation.md, text: "K = 8 MCS0 字面 {lit} dB、flat {flat} dB，信道假设值 {lit - flat} dB"}
+
+- name: ex00 K=8 MCS1, literal vs flat channel at PER 1e-2
+  values:
+    lit1: {example: "00", after: "SNR at PER 1e-2", line: "8 1 {} {*} {*}"}
+    flat1: {example: "00", after: "SNR at PER 1e-2", line: "8 1 {*} {*} {}"}
+  quotes:
+    - {doc: cairn/external-validation.md, text: "K = 8 MCS1 字面 {lit1} dB、flat {flat1} dB"}

@@ -1,0 +1,413 @@
+# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/cal/base.py
+# Adapted-copy policy: see src/mmw60/vendor/__init__.py
+"""Calibration result/state containers.
+
+Every calibration follows the inject-truth -> estimate -> correct -> verify
+pattern (adc_toolbox app/tiadc_model.py): the estimator returns a
+``CalResult`` carrying the estimated parameters, the applied correction,
+a convergence trace and before/after metrics; the programmed correction
+state of both chains serializes to JSON for the comm-engineer handoff.
+"""
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+#: The cal-state file's major format tag (the inspector carries its own
+#: copy — it must stay stdlib-only and importable next to the JSON).
+FORMAT = "wifitrx-cal-state-v1"
+#: Additive changes inside v1, MAJOR.MINOR.  1.2 (0.7.35): the optional
+#: residuals.temperature block (per-key sampled points, interpolation
+#: rule and post-recalibration bound) plus temp_class / lsb in every
+#: impairment specification entry; 1.1 (0.7.18): the three
+#: *_evm_modem_db totals and conditions.ce_smooth_tones; 1.0: everything
+#: before, which wrote no schema_version at all.
+SCHEMA_VERSION = "1.2"
+
+
+@dataclass
+class CalResult:
+    name: str
+    estimated: dict = field(default_factory=dict)
+    corrections: dict = field(default_factory=dict)
+    trace: list = field(default_factory=list)
+    metrics_before: dict = field(default_factory=dict)
+    metrics_after: dict = field(default_factory=dict)
+    passed: bool | None = None
+    # Independent fact from ``passed``: a trim/tuning code landed on its
+    # range limit.  Met-spec-with-a-railed-trim is a *margin* problem —
+    # failing it would reject a good part, ignoring it hides that there is
+    # no range left for temperature or ageing.
+    saturated: bool | None = None
+    # Acceptance spec in force when this step ran, e.g.
+    # {"metric": "irr_db", "limit": 50.0, "sense": "min"} (sense: "min"
+    # value >= limit, "max" value <= limit, "abs_max" |value| <= limit).
+    # Travels with the result so an external consumer checks the bundle
+    # against the spec it was calibrated to, not a later library's table.
+    spec: dict = field(default_factory=dict)
+    notes: str = ""
+    # capture cost: {"captures": n, "samples": total_samples} — the raw
+    # material for the calibration time budget (time = samples / fs)
+    cost: dict = field(default_factory=dict)
+    # bulky raw data for report figures (waveforms, symbol arrays);
+    # deliberately NOT serialized by summary()
+    artifacts: dict = field(default_factory=dict)
+
+    def capture_time_s(self, fs: float) -> float:
+        return float(self.cost.get("samples", 0)) / fs if fs > 0 else 0.0
+
+    def summary(self) -> dict:
+        return {
+            "name": self.name,
+            "estimated": _jsonable(self.estimated),
+            "corrections": _jsonable(self.corrections),
+            "metrics_before": _jsonable(self.metrics_before),
+            "metrics_after": _jsonable(self.metrics_after),
+            "passed": None if self.passed is None else bool(self.passed),
+            "saturated": None if self.saturated is None
+                         else bool(self.saturated),
+            "spec": _jsonable(self.spec),
+            # what the step cost to measure: the recipient is a
+            # production-test audience, and a bundle that states what it
+            # measured but not what the measurement cost cannot be
+            # budgeted against a tester's time
+            "cost": _jsonable(self.cost),
+            "notes": self.notes,
+        }
+
+
+def _jsonable(obj: Any) -> Any:
+    import numpy as np
+    if isinstance(obj, dict):
+        return {k: _jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_jsonable(v) for v in obj]
+    if isinstance(obj, complex):
+        return {"re": obj.real, "im": obj.imag}
+    if isinstance(obj, np.ndarray):
+        if np.iscomplexobj(obj):
+            return {"re": obj.real.tolist(), "im": obj.imag.tolist()}
+        return obj.tolist()
+    if isinstance(obj, (np.floating, np.integer, np.bool_)):
+        return obj.item()
+    return obj
+
+
+def save_cal_state(path: str | Path, tx_state: dict, rx_state: dict,
+                   results: list[CalResult] | None = None,
+                   expiry: dict | None = None,
+                   fs_hz: float | None = None,
+                   conditions: dict | None = None,
+                   temperature: dict | None = None) -> None:
+    """Persist the full correction state (and optional result summaries).
+
+    ``temperature``: the per-key temperature rules
+    (``link.temp_residual_study.temperature_block``) — sampled points,
+    interpolation and the post-recalibration bound for every injectable
+    residual, plus the closure targets at the sampled temperatures.
+    Attached under ``residuals.temperature`` after validation against
+    the surface it describes.  Without it the file says nothing about
+    any temperature but the calibrated one, as every file before
+    schema 1.2.
+
+    ``expiry``: validity metadata for the corrections (e.g. the measured
+    temperature hold range from ``link.temp_study``) — corrections are not
+    forever, and the file should say so.
+
+    ``fs_hz``: the sample rate the steps were captured at.  Each step
+    reports its cost in samples; without the rate the recipient cannot
+    turn that into tester time, which is the only unit it is useful in.
+
+    ``conditions``: everything a consumer needs to reproduce the
+    measurement context from the file alone — bandwidth/QAM/symbol
+    count/seed of the scoring waveform, and the chain constants some
+    ``apply`` recipes convert through (``adc_backoff_db``).  Without the
+    waveform recipe the replay harness cannot regenerate the stimulus,
+    so the residuals cannot be checked against the file's own EVM.
+
+    When ``results`` are given, the file also carries a flat
+    ``residuals`` block: each specced ``step.metric`` beside its own
+    specification (unit / meaning / better / apply / role), so the
+    number and the instruction for consuming it cannot travel apart.
+    """
+    from ..provenance import provenance
+    from .residuals import attach_temperature, extract_residuals
+    summaries = [r.summary() for r in (results or [])]
+    doc = {
+        "format": FORMAT,
+        "schema_version": SCHEMA_VERSION,
+        "tx": tx_state,
+        "rx": rx_state,
+        "results": summaries,
+        "provenance": provenance(),
+    }
+    if summaries:
+        doc["residuals"] = extract_residuals(summaries)
+    if temperature is not None:
+        if "residuals" not in doc:
+            raise ValueError("temperature rules need a residuals block to "
+                             "attach to: pass the results")
+        # the conditions say which DPD rule the part runs; a block built
+        # the other way would hand the consumer the wrong one
+        said = (conditions or {}).get("with_dpd_tracking")
+        if said is not None and bool(said) != bool(temperature.get("dpd_tracking")):
+            raise ValueError(
+                f"conditions.with_dpd_tracking={bool(said)} but the "
+                f"temperature rules were built with dpd_tracking="
+                f"{bool(temperature.get('dpd_tracking'))}")
+        doc["residuals"] = attach_temperature(doc["residuals"], temperature)
+    if fs_hz:
+        doc["fs_hz"] = float(fs_hz)
+    if conditions:
+        doc["conditions"] = _jsonable(conditions)
+    if expiry:
+        doc["expiry"] = _jsonable(expiry)
+    Path(path).write_text(json.dumps(doc, indent=2))
+    readme = Path(path).with_name("README.md")
+    readme.write_text(cal_state_readme(doc))
+
+
+def cal_state_readme(doc: dict) -> str:
+    """The state file's own README, rendered from the file it sits beside.
+
+    Generated rather than written, so it cannot drift from the JSON — a
+    hand-written handoff note that disagrees with the data next to it is
+    worse than no note.  Everything here is derived from ``doc``; adding
+    prose that is not in the file would recreate the drift this exists
+    to remove.
+    """
+    cond = doc.get("conditions") or {}
+    results = doc.get("results") or []
+    res = doc.get("residuals") or {}
+    values = res.get("values") or {}
+    spec = res.get("specification") or {}
+    prov = doc.get("provenance") or {}
+
+    lines = [
+        "# wifitrx calibration state: handoff",
+        "",
+        "This directory's `cal_state.json` is the deliverable: every "
+        "digital correction plus the analog tuning codes, the per-step "
+        "verdicts against the acceptance specs in force when they ran, "
+        "and the residual figures a link simulation consumes.",
+        "",
+    ]
+    ident = [f"format `{doc.get('format')}`"]
+    if cond.get("bandwidth_hz"):
+        ident.append(f"{cond['bandwidth_hz'] / 1e6:g} MHz")
+    if cond.get("qam_order"):
+        ident.append(f"{cond['qam_order']}-QAM")
+    if doc.get("fs_hz"):
+        ident.append(f"fs {doc['fs_hz'] / 1e6:g} MS/s")
+    if prov.get("version"):
+        ident.append(f"wifitrx {prov['version']}")
+    lines += [" · ".join(ident), ""]
+
+    lines += [
+        "## How to consume it",
+        "",
+        "```bash",
+        "python -m wifitrx.handoff inspect cal_state.json   # verdicts, "
+        "stdlib-only",
+        "python -m wifitrx.handoff replay  cal_state.json   # residuals "
+        "applied literally vs the file's own EVM",
+        "```",
+        "",
+        "To restore this exact part in the model:",
+        "",
+        "```python",
+        "from wifitrx.cal.base import load_cal_state",
+        "tx_state, rx_state = load_cal_state('cal_state.json')",
+        "tx.load_correction_state(tx_state)",
+        "rx.load_correction_state(rx_state)",
+        "# analog tuning codes travel with the params: rerun the two",
+        "# cheap corner searches (see wifitrx.handoff.runner)",
+        "```",
+        "",
+    ]
+
+    if cond:
+        lines += [
+            "## Measurement conditions",
+            "",
+            "Everything below changes the numbers; a consumer who cannot "
+            "state these cannot reproduce them.",
+            "",
+        ]
+        lines += [f"* `{k}` = {v}" for k, v in sorted(cond.items())]
+        lines.append("")
+
+    if results:
+        lines += [
+            "## Steps",
+            "",
+            "| # | step | passed | trim railed | spec |",
+            "|---|---|---|---|---|",
+        ]
+        for i, r in enumerate(results, 1):
+            s = r.get("spec") or {}
+            spec_txt = (f"{s.get('metric')} {s.get('sense', '')} "
+                        f"{s.get('limit')}" if s else "—")
+            lines.append(
+                f"| {i} | `{r.get('name')}` | "
+                f"{_verdict(r.get('passed'))} | "
+                f"{_verdict(r.get('saturated'))} | {spec_txt} |")
+        lines.append("")
+
+    views = {k: values[k] for k in ("final_loopback_evm.tx_evm_db",
+                                    "final_loopback_evm.tx_evm_modem_db",
+                                    "final_loopback_evm.rx_evm_db",
+                                    "final_loopback_evm.rx_evm_modem_db")
+             if k in values}
+    if "final_loopback_evm.tx_evm_modem_db" in views:
+        spec_steps = [r for r in results if (r.get("spec") or {}).get("metric")]
+        gate = ", ".join(f"`{r['spec']['metric']} {r['spec'].get('sense', '')} "
+                         f"{r['spec']['limit']}`" for r in spec_steps) or "none embedded"
+        lines += [
+            "## Two EVM views",
+            "",
+            "Every EVM figure in this file is reported twice from the same "
+            "capture. `*_evm_db` is the **isolation view**: per-tone LS "
+            "equalisation against the ideal reference plus genie "
+            "common-phase removal — only the chain's impairments, which is "
+            "why the residual replay closes on it. `*_evm_modem_db` is the "
+            "**modem form**: LTF CFO acquisition, the LTF channel estimate "
+            "smoothed over `ce_smooth_tones` adjacent tones and frozen for "
+            "the packet, then pilot-only common-phase removal — what a "
+            "standard receiver reads, and the figure the spec verdict is "
+            f"taken on ({gate}). The gap between the two is the receiver's "
+            "own estimation loss, not a residual of the chain; do not "
+            "inject either.",
+            "",
+        ]
+        lines += [f"* `{k.split('.', 1)[1]}` = {_fmt(v)} dB" for k, v in views.items()]
+        lines.append("")
+
+    if values:
+        lines += [
+            "## Residuals",
+            "",
+            "Each figure ships with its own specification in the JSON "
+            "(`residuals.specification`): unit, meaning, whether larger "
+            "or smaller is better, and **the recipe for injecting it "
+            "into a link simulation** (`apply`). Read that rather than "
+            "inferring from the names — an image-rejection figure "
+            "applied as a gain imbalance does not give the same "
+            "constellation as the same dB applied as a quadrature "
+            "error. `role` says how each key is meant to be consumed: "
+            "`impairment` entries are injectable, `figure` and "
+            "`condition` entries are context, `total` entries are "
+            "measured wholes and must never be re-injected.",
+            "",
+            "| key | value | unit | better | role |",
+            "|---|---|---|---|---|",
+        ]
+        for key in sorted(values):
+            entry = spec.get(key, {})
+            lines.append(
+                f"| `{key}` | {_fmt(values[key])} | "
+                f"{entry.get('unit', '')} | {entry.get('better', '')} | "
+                f"{entry.get('role', '')} |")
+        lines.append("")
+        dups = res.get("duplicates") or []
+        if dups:
+            lines += ["Pairs describing one physical quantity measured "
+                      "two ways — apply at most one of each:", ""]
+            lines += [f"* `{a}` / `{b}` (keep the second)"
+                      for a, b in dups]
+            lines.append("")
+
+    temp = res.get("temperature") or {}
+    if temp.get("keys"):
+        lines += [
+            "## Temperature rules",
+            "",
+            "The residual values above were measured at "
+            f"{temp.get('calibrated_at_c')} degC. Each injectable key also "
+            "carries a `temperature` record: the value sampled at "
+            + ", ".join(f"{t:g}" for t in temp.get("fit_temps_c", []))
+            + " degC, the interpolation that connects them (`interp`), and "
+            "what a recalibration at the target temperature guarantees "
+            "(`after_recal`, always a bound). To simulate at another "
+            "temperature ask first whether the part was recalibrated "
+            "there: if not, interpolate (`python -m wifitrx.handoff replay "
+            "cal_state.json --temp-c 85`); if so, inject the bound "
+            "(`--recalibrated`). `sensitivity` is the prediction error at "
+            "the hot end when the drift coefficient is off by 30 %: carry "
+            "it as the rule's uncertainty. Basis: "
+            f"`{temp.get('basis', '?')}`"
+            + (f", tempcos from `{temp['tempco_source']}`"
+               + (" (stand-in values pending part data: the rules show "
+                  "the shape of the drift, not this part's size of it)"
+                  if temp.get("tempco_source") == "placeholder" else "")
+               if temp.get("tempco_source") else "")
+            + ". DPD rule: "
+            + ("**tracked** — the RLS tracking loop follows the PA, and "
+               "`dpd.evm_db` is that loop's floor at each temperature."
+               if temp.get("dpd_tracking") else
+               "frozen one-shot coefficients."),
+            "",
+            "| key | class | interp | after_recal |",
+            "|---|---|---|---|",
+        ]
+        for key in sorted(temp["keys"]):
+            rec = temp["keys"][key]
+            ar = rec.get("after_recal") or {}
+            ar_txt = (f"{ar.get('sense', '')} {_fmt(ar.get('value'))} "
+                      f"{ar.get('unit', '')}".strip() if ar else "—")
+            lines.append(f"| `{key}` | {rec.get('class', '')} | "
+                         f"{rec.get('interp', '')} | {ar_txt} |")
+        lines.append("")
+
+    if doc.get("expiry"):
+        lines += [
+            "## Validity",
+            "",
+            "Corrections are not forever. The `expiry` block records "
+            "the measured hold window and the minimal recalibration "
+            "plan:",
+            "",
+        ]
+        lines += [f"* `{k}` = {v}"
+                  for k, v in sorted(doc["expiry"].items())]
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+def _verdict(flag) -> str:
+    return "—" if flag is None else ("yes" if flag else "no")
+
+
+def _fmt(value) -> str:
+    if isinstance(value, float):
+        return f"{value:.4g}"
+    if isinstance(value, list):
+        return f"[{len(value)} entries]"
+    return str(value)
+
+
+def check_schema(doc: dict) -> str:
+    """Return the file's schema version if this reader can consume it,
+    else raise.  The ``format`` tag is the major version (v1); the
+    ``schema_version`` field (absent before 0.7.21 = "1.0") counts the
+    additive changes within it — new residual keys, new conditions —
+    that an old reader may ignore and a new reader must not require.
+    A different major is refused; a newer minor than this library knows
+    is read with whatever it understands."""
+    if doc.get("format") != FORMAT:
+        raise ValueError(f"unknown cal-state format {doc.get('format')!r} "
+                         f"(this reader: {FORMAT!r})")
+    version = str(doc.get("schema_version") or "1.0")
+    major = version.split(".", 1)[0]
+    if major != SCHEMA_VERSION.split(".", 1)[0]:
+        raise ValueError(f"cal-state schema {version} is not a 1.x file")
+    return version
+
+
+def load_cal_state(path: str | Path) -> tuple[dict, dict]:
+    doc = json.loads(Path(path).read_text())
+    check_schema(doc)
+    return doc["tx"], doc["rx"]

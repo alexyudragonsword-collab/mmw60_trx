@@ -1,0 +1,19 @@
+# Liu 2025 (arXiv:2309.16813 v1, p. 5, Fig. 4 "Simulation results for different MCSs") 的读图值。
+# PER–SNR 曲线，横轴 SNR (dB) 0–30，纵轴 PER 1e-3–1。只有"有损伤"（CFO + PN + PA）一组；
+# v2 正文提到的"无损伤"曲线不在任何可得版本里。读图精度约 ±0.3 dB（网格 1 dB，300 dpi 渲染）。
+# tools/external_check.py 读这里，不读代码里的数。
+source: survey
+cite: "Liu 2025, arXiv:2309.16813v1 Fig. 4（v2 删图）；读图者：本库，2026-11-06"
+note: "未核实：读图值，非原文数字表。"
+per_target: 1.0e-2
+
+curves:
+  - {k: 4,  mcs: 0, per_at_1e-2_snr_db: null, points: [[0, 1.0], [10, 1.0]],  note: "PER = 1 for all SNR 0..10 dB"}
+  - {k: 4,  mcs: 1, per_at_1e-2_snr_db: null, points: [[0, 1.0], [10, 1.0]],  note: "PER = 1 for all SNR 0..10 dB"}
+  - {k: 4,  mcs: 4, per_at_1e-2_snr_db: null, points: [[13, 1.0], [29, 1.0]], note: "PER = 1 for all SNR 13..29 dB"}
+  - {k: 8,  mcs: 0, per_at_1e-2_snr_db: 4.2,  points: [[2.0, 1.0], [2.3, 0.75], [3.0, 0.27], [3.5, 0.07], [4.0, 0.016], [4.5, 0.003], [5.0, 0.002]]}
+  - {k: 16, mcs: 0, per_at_1e-2_snr_db: 4.2,  points: [[2.0, 1.0], [2.3, 0.75], [3.0, 0.27], [3.5, 0.065], [4.0, 0.016], [4.5, 0.006], [5.0, 0.002]]}
+  - {k: 8,  mcs: 1, per_at_1e-2_snr_db: 7.5,  points: [[5.0, 1.0], [6.0, 0.37], [7.0, 0.045], [8.0, 0.001]]}
+  - {k: 16, mcs: 1, per_at_1e-2_snr_db: 7.5,  points: [[5.0, 1.0], [6.0, 0.37], [7.0, 0.045]]}
+  - {k: 8,  mcs: 4, per_at_1e-2_snr_db: 19.7, points: [[15.0, 1.0], [17.0, 0.25], [19.0, 0.022], [21.0, 0.002]]}
+  - {k: 16, mcs: 4, per_at_1e-2_snr_db: 19.0, points: [[15.0, 1.0], [17.0, 0.20], [19.0, 0.010]]}

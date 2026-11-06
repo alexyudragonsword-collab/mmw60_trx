@@ -1,0 +1,99 @@
+"""Specification / literature numbers with provenance (iron rule 5; d2d_link's ``spec`` method).
+
+Every number the library takes from a standard, a paper or a regulation
+lives in ``data/spec/survey.yaml`` with a ``source`` tag; code reads it
+through :func:`survey` and never types the value itself.  ``source`` is
+one of
+
+* ``spec``     — from the original text; needs ``quote`` and ``section``;
+* ``survey``   — from a paper / talk / search hit, unverified (the note
+  must say 未核实);
+* ``assumed``  — the paper does not say; this library's own choice;
+* ``derived``  — computed from the above (the cite is the formula).
+
+``grep -c "source: survey" src/mmw60/data/spec/survey.yaml`` lists the
+unverified entries exactly (``tests/test_spec_sources.py``).
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+import yaml
+
+SOURCES = ("spec", "survey", "assumed", "derived")
+DATA_DIR = Path(__file__).resolve().parent / "data" / "spec"
+SURVEY_FILE = DATA_DIR / "survey.yaml"
+FIG4_FILE = DATA_DIR / "liu2025_fig4.yaml"
+
+
+@dataclass(frozen=True)
+class SpecNumber:
+    key: str
+    value: object
+    unit: str
+    source: str
+    cite: str
+    note: str = ""
+    quote: str | None = None
+    section: str | None = None
+
+    def __post_init__(self):
+        if self.source not in SOURCES:
+            raise ValueError(f"{self.key}: source must be one of {SOURCES}, got {self.source!r}")
+        if self.source == "spec" and not (self.quote and self.section):
+            raise ValueError(f"{self.key}: a 'spec' entry must carry the quoted text and section")
+        if self.source == "survey" and "未核实" not in self.note:
+            raise ValueError(f"{self.key}: a 'survey' entry's note must say it is unverified (未核实)")
+        if not self.cite:
+            raise ValueError(f"{self.key}: cite is required")
+
+    @property
+    def verified(self) -> bool:
+        return self.source == "spec"
+
+
+def load_table(path: Path = SURVEY_FILE) -> dict[str, SpecNumber]:
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    out: dict[str, SpecNumber] = {}
+    for key, e in raw["entries"].items():
+        out[key] = SpecNumber(key=key, value=e["value"], unit=str(e.get("unit", "")),
+                              source=e["source"], cite=e.get("cite", ""),
+                              note=e.get("note", ""), quote=e.get("quote"),
+                              section=e.get("section"))
+    return out
+
+
+_TABLE: dict[str, SpecNumber] | None = None
+
+
+def all_entries() -> dict[str, SpecNumber]:
+    global _TABLE
+    if _TABLE is None:
+        _TABLE = load_table()
+    return _TABLE
+
+
+def survey(key: str) -> SpecNumber:
+    """The entry for ``key`` (any source); KeyError names what exists."""
+    table = all_entries()
+    if key not in table:
+        raise KeyError(f"no spec entry {key!r}; known: {sorted(table)}")
+    return table[key]
+
+
+def value(key: str):
+    return survey(key).value
+
+
+def unverified() -> dict[str, SpecNumber]:
+    return {k: e for k, e in all_entries().items() if e.source == "survey"}
+
+
+def by_source(source: str) -> dict[str, SpecNumber]:
+    return {k: e for k, e in all_entries().items() if e.source == source}
+
+
+def fig4_readings() -> dict:
+    """Liu 2025 Fig. 4 read-offs (``liu2025_fig4.yaml``), as the file holds them."""
+    return yaml.safe_load(FIG4_FILE.read_text(encoding="utf-8"))

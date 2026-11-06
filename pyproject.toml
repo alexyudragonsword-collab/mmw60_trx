@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mmw60"
+version = "0.0.1"
+description = "60 GHz WiFi transceiver behavioural simulation: IF-extender vs IMMW upclocking on one engine (vendored wifitrx)"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "matplotlib>=3.7",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+dev = ["ruff>=0.6"]
+# numba is a performance layer, not a correctness layer: MMW60_NO_JIT=1 must
+# give bit-identical results (Halo_Serdes iron rule 4, tests/test_phy.py)
+jit = ["numba>=0.59"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "slow: long-running end-to-end runs (deselect with '-m \"not slow\"')",
+]
+
+[tool.ruff]
+line-length = 120     # tools/example_drift.py and fingerprint_walk.py are d2d_link's files at its width
+extend-exclude = ["src/mmw60/vendor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = ["E402"]
+# d2d_link's files, taken as they are
+"tools/example_drift.py" = ["E501"]
+"tools/fingerprint_walk.py" = ["E501"]

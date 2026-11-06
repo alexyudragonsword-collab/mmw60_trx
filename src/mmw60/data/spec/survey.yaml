@@ -1,0 +1,358 @@
+# 规范与文献数字表 —— 本库用到的每一个"规范 / 文献数字"都在这里，一条一个，带来源标签（铁律 5）。
+#
+#   survey   未拿到规范原文；数字来自文献 / 会议报告 / 综述，按 cite 所示，一律视为"未核实"。
+#   spec     来自规范原文；必须附 quote（原文摘录）与 section。
+#   assumed  原文根本没说、本库自己定的数；note 写明为什么这样取、换了会动什么。
+#   derived  由上面几类推导出来的数；note 写推导式。
+#
+# 文件头不含标签字串本身（下面这些说明行故意不写成 "source: xxx" 的形式），所以
+#   grep -c "source: <标签>"  src/mmw60/data/spec/survey.yaml   （<标签> = survey / assumed / ...）
+# 恰好得到未核实条目数（tests/test_spec_sources.py 守着）。任何代码都不得直接写这些数字：
+# 只能通过 mmw60.spec.survey(key) 按 key 取，并把 source 一起带到结果里。
+#
+# Liu 2025 = X. Liu, T. Chen, Y. Dong, Z. Mao, M. Gan, X. Yang, J. Lu, "Wi-Fi 8: Embracing the
+# Millimeter-Wave Era", IEEE Commun. Mag., Mar. 2025; 本库读的是 arXiv:2309.16813 v1 (2023-09-28,
+# 含 PER 图 Fig. 4) 与 v2 (2024-07-08, 图被删、正文仍引用)。刊出版未取得。
+
+entries:
+
+  # ------------------------------------------------------------ Liu 2025 Table II / Sec. V-A
+  liu2025.mcs_list:
+    value: [0, 1, 4]
+    unit: MCS index
+    source: survey
+    cite: "Liu 2025, Table II 'MCS: MCS 0, MCS 1 and MCS 4'; Sec. V-A 'BPSK, QPSK, and 16-QAM respectively'"
+    note: "未核实：刊出版未读到；arXiv v1/v2 一致。"
+
+  liu2025.ppdu_format:
+    value: "VHT"
+    unit: text
+    source: survey
+    cite: "Liu 2025, Table II 'PPDU type: VHT format'; Sec. V-A 'very high throughput (VHT) format, which is used in IEEE 802.11ac'"
+    note: "未核实：原文未说基准带宽 / FFT 点数；见 assumed.base_bandwidth_hz。"
+
+  liu2025.channel_model:
+    value: "802.11ad conference room (CR)"
+    unit: text
+    source: survey
+    cite: "Liu 2025, Table II '802.11ad channel model'; Sec. V-A 'the conference room (CR) channel model in IEEE 802.11ad standard'"
+    note: "未核实：CR 模型（Maltsev, IEEE 802.11-09/0334）的 tap 表本库没有；见 assumed.cr_rms_delay_ns。"
+
+  liu2025.antennas:
+    value: "1T1R, no beamforming"
+    unit: text
+    source: survey
+    cite: "Liu 2025, Table II 'TX/RX: 1T1R'; Sec. V-A 'single-antenna system without utilizing beamformed transmission'"
+    note: "未核实。"
+
+  liu2025.carrier_hz:
+    value: 73.44e+9
+    unit: Hz
+    source: survey
+    cite: "Liu 2025, Table II 'fc: 73.44 GHz'; Sec. V-A 'the channel 8 defined in IEEE 802.11ay'"
+    note: "未核实：11ay channel 8 中心频率值未与 802.11ay 原文核对。"
+
+  liu2025.packet_bytes:
+    value: 4096
+    unit: byte
+    source: survey
+    cite: "Liu 2025, Table II 'Packet size: 4096 bytes'"
+    note: "未核实。本库当 PSDU 长度用（APEP_LENGTH）。"
+
+  liu2025.xo_ppm_tx:
+    value: 20
+    unit: ppm
+    source: survey
+    cite: "Liu 2025, Sec. V-A 'the oscillator inaccuracy on both TX and RX sides are 20 part per million (ppm)'"
+    note: "未核实。"
+
+  liu2025.xo_ppm_rx:
+    value: 20
+    unit: ppm
+    source: survey
+    cite: "Liu 2025, Sec. V-A（同上）"
+    note: "未核实。"
+
+  liu2025.cfo_max_hz:
+    value: 2.94e+6
+    unit: Hz
+    source: survey
+    cite: "Liu 2025, Sec. V-A 'the system should compensate for a total of 40 ppm CFO. For a 73.44 GHz system we set up, the CFO is up to ± 2.94 MHz'"
+    note: "未核实。40e-6 × 73.44e9 = 2.9376 MHz，原文四舍五入到 2.94。本库仿真用 ppm × fc 现算（铁律 3），不用这个数。"
+
+  liu2025.stf_capture_hz:
+    value: 625.0e+3
+    unit: Hz
+    source: survey
+    cite: "Liu 2025, Sec. V-A 'the short training field (STF) and long training field (LTF) sequences in sub-7 GHz can resolve a frequency offset up to ± 625 KHz and ± 156.25 KHz, respectively'"
+    note: "未核实（原文数字）。本库在 cairn/upclocking.md 自己推：L-STF 周期 0.8 µs → ±1/(2·0.8 µs) = ±625 kHz。"
+
+  liu2025.ltf_capture_hz:
+    value: 156.25e+3
+    unit: Hz
+    source: survey
+    cite: "Liu 2025, Sec. V-A（同上）"
+    note: "未核实（原文数字）。L-LTF 周期 3.2 µs → ±156.25 kHz = ±SCS/2。"
+
+  liu2025.scs_threshold_hz:
+    value: 5.88e+6
+    unit: Hz
+    source: survey
+    cite: "Liu 2025, Sec. V-A 'the subcarrier spacing of at least one training field should be larger than 5.88 MHz'; Sec. V-B 'dividing the minimum subcarrier spacing 5.88 MHz by the 1250 KHz ... only a larger upclocking version than 4.7 can rectify the CFO correctly'"
+    note: "未核实（原文数字）。= 2 × 2.94 MHz，即 L-STF 有效子载波间距（4 × SCS）要大于两倍最大 CFO。"
+
+  liu2025.k_threshold:
+    value: 4.7
+    unit: upclocking factor
+    source: survey
+    cite: "Liu 2025, Sec. V-B（同上）"
+    note: "未核实（原文数字）。5.88 MHz / 1.25 MHz = 4.704。"
+
+  liu2025.pn_f_pole_hz:
+    value: 1.0e+6
+    unit: Hz
+    source: survey
+    cite: "Liu 2025, Sec. V-A 'we use 1 pole, 1 zero phase noise model. The pole frequency fp and the zero frequency fz is set to 1 MHz and 100 MHz, respectively'"
+    note: "未核实。原文无公式；PSD 形状见 tgad_em.pn_model_shape。"
+
+  liu2025.pn_f_zero_hz:
+    value: 100.0e+6
+    unit: Hz
+    source: survey
+    cite: "Liu 2025, Sec. V-A（同上）"
+    note: "未核实。"
+
+  liu2025.pn_psd0_dbchz:
+    value: -93.0
+    unit: dBc/Hz
+    source: survey
+    cite: "Liu 2025, Sec. V-A 'the zero point of power spectral density (PSD) is -93 dBc/Hz'; 'Ignoring the flicker noise and the reference oscillator noise'"
+    note: "未核实。原文未说相噪加在 TX、RX 还是两侧；见 assumed.pn_apply_sides。"
+
+  liu2025.pa_obo_db:
+    value: 8.0
+    unit: dB
+    source: survey
+    cite: "Liu 2025, Sec. V-A 'PA OBO is set to 8 dB and the PA non-linearity model is modified Rapp model'"
+    note: "未核实。原文无 Rapp 参数；参数取 tgad_em.*（11ad 评估方法学的 CMOS PA）。OBO 口径：平均输出功率低于饱和输出功率的 dB 数。"
+
+  liu2025.table1_scs_hz:
+    value: {4: 1.25e+6, 8: 2.5e+6, 16: 1.25e+6}
+    unit: Hz per upclocking factor
+    source: survey
+    cite: "Liu 2025, Table I 'Subcarrier spacing: 1.25 MHz / 2.5 MHz / 1.25 MHz (802.11be part)'"
+    note: "未核实。16× 一列按 802.11be 基准（78.125 kHz × 16），与 4×/8× 的 11ac 基准不是同一尺度；本库 Fig. 4 复现按 11ac 基准 312.5 kHz × K（16× = 5 MHz），因为 V-B 的 4.7 论证以 1.25 MHz(=4×312.5k) 为基。"
+
+  liu2025.table1_bandwidth_hz:
+    value: {4: [80.0e+6, 160.0e+6, 320.0e+6, 640.0e+6], 8: [160.0e+6, 320.0e+6, 640.0e+6, 1280.0e+6], 16: [320.0e+6, 640.0e+6, 1280.0e+6, 2560.0e+6, 5120.0e+6]}
+    unit: Hz per upclocking factor
+    source: survey
+    cite: "Liu 2025, Table I 'Bandwidth'"
+    note: "未核实。"
+
+  liu2025.per_target:
+    value: 1.0e-2
+    unit: PER
+    source: survey
+    cite: "Liu 2025, Sec. V-B 'the SNR required to achieve the specified PER (10^-2)'"
+    note: "未核实。本库 external_check 的比较点。"
+
+  liu2025.receiver_cfo_statement:
+    value: "refrained from using estimation and compensation algorithms for CFO and PN"
+    unit: text
+    source: survey
+    cite: "Liu 2025, Sec. V-A 'In order to better illustrate the impact of hardware impairments, we refrained from using estimation and compensation algorithms for CFO and PN.'"
+    note: "未核实，且与 V-B 的 4.7 门槛论证矛盾（该论证以 L-STF 自相关估计器在跑为前提）；本库示例 00 开标准 L-STF/L-LTF 估计，并另给'全关'诊断行。见 cairn/external-validation.md。"
+
+  liu2025.mmwave_spectrum_ghz:
+    value: 14
+    unit: GHz
+    source: survey
+    cite: "Liu 2025, Sec. I/III '45 GHz and 60 GHz unlicensed mmWave bands ... a rich 14 GHz spectrum'"
+    note: "未核实。本库里程碑 0 不用。"
+
+  # ------------------------------------------------------------ 11ad 评估方法学（TGad EM）
+  tgad_em.pa_rapp_g:
+    value: 4.65
+    unit: V/V
+    source: survey
+    cite: "IEEE 802.11-09/0296r16 (TGad Evaluation Methodology), CMOS PA model: g = 4.65, Asat = 0.58, s = 0.81"
+    note: "未核实：文档正文未取得，数字来自搜索命中的文档摘录；r09 版是 g = 5, Asat = 0.6, s = 0.71。"
+
+  tgad_em.pa_rapp_asat:
+    value: 0.58
+    unit: V
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上）"
+    note: "未核实。饱和输出幅度；Psat = Asat²（归一化负载）。"
+
+  tgad_em.pa_rapp_p:
+    value: 0.81
+    unit: smoothness
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上，记号 s）"
+    note: "未核实。"
+
+  tgad_em.pa_ampm_alpha:
+    value: 2560.0
+    unit: deg/V^q1
+    source: survey
+    cite: "IEEE 802.11-09/0296r16, AM/PM: alpha = 2560, beta = 0.114, q1 = 2.4, q2 = 2.3"
+    note: "未核实。"
+
+  tgad_em.pa_ampm_beta:
+    value: 0.114
+    unit: V
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上）"
+    note: "未核实。"
+
+  tgad_em.pa_ampm_q1:
+    value: 2.4
+    unit: exponent
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上）"
+    note: "未核实。"
+
+  tgad_em.pa_ampm_q2:
+    value: 2.3
+    unit: exponent
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上）"
+    note: "未核实。"
+
+  tgad_em.pa_model_shape:
+    value: "AM/AM G(A) = g·A / (1 + (g·A/Asat)^(2p))^(1/(2p)); AM/PM Phi(A) = alpha·A^q1 / (1 + (A/beta)^q2) [deg]"
+    unit: formula
+    source: survey
+    cite: "IEEE 802.11-09/0296 (TGad EM) 'modified Rapp' CMOS PA model；同形式见 11ay EM 11-15/0866"
+    note: "未核实：公式按文献记忆写出，原文档是 .doc 内嵌图片，未逐字核对。"
+
+  tgad_em.pn_model_shape:
+    value: "PSD(f) = PSD0 · (1 + (f/f_z)^2) / (1 + (f/f_p)^2)  [dBc/Hz 形式：PSD0 + 10·log10(...)]"
+    unit: formula
+    source: survey
+    cite: "IEEE 802.11-09/0296 (TGad EM) phase-noise model, 1 pole / 1 zero；Liu 2025 只给 fp / fz / PSD0"
+    note: "未核实：TGad EM 的 PSD0 是 −90 dBc/Hz，Liu 2025 用 −93 dBc/Hz；形状按 TGad EM。"
+
+  # ------------------------------------------------------------ 规管（里程碑 1 用，先登记）
+  fcc15255.eirp_avg_dbm:
+    value: 40.0
+    unit: dBm
+    source: survey
+    cite: "47 CFR §15.255(c)(1): average EIRP 40 dBm, peak 43 dBm (57–71 GHz, non-fixed)"
+    note: "未核实：条文原文未贴入；里程碑 0 不用。"
+
+  fcc15255.eirp_peak_dbm:
+    value: 43.0
+    unit: dBm
+    source: survey
+    cite: "47 CFR §15.255(c)(1)（同上）"
+    note: "未核实。"
+
+  # ------------------------------------------------------------ 本库自己定的（原文没说）
+  assumed.base_bandwidth_hz:
+    value: 20.0e+6
+    unit: Hz
+    source: assumed
+    cite: "本库"
+    note: "Liu 2025 未说基准带宽；取 VHT 20 MHz（64 点 FFT、56 有效音 = 52 数据 + 4 导频）。换 40/80 MHz 基准只改 N_SD 与交织表，PER–SNR 曲线在 AWGN 样信道上几乎不动。"
+
+  assumed.snr_definition:
+    value: "in-band per-active-subcarrier Es/N0"
+    unit: text
+    source: assumed
+    cite: "本库"
+    note: "Liu 2025 未定义 SNR。本库按每有效子载波 Es/N0 加噪；每样本口径（全采样带宽）与之差 10·log10(os·N_FFT/N_active)，64 点 / 56 音 / os=2 时为 3.6 dB，示例两种口径都打印。"
+
+  assumed.pn_apply_sides:
+    value: "both"
+    unit: text
+    source: assumed
+    cite: "本库"
+    note: "Liu 2025 未说相噪加在哪一侧。本库 TX、RX 各一份独立实现、同一 PSD（总相噪功率 +3 dB）；示例给 rx-only 灵敏度行。"
+
+  assumed.cr_rms_delay_ns:
+    value: 7.0
+    unit: ns
+    source: assumed
+    cite: "本库；由 Fig. 4 的可观测事实反推（见 derived.isi_beyond_gi_k16_db），量级与 Maltsev et al., IEEE 802.11-09/0334r8 (CR, LOS) 的记忆不矛盾"
+    note: "CR tap 表没有；用 wifitrx TDLChannel 指数 PDP、每包一个 Rayleigh 实现代替。Fig. 4 里 16× 在每个 MCS 上都不比 8× 差，而 16× 的 GI 只有 50 ns，所以原文信道落在 50 ns 之外的能量必须可忽略；指数 PDP 要满足 exp(−50 ns/τ) ≤ −30 dB 需 τ ≤ 7.2 ns，取 7 ns。第一版取 15 ns 时 K=16 的 ISI 底板 −14 dB，直接与 Fig. 4 矛盾（cairn/LOG.md 2026-11-06）。Fig. 4 曲线从 PER 1 到 1e-3 只跨约 3 dB，说明原文信道对每包近乎无衰落，所以示例另跑 flat 行并报两者之差。"
+
+  assumed.cr_los_k_db:
+    value: 10.0
+    unit: dB
+    source: assumed
+    cite: "本库；CR LOS 场景的直射分量相对全部散射分量的功率比"
+    note: "Fig. 4 曲线从 PER 1 到 1e-3 只跨约 3 dB（AWGN 样），纯 Rayleigh 指数 PDP 在 160 MHz 带宽内频选衰落会把曲线拉平、整体右移；LOS 占优（K = 10 dB）把每音衰落深度限制在约 ±3 dB。示例给 Rayleigh（K = None）与 flat 两个灵敏度行。"
+
+  assumed.ce_smooth_tones:
+    value: 3
+    unit: tones
+    source: assumed
+    cite: "本库；wifitrx preamble.smooth_channel_estimate"
+    note: "L-LTF 只有两段，原始信道估计的噪声是数据噪声的一半，低 SNR 下折合约 1.8 dB 损失；标准接收机都做频域平滑（MATLAB wlanVHTLTFChannelEstimate 默认 span 3 的记忆）。取 3 音；示例给 1 音（不平滑）灵敏度行。"
+
+  assumed.pa_obo_reference:
+    value: "psat"
+    unit: text
+    source: assumed
+    cite: "本库"
+    note: "Liu 2025 只说 'OBO 8 dB'。字面 OBO 是相对饱和输出功率 Psat；但 11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB（derived.rapp_p1db_below_psat_db），相对 Psat 回退 8 dB 等于平均功率在 P1dB 之上 1.5 dB，孤立 EVM 只有 −17 dB。主结果按字面 psat；示例另给 p1db 口径的灵敏度行。"
+
+  assumed.rx_timing:
+    value: "genie (frame start known)"
+    unit: text
+    source: assumed
+    cite: "本库"
+    note: "沿用 wifitrx 的做法（cal/sequence.score_views 对已知波形互相关）。包检测 / 符号定时误差不在里程碑 0 的 PER 里。"
+
+  assumed.ppdu_fields_modelled:
+    value: "L-STF (10 x 0.8 us), L-LTF (GI2 + 2 x 3.2 us), Data; L-SIG / VHT-SIG-A / VHT-STF / VHT-LTF / VHT-SIG-B omitted"
+    unit: text
+    source: assumed
+    cite: "本库"
+    note: "SIG 字段用 BPSK 1/2（≤ MCS0 的鲁棒性），对数据域 PER 结论无影响；VHT-LTF 与 L-LTF 在 1 流 20 MHz 上信道估计等价。导频值用 wifitrx 的伪随机 BPSK 序列（pilot_sequence seed 42）而非 11ac 的极性序列，对 CPE 跟踪等价。"
+
+  assumed.scrambler_seed:
+    value: 93
+    unit: 7-bit integer
+    source: assumed
+    cite: "本库（与 MATLAB WLAN Toolbox 默认 93 相同）"
+    note: "扰码初态对 PER 无影响。"
+
+  # ------------------------------------------------------------ 推导
+  derived.cfo_liu2025_hz:
+    value: 2.9376e+6
+    unit: Hz
+    source: derived
+    cite: "(liu2025.xo_ppm_tx + liu2025.xo_ppm_rx) × 1e-6 × liu2025.carrier_hz"
+    note: "40e-6 × 73.44e9。原文写 2.94 MHz。"
+
+  derived.k_threshold_stf:
+    value: 4.7
+    unit: upclocking factor
+    source: derived
+    cite: "2 × derived.cfo_liu2025_hz / (4 × 312.5 kHz) = 5.875 MHz / 1.25 MHz = 4.70"
+    note: "L-STF 自相关范围 ±625 kHz × K ≥ 2.9376 MHz ⇔ K ≥ 4.70。见 cairn/upclocking.md。"
+
+  derived.isi_beyond_gi_k16_db:
+    value: -31.0
+    unit: dB
+    source: derived
+    cite: "10·log10(exp(−T_GI(K=16) / τ_rms)) = 10·log10(exp(−50 ns / 7 ns))"
+    note: "指数 PDP 在 K = 16 的 GI（0.8 µs / 16 = 50 ns）之外的能量份额；选 τ_rms 使它 ≤ −30 dB。"
+
+  derived.rapp_p1db_below_psat_db:
+    value: 9.5
+    unit: dB
+    source: derived
+    cite: "ModifiedRappPA().p_sat / .p1db，tgad_em.pa_rapp_* 参数（p = 0.81）"
+    note: "1 dB 压缩点输出功率在饱和输出功率以下 9.5 dB；tests/test_pa.py 守着这个数。"
+
+  derived.k_threshold_ltf_only:
+    value: 18.8
+    unit: upclocking factor
+    source: derived
+    cite: "derived.cfo_liu2025_hz / 156.25 kHz = 18.8"
+    note: "只靠 L-LTF 两段估计（±SCS/2）要 K ≥ 18.8：K = 16 也接不住 2.94 MHz，必须有 STF 粗估计。"

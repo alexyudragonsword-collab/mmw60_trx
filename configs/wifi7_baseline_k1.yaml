@@ -1,0 +1,46 @@
+topology: upclock_zero_if
+carrier_hz: 6000000000.0
+upclock_k: 1
+xo_ppm_tx: 0.0
+xo_ppm_rx: 0.0
+phy:
+  standard: 11ac
+  bandwidth_hz: 20000000.0
+  mcs: 0
+  packet_bytes: 4096
+  gi: long
+  oversampling: 2
+  window_fraction: 0.0625
+  stf_periods: 10
+  scrambler_seed: 93
+  pilot_seed: 42
+lo:
+  scheme: zero_if
+  phase_noise:
+    model: pole_zero
+    psd0_dbchz: -93.0
+    f_pole_hz: 1000000.0
+    f_zero_hz: 100000000.0
+    apply: 'off'
+frontend:
+  pa:
+    model: ideal
+    obo_db: 8.0
+    obo_reference: psat
+    ampm: true
+  eirp_limit_dbm: null
+  array:
+    n_elements: 1
+channel:
+  model: flat
+  rms_delay_ns: 7.0
+  los_k_db: 10.0
+  taps: null
+rx:
+  cfo_estimation: stf_ltf
+  extended_max_subcarriers: 8
+  ce_smooth_tones: 3
+  timing: genie
+  cpe_tracking: true
+seed: 0
+label: WiFi K=1 MCS0

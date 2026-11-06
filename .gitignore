@@ -1,0 +1,11 @@
+examples/output/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+.coverage
+# fingerprints are recorded per machine, never committed
+fingerprint*.json

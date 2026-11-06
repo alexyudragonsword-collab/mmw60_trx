@@ -1,0 +1,41 @@
+# mmw60_trx
+
+60 GHz（57–71 GHz 免许可段）WiFi 收发机行为级仿真框架。两种拓扑在同一个引擎里同台：
+
+- **A = IF 延伸**：WiFi 7 芯片原样，5–7 GHz 射频输出当实 IF，一级固定 LO（×3 / ×4）60 GHz 上下变频 + 镜像滤波 + PA / LNA；波形不变。（里程碑 1）
+- **B = IMMW upclocking**（Liu 等，"Wi-Fi 8: Embracing the Millimeter-Wave Era"，IEEE Comm. Mag. 2025-03）：PHY / MAC 不动，时钟 ×K，带宽和子载波间距同乘，宽带零中频 60 GHz transceiver。（里程碑 0 已建）
+
+引擎是 vendored 的 [`wifi_trx_cal`](https://github.com/alexyudragonsword-collab/wifi_trx_cal)（`src/mmw60/vendor/wifitrx/`，按完整 SHA pin，整包 verbatim）；本库加的是 upclocking 层、VHT 数据域编解码（PER）、Rapp PA、L-STF 粗 CFO 估计、1 极 1 零相噪、信道与接收机组合。
+
+## 安装与运行
+
+```bash
+pip install -e ".[test,jit]"          # numba 可选；MMW60_NO_JIT=1 走纯 numpy，结果逐位相同
+pytest -q -m "not slow"               # 约 5 分钟
+python examples/00_liu2025_per_vs_snr.py --quick     # 冒烟；去掉 --quick 全量约 1 小时（4 核）
+python tools/external_check.py        # 与 Liu 2025 Fig. 4 读图值对表
+python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_cal
+```
+
+每个示例第一行打印引擎名：这是线性化的时域基带引擎，杂散 / 互调结论不能背书。
+
+## 里程碑 0：对外校验（示例 00 / 01）
+
+按 Liu 2025 Table II 配置拓扑 B：VHT 20 MHz × K、MCS 0 / 1 / 4、4096 B、73.44 GHz、40 ppm、相噪 −93 dBc/Hz（1 MHz / 100 MHz）、modified Rapp OBO 8 dB，K = 4 / 8 / 16 的 PER–SNR 曲线。
+结果、与原文 Fig. 4 的逐条差值、以及原文没说而本库自己定的每一个假设（`grep "source: assumed" src/mmw60/data/spec/survey.yaml`）见 `cairn/external-validation.md` 与 `examples/expected/`。
+
+示例 01 回答原文没问的问题：把 L-LTF 的整数子载波模糊解开后，K = 4 能不能活。
+
+## 读什么
+
+- `AGENTS.md`：规则与七条铁律（每条有测试守着）。
+- `ROADMAP.md`：只写没做的。
+- `cairn/LOG.md`：每轮的数字原值与被推翻的判断。
+- `cairn/upclocking.md`：K 的建模方式与 5.88 MHz / 4.7 门槛的推导。
+- `src/mmw60/data/spec/survey.yaml`：每一个文献数字的出处与标签。
+
+## CI
+
+lint、测试（jit / no-jit）、示例冒烟、vendor 漂移（需要能读 private 的 `wifi_trx_cal` 的 `SIBLING_READ_TOKEN` secret，否则该作业按设计是红的）、数值指纹（base vs head，`(numbers-move)` 标记是逃生口）。
+
+MIT License。

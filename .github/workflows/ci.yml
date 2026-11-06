@@ -1,0 +1,171 @@
+name: ci
+
+# lint + tests (jit and no-jit) + every example at smoke size + vendor drift +
+# the numerical fingerprint, on every push / PR (d2d_link's workflow method).
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # pushes are never cancelled: each run's fingerprint job judges the commits
+  # its push brought; pull requests share one group per ref
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install ruff
+      - run: ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: "3.10"
+            jit: "1"
+          - python: "3.12"
+            jit: "1"
+          - python: "3.12"
+            jit: "0"     # MMW60_NO_JIT=1: the numpy Viterbi kernel must give the same bits
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          if [ "${{ matrix.jit }}" = "1" ]; then pip install -e ".[test,jit]"; else pip install -e ".[test]"; fi
+      - name: Tests
+        env:
+          MMW60_NO_JIT: ${{ matrix.jit == '0' && '1' || '' }}
+        run: pytest -q
+
+  examples:
+    # every example end to end at smoke size (tools/run_examples.py --smoke):
+    # the code paths, not the numbers (examples/expected/ holds those)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test,jit]"
+      - name: Run every example (smoke size)
+        run: python tools/run_examples.py --smoke --jobs 2
+
+  # Vendor drift: src/mmw60/vendor/wifitrx must still match the pinned
+  # wifi_trx_cal commit.  wifi_trx_cal is a private repository: the checkout
+  # needs a SIBLING_READ_TOKEN secret with read access to it (polar_tx's
+  # method).  Without the secret the checkout fails, every file is skipped
+  # and --fail-on-skip turns the job red on purpose: an unverified vendor
+  # tree is not a pass.
+  vendor-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mmw60_trx
+      - name: Checkout wifi_trx_cal (pinned)
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: alexyudragonsword-collab/wifi_trx_cal
+          ref: cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c
+          token: ${{ secrets.SIBLING_READ_TOKEN || github.token }}
+          path: _siblings/wifi_trx_cal
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Vendor drift check
+        working-directory: mmw60_trx
+        run: >
+          python tools/vendor_check.py --strict --fail-on-skip
+          --siblings wifi_trx_cal=${{ github.workspace }}/_siblings/wifi_trx_cal
+
+  # Iron rule 7: a change that is not meant to move a number must not move
+  # one.  Base and head are fingerprinted on the same runner and compared;
+  # the escape hatch is the PR label `numbers-move` or "(numbers-move" in a
+  # commit message, settled commit by commit by tools/fingerprint_walk.py.
+  fingerprint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test,jit]"
+      - name: Record the head
+        run: python tools/fingerprint.py record head.json
+      - name: Pick the base
+        id: base
+        run: |
+          before="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            sha="${{ github.event.pull_request.base.sha }}"
+          elif [ -n "$before" ] && [ "$before" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$before^{commit}" 2>/dev/null; then
+            sha="$before"
+          else
+            git fetch --no-tags origin main >/dev/null 2>&1 || true
+            sha="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+            if [ "$sha" = "$(git rev-parse HEAD)" ]; then sha="$(git rev-parse HEAD^ 2>/dev/null || true)"; fi
+            echo "::notice::no previous head for this push; comparing with $sha"
+          fi
+          if [ -z "$sha" ]; then echo "::notice::no base to compare the fingerprint with (first commit)"; fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Record the base
+        if: steps.base.outputs.sha != ''
+        run: |
+          git worktree add ../base ${{ steps.base.outputs.sha }}
+          pip install --no-deps -e ../base
+          (cd ../base && python tools/fingerprint.py record "$GITHUB_WORKSPACE/base.json")
+          pip install --no-deps -e .
+      - name: Compare
+        if: steps.base.outputs.sha != ''
+        env:
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          BASE: ${{ steps.base.outputs.sha }}
+        run: |
+          python tools/fingerprint.py compare base.json head.json > diff.txt || true
+          cat diff.txt
+          python tools/fingerprint_walk.py --base "$BASE" --base-json base.json --head-json head.json --labels "$PR_LABELS"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fingerprint
+          path: |
+            head.json
+            base.json
+            diff.txt
+          if-no-files-found: ignore
+          retention-days: 30
