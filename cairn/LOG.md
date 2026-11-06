@@ -7,7 +7,7 @@
 
 （数字由示例 00 / 01 全量运行填入；见本条下方"验收表"与 `cairn/external-validation.md`。）
 
-- 建库：vendored wifitrx@cc06b9ac 整包 verbatim；upclocking = 基准数字学 + fs_eff；自建 VHT 编解码（PER）、Rapp、1 极 1 零相噪、L-STF 粗估计。77 项测试，CI 五个作业。
+- 建库：vendored wifitrx@cc06b9ac 整包 verbatim；upclocking = 基准数字学 + fs_eff；自建 VHT 编解码（PER）、Rapp、1 极 1 零相噪、L-STF 粗估计。68 项测试，CI 五个作业。
 - **解码器与并集界**：K = 8 flat MCS0，genie CSI、不跟踪时 PER 1e-2 在 1.5–2 dB（并集界 2.0 dB）；加 4 导频逐符号 CPE → 4.4 dB；加 L-LTF 估计（平滑 3 音）→ 4.9 dB；不平滑 → 6.0 dB；平滑 9 音 → 4.1 dB。
 - **被推翻的判断 1**：原文"refrained from using estimation and compensation algorithms for CFO"按字面不可能——CFO 全关时 K = 4 / 8 / 16 在 SNR 20 dB 全部 PER = 1（示例 00 诊断行）；原文 V-B 的 4.7 论证以 L-STF 自相关估计器在跑为前提，示例 00 按此配置。
 - **被推翻的判断 2**：CR 信道先取 15 ns rms 纯 Rayleigh 指数 PDP → K = 16 的 50 ns GI 外能量 −14 dB，EVM 底板 −14 dB，与 Fig. 4 "16× 不比 8× 差"矛盾；改 7 ns（GI 外 −31 dB）并加 LOS/散射 10 dB。即便如此，K = 8 的 LOS/散射信道仍比 flat 贵约 2 dB（MCS0 6.0 vs 4.1–5.0；MCS4 ideal 17.0 vs 15.1，80 包粗扫），原文曲线的陡度说明其信道是 AWGN 样的。
