@@ -68,3 +68,9 @@ def test_fig4_readings_cover_all_nine_curves():
 def test_unknown_key_names_what_exists():
     with pytest.raises(KeyError, match="liu2025.carrier_hz"):
         spec.survey("liu2025.nonexistent")
+
+
+def test_ldpc_base_matrix_file_is_a_tagged_survey_document():
+    doc = spec.ldpc_document()
+    assert doc["source"] == "survey" and "未核实" in doc["note"] and doc["cite"]
+    assert sum(len(v) for v in spec.ldpc_base_matrices().values()) == 12

@@ -25,10 +25,12 @@ What it counts, per link direction (one transmitter and one receiver):
   size (the digital PHY is unchanged, its clock is ×K): (N/2)·log2 N
   radix-2 butterflies per symbol, each a complex multiply (4 mult + 2 add)
   and two complex adds (4 add), at ``assumed.dsp_word_bits``;
-- ``decoder``: the soft-decision Viterbi of the coded 11ac base (64
+- ``decoder``: the soft-decision Viterbi of the coded 11ac 20 MHz base (64
   states, two branch-metric adds and one compare per state per
-  information bit).  The 11be bases carry LDPC, which this library does
-  not decode; the block is left out of their rows and the table says so.
+  information bit), or the normalised min-sum LDPC decoder of the 11be
+  bases (two add-equivalents per edge per iteration, at the maximum
+  iteration count — an upper bound; early stopping is not credited).  The
+  EVM-only 11ac 40–160 MHz bases have no decoder and the table says so.
 
 Not counted (the same omissions as Halo's model): pipeline registers,
 clock trees, memories, the LNA / mixer / baseband filters, and the
@@ -189,12 +191,18 @@ def power_report(cfg, fe, bit_rate_bps: float, coeffs: PowerCoefficients | None 
     blocks.append(PowerBlock("fft", 2 * e_sym * sym_rate,
                              f"IFFT + FFT, N = {n}, {sym_rate / 1e6:.2f} Msym/s, {k.word_bits} bit"))
     # decoder
-    if cfg.coded:
+    if cfg.coded and cfg.phy.standard == "11be":
+        from .phy.eht import eht_mcs, ldpc_decoder_ops_per_info_bit
+        m = eht_mcs(cfg.phy.mcs, cfg.phy.bandwidth_hz)
+        ops = ldpc_decoder_ops_per_info_bit(m.rate_str)
+        blocks.append(PowerBlock("decoder", ops * k.add_j() * bit_rate_bps,
+                                 f"LDPC min-sum, 1944 R={m.rate_str}, {ops:.0f} add-equiv per info bit at the max iterations"))
+    elif cfg.coded:
         e_bit = BCC_STATES * VITERBI_OPS_PER_STATE * k.add_j()
         blocks.append(PowerBlock("decoder", e_bit * bit_rate_bps,
                                  f"soft Viterbi, {BCC_STATES} states × {VITERBI_OPS_PER_STATE} ops per info bit"))
     else:
-        omitted.append("LDPC decoder (11be base; not modelled in this library)")
+        omitted.append("decoder (EVM-only base: no coded data field)")
     return PowerReport(tuple(blocks), float(bit_rate_bps), tuple(omitted))
 
 

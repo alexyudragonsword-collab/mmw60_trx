@@ -29,6 +29,7 @@ from ..impairments.cfo import CfoModel
 from ..impairments.noise import add_awgn_per_tone, per_sample_snr_offset_db
 from ..impairments.phase_noise import lo_phase, make_profile
 from ..pa.rapp import ModifiedRappPA, apply_pa_at_obo
+from ..phy.eht import build_eht_data_field, eht_mcs
 from ..phy.mcs import vht_mcs
 from ..phy.ppdu import build_data_field, random_psdu
 from ..rx.receiver import RxResult, TxRef, receive
@@ -41,6 +42,11 @@ from ..vendor.wifitrx.waveform.preamble import build_frame
 DIGITAL_DRIVE_RMS = 0.15      # −16.5 dBFS: wifitrx's own snapshot drive, DAC peaks clear
 N_WARMUP = 512                # cyclic prefix / guard for the chain's IIR settling and delay
 N_GUARD = 64
+#: signal-free lead-in the receiver measures its DC on (``RxConfig.dc_removal``):
+#: the same measurement wifitrx's rx_dc_offset calibration step makes with
+#: the input quiet; the OFDM frame's own mean would carry the data tone the
+#: CFO parks next to 0 Hz (cairn/engineering-pitfalls.md)
+N_SILENCE = 1024
 
 
 def envelope_lag(x_ref: np.ndarray, y: np.ndarray, max_lag: int) -> int:
@@ -82,7 +88,11 @@ class LinkSim:
             raise NotImplementedError(f"waveform {cfg.waveform!r}: milestone 3")
         self.cfg = cfg
         self.coded = cfg.coded
-        if self.coded:
+        self.ldpc = cfg.phy.standard == "11be"
+        if self.coded and self.ldpc:
+            self.mcs = eht_mcs(cfg.phy.mcs, cfg.phy.bandwidth_hz)
+            self.n_symbols = self.mcs.n_symbols(cfg.phy.packet_bytes)
+        elif self.coded:
             self.mcs = vht_mcs(cfg.phy.mcs)
             self.n_symbols = self.mcs.n_symbols(cfg.phy.packet_bytes)
         else:
@@ -118,7 +128,12 @@ class LinkSim:
 
     # --- transmitter ----------------------------------------------------
     def transmit(self, rng: np.random.Generator):
-        if self.coded:
+        if self.coded and self.ldpc:
+            psdu = random_psdu(self.cfg.phy.packet_bytes, rng)
+            ref = build_eht_data_field(self.mcs, psdu, self.n_active, self.pilot_cols, self.pilots,
+                                       self.cfg.phy.scrambler_seed)
+            wf = generate_ofdm(self.base, symbols=ref.symbols)
+        elif self.coded:
             psdu = random_psdu(self.cfg.phy.packet_bytes, rng)
             ref = build_data_field(self.mcs, psdu, self.n_active, self.pilot_cols, self.pilots,
                                    self.cfg.phy.scrambler_seed)
@@ -164,11 +179,13 @@ class LinkSim:
     def _impair_chain(self, x: np.ndarray, rng: np.random.Generator, snr_db: float | None):
         fs = self.phy.fs_eff
         n = x.size
-        xp = np.concatenate([x[-N_WARMUP:], x, x[:N_GUARD]]) * DIGITAL_DRIVE_RMS
+        n_sil = N_SILENCE if self.cfg.rx.dc_removal else 0
+        xp = np.concatenate([np.zeros(n_sil, dtype=complex), x[-N_WARMUP:], x, x[:N_GUARD]]) * DIGITAL_DRIVE_RMS
+        start = n_sil + N_WARMUP
         tx, rx = self.tx, self.rx
         phi_tx = tx.lo_phase(xp.size, rng) if tx.params.lo.enabled else None
         y = tx(xp, phi_lo=phi_tx)
-        pa_info = {"pout_dbm": power_dbm(y[N_WARMUP:N_WARMUP + n])}
+        pa_info = {"pout_dbm": power_dbm(y[start:start + n])}
         y, taps = self.channel.apply(y, fs, rng)
         y = self.cfo.apply(y, fs)
         if snr_db is None:
@@ -177,14 +194,21 @@ class LinkSim:
         else:
             p_in = self.rx_input_dbm_for_snr(snr_db)
             rx.noise_enabled = True
-        y = y * db_to_amp(p_in - power_dbm(y))
+        y = y * db_to_amp(p_in - power_dbm(y[n_sil:]))
         rx.agc(p_in)
         phi_rx = rx.lo_phase(y.size, rng) if rx.params.lo.enabled else None
         z = rx(y, phi_lo=phi_rx, rng=rng)
+        dc = 0.0 + 0.0j
+        if n_sil:
+            # the receiver's DC, measured on the quiet lead-in (self-mixing DC,
+            # TX leakage at the same LO, noise) and removed before the estimators
+            dc = complex(np.mean(z[:n_sil]))
+            z = z - dc
         # timing: the chain's group delay, from the envelopes (CFO-blind)
         lag = envelope_lag(xp, z, N_GUARD // 2)
-        z = z[N_WARMUP + lag:N_WARMUP + lag + n]
-        pa_info.update({"rx_input_dbm": p_in, "lna_state": rx.lna_idx, "delay_samples": lag})
+        z = z[start + lag:start + lag + n]
+        pa_info.update({"rx_input_dbm": p_in, "lna_state": rx.lna_idx, "delay_samples": lag,
+                        "rx_dc_removed": dc})
         return z, taps, pa_info
 
     def impair(self, x: np.ndarray, rng: np.random.Generator, snr_db: float | None):
@@ -211,6 +235,7 @@ class LinkSim:
     def describe(self) -> dict:
         d = self.phy.summary()
         d.update({"mcs": self.cfg.phy.mcs if self.coded else None, "coded": self.coded,
+                  "fec": ("ldpc" if self.ldpc else "bcc") if self.coded else None,
                   "n_symbols": self.n_symbols,
                   "cfo_hz": self.cfo.cfo_hz, "cfo_subcarriers": self.cfo.in_subcarriers(self.phy.scs_eff),
                   "pn": self.pn_sides, "pa": self.cfg.frontend.pa.model if self.cfg.frontend.pa.enabled else "ideal",

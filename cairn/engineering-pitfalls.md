@@ -5,7 +5,7 @@ summary: "开工前先读：vendored wifitrx 在 K ≠ 1 下会断在哪里、�
 tags: [mmw60, pitfalls, wifitrx, receiver]
 contains: [pitfall, lesson, finding]
 created: "2026-11-06"
-updated: "2026-11-06"
+updated: "2026-11-07"
 related: [architecture-invariants.md, upclocking.md, external-validation.md]
 authoring_mode: ai_generated
 ---
@@ -22,6 +22,17 @@ authoring_mode: ai_generated
 - **`run_full_cal` 在 K ≠ 1 直接失败**（第一步 `generate_ofdm_with_pilots`），另有绝对频偏探针（4.8 / 5.1 MHz、11 / 17 / 23 MHz）、固定样本窗（`max_lag = 32`）、320 MHz 调的阈值。里程碑 1 的校准表要逐项记这些。
 - **`TDLChannel.k_db` 只让第一个 tap 变 Rician**，尾部功率不变；要 LOS 占优（抑制 GI 之外的 ISI）用本库 `channel.ExponentialTdl(los_k_db=…)`。
 - `EvmBudget` 默认 `t_fft_s = 12.8e-6`：用时必须传 `1/SCS_eff`。
+
+## 11be 编码路径里踩到的（A2，2026-11-07）
+
+- **RX 自混频 DC 杀的不是 EVM 而是 CFO 估计**：−25 dBc 的 DC 在 EVM 上只在 CFO 把它搬进数据音后才显（−30 dB），但它在 CFO 校正之前就坐在 L-STF 自相关的输入里：
+  SNR 5 dB 时估计偏 602 kHz（11be 80 MHz × 8 的 SCS 625 kHz，几乎整整一个子载波），SNR 2 dB 时偏 1.2 MHz，包全错；去掉 RX DC 项估计误差回到 3 kHz。
+  修法是接收机的事，不是前端的：`RxConfig.dc_removal` 在突发前加一段静默（`N_SILENCE` 1024 样本），接收机在那上面量 DC 再减掉——这正是 wifitrx `rx_dc_offset` 校准步的量法。
+  **第一版用整帧均值估 DC 是错的**：CFO 把一个数据音搬到离 0 Hz 只有 80 kHz（2.5 MHz − 2.42 MHz），16 个符号的短帧上 sinc(80 kHz × 8 µs) ≈ 0.47，半个数据音被当成 DC 减掉，
+  11ac 40 × 8 "仅 CFO" 的隔离 EVM 从 −40 掉到 −26 dB；编码长帧看不出来，示例 02 的 EVM-only 短帧看得出来。默认关（里程碑 0 指纹），零中频预设开。`test_dc_removal_keeps_the_stf_estimator_honest_at_low_snr`。
+- **11be 的 N_DBPS 不一定是整数**：996 音 RU 上 MCS 9 / 11（980 × 8 × 5/6 = 6533⅓、980 × 10 × 5/6）；规范就是这样写的，预 FEC 填充吃掉小数。`EhtMcs.n_dbps_exact` 是 Fraction，符号数用 ceil、载荷位数用 floor。
+- **LDPC PPDU 流程的"加一个符号"分支会在短包上触发**：20 MHz MCS0 装 10 字节 → 1 个符号 234 个可用位、648 码缩短 207 删余 207 → 删余超过校验位的 10 % 且缩短不足 → 加符号、改为重复 27 位。写测试时按直觉猜"1 个符号"是错的，流程说 2 个。
+- **4096-QAM 的 LLR 不能暴力搜**：n × 4096 距离矩阵在 980 音 × 几十符号上是 GB 级；wifitrx 的 Gray 方形星座前 m/2 位只看 I、后 m/2 位只看 Q，按轴搜是精确的（Q 项在两个假设下相同、相减抵消），`mapper.llr` 在 > 256 阶走这条，≤ 256 阶保持原算术（指纹）。
 
 ## 接收机里每一步的代价（K = 8、flat、MCS0、PER = 1e-2 处的 SNR；`tests/test_link.py`）
 

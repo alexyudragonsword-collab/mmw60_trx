@@ -20,8 +20,8 @@
 
 - name: ex04 11be 80 MHz x 4 is the best row (rate and pJ/bit at the cap)
   values:
-    rate: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} {*} {*} — {*}"}
-    pj: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} — {}"}
+    rate: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
+    pj: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 4（320 MHz）以 {rate} Mb/s、{pj} pJ/bit 居首"}
 

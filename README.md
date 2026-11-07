@@ -45,6 +45,16 @@ python tools/budget_report.py --base 11be:80e6 --k 4,8,16,32 --sensitivity -o ta
 
 结论见 `cairn/comparison-table.md`。
 
+## 里程碑 1 · A2：11be 编码 PER（示例 05）
+
+11be 的每个带宽现在都带 EHT 数据域（`phy/ldpc.py` 的 12 个 802.11 LDPC 码 + `phy/eht.py` 的 PPDU 编码流程、音映射、段解析、到 4096-QAM 的 LLR），
+`LinkSim` 对 11be 基准解出 PER 而不只是 EVM。示例 05 跑 80 MHz × 4 / 8、MCS 0 / 4 / 7 的 PER–SNR（ideal / impaired / no-PA），并对照示例 04 的解析 MCS 上限。
+接收机多了一步 DC 去除（`RxConfig.dc_removal`，在突发前的静默段上量）：没有它，−25 dBc 的 RX DC 在低 SNR 下把 L-STF 的 CFO 估计偏掉一个子载波。
+
+```bash
+python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 40 分钟（4 核）；--quick 冒烟
+```
+
 ## 读什么
 
 - `AGENTS.md`：规则与七条铁律（每条有测试守着）。

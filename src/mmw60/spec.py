@@ -25,6 +25,7 @@ SOURCES = ("spec", "survey", "assumed", "derived")
 DATA_DIR = Path(__file__).resolve().parent / "data" / "spec"
 SURVEY_FILE = DATA_DIR / "survey.yaml"
 FIG4_FILE = DATA_DIR / "liu2025_fig4.yaml"
+LDPC_FILE = DATA_DIR / "ldpc_80211.yaml"
 
 
 @dataclass(frozen=True)
@@ -97,3 +98,19 @@ def by_source(source: str) -> dict[str, SpecNumber]:
 def fig4_readings() -> dict:
     """Liu 2025 Fig. 4 read-offs (``liu2025_fig4.yaml``), as the file holds them."""
     return yaml.safe_load(FIG4_FILE.read_text(encoding="utf-8"))
+
+
+_LDPC: dict | None = None
+
+
+def ldpc_document() -> dict:
+    """The 802.11 LDPC base-matrix file (``ldpc_80211.yaml``) with its source tag."""
+    global _LDPC
+    if _LDPC is None:
+        _LDPC = yaml.safe_load(LDPC_FILE.read_text(encoding="utf-8"))
+    return _LDPC
+
+
+def ldpc_base_matrices() -> dict:
+    """``{n: {rate: base matrix (list of rows)}}`` for n = 648 / 1296 / 1944."""
+    return ldpc_document()["matrices"]

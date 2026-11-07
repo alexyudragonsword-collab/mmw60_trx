@@ -89,22 +89,52 @@ def test_chain_snr_setting_tracks_the_requested_snr():
 
 
 def test_rx_dc_matters_only_once_the_cfo_moves_it_into_the_data():
+    """Without digital DC removal the −25 dBc self-mixing DC is invisible at
+    DC and costs 6–12 dB of EVM once the CFO correction moves it onto a data
+    tone; with the receiver's frame-mean DC removal (on in the zero-IF
+    presets) it is gone either way."""
     flat = ChannelConfig(model="flat")
     ideal = dc.replace(zero_if_60ghz(k=8).ideal(), channel=flat)
-    with_dc = dc.replace(ideal, frontend=dc.replace(ideal.frontend, rx_dc_dbc=-25.0))
+    assert ideal.rx.dc_removal
+    raw = dc.replace(ideal, rx=dc.replace(ideal.rx, dc_removal=False))
+    with_dc = dc.replace(raw, frontend=dc.replace(raw.frontend, rx_dc_dbc=-25.0))
     e0 = evm_at(with_dc, None, n_packets=1)["evm_db"]
     e1 = evm_at(dc.replace(with_dc, xo_ppm_tx=20, xo_ppm_rx=20), None, n_packets=1)["evm_db"]
     assert e0 < -38 and -34 < e1 < -26
+    removed = dc.replace(with_dc, xo_ppm_tx=20, xo_ppm_rx=20, rx=dc.replace(with_dc.rx, dc_removal=True))
+    assert evm_at(removed, None, n_packets=1)["evm_db"] < -38
+
+
+def test_dc_removal_keeps_the_stf_estimator_honest_at_low_snr():
+    """The finding behind ``RxConfig.dc_removal``: at SNR 5 dB the −25 dBc RX
+    DC biases the L-STF autocorrelation CFO estimate by about a subcarrier
+    (11be 80 MHz × 8: 625 kHz tones) and every packet fails; with the frame
+    mean removed the estimate is within a few kHz and the packet decodes."""
+    cfg = dc.replace(zero_if_60ghz(k=8, mcs=0, standard="11be", bandwidth_hz=80e6), channel=ChannelConfig(model="flat"))
+    off = dc.replace(cfg, rx=dc.replace(cfg.rx, dc_removal=False))
+    r_off = LinkSim(off).packet(5.0, np.random.default_rng(3))
+    r_on = LinkSim(cfg).packet(5.0, np.random.default_rng(3))
+    assert abs(r_off.rx.cfo_hat_hz - r_off.cfo_true_hz) > 0.5 * LinkSim(off).phy.scs_eff and r_off.rx.packet_error
+    assert abs(r_on.rx.cfo_hat_hz - r_on.cfo_true_hz) < 20e3 and not r_on.rx.packet_error
 
 
 def test_evm_only_bases_run_without_the_coded_data_field():
-    cfg = dc.replace(zero_if_60ghz(k=16, standard="11be", bandwidth_hz=80e6).ideal(),
+    """The 11ac 40–160 MHz bases have no coded data field (their wider BCC
+    interleavers are not built): EVM only.  The 11be bases are LDPC-coded."""
+    cfg = dc.replace(zero_if_60ghz(k=8, standard="11ac", bandwidth_hz=40e6).ideal(),
                      channel=ChannelConfig(model="flat"))
     assert not cfg.coded
     sim = LinkSim(cfg)
     r = sim.packet(None, np.random.default_rng(0))
     assert r.rx.bit_errors is None and r.rx.evm_db < -35
-    assert sim.base.n_active == 996 and sim.n_symbols == cfg.phy.evm_symbols
+    assert sim.base.n_active == 108 + 6 and sim.n_symbols == cfg.phy.evm_symbols
+    be = dc.replace(zero_if_60ghz(k=16, standard="11be", bandwidth_hz=80e6).ideal(),
+                    channel=ChannelConfig(model="flat"))
+    assert be.coded
+    sim = LinkSim(be)
+    r = sim.packet(None, np.random.default_rng(0))
+    assert r.rx.bit_errors == 0 and r.rx.evm_db < -35 and sim.describe()["fec"] == "ldpc"
+    assert sim.base.n_active == 996 and sim.n_symbols == sim.mcs.n_symbols(be.phy.packet_bytes)
 
 
 # ---------------------------------------------------------------- grid
