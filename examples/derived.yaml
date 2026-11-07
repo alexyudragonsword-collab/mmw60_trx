@@ -33,3 +33,11 @@
   quotes:
     - {doc: cairn/comparison-table.md, text: "K = 16 的 {k16} pJ/bit 到 K = 32 升到 {k32}"}
     - {doc: cairn/comparison-table.md, text: "是 {k1} pJ/bit，是 K = 16 的 {k1 / k16} 倍"}
+
+- name: ex05 11be 80 MHz MCS4 — the TX-EVM cap says beyond, the decoder reaches PER 1e-2 (what the cap criterion is worth)
+  values:
+    id4: {example: "05", after: "== SNR at PER 1e-2 [dB]: ideal / impaired", line: "4 4 {} {*} {*} MCS{*} MCS{*} beyond cap / reached {*} {*}"}
+    i4: {example: "05", after: "== SNR at PER 1e-2 [dB]: ideal / impaired", line: "4 4 {*} {} {*} MCS{*} MCS{*} beyond cap / reached {*} {*}"}
+    i8: {example: "05", after: "== SNR at PER 1e-2 [dB]: ideal / impaired", line: "8 4 {*} {} {*} MCS{*} MCS{*} beyond cap / reached {*} {*}"}
+  quotes:
+    - {doc: cairn/comparison-table.md, text: "PER 却在 {i4} / {i8} dB 到了 1e-2，只比 ideal 的 {id4} 贵 {i4 - id4} / {i8 - id4} dB"}

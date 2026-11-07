@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses as dc
+import math
 import os
 import sys
 import time
@@ -101,13 +102,14 @@ def main(argv=None) -> int:
 
     print("\n== the analytic cap of example 04 for these cells (floor 3 dB under the MCS TX-EVM limit) ==")
     pa_evm = pa_isolated_evm_db(fe.pa_model, fe.obo_db, fe.obo_reference)
-    caps = {}
+    caps, floors = {}, {}
     for k in KS:
         cfg = dc.replace(zero_if_60ghz(k=k, standard="11be", bandwidth_hz=BASE_BW), channel=FLAT)
         a_imp = analytic_floors(cfg, fe, pa_evm)
         fe_np = Frontend60.from_config(no_pa(cfg))
         a_np = analytic_floors(no_pa(cfg), fe_np, None)
         caps[k] = (max_mcs_for_floor(a_imp["floor_db"], "11be"), max_mcs_for_floor(a_np["floor_db"], "11be"))
+        floors[k] = (a_imp["floor_db"], a_np["floor_db"])
         print(f"  K={k}: impaired floor {a_imp['floor_db']:.1f} dB -> cap MCS{caps[k][0]}; "
               f"no PA floor {a_np['floor_db']:.1f} dB -> cap MCS{caps[k][1]}")
 
@@ -117,9 +119,17 @@ def main(argv=None) -> int:
     print("\ncurve                               SNR @ PER 1e-2      SNR:PER points")
     for r in results:
         print(sweep_line(r))
-    print("\n== SNR at PER 1e-2 [dB]: ideal / impaired / no PA, and whether the cap predicted it ==")
-    print("K   MCS      ideal   impaired      no PA   cap(imp) cap(noPA)  verdict")
+    print("\n== SNR at PER 1e-2 [dB]: ideal / impaired / no PA; the example-04 cap (floor 3 dB under the TX-EVM limit) "
+          "and the floor-as-noise prediction (effective SNR = 1 / (1/SNR + 10^(floor/10)) must reach the ideal threshold) ==")
+    print("K   MCS      ideal   impaired      no PA   cap(imp) cap(noPA)  cap verdict          floor-as-noise: impaired  no PA")
     at = {(r["tags"]["k"], r["tags"]["mcs"], r["tags"]["set"]): r["snr_at_target"] for r in results}
+
+    def from_floor(ideal_db, floor_db):
+        if ideal_db is None:
+            return None
+        lin = 10 ** (-ideal_db / 10) - 10 ** (floor_db / 10)
+        return None if lin <= 0 else -10 * math.log10(lin)
+
     for k in (KS if not quick else (8,)):
         for mcs in (MCSS if not quick else (0,)):
             cells = [at.get((k, mcs, s)) for s in ("ideal", "impaired", "no_pa")]
@@ -127,8 +137,13 @@ def main(argv=None) -> int:
             pred_i = "reachable" if mcs <= (cap_i if cap_i is not None else -1) else "beyond cap"
             got_i = "never" if cells[1] is None else "reached"
             agree = (pred_i == "reachable") == (got_i == "reached")
+            fl = [from_floor(cells[0], floors[k][0]), from_floor(cells[0], floors[k][1])]
             print(f"{k:<3} {mcs:<5} " + "  ".join(f"{'never' if c is None else f'{c:.2f}':>9}" for c in cells)
-                  + f"   MCS{cap_i}     MCS{cap_n}     impaired {pred_i} / {got_i} -> {'agree' if agree else 'DISAGREE'}")
+                  + f"   MCS{cap_i}     MCS{cap_n}     {pred_i + ' / ' + got_i:<20} "
+                  + "  ".join(f"{'never' if c is None else f'{c:.2f}':>9}" for c in fl)
+                  + f"   ({'agree' if agree else 'cap DISAGREES'})")
+    print("The floor-as-noise prediction is the one to compare with the impaired / no-PA columns: the TX-EVM-limit cap is a "
+          "conformance figure, not the decoder's tolerance (cairn/comparison-table.md §6).")
     OUT.mkdir(exist_ok=True)
     save_results(results, OUT / "05_sweeps.json")
     print(f"\nwrote {OUT / '05_sweeps.json'}  [{time.time() - t0:.0f}s]")
