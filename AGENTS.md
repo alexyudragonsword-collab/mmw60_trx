@@ -34,10 +34,10 @@
 
 ## 项目铁律（每条都有测试守着；论证见 `cairn/architecture-invariants.md`）
 
-1. **配置是唯一真值** —— `topology: if_extender | upclock_zero_if`、载频、K、基准 PHY、LO 方案、前端、信道、阵列全在一个 frozen `Mmw60Config`；示例和表单只读它，文献数字只经 `mmw60.spec` 进来（`tests/test_laws.py::test_law1_*`）。
-2. **两条拓扑公平可比** —— 60 GHz 前端、LO 链、信道、EIRP 限值是同一个对象实例；毫米波级的插入点显式（A 在 wifitrx 的 RF 之后，B 替换它的 RF）；只对一条拓扑建的损伤在同台表里标出来。里程碑 0 的锚：K = 1 行就是未改动的 wifitrx 链（`test_law2_k1_chain_is_the_unmodified_wifitrx_chain`）；完整测试在里程碑 1（ROADMAP）。
-3. **CFO 端到端建模** —— (ppm_tx + ppm_rx) × f_c，每条拓扑声明自己怎么接住它：B 靠大 SCS 与 L-STF/L-LTF 估计，A 靠 MLO sub-7 估计乘频率比预补偿 + 残差；ppm = 0 时该项逐位为零（`test_law3_*`）。
-4. **校准是跑出来的，不是假设的** —— wifitrx 校准序列（`cal/deps.py` 顺序约束）在两条拓扑上都真跑，每步在毫米波级的结果进表；不许手填"已校准"（里程碑 1；锚 `test_law4_*`）。
+1. **配置是唯一真值** —— `topology: if_extender | upclock_zero_if`、`waveform: be | be_upclocked | ay_ofdm | ay_sc`、载频、K、基准 PHY、LO 方案、前端、信道、阵列全在一个 frozen `Mmw60Config`；示例和表单只读它，文献数字只经 `mmw60.spec` 进来（`tests/test_laws.py::test_law1_*`）。
+2. **每种方案（拓扑 × 波形）公平可比** —— 60 GHz 前端、LO 链、信道、EIRP 限值是同一个对象实例；毫米波级的插入点显式（A 在 wifitrx 的 RF 之后，B 替换它的 RF）；只对一种方案建的损伤在同台表里标出来。里程碑 0 的锚：K = 1 行就是未改动的 wifitrx 链（`test_law2_k1_chain_is_the_unmodified_wifitrx_chain`）；完整测试在里程碑 1（ROADMAP）。
+3. **CFO 端到端建模** —— (ppm_tx + ppm_rx) × f_c，每种方案（拓扑 × 波形）声明自己怎么接住它：B 靠大 SCS 与 L-STF/L-LTF 估计，A 靠 MLO sub-7 估计乘频率比预补偿 + 残差，ay 靠 5.16 MHz SCS 本身；ppm = 0 时该项逐位为零（`test_law3_*`）。
+4. **校准是跑出来的，不是假设的** —— wifitrx 校准序列（`cal/deps.py` 顺序约束）在每种方案（拓扑 × 波形）上都真跑，每步在毫米波级的结果进表；不许手填"已校准"（里程碑 1；锚 `test_law4_*`）。
 5. **规范和文献数字只用原文** —— 全部在 `data/spec/survey.yaml`，`source: spec | survey | assumed | derived`；拿不到原文的标 survey 并注明出处，原文没说的标 assumed；`grep -c "source: survey"` 一次列全（`tests/test_spec_sources.py`）。
 6. **杂散结论只能来自逐周期引擎** —— 本库是线性化的时域基带引擎，每个示例第一行打印引擎名，凡杂散 / 互调结论标"线性化引擎，不能背书"（`test_law6_*`）。
 7. **数值指纹** —— 重构必须用 `tools/fingerprint.py` 证明逐位不变；CI 比较 base 与 head，`(numbers-move)` 标记是逃生口（`tests/test_fingerprint.py`）。

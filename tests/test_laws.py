@@ -9,7 +9,8 @@ import pytest
 
 from conftest import REPO
 from mmw60 import ENGINE_BANNER
-from mmw60.config import TOPOLOGIES, Mmw60Config, liu2025_table2, wifi7_baseline_k1, zero_if_60ghz
+from mmw60.config import (TOPOLOGIES, WAVEFORMS, WAVEFORMS_BUILT, Mmw60Config, liu2025_table2,
+                          wifi7_baseline_k1, zero_if_60ghz)
 from mmw60.guispec import KNOBS, config_from_form
 from mmw60.impairments.cfo import CfoModel
 from mmw60.sim.link import LinkSim
@@ -33,6 +34,21 @@ def test_law1_both_topologies_are_named_and_the_unbuilt_one_refuses():
         LinkSim(Mmw60Config(topology="if_extender"))
     with pytest.raises(ValueError):
         Mmw60Config(topology="something_else")
+
+
+def test_law1_waveform_enum_is_complete_and_ay_refuses():
+    """Every scheme (topology × waveform) is named in the config now; the two
+    802.11ay waveforms refuse to run until milestone 3."""
+    assert set(WAVEFORMS) == {"be", "be_upclocked", "ay_ofdm", "ay_sc"}
+    assert set(WAVEFORMS_BUILT) == {"be", "be_upclocked"}
+    assert wifi7_baseline_k1().waveform == "be" and liu2025_table2().waveform == "be_upclocked"
+    assert zero_if_60ghz().waveform == "be_upclocked"
+    for wf in ("ay_ofdm", "ay_sc"):
+        with pytest.raises(NotImplementedError, match="milestone 3"):
+            LinkSim(Mmw60Config(waveform=wf))
+    with pytest.raises(ValueError, match="waveform"):
+        Mmw60Config(waveform="ad_sc")
+    assert any(k.id == "waveform" for k in KNOBS)
 
 
 def test_law1_examples_build_their_links_from_the_presets_only():

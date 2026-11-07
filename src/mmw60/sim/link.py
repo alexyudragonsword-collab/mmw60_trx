@@ -77,6 +77,9 @@ class LinkSim:
     def __init__(self, cfg: Mmw60Config, frontend=None):
         if cfg.topology != "upclock_zero_if":
             raise NotImplementedError(f"topology {cfg.topology!r}: milestone 1")
+        from ..config import WAVEFORMS_BUILT
+        if cfg.waveform not in WAVEFORMS_BUILT:
+            raise NotImplementedError(f"waveform {cfg.waveform!r}: milestone 3")
         self.cfg = cfg
         self.coded = cfg.coded
         if self.coded:
