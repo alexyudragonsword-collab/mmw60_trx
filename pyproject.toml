@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mmw60"
-version = "0.0.1"
+version = "0.1.0"
 description = "60 GHz WiFi transceiver behavioural simulation: IF-extender vs IMMW upclocking on one engine (vendored wifitrx)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -45,3 +45,7 @@ select = ["E", "F", "W"]
 # d2d_link's files, taken as they are
 "tools/example_drift.py" = ["E501"]
 "tools/fingerprint_walk.py" = ["E501"]
+# Chinese mechanism prose and the examples' report lines
+"src/mmw60/calcheck.py" = ["E501"]
+"examples/02_upclock_grid.py" = ["E501"]
+"examples/03_calibration_at_k.py" = ["E501"]

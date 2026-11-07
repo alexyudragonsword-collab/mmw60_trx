@@ -26,6 +26,12 @@ python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_
 
 示例 01 回答原文没问的问题：把 L-LTF 的整数子载波模糊解开后，K = 4 能不能活。
 
+## 里程碑 1-B：拓扑 B 的 60 GHz 零中频前端（示例 02 / 03）
+
+`frontend.model: zero_if_chain` 把 wifitrx 的 `TxChain`/`RxChain` 跑在 `fs_eff` 上——转换器位数按 ENOB(fs_eff)、IQ 失配按绝对 ps、PA 回退由模拟 VGA 调到位——这正是"WiFi 7 芯片的零中频架构时钟 ×K"。
+示例 02 是 "基准带宽 × K" 网格（11ac 20–160、11be 20–320 MHz × K 4–32）：每格解析底板与时域 EVM 交叉核对、能/不能 + 原因、MCS 上限、DPD pJ/bit；
+示例 03 把 wifitrx 的校准序列在每个 K 上逐步真跑。结论见 `cairn/topology-b.md`。
+
 ## 读什么
 
 - `AGENTS.md`：规则与七条铁律（每条有测试守着）。

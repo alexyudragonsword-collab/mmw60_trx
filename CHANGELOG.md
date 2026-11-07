@@ -2,6 +2,22 @@
 
 按里程碑记录。每条写**做了什么**和**为什么**；数字原值在 `cairn/LOG.md`。
 
+## 里程碑 1-B —— 拓扑 B：60 GHz 零中频前端、基准 × K 网格、校准逐项验（2026-11-07，0.1.0）
+
+- **`frontend/`：两拓扑共用的 `Frontend60`**（铁律 2 的对象）：Rapp PA 在 dBm 域的 `ScaledRappPA`（wifitrx `ScaledPA` 对单调 Rapp 找不到饱和点）、
+  `Lo60`（1 极 1 零剖面 + TX 泄漏 dBc + RX 自混频 DC dBc）、`ConverterLaw`（ENOB 随采样率 −0.5 bit/octave）、`IqMismatch`（wifitrx 绝对单位）、
+  `EirpLimit`（FCC 15.255）、`zero_if_plan`、`dpd_cost`（dsp_ip dpd_poly P=4 综合数 + Horowitz 运算能耗）。
+- **拓扑 B = wifitrx `TxChain`/`RxChain` 跑在 fs_eff**（`frontend.model: zero_if_chain`）：转换器位数按 ENOB(fs_eff)、LPF 角频按 K 倍带宽、
+  IQ 失配 ps 绝对值、PA 工作点由模拟 VGA 调到 Psat − OBO（数字驱动固定 −16.5 dBFS 不削顶）、接收输入电平由 SNR 经 LNA 状态 NF 反算、
+  包络互相关定时（复波形互相关在 2.94 MHz CFO 下失效）。为什么：这正是"WiFi 7 芯片的零中频架构时钟 ×K"，而且校准序列可以原样真跑。
+  里程碑 0 的 behavioural 路径逐位不变（指纹相同）。
+- **EVM-only 基准**：11ac 40/80/160、11be 20–320 MHz 走 wifitrx 随机 QAM + 导频，接收机对 `TxRef` 评分；编码 PER 仍只在 11ac 20 MHz。
+- **示例 02 网格**：9 个基准 × K ∈ {4,8,16,32}，每格解析底板（相噪 ICI、IQ 镜像、转换器、PA、GI 外 ISI）、校准后 IQ 列、去 PA 列、
+  MCS 上限、能/不能 + 原因、时域 EVM（全开 + 逐项隔离）、顶 MCS 的速率与 DPD pJ/bit、转换器 −1 bit/octave 灵敏度。
+- **示例 03 校准表**：wifitrx 序列（poweron）在 K = 1/4/8/16/32 与 11be 80 MHz × 32 上逐步 ok/degraded/failed/skipped + 机理（`calcheck.MECHANISM`）。
+- 规范表 +15 条（FCC 频带、11ay 信道、dsp_ip 数、Horowitz、N_SD 表、转换器 / PA / 泄漏 / IQ / 余量假设）；测试 +17（`tests/test_frontend.py`）。
+- 数字与被推翻的判断：`cairn/LOG.md` 2026-11-07、`cairn/topology-b.md`。
+
 ## 里程碑 0 —— 对外校验：Liu 2025 Table II / Fig. 4（2026-11-06，0.0.1）
 
 - **脚手架 + vendor**：`src/mmw60/vendor/wifitrx/` 是 `wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c` 的 `src/wifitrx` 整包（106 文件，全 verbatim），

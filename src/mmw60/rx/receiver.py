@@ -6,6 +6,11 @@ The order and the functions are wifitrx's ``cal/sequence.score_views``
 ``demodulate_ofdm`` / ``correct_cpe_pilots``); what is added is the STF
 coarse step, the extended-range step and the decoder.  ``"off"`` is the
 literal reading of Liu 2025 §V-A (no CFO estimation, pilots only).
+
+``ref`` is anything with ``symbols`` (the transmitted constellation, pilots
+included), ``data_cols``, ``pilot_cols`` and ``pilots``: a ``DataField``
+(coded VHT 20 MHz, decoded to a PER) or a ``TxRef`` (any other base, EVM
+only — ``bit_errors`` is then None).
 """
 from __future__ import annotations
 
@@ -23,10 +28,19 @@ from ..vendor.wifitrx.waveform.preamble import (Frame, channel_estimate,
 from . import cfo as cfo_est
 
 
+@dataclass(frozen=True)
+class TxRef:
+    """What the receiver needs to score an uncoded (EVM-only) frame."""
+    symbols: np.ndarray
+    data_cols: np.ndarray
+    pilot_cols: np.ndarray
+    pilots: np.ndarray
+
+
 @dataclass
 class RxResult:
-    bit_errors: int
-    packet_error: bool
+    bit_errors: int | None
+    packet_error: bool | None
     evm_db: float
     cfo_hat_hz: float
     cfo_stf_hz: float
@@ -35,7 +49,7 @@ class RxResult:
     eq_symbols: np.ndarray | None = None
 
 
-def receive(y: np.ndarray, frame: Frame, field: DataField, phy: UpclockedPhy,
+def receive(y: np.ndarray, frame: Frame, ref, phy: UpclockedPhy,
             rxc: RxConfig, keep_symbols: bool = False, kernel: str | None = None,
             true_h: np.ndarray | None = None) -> RxResult:
     fs = phy.fs_eff
@@ -68,12 +82,15 @@ def receive(y: np.ndarray, frame: Frame, field: DataField, phy: UpclockedPhy,
     raw = demodulate_ofdm(y[frame.preamble_len:], frame.data)
     eq = raw / h[None, :]
     if rxc.cpe_tracking:
-        eq = correct_cpe_pilots(eq, field.pilot_cols, field.pilots)
-    weight = np.abs(h[field.data_cols]) ** 2
-    _, errors = decode_data_field(eq, field, weight, kernel=kernel)
-    tx = field.symbols[:, field.data_cols]
-    rx_d = eq[:, field.data_cols]
+        eq = correct_cpe_pilots(eq, ref.pilot_cols, ref.pilots)
+    tx = ref.symbols[:, ref.data_cols]
+    rx_d = eq[:, ref.data_cols]
     evm_db = float(10 * np.log10(np.mean(np.abs(rx_d - tx) ** 2) / np.mean(np.abs(tx) ** 2)))
-    return RxResult(bit_errors=errors, packet_error=errors > 0, evm_db=evm_db,
-                    cfo_hat_hz=float(cfo_hat), cfo_stf_hz=float(f_stf), cfo_ltf_hz=float(f_ltf),
-                    cfo_integer_tones=int(m_int), eq_symbols=eq if keep_symbols else None)
+    errors = None
+    if isinstance(ref, DataField):
+        weight = np.abs(h[ref.data_cols]) ** 2
+        _, errors = decode_data_field(eq, ref, weight, kernel=kernel)
+    return RxResult(bit_errors=errors, packet_error=None if errors is None else errors > 0,
+                    evm_db=evm_db, cfo_hat_hz=float(cfo_hat), cfo_stf_hz=float(f_stf),
+                    cfo_ltf_hz=float(f_ltf), cfo_integer_tones=int(m_int),
+                    eq_symbols=eq if keep_symbols else None)

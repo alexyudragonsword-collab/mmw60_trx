@@ -9,9 +9,11 @@
 产出：MCS 上限随 LO 底噪（−85 … −110 dBc/Hz @ 1 MHz）和级联回退的表；校准步骤逐项结果表。
 验收：LO 底噪每差 10 dB，MCS 上限变化方向与 `EvmBudget` 的 CPE / ICI 预算一致、差 < 1 dB；有观测回环比无回环好的 dB 数进 LOG。
 
-### A2. 拓扑 B：60 GHz 零中频前端
-LO 泄漏回到带内、2.56 GHz 上频率相关 IQ 不平衡、DAC / ADC 按 K 倍速率的 ENOB、频率规划、"基准带宽 × K"网格（11ac 与 11be 两套基准；预期可行组合 80 MHz × 32 或 160 MHz × 16 + CFO 估计）、校准逐项验（哪些在 2.56 GHz 失效，见 `cairn/engineering-pitfalls.md` 列出的绝对频偏探针与固定样本窗）。DPD 的 2.56 GHz 代价先用 PA_DPD 现有模型 + dsp_ip `dpd_poly` P = 4 综合数。
-验收：网格每格"能 / 不能 + 原因"（CFO 捕获 / 相噪 / PA / 转换器）；校准表里失效步骤写明机理。
+### A2. 拓扑 B 的剩余项（主体已在里程碑 1-B 落地：`cairn/topology-b.md`）
+- 校准后的 IQ 残余（示例 03 实测的 irr_min_db）回填网格的 "IQcal" 列，替代 `assumed.irr_after_cal_db`（45 dB）。
+- 11be 基准的编码 PER（现在只有 11ac 20 MHz 有编码数据域，其余基准 EVM-only）：需要 EHT 的 LDPC / 交织表，排在 ay 波形之前。
+- 转换器 ENOB 随速率的法则（`assumed.converter_bits_per_octave`）换成 Murmann 调查表的实测包络（拿到表后标 survey）。
+- DPD 的 2.56 GHz 代价现在是 dsp_ip P=4 综合面积 + Horowitz 运算能耗的记账；PA_DPD 的带宽项到了再换（D）。
 
 ### A3. 同台表与预算报表
 含 K = 1 基线行；60 GHz 前端、LO 链、信道、EIRP 限值是同一个对象实例（铁律 2 完整测试：ppm = 0、理想 LO、理想 PA 下两拓扑 EVM 与 K = 1 差 < 0.1 dB）；`tools/budget_report.py` 照 d2d_link；pJ/bit 口径照 Halo 示例 41；每格统计 / 时域（或解析 / 仿真）交叉核对，推导数进 `examples/derived.yaml`；测试累计 ≥ 60。
@@ -37,10 +39,15 @@ WiFi 7 全链路的四条整合也在这里做：pll 剖面替换解析相噪、
 ### C4. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
 Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 原文。
 
+### C5. 里程碑 1-B 发现的（见 `cairn/LOG.md` 2026-11-07）
+- wifitrx 的 EVM 评分波形只在标准带宽（11ac 20–160、11be 20–320 MHz）上有导频表：640 MHz / 2.56 GHz 的 `final_loopback_evm` 无法运行（示例 03 标 skipped）。上游需求见 D。
+- 60.48 GHz 上 40 ppm = 2.42 MHz，K = 4 的 L-STF 范围 ±2.5 MHz 刚好接住——Liu 的 K > 4.7 门槛是 73.44 GHz 的；通式 K > 2·Δf_max / 1.25 MHz。
+- 回环定时：wifitrx `align_delay` 对复波形互相关，2.94 MHz CFO 下 1 µs 内去相关；本库用包络互相关定时（`sim/link.py::envelope_lag`）。
+
 ## D. 报回上游的需求（合并后重新 pin）
+- wifi_trx_cal：非标准带宽（> 320 MHz，或任意 SCS × K）的导频集 / 音计划，或让 `pilot_positions` 接受显式导频列——否则 `scoring_frame` / `run_full_cal` 在 2.56 GHz 上没有评分波形。
 - pll_simulator：倍频器（×N）模型，含 20·log₁₀N 之外的底噪项——拓扑 A 的 LO 链要用。
 - PA_DPD：PA 带宽 / 记忆项随采样率的模型；两 DUT 级联（拓扑 A 的驱动 PA + 60 GHz PA）。
-- wifi_trx_cal：无需求；`run_full_cal` 在 K ≠ 1 的断点在本库包一层解决。
 
 ## E. 明确不做
 MAC / MLO 调度、多用户、信道模型本身（用 11ad CR 现成表）、D-band、雷达（另开 fmcw_radar）；EIRP / 谱模板只做趋势比较，不替代认证测试；不把 vendor 变成 fork。

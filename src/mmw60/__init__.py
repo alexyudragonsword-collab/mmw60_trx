@@ -14,7 +14,7 @@ The engine is the vendored ``wifi_trx_cal`` package (``mmw60.vendor.wifitrx``,
 pinned by full SHA); everything 60 GHz-specific wraps it from here.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
 #: What every example prints on its first line (iron rule 6).  The engine is
 #: a time-domain complex-baseband model with linearised (behavioural) PA and

@@ -9,7 +9,7 @@ import pytest
 
 from conftest import REPO
 from mmw60 import ENGINE_BANNER
-from mmw60.config import TOPOLOGIES, Mmw60Config, liu2025_table2, wifi7_baseline_k1
+from mmw60.config import TOPOLOGIES, Mmw60Config, liu2025_table2, wifi7_baseline_k1, zero_if_60ghz
 from mmw60.guispec import KNOBS, config_from_form
 from mmw60.impairments.cfo import CfoModel
 from mmw60.sim.link import LinkSim
@@ -41,7 +41,7 @@ def test_law1_examples_build_their_links_from_the_presets_only():
         tree = ast.parse(p.read_text(encoding="utf-8"))
         calls = {n.func.id for n in ast.walk(tree)
                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
-        assert "liu2025_table2" in calls, p.name
+        assert calls & {"liu2025_table2", "zero_if_60ghz"}, p.name
         src = p.read_text(encoding="utf-8")
         for forbidden in ("73.44e9", "-93", "2.94e6", "obo_db=8"):
             assert forbidden not in src, f"{p.name} types a literature number: {forbidden}"
@@ -119,7 +119,10 @@ def test_law6_banner_is_the_first_line_at_run_time(tmp_path):
 def test_ideal_turns_every_impairment_off_and_nothing_else():
     cfg = liu2025_table2(k=16, mcs=4)
     i = cfg.ideal()
-    assert i.impairments_on == {"cfo": False, "phase_noise": False, "pa": False}
-    assert cfg.impairments_on == {"cfo": True, "phase_noise": True, "pa": True}
+    assert not any(i.impairments_on.values())
+    on = cfg.impairments_on
+    assert on["cfo"] and on["phase_noise"] and on["pa"] and not on["iq"] and not on["converters"]
+    z = zero_if_60ghz(k=8)
+    assert all(z.impairments_on.values()) and not any(z.ideal().impairments_on.values())
     assert i.channel == cfg.channel and i.rx == cfg.rx and i.upclock_k == 16 and i.phy == cfg.phy
     assert dc.replace(i, label=cfg.label) != cfg

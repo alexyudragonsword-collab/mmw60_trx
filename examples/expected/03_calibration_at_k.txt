@@ -1,0 +1,121 @@
+engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
+mmw60 0.1.0; full; profile poweron; front end rapp_11ad Pout 7 dBm, TX leak -30 dBc, IQ 150 ps, LO IPN -31.1 dBc
+
+== K = 1, base 20 MHz -> 20 MHz at 0.04 GS/s ==
+  K=1   tx_lpf_corner          ok        fc_err_pct 0.00
+  K=1   rx_lpf_corner          ok        fc_err_pct 0.00
+  K=1   rx_dc_offset           ok        worst_dc_dbfs -78.77
+  K=1   tx_lo_leak_loopback    ok        lo_leak_dbc -68.50
+  K=1   loopback_delay         ok        delay_ns 71.73 captures in later cals are aligned with this estimate
+  K=1   tx_iq                  ok        irr_min_db 55.31
+  K=1   group_delay            ok        error_ps -6.14
+  K=1   rx_iq                  ok        irr_min_db 56.26
+  K=1   tx_power               ok
+  K=1   dpd                    ok        evm_db -27.32
+  K=1   agc_sweep              ok        worst_landing_err_db 0.26
+  K=1   final_loopback_evm     ok        tx_evm_modem_db -25.46 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  scoring waveform: 11ac 20 MHz (standard pilots); loopback EVM before/after: -22.3 / -31.2 dB  [~s]
+
+== K = 4, base 20 MHz -> 80 MHz at 0.16 GS/s ==
+  K=4   tx_lpf_corner          ok        fc_err_pct 0.00
+  K=4   rx_lpf_corner          ok        fc_err_pct 0.00
+  K=4   rx_dc_offset           ok        worst_dc_dbfs -72.86
+  K=4   tx_lo_leak_loopback    ok        lo_leak_dbc -72.23
+  K=4   loopback_delay         ok        delay_ns 23.26 captures in later cals are aligned with this estimate
+  K=4   tx_iq                  ok        irr_min_db 55.82
+  K=4   group_delay            ok        error_ps -27.64
+  K=4   rx_iq                  ok        irr_min_db 55.23
+  K=4   tx_power               ok
+  K=4   dpd                    degraded  evm_db -25.02
+  K=4   agc_sweep              ok        worst_landing_err_db 0.12
+  K=4   final_loopback_evm     ok        tx_evm_modem_db -25.14 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  scoring waveform: 11ac 80 MHz (standard pilots); loopback EVM before/after: -22.5 / -27.5 dB  [~s]
+
+== K = 8, base 20 MHz -> 160 MHz at 0.32 GS/s ==
+  K=8   tx_lpf_corner          ok        fc_err_pct 0.00
+  K=8   rx_lpf_corner          ok        fc_err_pct 0.00
+  K=8   rx_dc_offset           ok        worst_dc_dbfs -69.86
+  K=8   tx_lo_leak_loopback    ok        lo_leak_dbc -68.11
+  K=8   loopback_delay         ok        delay_ns 14.72 captures in later cals are aligned with this estimate
+  K=8   tx_iq                  ok        irr_min_db 50.35
+  K=8   group_delay            ok        error_ps -40.82
+  K=8   rx_iq                  ok        irr_min_db 50.64
+  K=8   tx_power               ok
+  K=8   dpd                    ok        evm_db -26.48
+  K=8   agc_sweep              ok        worst_landing_err_db 0.26
+  K=8   final_loopback_evm     ok        tx_evm_modem_db -26.67 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  scoring waveform: 11ac 160 MHz (standard pilots); loopback EVM before/after: -22.0 / -29.6 dB  [~s]
+
+== K = 16, base 20 MHz -> 320 MHz at 0.64 GS/s ==
+  K=16  tx_lpf_corner          ok        fc_err_pct 0.00
+  K=16  rx_lpf_corner          ok        fc_err_pct 0.00
+  K=16  rx_dc_offset           ok        worst_dc_dbfs -67.07
+  K=16  tx_lo_leak_loopback    ok        lo_leak_dbc -55.03
+  K=16  loopback_delay         ok        delay_ns 10.48 captures in later cals are aligned with this estimate
+  K=16  tx_iq                  ok        irr_min_db 51.06
+  K=16  group_delay            ok        error_ps -17.92
+  K=16  rx_iq                  ok        irr_min_db 52.30
+  K=16  tx_power               ok
+  K=16  dpd                    ok        evm_db -26.40
+  K=16  agc_sweep              ok        worst_landing_err_db 0.05
+  K=16  final_loopback_evm     ok        tx_evm_modem_db -26.08 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  scoring waveform: 11be 320 MHz (standard pilots); loopback EVM before/after: -19.4 / -30.2 dB  [~s]
+
+== K = 32, base 20 MHz -> 640 MHz at 1.28 GS/s ==
+  K=32  tx_lpf_corner          ok        fc_err_pct 0.00
+  K=32  rx_lpf_corner          degraded  fc_err_pct 6.38
+  K=32  rx_dc_offset           ok        worst_dc_dbfs -64.08
+  K=32  tx_lo_leak_loopback    ok        lo_leak_dbc -50.85
+  K=32  loopback_delay         ok        delay_ns 8.09 captures in later cals are aligned with this estimate
+  K=32  tx_iq                  degraded  irr_min_db 46.78
+  K=32  group_delay            ok        error_ps -8.70
+  K=32  rx_iq                  degraded  irr_min_db 47.80
+  K=32  tx_power               ok
+  K=32  dpd                    degraded  evm_db -18.43
+  K=32  agc_sweep              ok        worst_landing_err_db 0.09
+  scoring waveform: no standard pilot set at this bandwidth; loopback EVM before/after: — / — dB  [~s]
+
+== K = 32, base 80 MHz -> 2560 MHz at 5.12 GS/s ==
+  K=32  tx_lpf_corner          ok        fc_err_pct 0.00
+  K=32  rx_lpf_corner          degraded  fc_err_pct 13.64
+  K=32  rx_dc_offset           ok        worst_dc_dbfs -57.79
+  K=32  tx_lo_leak_loopback    degraded  lo_leak_dbc -35.46
+  K=32  loopback_delay         ok        delay_ns 6.65 captures in later cals are aligned with this estimate
+  K=32  tx_iq                  degraded  irr_min_db 38.39
+  K=32  group_delay            ok        error_ps 7.94
+  K=32  rx_iq                  degraded  irr_min_db 41.77
+  K=32  tx_power               ok
+  K=32  dpd                    degraded  evm_db -22.29
+  K=32  agc_sweep              ok        worst_landing_err_db 0.05
+  scoring waveform: no standard pilot set at this bandwidth; loopback EVM before/after: — / — dB  [~s]
+
+== step × K (status, metric) ==
+step                              K=1 20M           K=4 80M          K=8 160M         K=16 320M         K=32 640M        K=32 2560M
+tx_lpf_corner                      ok 0.0            ok 0.0            ok 0.0            ok 0.0            ok 0.0            ok 0.0
+rx_lpf_corner                      ok 0.0            ok 0.0            ok 0.0            ok 0.0      degraded 6.4     degraded 13.6
+rx_dc_offset                     ok -78.8    degraded -72.9    degraded -69.9    degraded -67.1    degraded -64.1    degraded -57.8
+tx_lo_leak_loopback              ok -68.5          ok -72.2          ok -68.1    degraded -55.0    degraded -50.8    degraded -35.5
+loopback_delay                    ok 71.7           ok 23.3           ok 14.7           ok 10.5            ok 8.1            ok 6.7
+tx_iq                             ok 55.3           ok 55.8     degraded 50.4     degraded 51.1     degraded 46.8     degraded 38.4
+group_delay                       ok -6.1          ok -27.6          ok -40.8          ok -17.9           ok -8.7            ok 7.9
+rx_iq                             ok 56.3           ok 55.2     degraded 50.6     degraded 52.3     degraded 47.8     degraded 41.8
+tx_power                               ok                ok                ok                ok                ok                ok
+dpd                              ok -27.3    degraded -25.0          ok -26.5          ok -26.4    degraded -18.4    degraded -22.3
+agc_sweep                          ok 0.3            ok 0.1            ok 0.3            ok 0.0            ok 0.1            ok 0.1
+final_loopback_evm               ok -25.5          ok -25.1          ok -26.7          ok -26.1           skipped           skipped
+
+== mechanisms ==
+- tx_lpf_corner: 角频搜索相对 BW（recommended_lpf_corner_hz × BW），随 K 缩放；n = 2^14 样本的扫频分辨率随 fs 变粗
+- rx_lpf_corner: 同上
+- rx_dc_offset: 读 DC 箱，与 fs 无关；RX 自混频 DC 本身按 dBc 给定
+- tx_lo_leak_loopback: RX LO 偏置固定 4.8 MHz：泄漏箱偏到 4.8 MHz / SCS_eff 个子载波，K ≥ 8 时落进信号带内（2.5 MHz 音距）
+- loopback_delay: 6 ns 回环延迟 = 6e-9 × fs 个样本；capture_aligned 的 max_lag = 32 样本，fs ≥ 5.3 GS/s 时越界
+- tx_iq: RX LO 偏置固定 5.1 MHz、校正 FIR 7.5·fs/BW 抽头（随 K 不变）；IQ 失配 ps 绝对值在宽带上相位误差 ∝ K，可校正范围由 FIR 频率分辨率决定
+- group_delay: 容差固定 80 ps；ρ(f) 斜率估计的频率杠杆随 BW 增大，K 大时更准
+- rx_iq: 同 tx_iq
+- tx_power: 与 fs 无关
+- dpd: GMP ILA 在 fs_eff 上辨识；PA 无记忆时阶数/记忆深度冗余但收敛；观测通路 ADC ENOB 随 fs 下降是辨识噪声
+- agc_sweep: 探针音 23 MHz 固定（bw ≥ 80 MHz）；AGC 门限按 320 MHz 调
+- final_loopback_evm: 需要 wifitrx 标准带宽的导频波形（≤ 320 MHz）；更宽带宽没有评分波形
+
+[~s]

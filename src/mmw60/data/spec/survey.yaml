@@ -356,3 +356,137 @@ entries:
     source: derived
     cite: "derived.cfo_liu2025_hz / 156.25 kHz = 18.8"
     note: "只靠 L-LTF 两段估计（±SCS/2）要 K ≥ 18.8：K = 16 也接不住 2.94 MHz，必须有 STF 粗估计。"
+
+  # ------------------------------------------------------------ 里程碑 1 拓扑 B：前端
+  fcc15255.band_low_hz:
+    value: 57.0e+9
+    unit: Hz
+    source: survey
+    cite: "47 CFR §15.255(a): 57–71 GHz"
+    note: "未核实：条文原文未贴入。"
+
+  fcc15255.band_high_hz:
+    value: 71.0e+9
+    unit: Hz
+    source: survey
+    cite: "47 CFR §15.255(a): 57–71 GHz"
+    note: "未核实。"
+
+  ieee80211ay.channel_centres_ghz:
+    value: [58.32, 60.48, 62.64, 64.80, 66.96, 69.12]
+    unit: GHz
+    source: survey
+    cite: "IEEE 802.11ay 2.16 GHz channelization, channels 1–6 (channel 8 = 73.44 GHz per Liu 2025 is outside 57–71 GHz)"
+    note: "未核实：按 802.11ad/ay 信道化的通用知识列出，原文表未贴入。"
+
+  survey.dsp_ip_dpd_poly_p4:
+    value: {ddr_r1_w16: {terms: 140, area_mm2: 8.026, f_clk_mhz: 682}, gmp510_w16: {terms: 255, area_mm2: 14.173, f_clk_mhz: 682}}
+    unit: NanGate45 estimate
+    source: survey
+    cite: "alexyudragonsword-collab/dsp_ip@2887659e339c67c3819a27ac3da8e28ea93857f8 docs/results.md 'Parallelism × frequency × area', P = 4 rows"
+    note: "未核实（姊妹库综合估计，yosys+OpenROAD，无功耗数）；2727 MSPS = 682 MHz × 4。"
+
+  survey.horowitz_mult32_pj:
+    value: 3.1
+    unit: pJ
+    source: survey
+    cite: "Horowitz, ISSCC 2014 '1.1 Computing's energy problem' 32-bit int multiply at 45 nm, 0.9 V；经 Halo_Serdes analysis/power.py PowerCoefficients"
+    note: "未核实：照 Halo 示例 41 的口径。"
+
+  survey.horowitz_add32_pj:
+    value: 0.1
+    unit: pJ
+    source: survey
+    cite: "Horowitz, ISSCC 2014, 32-bit int add at 45 nm；经 Halo_Serdes PowerCoefficients"
+    note: "未核实。"
+
+  assumed.converter_enob_ref:
+    value: 10.0
+    unit: bit
+    source: assumed
+    cite: "本库"
+    note: "1 GS/s 处的 ENOB 参考点（WiFi 7 芯片 12 bit DAC / 11 bit ADC 在 ≤ 1.28 GS/s 的量级）；K 倍速率按 assumed.converter_bits_per_octave 递减。"
+
+  assumed.converter_bits_per_octave:
+    value: 0.5
+    unit: bit/octave
+    source: assumed
+    cite: "本库；趋势量级参考 Murmann ADC survey 的 Schreier FoM 包络（SNDR 每倍频 −3 dB）"
+    note: "常数 Schreier FoM 下 ENOB 每倍采样率降 0.5 bit；常数 Walden FoM、恒功率下是 1 bit/octave（悲观端，示例 02 灵敏度）。"
+
+  assumed.converter_backoff_db:
+    value: 12.0
+    unit: dB
+    source: assumed
+    cite: "本库；与 wifitrx RxParams.adc_backoff_db 相同"
+    note: "OFDM rms 低于转换器满量程的余量（PAPR）。"
+
+  assumed.pa60_psat_dbm:
+    value: 15.0
+    unit: dBm
+    source: assumed
+    cite: "本库；60 GHz CMOS PA 单路 Psat 的量级"
+    note: "只影响绝对功率 / EIRP 列，不影响 OBO 固定时的 EVM。"
+
+  assumed.pa60_gain_db:
+    value: 20.0
+    unit: dB
+    source: assumed
+    cite: "本库"
+    note: "同上。"
+
+  assumed.lo_leak_dbc:
+    value: -30.0
+    unit: dBc
+    source: assumed
+    cite: "本库；wifitrx TxParams.randomize 的 −32…−22 dBm 泄漏对 ~−10 dBm 调制器信号即 −22…−12 dBc，60 GHz 取校准前 −30 dBc"
+    note: "零中频下落在 DC，CFO 纠正后偏到 2.94 MHz / SCS_eff 个子载波处。"
+
+  assumed.rx_dc_dbc:
+    value: -25.0
+    unit: dBc
+    source: assumed
+    cite: "本库"
+    note: "RX 自混频直流相对基带信号。"
+
+  assumed.iq_mismatch:
+    value: {gain_db: 0.25, phase_deg: 1.5, gd_mismatch_ps: 150, rail_ripple_db: 0.3, rail_gd_ripple_ns: 0.12}
+    unit: wifitrx FreqDepIQImbalance
+    source: assumed
+    cite: "本库；wifitrx TxParams.randomize 各范围的中点"
+    note: "绝对单位（ps、ns）：同一个器件在 K 倍带宽上的频率相关 IQ 不平衡随之变差，这是物理。"
+
+  survey.n_sd_11ac:
+    value: {20.0e+6: 52, 40.0e+6: 108, 80.0e+6: 234, 160.0e+6: 468}
+    unit: data subcarriers
+    source: survey
+    cite: "IEEE 802.11-2020 VHT N_SD per bandwidth (Table 21-5)"
+    note: "未核实：原文表未贴入；20 MHz 的 52 与 phy/mcs.py 一致。"
+
+  survey.n_sd_11be:
+    value: {20.0e+6: 234, 40.0e+6: 468, 80.0e+6: 980, 160.0e+6: 1960, 320.0e+6: 3920}
+    unit: data subcarriers
+    source: survey
+    cite: "IEEE 802.11be EHT N_SD per bandwidth (RU 242/484/996/2×996/4×996 minus pilots)"
+    note: "未核实：原文表未贴入。"
+
+  assumed.mcs_evm_margin_db:
+    value: 3.0
+    unit: dB
+    source: assumed
+    cite: "本库"
+    note: "网格判定'能'的口径：损伤 EVM 底板要低于该 MCS 的 TX EVM 要求（wifitrx link/mcs.py tx_evm_limit_db）3 dB，给热噪声留余量。"
+
+  assumed.dpd_rate_over_bw:
+    value: 4.0
+    unit: ratio
+    source: assumed
+    cite: "本库；dsp_ip dpd_poly 的目标 640 MSPS 对应 160 MHz（4×）"
+    note: "DPD 数据通路采样率 = 4 × 信道带宽（5 阶预失真展宽）。"
+
+  assumed.irr_after_cal_db:
+    value: 45.0
+    unit: dB
+    source: assumed
+    cite: "本库；wifitrx tx_iq / rx_iq 步骤的验收 spec 是 irr_db ≥ 50 dB（320 MHz），留 5 dB"
+    note: "网格的'IQ 校准后'列用的每侧残余镜像抑制；示例 03 在每个 K 上实测校准后的 IRR，对不上时以实测为准。"

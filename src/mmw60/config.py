@@ -23,6 +23,7 @@ TOPOLOGIES = ("if_extender", "upclock_zero_if")
 CFO_MODES = ("off", "ltf", "stf_ltf", "extended")
 PN_SIDES = ("off", "tx", "rx", "both")
 CHANNELS = ("flat", "tdl_exp", "tap_table")
+FRONTEND_MODELS = ("behavioural", "zero_if_chain")
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,10 @@ class PhyConfig:
     stf_periods: int = 10
     scrambler_seed: int = 93
     pilot_seed: int = 42
+    #: OFDM symbols per packet when the base is not the coded VHT 20 MHz
+    #: (EVM-only runs on wifitrx's random-QAM payload)
+    evm_symbols: int = 16
+    evm_qam_order: int = 16
 
     @property
     def subcarrier_spacing_hz(self) -> float:
@@ -91,8 +96,39 @@ class ArrayConfig:
 
 
 @dataclass(frozen=True)
+class ConverterConfig:
+    """ENOB vs sample rate (data/spec: assumed.converter_*)."""
+    enob_ref: float = 10.0
+    fs_ref_hz: float = 1.0e9
+    bits_per_octave: float = 0.5
+    backoff_db: float = 12.0
+    enabled: bool = False             # True: wifitrx DAC/ADC quantise at ENOB(fs_eff)
+
+
+@dataclass(frozen=True)
+class IqConfig:
+    """Quadrature mismatch in wifitrx's units (data/spec: assumed.iq_mismatch)."""
+    gain_db: float = 0.25
+    phase_deg: float = 1.5
+    gd_mismatch_ps: float = 150.0
+    rail_ripple_db: float = 0.3
+    rail_gd_ripple_ns: float = 0.12
+    enabled: bool = False
+
+
+@dataclass(frozen=True)
 class FrontendConfig:
+    #: behavioural = milestone-0 chain (PA → PN → channel → CFO → PN → AWGN);
+    #: zero_if_chain = wifitrx TxChain / RxChain at fs_eff built from Frontend60
+    model: str = "behavioural"
     pa: PaConfig = field(default_factory=PaConfig)
+    pa_gain_db: float = 20.0           # data/spec: assumed.pa60_gain_db
+    psat_dbm: float = 15.0             # data/spec: assumed.pa60_psat_dbm
+    converters: ConverterConfig = field(default_factory=ConverterConfig)
+    iq: IqConfig = field(default_factory=IqConfig)
+    lo_leak_dbc: float | None = None   # data/spec: assumed.lo_leak_dbc
+    rx_dc_dbc: float | None = None     # data/spec: assumed.rx_dc_dbc
+    antenna_gain_dbi: float = 0.0
     eirp_limit_dbm: float | None = None
     array: ArrayConfig = field(default_factory=ArrayConfig)
 
@@ -145,6 +181,8 @@ class Mmw60Config:
             raise ValueError("upclock_k must be >= 1")
         if self.frontend.pa.obo_reference not in ("psat", "p1db"):
             raise ValueError("frontend.pa.obo_reference must be psat | p1db")
+        if self.frontend.model not in FRONTEND_MODELS:
+            raise ValueError(f"frontend.model must be one of {FRONTEND_MODELS}")
 
     # --- derived ---------------------------------------------------------
     @property
@@ -162,7 +200,7 @@ class Mmw60Config:
         kw = dict(bandwidth_hz=p.bandwidth_hz, subcarrier_spacing_hz=p.subcarrier_spacing_hz,
                   cp_fraction=p.cp_fraction, window_fraction=p.window_fraction,
                   oversampling=p.oversampling, n_symbols=int(n_symbols), seed=self.seed,
-                  qam_order=4)
+                  qam_order=(4 if self.coded else p.evm_qam_order))
         if p.standard == "11ac" and p.bandwidth_hz == 20e6:
             kw["tone_plan"] = contiguous(56)
         return OFDMConfig(**kw)
@@ -171,9 +209,17 @@ class Mmw60Config:
         return UpclockedPhy(self.base_ofdm(n_symbols), int(self.upclock_k))
 
     @property
+    def coded(self) -> bool:
+        """The VHT 20 MHz data field is the only coded (PER-capable) base; every
+        other base runs EVM-only on wifitrx's random-QAM payload."""
+        return self.phy.standard == "11ac" and self.phy.bandwidth_hz == 20e6
+
+    @property
     def impairments_on(self) -> dict:
+        fe = self.frontend
         return {"cfo": self.cfo_hz != 0.0, "phase_noise": self.lo.phase_noise.enabled,
-                "pa": self.frontend.pa.enabled}
+                "pa": fe.pa.enabled, "converters": fe.converters.enabled, "iq": fe.iq.enabled,
+                "lo_leak": fe.lo_leak_dbc is not None, "rx_dc": fe.rx_dc_dbc is not None}
 
     def ideal(self) -> "Mmw60Config":
         """The same link with CFO, phase noise and PA off (the paper's
@@ -182,8 +228,11 @@ class Mmw60Config:
             self, xo_ppm_tx=0.0, xo_ppm_rx=0.0,
             lo=dataclasses.replace(self.lo, phase_noise=dataclasses.replace(
                 self.lo.phase_noise, apply="off")),
-            frontend=dataclasses.replace(self.frontend, pa=dataclasses.replace(
-                self.frontend.pa, model="ideal")),
+            frontend=dataclasses.replace(
+                self.frontend, pa=dataclasses.replace(self.frontend.pa, model="ideal"),
+                converters=dataclasses.replace(self.frontend.converters, enabled=False),
+                iq=dataclasses.replace(self.frontend.iq, enabled=False),
+                lo_leak_dbc=None, rx_dc_dbc=None),
             label=(self.label + " ideal").strip())
 
     def with_(self, **top) -> "Mmw60Config":
@@ -237,6 +286,7 @@ _NESTED = {
     (Mmw60Config, "frontend"): FrontendConfig, (Mmw60Config, "channel"): ChannelConfig,
     (Mmw60Config, "rx"): RxConfig, (LoConfig, "phase_noise"): PhaseNoiseConfig,
     (FrontendConfig, "pa"): PaConfig, (FrontendConfig, "array"): ArrayConfig,
+    (FrontendConfig, "converters"): ConverterConfig, (FrontendConfig, "iq"): IqConfig,
 }
 
 
@@ -270,6 +320,30 @@ def liu2025_table2(k: int = 8, mcs: int = 0, **top) -> Mmw60Config:
         rx=RxConfig(cfo_estimation="stf_ltf", ce_smooth_tones=int(s("assumed.ce_smooth_tones"))),
         label=f"Liu2025 K={k} MCS{mcs}",
     )
+    return dataclasses.replace(cfg, **top) if top else cfg
+
+
+def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz: float = 20e6,
+                  carrier_hz: float = 60.48e9, **top) -> Mmw60Config:
+    """Topology B on the wifitrx zero-IF chain at fs_eff with the 60 GHz front
+    end switched on (converters at ENOB(fs_eff), IQ mismatch, LO leakage, RX
+    DC); Liu 2025's crystal / phase-noise / PA numbers; carrier on an 802.11ay
+    channel centre inside 57–71 GHz (data/spec: ieee80211ay.channel_centres_ghz)."""
+    s = spec.value
+    base = liu2025_table2(k=k, mcs=mcs)
+    fe = FrontendConfig(
+        model="zero_if_chain",
+        pa=base.frontend.pa,
+        pa_gain_db=float(s("assumed.pa60_gain_db")), psat_dbm=float(s("assumed.pa60_psat_dbm")),
+        converters=ConverterConfig(enob_ref=float(s("assumed.converter_enob_ref")),
+                                   bits_per_octave=float(s("assumed.converter_bits_per_octave")),
+                                   backoff_db=float(s("assumed.converter_backoff_db")), enabled=True),
+        iq=IqConfig(**{k2: float(v) for k2, v in s("assumed.iq_mismatch").items()}, enabled=True),
+        lo_leak_dbc=float(s("assumed.lo_leak_dbc")), rx_dc_dbc=float(s("assumed.rx_dc_dbc")))
+    cfg = dataclasses.replace(base, carrier_hz=float(carrier_hz), frontend=fe,
+                              phy=dataclasses.replace(base.phy, standard=standard,
+                                                      bandwidth_hz=float(bandwidth_hz)),
+                              label=f"zero-IF 60 GHz {standard} {bandwidth_hz / 1e6:g} MHz x{k} MCS{mcs}")
     return dataclasses.replace(cfg, **top) if top else cfg
 
 

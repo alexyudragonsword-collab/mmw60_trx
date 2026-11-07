@@ -1,0 +1,118 @@
+engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
+mmw60 0.1.0; full; front end: PA rapp_11ad Psat 15 dBm OBO 8 dB from psat -> Pout 7 dBm; LO IPN -31.1 dBc (10 kHz–100 MHz); TX leak -30 dBc; RX DC -25 dBc; IQ 150 ps / 1.5 deg / 0.25 dB; converters ENOB 10 @ 1 GS/s, -0.5 bit/octave; crystal 20+20 ppm at 60.48 GHz = 2.419 MHz; channel tdl_exp 7 ns / LOS 10 dB
+PA isolated EVM at this OBO (K-independent, memoryless): -18.1 dB
+verdict: 能 = CFO captured, plan fits, MCS0 reachable with the floor 3 dB under the MCS TX-EVM limit; maxMCS = uncorrected IQ; IQcal = IQ image at the calibrated residual (assumed.irr_after_cal_db); no-PA = the front end without the PA term (the back-off is the designer's knob per MCS, the rest is not)
+
+std    base   K    BW[GHz] SCS[MHz] floor   TD-EVM  maxMCS IQcal  no-PA   maxMCS verdict reason                 isolated TD EVM [dB]
+11ac     20 x4     0.08   1.25   -17.3  -17.5   MCS2   MCS2   -25.4   MCS5 能    PA 限 MCS               pn:-25 iq:-26 conv:-39 pa:-19 cfo:-40
+11ac     20 x8     0.16   2.50   -17.4  -17.5   MCS2   MCS2   -26.0   MCS5 能    PA 限 MCS               pn:-26 iq:-25 conv:-39 pa:-19 cfo:-40
+11ac     20 x16    0.32   5.00   -17.1  -17.2   MCS2   MCS2   -24.1   MCS4 能    PA 限 MCS               pn:-27 iq:-21 conv:-39 pa:-19 cfo:-40
+11ac     20 x32    0.64  10.00   -15.2  -15.4   MCS1   MCS2   -18.3   MCS2 能    PA 限 MCS               pn:-29 iq:-15 conv:-39 pa:-19 cfo:-40
+11ac     40 x4     0.16   1.25   -17.3  -17.5   MCS2   MCS2   -25.1   MCS5 能    PA 限 MCS               pn:-26 iq:-26 conv:-40 pa:-19 cfo:-40
+11ac     40 x8     0.32   2.50   -17.0  -17.2   MCS2   MCS2   -23.5   MCS4 能    PA 限 MCS               pn:-27 iq:-21 conv:-39 pa:-19 cfo:-40
+11ac     40 x16    0.64   5.00   -15.5  -15.3   MCS1   MCS2   -18.9   MCS2 能    PA 限 MCS               pn:-29 iq:-15 conv:-39 pa:-19 cfo:-40
+11ac     40 x32    1.28  10.00   -11.7  -11.6   MCS0   MCS2   -12.8   MCS0 能    IQ 不平衡 限 MCS           pn:-30 iq:-9 conv:-37 pa:-19 cfo:-40
+11ac     80 x4     0.32   1.25   -16.8  -16.8   MCS2   MCS2   -22.7   MCS4 能    PA 限 MCS               pn:-27 iq:-21 conv:-41 pa:-19 cfo:-43
+11ac     80 x8     0.64   2.50   -15.2  -14.7   MCS1   MCS2   -18.4   MCS2 能    PA 限 MCS               pn:-28 iq:-15 conv:-41 pa:-19 cfo:-43
+11ac     80 x16    1.28   5.00   -11.5  -10.3   MCS0   MCS2   -12.5   MCS0 能    IQ 不平衡 限 MCS           pn:-29 iq:-8 conv:-38 pa:-19 cfo:-43
+11ac     80 x32    2.56  10.00    -5.8   -5.3    —     MCS2    -6.0    —   不能   IQ 不平衡                 pn:-30 iq:-1 conv:-38 pa:-19 cfo:-43
+11ac    160 x4     0.64   1.25   -15.1  -14.3   MCS1   MCS2   -18.2   MCS2 能    PA 限 MCS               pn:-25 iq:-15 conv:-44 pa:-19 cfo:-48
+11ac    160 x8     1.28   2.50   -11.5  -10.2   MCS0   MCS2   -12.5   MCS0 能    IQ 不平衡 限 MCS           pn:-25 iq:-8 conv:-39 pa:-19 cfo:-48
+11ac    160 x16    2.56   5.00    -5.8   -4.4    —     MCS2    -6.1    —   不能   IQ 不平衡                 pn:-26 iq:-1 conv:-39 pa:-19 cfo:-48
+11ac    160 x32    5.12  10.00     2.6    5.3    —     MCS2     2.6    —   不能   IQ 不平衡                 pn:-27 iq:5 conv:-34 pa:-19 cfo:-48
+11be     20 x4     0.08   0.31   -17.2  -17.5   MCS2   MCS2   -24.4   MCS4 能    PA 限 MCS               pn:-25 iq:-26 conv:-44 pa:-19 cfo:-44
+11be     20 x8     0.16   0.62   -17.2  -17.4   MCS2   MCS2   -24.5   MCS4 能    PA 限 MCS               pn:-26 iq:-25 conv:-44 pa:-19 cfo:-44
+11be     20 x16    0.32   1.25   -16.8  -16.9   MCS2   MCS2   -22.6   MCS4 能    PA 限 MCS               pn:-27 iq:-21 conv:-42 pa:-19 cfo:-44
+11be     20 x32    0.64   2.50   -14.8  -14.9   MCS1   MCS2   -17.7   MCS2 能    PA 限 MCS               pn:-28 iq:-15 conv:-42 pa:-19 cfo:-45
+11be     40 x4     0.16   0.31   -17.1  -17.0   MCS2   MCS2   -24.2   MCS4 能    PA 限 MCS               pn:-25 iq:-26 conv:-46 pa:-19 cfo:-47
+11be     40 x8     0.32   0.62   -16.7  -16.5   MCS2   MCS2   -22.3   MCS4 能    PA 限 MCS               pn:-25 iq:-21 conv:-44 pa:-19 cfo:-47
+11be     40 x16    0.64   1.25   -15.1  -14.6   MCS1   MCS2   -18.2   MCS2 能    PA 限 MCS               pn:-27 iq:-15 conv:-44 pa:-19 cfo:-47
+11be     40 x32    1.28   2.50   -11.3  -10.4   MCS0   MCS2   -12.3   MCS0 能    IQ 不平衡 限 MCS           pn:-28 iq:-8 conv:-39 pa:-19 cfo:-47
+11be     80 x4     0.32   0.31   -16.6  -16.5   MCS2   MCS2   -22.0   MCS3 能    PA 限 MCS               pn:-24 iq:-20 conv:-44 pa:-19 cfo:-48
+11be     80 x8     0.64   0.62   -14.9  -14.5   MCS1   MCS2   -17.9   MCS2 能    PA 限 MCS               pn:-25 iq:-14 conv:-44 pa:-19 cfo:-48
+11be     80 x16    1.28   1.25   -11.2  -10.2   MCS0   MCS2   -12.2   MCS0 能    IQ 不平衡 限 MCS           pn:-25 iq:-8 conv:-39 pa:-19 cfo:-48
+11be     80 x32    2.56   2.50    -5.5   -3.9    —     MCS2    -5.8    —   不能   IQ 不平衡                 pn:-26 iq:-1 conv:-39 pa:-19 cfo:-48
+11be    160 x4     0.64   0.31   -14.9  -14.7   MCS1   MCS2   -17.8   MCS2 能    PA 限 MCS               pn:-25 iq:-14 conv:-46 pa:-19 cfo:-57
+11be    160 x8     1.28   0.62   -11.2  -10.4   MCS0   MCS2   -12.2   MCS0 能    IQ 不平衡 限 MCS           pn:-26 iq:-8 conv:-40 pa:-19 cfo:-57
+11be    160 x16    2.56   1.25    -5.6   -3.2    —     MCS2    -5.8    —   不能   IQ 不平衡                 pn:-27 iq:-1 conv:-40 pa:-19 cfo:-57
+11be    160 x32    5.12   2.50     3.1   11.6    —     MCS2     3.0    —   不能   IQ 不平衡                 pn:-27 iq:4 conv:-34 pa:-19 cfo:-57
+11be    320 x4     1.28   0.31   -11.2  -10.6   MCS0   MCS2   -12.2   MCS0 能    IQ 不平衡 限 MCS           pn:-25 iq:-8 conv:-40 pa:-18 cfo:-56
+11be    320 x8     2.56   0.62    -5.5   -4.4    —     MCS2    -5.8    —   不能   IQ 不平衡                 pn:-25 iq:-1 conv:-40 pa:-18 cfo:-56
+11be    320 x16    5.12   1.25     3.1   12.4    —     MCS2     3.0    —   不能   IQ 不平衡                 pn:-26 iq:4 conv:-34 pa:-18 cfo:-56
+11be    320 x32   10.24   2.50    22.6   11.4    —     MCS2    22.6    —   不能   频率规划, IQ 不平衡           pn:-26 iq:4 conv:-34 pa:-18 cfo:-56
+
+== analytic terms per cell [dB] ==
+std    base   K   pn     iq    conv   pa     isi   | plan in band  channels  fs_eff[GS/s]  ENOB
+11ac     20 x4    -26.7  -31.2  -58.5  -18.1 -134.5 | yes            175        0.16      11.3
+11ac     20 x8    -28.0  -30.4  -55.5  -18.1  -72.5 | yes             87        0.32      10.8
+11ac     20 x16   -29.8  -25.5  -52.5  -18.1  -41.4 | yes             43        0.64      10.3
+11ac     20 x32   -31.6  -19.4  -49.5  -18.1  -25.9 | yes             21        1.28       9.8
+11ac     40 x4    -26.6  -30.4  -55.4  -18.1 -134.5 | yes             87        0.32      10.8
+11ac     40 x8    -27.9  -25.5  -52.4  -18.1  -72.5 | yes             43        0.64      10.3
+11ac     40 x16   -29.5  -19.4  -49.4  -18.1  -41.4 | yes             21        1.28       9.8
+11ac     40 x32   -30.9  -13.1  -46.4  -18.1  -25.9 | yes             10        2.56       9.3
+11ac     80 x4    -26.6  -24.9  -52.1  -18.1 -134.5 | yes             43        0.64      10.3
+11ac     80 x8    -27.7  -18.9  -49.1  -18.1  -72.5 | yes             21        1.28       9.8
+11ac     80 x16   -29.0  -12.6  -46.1  -18.1  -41.4 | yes             10        2.56       9.3
+11ac     80 x32   -29.7   -6.1  -43.1  -18.1  -25.9 | yes              5        5.12       8.8
+11ac    160 x4    -26.4  -18.9  -49.1  -18.1 -134.5 | yes             21        1.28       9.8
+11ac    160 x8    -27.4  -12.7  -46.1  -18.1  -72.5 | yes             10        2.56       9.3
+11ac    160 x16   -28.2   -6.1  -43.1  -18.1  -41.4 | yes              5        5.12       8.8
+11ac    160 x32   -28.0    2.5  -40.1  -18.1  -25.9 | yes              2       10.24       8.3
+11be     20 x4    -25.5  -31.2  -58.2  -18.1 -134.5 | yes            175        0.16      11.3
+11be     20 x8    -25.8  -30.2  -55.2  -18.1  -72.5 | yes             87        0.32      10.8
+11be     20 x16   -26.6  -24.9  -52.1  -18.1  -41.4 | yes             43        0.64      10.3
+11be     20 x32   -27.7  -18.9  -49.1  -18.1  -25.9 | yes             21        1.28       9.8
+11be     40 x4    -25.4  -30.2  -55.2  -18.1 -134.5 | yes             87        0.32      10.8
+11be     40 x8    -25.8  -25.0  -52.1  -18.1  -72.5 | yes             43        0.64      10.3
+11be     40 x16   -26.4  -18.9  -49.1  -18.1  -41.4 | yes             21        1.28       9.8
+11be     40 x32   -27.4  -12.7  -46.1  -18.1  -25.9 | yes             10        2.56       9.3
+11be     80 x4    -25.4  -24.7  -52.0  -18.1 -134.5 | yes             43        0.64      10.3
+11be     80 x8    -25.7  -18.6  -49.0  -18.1  -72.5 | yes             21        1.28       9.8
+11be     80 x16   -26.2  -12.4  -46.0  -18.1  -41.4 | yes             10        2.56       9.3
+11be     80 x32   -26.8   -5.8  -43.0  -18.1  -25.9 | yes              5        5.12       8.8
+11be    160 x4    -25.3  -18.7  -49.0  -18.1 -134.5 | yes             21        1.28       9.8
+11be    160 x8    -25.5  -12.4  -46.0  -18.1  -72.5 | yes             10        2.56       9.3
+11be    160 x16   -25.8   -5.8  -43.0  -18.1  -41.4 | yes              5        5.12       8.8
+11be    160 x32   -25.9    3.0  -40.0  -18.1  -25.9 | yes              2       10.24       8.3
+11be    320 x4    -25.1  -12.4  -46.0  -18.1 -134.5 | yes             10        2.56       9.3
+11be    320 x8    -25.1   -5.9  -43.0  -18.1  -72.5 | yes              5        5.12       8.8
+11be    320 x16   -25.0    3.0  -40.0  -18.1  -41.4 | yes              2       10.24       8.3
+11be    320 x32   -24.4   22.6  -37.0  -18.1  -25.9 | NO               1       20.48       7.8
+
+== data rate at the top MCS and the DPD cost per bit (dsp_ip dpd_poly P = 4, DDR r = 1, Horowitz 45 nm ops) ==
+std    base   K   maxMCS  rate[Mb/s]  DPD rate[GS/s]  pJ/bit   P=4 datapaths
+11ac     20 x4   MCS2           78       0.32          474     0.12
+11ac     20 x8   MCS2          156       0.64          474     0.23
+11ac     20 x16  MCS2          312       1.28          474     0.47
+11ac     20 x32  MCS1          416       2.56          711     0.94
+11ac     40 x4   MCS2          162       0.64          456     0.23
+11ac     40 x8   MCS2          324       1.28          456     0.47
+11ac     40 x16  MCS1          432       2.56          684     0.94
+11ac     40 x32  MCS0          432       5.12         1369     1.88
+11ac     80 x4   MCS2          351       1.28          421     0.47
+11ac     80 x8   MCS1          468       2.56          632     0.94
+11ac     80 x16  MCS0          468       5.12         1264     1.88
+11ac    160 x4   MCS1          468       2.56          632     0.94
+11ac    160 x8   MCS0          468       5.12         1264     1.88
+11be     20 x4   MCS2          103       0.32          358     0.12
+11be     20 x8   MCS2          206       0.64          358     0.23
+11be     20 x16  MCS2          413       1.28          358     0.47
+11be     20 x32  MCS1          551       2.56          537     0.94
+11be     40 x4   MCS2          206       0.64          358     0.23
+11be     40 x8   MCS2          413       1.28          358     0.47
+11be     40 x16  MCS1          551       2.56          537     0.94
+11be     40 x32  MCS0          551       5.12         1074     1.88
+11be     80 x4   MCS2          432       1.28          342     0.47
+11be     80 x8   MCS1          576       2.56          513     0.94
+11be     80 x16  MCS0          576       5.12         1026     1.88
+11be    160 x4   MCS1          576       2.56          513     0.94
+11be    160 x8   MCS0          576       5.12         1026     1.88
+11be    320 x4   MCS0          576       5.12         1026     1.88
+
+== sensitivity: converters at -1 bit/octave (constant Walden FoM) ==
+11ac     20 x16  ENOB 10.6  conv term  -54.4 dB  floor  -17.1  maxMCS 2
+11be     80 x16  ENOB  8.6  conv term  -41.9 dB  floor  -11.2  maxMCS 0
+11be    160 x32  ENOB  6.6  conv term  -29.9 dB  floor    3.1  maxMCS None
+
+[~s]
