@@ -1,5 +1,8 @@
 """Which commit of a push moved the numbers -- and did it say so?
 
+(d2d_link tools/fingerprint_walk.py; one adaptation: mmw60's ``fingerprint.compare`` returns the
+list of differences itself, not a ``(summary, diffs)`` pair.)
+
 The CI fingerprint job compares the push's base with its head. Until 0.13.10
 a ``(numbers-move`` marker on *any* commit in the range waived the whole
 range: a push of a marked commit and an unmarked one let an accidental move
@@ -69,7 +72,7 @@ def record_at(sha: str, out: Path) -> dict:
 def settle(base: str, base_fp: dict, head_fp: dict, labels: list[str], max_walk: int, recorder=record_at,
            shas: list[str] | None = None, is_marked=marked) -> tuple[bool, list[str]]:
     """``(ok, messages)`` for a range whose head may differ from its base."""
-    n = len(fp.compare(base_fp, head_fp)[1])
+    n = len(fp.compare(base_fp, head_fp))
     if n == 0:
         return True, ["fingerprint bit-identical over the range"]
     if "numbers-move" in labels:
@@ -86,7 +89,7 @@ def settle(base: str, base_fp: dict, head_fp: dict, labels: list[str], max_walk:
     prev = base_fp
     for i, s in enumerate(shas):
         cur = head_fp if i == len(shas) - 1 else recorder(s, Path(tempfile.mkstemp(suffix=".json")[1]))
-        k = len(fp.compare(prev, cur)[1])
+        k = len(fp.compare(prev, cur))
         state = "marked" if flags[s] else "unmarked"
         msgs.append(f"{s[:7]} {state}: {k} values moved")
         if k and not flags[s]:

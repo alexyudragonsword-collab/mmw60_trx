@@ -32,6 +32,7 @@ def main(argv=None) -> int:
     print(ENGINE_BANNER)
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true")
+    ap.add_argument("--jobs", type=int, default=1, help="accepted for symmetry with examples 00 / 01; this example is serial")
     a = ap.parse_args(argv)
     quick = a.quick or os.environ.get("MMW60_SMOKE") == "1"
     t0 = time.time()
