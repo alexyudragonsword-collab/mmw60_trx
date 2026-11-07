@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### 同台表与预算报表 —— ROADMAP A3（2026-11-07）
+- `mmw60.compare`：`scheme_matrix` 点名全部 8 个（拓扑 × 波形）格子（建好的有数字，没建的写里程碑 / n/a）；每行数字学、CFO 捕获、解析底板、时域 EVM、wifitrx `EvmBudget` 对账、MCS 上限（未校准 / 示例 03 实测 IRR）、速率与 b/s/Hz、EIRP 余量、功率分块；`sensitivity` 在每个系数的区间端点重跑并列出动了什么。为什么：铁律 2 要的是"每种方案在同一个实例上同台"，表必须把没建的方案也点名。
+- `mmw60.power`（Halo 示例 41 口径）：PA 直流、两只频综、I/Q 转换器（Walden）、DPD（dsp_ip × Horowitz）、基准尺寸 FFT、Viterbi，读比值不读总量；系数全部进 `survey.yaml`（survey / assumed）。
+- `PhaseNoiseConfig.model: pole_zero | wifitrx_wifi7 | profile | off`：WiFi 7 频综的 vendored 剖面，以及 pllsim 时钟剖面文件（Halo 的 wu19 原样复制到 `data/clock_profiles/`）按 20·log10 N 搬到载频（D2 的占位）；`FrontendConfig.pa_pae_max`；预设 `wifi7_chain_k1`（同一前端在 1× 的 WiFi 7 链）；`guispec` 19 个 Knob。
+- 铁律 2 的完整测试 `test_law2_every_scheme_on_the_shared_frontend_reads_the_k1_evm_when_ideal`（理想实例共用、每种已建方案 < 0.1 dB；A / ay skip 并写明里程碑）；`tests/test_compare.py` +12 个函数（矩阵格参数化后非慢测试 84 → 107 项，6 项按里程碑 skip）；`tools/budget_report.py`（d2d 写法）；示例 04 + expected + 3 条 derived 引用。里程碑 0 / 1-B 指纹逐位不变。
+- 数字与被推翻的判断：`cairn/comparison-table.md`、`cairn/LOG.md` 2026-11-07。
+
 ### 方案枚举与 ROADMAP 结构（2026-11-07）
 - `Mmw60Config.waveform: be | be_upclocked | ay_ofdm | ay_sc`（ay 两项在里程碑 3 之前抛 NotImplementedError，与拓扑 A 在里程碑 1 之前同法）；铁律 1–4 的措辞改为"每种方案（拓扑 × 波形）"；守护测试 `test_law1_waveform_enum_is_complete_and_ay_refuses`；指纹逐位不变。
 - CI 修复：示例 02 / 03 接受 `--jobs`（`pytest -q` 的 slow 冒烟测试传它）；`tools/fingerprint_walk.py` 适配本库 `compare` 返回列表（原先按 d2d 的二元组取 `[1]`，PR 的 fingerprint 作业因此 IndexError）。

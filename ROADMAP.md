@@ -10,15 +10,16 @@
 验收：LO 底噪每差 10 dB，MCS 上限变化方向与 `EvmBudget` 的 CPE / ICI 预算一致、差 < 1 dB；有观测回环比无回环好的 dB 数进 LOG。
 
 ### A2. 拓扑 B 的剩余项（主体已在里程碑 1-B 落地：`cairn/topology-b.md`）
-- 校准后的 IQ 残余（示例 03 实测的 irr_min_db）回填网格的 "IQcal" 列，替代 `assumed.irr_after_cal_db`（45 dB）。
+- 示例 02 网格的 "IQcal" 列仍用 `assumed.irr_after_cal_db`（45 dB）；同台表（示例 04）已换成示例 03 实测的 `derived.irr_after_cal_measured_db`，一格结论都没动（`cairn/comparison-table.md` §6 ④），网格要不要跟着换只是口径统一的问题。
 - 11be 基准的编码 PER（现在只有 11ac 20 MHz 有编码数据域，其余基准 EVM-only）：需要 EHT 的 LDPC / 交织表，排在 ay 波形之前。
 - 转换器 ENOB 随速率的法则（`assumed.converter_bits_per_octave`）换成 Murmann 调查表的实测包络（拿到表后标 survey）。
 - DPD 的 2.56 GHz 代价现在是 dsp_ip P=4 综合面积 + Horowitz 运算能耗的记账；PA_DPD 的带宽项到了再换（D）。
 
-### A3. 同台表与预算报表
-含 K = 1 基线行；60 GHz 前端、LO 链、信道、EIRP 限值是同一个对象实例（铁律 2 完整测试：ppm = 0、理想 LO、理想 PA 下两拓扑 EVM 与 K = 1 差 < 0.1 dB）；`tools/budget_report.py` 照 d2d_link；pJ/bit 口径照 Halo 示例 41；每格统计 / 时域（或解析 / 仿真）交叉核对，推导数进 `examples/derived.yaml`；测试累计 ≥ 60。
-WiFi 7 全链路的四条整合也在这里做：pll 剖面替换解析相噪、PA_DPD 的 PA / DPD 进 wifitrx 链、`EvmBudget` 对账、Halo ADC 校准接入。
-表单字段：`guispec.py` 已有 18 个 Knob，桌面 GUI / Android 这一轮不做。
+### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
+- 拓扑 A 的行：`compare.PENDING[("if_extender", "be")]` 那格等 A1 落地后接入（同一个 `Frontend60` 实例；A 的 60 GHz 级在 wifitrx RF 之后插入）。
+- WiFi 7 全链路四条整合里还没做的两条：PA_DPD 的 PA / DPD 进 wifitrx 链（K = 1 可行——`ReferencePA` 的记忆按 320 MHz 样本写死，K > 1 等 D3）；Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（差 ≤ 0.4 dB，相噪口径差 3–4 dB）。
+- pJ/bit 列缺 11be 的 LDPC 解码功耗（本库不解 LDPC，表里标"不计"）；校准列现在是示例 03 实测 IRR 的查表，`calcheck.run_cal_at` 实跑进表要几分钟一列，留给需要它的那次。
+- 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
 
 ## B. 里程碑 2：阵列层
 - vendor array_tx（按当时 main 完整 SHA；array_tx main 现为 `e897c159e5fc5b2e26af6336cf9f6164461ff7f5`，可以直接 pin），波束训练序列的 SNR 预算。

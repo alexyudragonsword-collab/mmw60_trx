@@ -65,6 +65,7 @@ PA = 11ad EM Rapp 的 dBm 版 `ScaledRappPA`（Psat 15 dBm、增益 20 dB，都�
 
 - 没有一步在 2.56 GHz 上抛异常；"失效"表现为退化：LO 泄漏环检从 −68 到 −35 dBc（4.8 MHz 固定偏置在 2.5 MHz 音距下落在第 2 个子载波上，泄漏箱被数据淹没），IQ 校准从 55 到 38–42 dB，DPD 从 −27 到 −22 dB。
 - 校准后的 IRR 实测值（38–42 dB @ 2.56 GHz、47–48 @ 640 MHz、50–52 @ 160–320 MHz）比网格假设的 45 dB 在 2.56 GHz 处差 3–7 dB：网格 "IQcal" 列在 2.56 GHz 处偏乐观约 1 个 MCS（ROADMAP A2 第一条）。
+  更正（2026-11-07，同台表）：把实测值真放进 IQcal 列后 2.56 GHz 仍是 PA 限的 MCS2——"偏乐观 1 个 MCS" 没有兑现，一格都没动（`comparison-table.md` §6 ④）；实测表在 `derived.irr_after_cal_measured_db`。
 - 评分波形的缺口是上游需求（ROADMAP D）：wifitrx 的 `pilot_positions` 只认标准带宽的表，640 MHz / 2.56 GHz 上 `scoring_frame` 无法构造。
 
 ## 4. 被推翻的判断

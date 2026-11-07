@@ -28,6 +28,12 @@ WAVEFORMS = ("be", "be_upclocked", "ay_ofdm", "ay_sc")
 WAVEFORMS_BUILT = ("be", "be_upclocked")
 CFO_MODES = ("off", "ltf", "stf_ltf", "extended")
 PN_SIDES = ("off", "tx", "rx", "both")
+#: pole_zero = the 11ad-EM one-pole / one-zero shape (Liu 2025's numbers);
+#: wifitrx_wifi7 = the vendored WiFi 7 synthesizer profile (the sub-7 GHz chip's
+#: own LO, for the K = 1 row); profile = a pllsim clock-profile YAML
+#: (``profile_path``) moved to the carrier by 20·log10(f_c / f0) — the ×N
+#: placeholder until pll_simulator's multiplier model (ROADMAP D2)
+PN_MODELS = ("pole_zero", "wifitrx_wifi7", "profile", "off")
 CHANNELS = ("flat", "tdl_exp", "tap_table")
 FRONTEND_MODELS = ("behavioural", "zero_if_chain")
 
@@ -63,11 +69,14 @@ class PhyConfig:
 
 @dataclass(frozen=True)
 class PhaseNoiseConfig:
-    model: str = "pole_zero"          # pole_zero | off
+    model: str = "pole_zero"          # one of PN_MODELS
     psd0_dbchz: float = -93.0
     f_pole_hz: float = 1.0e6
     f_zero_hz: float = 100.0e6
     apply: str = "both"               # off | tx | rx | both (data/spec: assumed.pn_apply_sides)
+    #: model = profile: a pllsim clock-profile YAML (f0_hz, f_hz, l_dbc_hz);
+    #: relative paths resolve against ``mmw60/data/clock_profiles``
+    profile_path: str | None = None
 
     @property
     def enabled(self) -> bool:
@@ -134,6 +143,7 @@ class FrontendConfig:
     iq: IqConfig = field(default_factory=IqConfig)
     lo_leak_dbc: float | None = None   # data/spec: assumed.lo_leak_dbc
     rx_dc_dbc: float | None = None     # data/spec: assumed.rx_dc_dbc
+    pa_pae_max: float = 0.20           # data/spec: assumed.pa60_pae_max (the power column only)
     antenna_gain_dbi: float = 0.0
     eirp_limit_dbm: float | None = None
     array: ArrayConfig = field(default_factory=ArrayConfig)
@@ -184,6 +194,10 @@ class Mmw60Config:
             raise ValueError(f"rx.cfo_estimation must be one of {CFO_MODES}")
         if self.lo.phase_noise.apply not in PN_SIDES:
             raise ValueError(f"lo.phase_noise.apply must be one of {PN_SIDES}")
+        if self.lo.phase_noise.model not in PN_MODELS:
+            raise ValueError(f"lo.phase_noise.model must be one of {PN_MODELS}")
+        if self.lo.phase_noise.model == "profile" and not self.lo.phase_noise.profile_path:
+            raise ValueError("lo.phase_noise.model = profile needs profile_path")
         if self.channel.model not in CHANNELS:
             raise ValueError(f"channel.model must be one of {CHANNELS}")
         if int(self.upclock_k) < 1:
@@ -344,6 +358,7 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
         model="zero_if_chain",
         pa=base.frontend.pa,
         pa_gain_db=float(s("assumed.pa60_gain_db")), psat_dbm=float(s("assumed.pa60_psat_dbm")),
+        pa_pae_max=float(s("assumed.pa60_pae_max")),
         converters=ConverterConfig(enob_ref=float(s("assumed.converter_enob_ref")),
                                    bits_per_octave=float(s("assumed.converter_bits_per_octave")),
                                    backoff_db=float(s("assumed.converter_backoff_db")), enabled=True),
@@ -356,8 +371,26 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
     return dataclasses.replace(cfg, **top) if top else cfg
 
 
+def wifi7_chain_k1(mcs: int = 0, standard: str = "11ac", bandwidth_hz: float = 20e6,
+                   carrier_hz: float = 6.0e9) -> Mmw60Config:
+    """The K = 1 row of the comparison table on the same ``Frontend60`` (iron
+    rule 2): the zero-IF chain at the base rate, converters / IQ / leakage as
+    the 60 GHz part would have them at 1×, the same Rapp at the same OBO,
+    but the sub-7 GHz carrier and the WiFi 7 synthesizer's own phase-noise
+    profile (wifitrx's ``DEFAULT_WIFI7_LO_PROFILE``, the LO a 4096-QAM chip
+    ships with) — "the WiFi 7 chip as delivered, measured on our bench"."""
+    cfg = zero_if_60ghz(k=1, mcs=mcs, standard=standard, bandwidth_hz=bandwidth_hz,
+                        carrier_hz=carrier_hz)
+    return dataclasses.replace(
+        cfg, waveform="be",
+        lo=dataclasses.replace(cfg.lo, phase_noise=dataclasses.replace(
+            cfg.lo.phase_noise, model="wifitrx_wifi7")),
+        label=f"WiFi 7 chain K=1 {standard} {bandwidth_hz / 1e6:g} MHz MCS{mcs}")
+
+
 def wifi7_baseline_k1(mcs: int = 0) -> Mmw60Config:
-    """K = 1, no mmWave stage: the WiFi row of the comparison table."""
+    """K = 1, no impairments at all: iron rule 2's bit-exact anchor (the
+    unmodified wifitrx chain; ``test_law2_k1_chain_is_the_unmodified_wifitrx_chain``)."""
     return Mmw60Config(topology="upclock_zero_if", waveform="be", carrier_hz=6.0e9, upclock_k=1,
                        phy=PhyConfig(mcs=mcs),
                        lo=LoConfig(phase_noise=PhaseNoiseConfig(apply="off")),

@@ -37,10 +37,13 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - 相噪 PSD 形状 PSD0·(1+(f/f_z)²)/(1+(f/f_p)²)：TGad EM 的写法（它的 PSD0 是 −90，Liu 用 −93）。
 - VHT MCS 表（N_SD = 52、N_DBPS 26/52/156）、交织 N_COL = 13、BCC 133/171、扰码 x⁷+x⁴+1：802.11 的通用知识，原文未贴入。
 - FCC 15.255 的 40 / 43 dBm：里程碑 1 用。
+- 同台表 pJ/bit 列（A3）：Walden FoM 70 fJ（38.4–120.2）与 45 → 7 nm 能量比 0.175 经 Halo 的 `PowerCoefficients` 转引 Murmann / DeepScaleTool；pllsim wu19 时钟剖面是 Halo 随库数据（模型输出，不是实测）。
 
 ## 本库自己定的（assumed；每条在示例 00 有灵敏度行或在 LOG 有数字）
 
 基准带宽 20 MHz；SNR = 每有效子载波 Es/N0；相噪 TX/RX 各一份；CR 信道 = 指数 PDP 7 ns rms + LOS/散射 10 dB；OBO 参考 Psat（另给 P1dB）；信道估计平滑 3 音；genie 定时；只建 L-STF / L-LTF / Data；扰码种子 93。
+
+A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 峰值 PAE 20 %（B 类回退规律）、60 GHz / sub-7 频综 40 / 20 mW、数字字宽 16 bit、理想 ×N 的 20·log10 搬移；每条在示例 04 §6 的灵敏度表里有两端的数（`cairn/comparison-table.md` §5）。
 
 ## 要原文才能关掉的问题
 

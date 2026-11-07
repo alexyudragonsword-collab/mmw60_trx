@@ -26,6 +26,9 @@ jit = ["numba>=0.59"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+mmw60 = ["data/spec/*.yaml", "data/clock_profiles/*.yaml"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
@@ -49,3 +52,6 @@ select = ["E", "F", "W"]
 "src/mmw60/calcheck.py" = ["E501"]
 "examples/02_upclock_grid.py" = ["E501"]
 "examples/03_calibration_at_k.py" = ["E501"]
+"examples/04_comparison_table.py" = ["E501"]
+"src/mmw60/compare.py" = ["E501"]
+"src/mmw60/power.py" = ["E501"]

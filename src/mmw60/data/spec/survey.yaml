@@ -490,3 +490,74 @@ entries:
     source: assumed
     cite: "本库；wifitrx tx_iq / rx_iq 步骤的验收 spec 是 irr_db ≥ 50 dB（320 MHz），留 5 dB"
     note: "网格的'IQ 校准后'列用的每侧残余镜像抑制；示例 03 在每个 K 上实测校准后的 IRR，对不上时以实测为准。"
+
+  # ------------------------------------------------------------ 里程碑 1 A3：同台表与 pJ/bit
+  survey.walden_fom_fj:
+    value: 70.0
+    unit: fJ/conv-step
+    source: survey
+    cite: "Murmann ADC survey（GitHub bmurmann/ADC-survey）≥ 40 GS/s、4–7 nm 时间交织 SAR 六行的中位数；经 Halo_Serdes analysis/power.py PowerCoefficients.adc_fom_walden_j 与 cairn/功耗建模.md"
+    note: "未核实：Halo 示例 41 的口径（P = FoM · 2^ENOB · fs）。本库的转换器在 0.04–20 GS/s、8–11 bit，不是那六行的角落；区间端点在 survey.walden_fom_range_fj，同台表的灵敏度节两端都跑。"
+
+  survey.walden_fom_range_fj:
+    value: [38.4, 120.2]
+    unit: fJ/conv-step
+    source: survey
+    cite: "同上六行的最小 / 最大值（Halo_Serdes cairn/功耗建模.md 表）"
+    note: "未核实。"
+
+  survey.node_scale_45_to_7nm:
+    value: 0.175
+    unit: ratio
+    source: survey
+    cite: "DeepScaleTool（Sarangi & Baas, ISCAS 2021）45 nm → 7 nm 能量比；经 Halo_Serdes PowerCoefficients.node_scale"
+    note: "未核实：同台表默认不缩放（45 nm 的 Horowitz 数照 dpd_cost.py / 示例 02 的口径），灵敏度节按 7 nm 再算一遍。"
+
+  assumed.dsp_word_bits:
+    value: 16
+    unit: bit
+    source: assumed
+    cite: "本库；dsp_ip dpd_poly 的 w16 变体"
+    note: "数字块（DPD、FFT、Viterbi 路径度量）的运算字宽；乘法能耗 ∝ 宽度²、加法 ∝ 宽度。"
+
+  assumed.pa60_pae_max:
+    value: 0.20
+    unit: ratio
+    source: assumed
+    cite: "本库；60 GHz CMOS PA 在 Psat 处 PAE 的常见量级"
+    note: "只进 pJ/bit 列。回退下的 PAE 按 B 类规律 PAE(Pout) = PAE_max · sqrt(Pout / Psat)（frontend/pa.py），OBO 8 dB 处 7.9 %；换成 A 类（∝ Pout/Psat）PA 项再差 2.5 倍。未查具体器件。"
+
+  assumed.lo_multiplier_law:
+    value: "20log10"
+    unit: law
+    source: assumed
+    cite: "本库；理想倍频 / 分频：L(f) 平移 20·log10(f_c / f0)"
+    note: "pllsim 剖面搬到载频的占位规律：没有倍频器自身的底噪项与谐波选择杂散（ROADMAP D2 到了再换）。"
+
+  assumed.pll60_power_mw:
+    value: 40.0
+    unit: mW
+    source: assumed
+    cite: "本库；60 GHz CMOS 频综（PLL + 倍频 + LO 缓冲）的功耗量级"
+    note: "只进 pJ/bit 列，按定值计入每条 60 GHz 行（TX、RX 各一份）；未查具体器件，灵敏度节 ×0.5 / ×2。"
+
+  assumed.pll_sub7_power_mw:
+    value: 20.0
+    unit: mW
+    source: assumed
+    cite: "本库；sub-7 GHz WiFi 频综的功耗量级"
+    note: "只进 pJ/bit 列的 K = 1 行；未查具体器件，灵敏度节 ×0.5 / ×2。"
+
+  survey.clock_profile_wu19:
+    value: {file: "bench_wu19_spll_frac_52m_6p253g.yaml", f0_hz: 6.2530156e+9}
+    unit: pllsim clock profile
+    source: survey
+    cite: "Halo_Serdes@13ef8438ab82c9d364ff24c591da33d64afbe598 data/clock_profiles/bench_wu19_spll_frac_52m_6p253g.yaml（pllsim 0.9.6 commit 67fe1c72 的 bench 预设输出；Wu 2019 JSSC 亚采样小数 PLL 6.253 GHz）"
+    note: "未核实（姊妹库模型输出，不是实测）：同台表里 'LO = pllsim 剖面 ×N' 的灵敏度行用它，按 assumed.lo_multiplier_law 搬到 60.48 GHz（+19.7 dB）。文件原样复制到 src/mmw60/data/clock_profiles/。"
+
+  derived.irr_after_cal_measured_db:
+    value: {20.0e+6: 55.3, 80.0e+6: 55.2, 160.0e+6: 50.4, 320.0e+6: 51.1, 640.0e+6: 46.8, 2560.0e+6: 38.4}
+    unit: dB per side
+    source: derived
+    cite: "examples/expected/03_calibration_at_k.txt（2026-11-07）tx_iq / rx_iq 两步 irr_min_db 的较小值，按有效带宽"
+    note: "示例 03 实测的校准后镜像抑制；同台表的 'IQcal' 列用它（取不大于该行带宽的最近一档），替代 assumed.irr_after_cal_db（ROADMAP A2 第一条）。示例 02 的网格仍用 45 dB 的假设值。"

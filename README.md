@@ -32,12 +32,26 @@ python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_
 示例 02 是 "基准带宽 × K" 网格（11ac 20–160、11be 20–320 MHz × K 4–32）：每格解析底板与时域 EVM 交叉核对、能/不能 + 原因、MCS 上限、DPD pJ/bit；
 示例 03 把 wifitrx 的校准序列在每个 K 上逐步真跑。结论见 `cairn/topology-b.md`。
 
+## 里程碑 1 · A3：同台表（示例 04、`tools/budget_report.py`）
+
+`mmw60.compare` 把每种方案（拓扑 × 波形，8 格全部点名；没建的写明里程碑）放在**同一个** `Frontend60` 实例上：K = 1 的 WiFi 7 链、拓扑 B 的 K = 1 … 32，
+每行 MCS 上限、吞吐、b/s/Hz、EIRP 余量、pJ/bit（`mmw60.power`，Halo 示例 41 口径，读比值）；解析底板 / 时域 EVM / wifitrx `EvmBudget` 三方对账；
+LO 三种剖面（11ad pole-zero、WiFi 7 频综、pllsim 剖面 ×N）并排；`--sensitivity` 列出哪些系数和假设改写结论。
+
+```bash
+python examples/04_comparison_table.py                       # 约 10 s；写 examples/output/04_comparison_table.md
+python tools/budget_report.py --base 11be:80e6 --k 4,8,16,32 --sensitivity -o table.md --json table.json
+```
+
+结论见 `cairn/comparison-table.md`。
+
 ## 读什么
 
 - `AGENTS.md`：规则与七条铁律（每条有测试守着）。
 - `ROADMAP.md`：只写没做的。
 - `cairn/LOG.md`：每轮的数字原值与被推翻的判断。
 - `cairn/upclocking.md`：K 的建模方式与 5.88 MHz / 4.7 门槛的推导。
+- `cairn/topology-b.md`、`cairn/comparison-table.md`：拓扑 B 的网格 / 校准结论与同台表。
 - `src/mmw60/data/spec/survey.yaml`：每一个文献数字的出处与标签。
 
 ## CI

@@ -27,7 +27,7 @@ from ..channel import make_channel
 from ..config import Mmw60Config
 from ..impairments.cfo import CfoModel
 from ..impairments.noise import add_awgn_per_tone, per_sample_snr_offset_db
-from ..impairments.phase_noise import PoleZeroPhase, lo_phase
+from ..impairments.phase_noise import lo_phase, make_profile
 from ..pa.rapp import ModifiedRappPA, apply_pa_at_obo
 from ..phy.mcs import vht_mcs
 from ..phy.ppdu import build_data_field, random_psdu
@@ -96,8 +96,7 @@ class LinkSim:
         self.pilots = pilot_sequence(self.n_symbols, self.pilot_cols.size, cfg.phy.pilot_seed)
         self.cfo = CfoModel(cfg.carrier_hz, cfg.xo_ppm_tx, cfg.xo_ppm_rx)
         pn = cfg.lo.phase_noise
-        self.pn_profile = (PoleZeroPhase(psd0_dbchz=pn.psd0_dbchz, f_pole_hz=pn.f_pole_hz,
-                                         f_zero_hz=pn.f_zero_hz) if pn.enabled else None)
+        self.pn_profile = make_profile(pn, cfg.carrier_hz)
         self.pn_sides = pn.apply if pn.enabled else "off"
         self.channel = make_channel(cfg.channel.model, cfg.channel.rms_delay_ns,
                                     cfg.channel.los_k_db, cfg.channel.taps)
