@@ -3,6 +3,11 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-07 · 方案枚举（waveform）与 ROADMAP 里程碑 3（feat/roadmap-ay-waveform-enum）
+
+- 只改文字、一个占位枚举和 ROADMAP 结构：`waveform` 四值枚举（ay 两项拒绝运行）、铁律 1–4 "每种方案"、里程碑 3 ay 一节、D 节三条上游需求按可贴格式重写 + fmcw_radar 收件项。优先级不变：A1 → A3 → ay。
+- 指纹 68 值逐位不变；`main` 已是默认分支，之后 `feat/*` 开 PR 合 `main`。
+
 ## 2026-11-07 · 里程碑 1-B：拓扑 B 的 60 GHz 零中频前端、网格、校准表（ccr-65a5163d-bbo5rb，0.1.0）
 
 - 前端 = wifitrx `TxChain`/`RxChain` 跑在 fs_eff，`Frontend60` 一个实例两拓扑共用；锚：前端全关 K=1 与 K=8 EVM 同为 −39.9 dB；里程碑 0 指纹 68 值逐位不变。

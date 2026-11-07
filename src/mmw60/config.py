@@ -20,6 +20,12 @@ from .vendor.wifitrx.waveform.ofdm import OFDMConfig
 from .vendor.wifitrx.waveform.tone_plan import contiguous
 
 TOPOLOGIES = ("if_extender", "upclock_zero_if")
+#: be = the sub-7 GHz WiFi waveform as it is (K = 1); be_upclocked = the same
+#: waveform with the clock × K (topology B / Liu 2025); ay_ofdm / ay_sc =
+#: 802.11ay's own numerologies on the zero-IF hardware (milestone 3 — named
+#: now, refused until then, like topology A before milestone 1)
+WAVEFORMS = ("be", "be_upclocked", "ay_ofdm", "ay_sc")
+WAVEFORMS_BUILT = ("be", "be_upclocked")
 CFO_MODES = ("off", "ltf", "stf_ltf", "extended")
 PN_SIDES = ("off", "tx", "rx", "both")
 CHANNELS = ("flat", "tdl_exp", "tap_table")
@@ -156,6 +162,7 @@ class RxConfig:
 @dataclass(frozen=True)
 class Mmw60Config:
     topology: str = "upclock_zero_if"
+    waveform: str = "be_upclocked"
     carrier_hz: float = 60.0e9
     upclock_k: int = 1
     xo_ppm_tx: float = 0.0
@@ -171,6 +178,8 @@ class Mmw60Config:
     def __post_init__(self):
         if self.topology not in TOPOLOGIES:
             raise ValueError(f"topology must be one of {TOPOLOGIES}, got {self.topology!r}")
+        if self.waveform not in WAVEFORMS:
+            raise ValueError(f"waveform must be one of {WAVEFORMS}, got {self.waveform!r}")
         if self.rx.cfo_estimation not in CFO_MODES:
             raise ValueError(f"rx.cfo_estimation must be one of {CFO_MODES}")
         if self.lo.phase_noise.apply not in PN_SIDES:
@@ -349,7 +358,7 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
 
 def wifi7_baseline_k1(mcs: int = 0) -> Mmw60Config:
     """K = 1, no mmWave stage: the WiFi row of the comparison table."""
-    return Mmw60Config(topology="upclock_zero_if", carrier_hz=6.0e9, upclock_k=1,
+    return Mmw60Config(topology="upclock_zero_if", waveform="be", carrier_hz=6.0e9, upclock_k=1,
                        phy=PhyConfig(mcs=mcs),
                        lo=LoConfig(phase_noise=PhaseNoiseConfig(apply="off")),
                        frontend=FrontendConfig(pa=PaConfig(model="ideal")),

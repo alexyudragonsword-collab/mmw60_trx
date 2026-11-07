@@ -11,7 +11,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass
 
-from .config import CFO_MODES, PN_SIDES, Mmw60Config
+from .config import CFO_MODES, PN_SIDES, WAVEFORMS, Mmw60Config
 
 GROUPS = {
     "link": ("链路", "link"),
@@ -48,6 +48,7 @@ class Knob:
 
 KNOBS: tuple[Knob, ...] = (
     Knob("topology", "choice", "拓扑", "topology", choices=("if_extender", "upclock_zero_if")),
+    Knob("waveform", "choice", "波形", "waveform", choices=WAVEFORMS),
     Knob("carrier_hz", "float", "载频", "carrier", "Hz", lo=57e9, hi=75e9, step=1e6),
     Knob("upclock_k", "int", "时钟倍数 K", "upclock factor K", lo=1, hi=32, step=1),
     Knob("xo_ppm_tx", "float", "TX 晶振误差", "TX crystal error", "ppm", lo=0, hi=50, step=1),

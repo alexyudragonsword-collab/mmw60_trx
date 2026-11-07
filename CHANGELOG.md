@@ -2,6 +2,13 @@
 
 按里程碑记录。每条写**做了什么**和**为什么**；数字原值在 `cairn/LOG.md`。
 
+## 未发布
+
+### 方案枚举与 ROADMAP 结构（2026-11-07）
+- `Mmw60Config.waveform: be | be_upclocked | ay_ofdm | ay_sc`（ay 两项在里程碑 3 之前抛 NotImplementedError，与拓扑 A 在里程碑 1 之前同法）；铁律 1–4 的措辞改为"每种方案（拓扑 × 波形）"；守护测试 `test_law1_waveform_enum_is_complete_and_ay_refuses`；指纹逐位不变。
+- CI 修复：示例 02 / 03 接受 `--jobs`（`pytest -q` 的 slow 冒烟测试传它）；`tools/fingerprint_walk.py` 适配本库 `compare` 返回列表（原先按 d2d 的二元组取 `[1]`，PR 的 fingerprint 作业因此 IndexError）。
+- ROADMAP：新增"里程碑 3：802.11ay"（ay 是拓扑 B 硬件配第三、四种波形，不是第三条拓扑）；D 节改为"报回上游（等用户转）"，三条需求写成可直接贴进对方 ROADMAP 的格式，另收 fmcw_radar 的消费清单；array_tx 的 pin 可落实（e897c159）。
+
 ## 里程碑 1-B —— 拓扑 B：60 GHz 零中频前端、基准 × K 网格、校准逐项验（2026-11-07，0.1.0）
 
 - **`frontend/`：两拓扑共用的 `Frontend60`**（铁律 2 的对象）：Rapp PA 在 dBm 域的 `ScaledRappPA`（wifitrx `ScaledPA` 对单调 Rapp 找不到饱和点）、
