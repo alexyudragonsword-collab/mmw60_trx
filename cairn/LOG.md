@@ -3,6 +3,15 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-07 · A3 同台表：11 行有数字、6 格点名未建，三方对账，pJ/bit 与灵敏度（feat/a3-comparison-table）
+
+- 一个 `Frontend60` 给每行。11ac 20 MHz 基准：K=1@6 GHz −17.2 / −17.5 dB MCS2 20 Mb/s 8720 pJ/bit；K=1@60.48 失锁（CFO 7.7 sc）；K=4/8/16 MCS2 78/156/312 Mb/s 3803/2456/1694 pJ/bit；K=32 MCS1（IQ）416 Mb/s 1869。11be 80 MHz：K=4 MCS2 432 Mb/s **1227**（全表最好）；K=8 MCS1 576 Mb/s 1359；K=16 MCS0 2141；K=32 不能（IQ −5.8 dB）。
+- 对账：时域 − 底板 −0.3…+1.0 dB（线性区）；EvmBudget − 底板 −0.0…−0.4 dB，相噪口径差 3–4 dB（EvmBudget 不含 >100 MHz 底板与 1–10 kHz），被 PA 项 −18.1 盖住。
+- LO 并排（K=8 底板）：pole_zero −17.4、wifitrx_wifi7 −17.8（IPN 好 16 dB 只买 0.4 dB）、pllsim wu19 ×N −17.7。
+- 灵敏度：只有 PA 回退 ±2 dB 动 MCS 上限（7 / 8 行）；pJ/bit 排名被 7 nm 节点、1 bit/octave、PAE 10 % 改写，不被 Walden 38–120 fJ 与频综 ×0.5/×2 改写；实测 IRR 对假设 45 dB 一格不动。
+- **被推翻的判断**：① K=1 WiFi 7 行不是效率参照而是最差（分母 20 Mb/s）；② 20 MHz 基准 K=32 比 K=16 差（DPD 711 > PA 151）；③ EvmBudget 与底板对得上不是口径一致而是 PA 主导；④ A2 实测 IRR 不改任何格；⑤ 铁律 2 完整测试必须共用**理想实例**，`cfg.ideal()` 改不了实例里的硬件。
+- 指纹 68 值逐位不变；非慢测试 84 → 107 项（其中 6 项是 A / ay 的矩阵格，按里程碑 skip）。下一步：A1 的行接进 `PENDING` 那格；A3 剩余见 ROADMAP。
+
 ## 2026-11-07 · 方案枚举（waveform）与 ROADMAP 里程碑 3（feat/roadmap-ay-waveform-enum）
 
 - 只改文字、一个占位枚举和 ROADMAP 结构：`waveform` 四值枚举（ay 两项拒绝运行）、铁律 1–4 "每种方案"、里程碑 3 ay 一节、D 节三条上游需求按可贴格式重写 + fmcw_radar 收件项。优先级不变：A1 → A3 → ay。

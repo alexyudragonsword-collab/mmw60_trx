@@ -11,7 +11,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass
 
-from .config import CFO_MODES, PN_SIDES, WAVEFORMS, Mmw60Config
+from .config import CFO_MODES, PN_MODELS, PN_SIDES, WAVEFORMS, Mmw60Config
 
 GROUPS = {
     "link": ("链路", "link"),
@@ -55,6 +55,8 @@ KNOBS: tuple[Knob, ...] = (
     Knob("xo_ppm_rx", "float", "RX 晶振误差", "RX crystal error", "ppm", lo=0, hi=50, step=1),
     Knob("phy.mcs", "int", "MCS", "MCS", lo=0, hi=8, step=1),
     Knob("phy.packet_bytes", "int", "包长", "packet length", "B", lo=64, hi=65535, step=1),
+    Knob("lo.phase_noise.model", "choice", "相噪模型", "phase-noise model", group="lo",
+         choices=PN_MODELS),
     Knob("lo.phase_noise.psd0_dbchz", "float", "相噪 PSD0", "phase-noise PSD0", "dBc/Hz",
          group="lo", lo=-120, hi=-70, step=1),
     Knob("lo.phase_noise.f_pole_hz", "float", "相噪极点", "pole frequency", "Hz", group="lo",

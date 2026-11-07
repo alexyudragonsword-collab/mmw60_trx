@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from ..impairments.phase_noise import make_profile
 from ..pa.rapp import ModifiedRappPA
 from ..vendor.wifitrx.chain.params import RxParams, TxParams, recommended_lpf_corner_hz
 from ..vendor.wifitrx.chain.rx import RxChain
@@ -68,6 +69,7 @@ class Frontend60:
     psat_dbm: float = 15.0
     obo_db: float = 8.0
     obo_reference: str = "psat"
+    pa_pae_max: float = 0.20
     antenna_gain_dbi: float = 0.0
     seed: int = 0
 
@@ -76,9 +78,8 @@ class Frontend60:
     def from_config(cls, cfg) -> "Frontend60":
         fe = cfg.frontend
         pn = cfg.lo.phase_noise
-        lo = Lo60.from_pole_zero(cfg.carrier_hz, pn.psd0_dbchz, pn.f_pole_hz, pn.f_zero_hz,
-                                 enabled=pn.enabled, tx_leak_dbc=fe.lo_leak_dbc,
-                                 rx_dc_dbc=fe.rx_dc_dbc)
+        lo = Lo60(carrier_hz=cfg.carrier_hz, profile=make_profile(pn, cfg.carrier_hz),
+                  tx_leak_dbc=fe.lo_leak_dbc, rx_dc_dbc=fe.rx_dc_dbc)
         conv = ConverterLaw(enob_ref=fe.converters.enob_ref, fs_ref_hz=fe.converters.fs_ref_hz,
                             bits_per_octave=fe.converters.bits_per_octave,
                             backoff_db=fe.converters.backoff_db)
@@ -92,10 +93,12 @@ class Frontend60:
                    pa_model=ModifiedRappPA(ampm=fe.pa.ampm) if fe.pa.enabled else None,
                    pa_enabled=fe.pa.enabled, pa_gain_db=fe.pa_gain_db, psat_dbm=fe.psat_dbm,
                    obo_db=fe.pa.obo_db, obo_reference=fe.pa.obo_reference,
+                   pa_pae_max=fe.pa_pae_max,
                    antenna_gain_dbi=fe.antenna_gain_dbi, seed=cfg.seed)
 
     def scaled_pa(self) -> ScaledRappPA:
-        return ScaledRappPA(self.pa_model or ModifiedRappPA(), self.pa_gain_db, self.psat_dbm)
+        return ScaledRappPA(self.pa_model or ModifiedRappPA(), self.pa_gain_db, self.psat_dbm,
+                            pae_max=self.pa_pae_max)
 
     def tx_params(self, bw_eff_hz: float, fs_eff_hz: float, signal_dbm_at_modulator: float = -10.0) -> TxParams:
         bits = self.converters.bits(fs_eff_hz)
@@ -157,7 +160,8 @@ class Frontend60:
         d = {"carrier_hz": self.lo.carrier_hz, "pa": "rapp_11ad" if self.pa_enabled else "ideal",
              "psat_dbm": self.psat_dbm, "pa_gain_db": self.pa_gain_db, "obo_db": self.obo_db,
              "obo_reference": self.obo_reference, "pout_dbm": self.target_pout_dbm() if self.pa_enabled else None,
-             "lo_ipn_dbc": self.lo.ipn_dbc(), "tx_leak_dbc": self.lo.tx_leak_dbc,
+             "lo_ipn_dbc": self.lo.ipn_dbc(), "lo_profile": None if self.lo.profile is None else self.lo.profile.name,
+             "tx_leak_dbc": self.lo.tx_leak_dbc,
              "rx_dc_dbc": self.lo.rx_dc_dbc, "iq_enabled": self.tx_iq.enabled}
         if fs_eff_hz:
             d.update({f"converter_{k}": v for k, v in self.converters.describe(fs_eff_hz).items()})

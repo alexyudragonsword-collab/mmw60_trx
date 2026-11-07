@@ -25,6 +25,7 @@ lo:
     f_pole_hz: 1000000.0
     f_zero_hz: 100000000.0
     apply: 'off'
+    profile_path: null
 frontend:
   model: behavioural
   pa:
@@ -49,6 +50,7 @@ frontend:
     enabled: false
   lo_leak_dbc: null
   rx_dc_dbc: null
+  pa_pae_max: 0.2
   antenna_gain_dbi: 0.0
   eirp_limit_dbm: null
   array:

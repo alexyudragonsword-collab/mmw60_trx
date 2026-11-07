@@ -17,3 +17,19 @@
     flat1: {example: "00", after: "SNR at PER 1e-2", line: "8 1 {*} {*} {}"}
   quotes:
     - {doc: cairn/external-validation.md, text: "K = 8 MCS1 字面 {lit1} dB、flat {flat1} dB"}
+
+- name: ex04 11be 80 MHz x 4 is the best row (rate and pJ/bit at the cap)
+  values:
+    rate: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} {*} {*} — {*}"}
+    pj: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} — {}"}
+  quotes:
+    - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 4（320 MHz）以 {rate} Mb/s、{pj} pJ/bit 居首"}
+
+- name: ex04 20 MHz base, K = 16 vs K = 32 pJ/bit (K = 32 is worse per bit)
+  values:
+    k16: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=16 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
+    k32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
+    k1: {example: "04", after: "== 4. power blocks per bit", line: "be 11ac 20M K=1 @6 GHz (WiFi 7 chain) {*} {*} {*} {*} {*} {*} {*} {}"}
+  quotes:
+    - {doc: cairn/comparison-table.md, text: "K = 16 的 {k16} pJ/bit 到 K = 32 升到 {k32}"}
+    - {doc: cairn/comparison-table.md, text: "是 {k1} pJ/bit，是 K = 16 的 {k1 / k16} 倍"}

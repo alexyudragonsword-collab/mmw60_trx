@@ -16,11 +16,13 @@ absolute Hz and does not scale with K — that is the physics of upclocking.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
+import yaml
 
-from ..vendor.wifitrx.impairments.phase_noise import (NoiseSource, sphi_from_ldbc,
-                                                      synth_from_psd)
+from ..vendor.wifitrx.impairments.phase_noise import (DEFAULT_WIFI7_LO_PROFILE, NoiseSource,
+                                                      TabulatedPhase, sphi_from_ldbc, synth_from_psd)
 
 
 @dataclass
@@ -61,3 +63,55 @@ def lo_phase(profile: NoiseSource | None, n: int, fs: float,
     if profile is None:
         return np.zeros(n)
     return synth_from_psd(profile.psd, fs, n, rng)
+
+
+# ------------------------------------------------------------ other LO profiles
+CLOCK_PROFILES_DIR = Path(__file__).resolve().parent.parent / "data" / "clock_profiles"
+
+
+def load_clock_profile(path: str | Path) -> dict:
+    """A pllsim clock phase-noise profile (``pllsim.export.clock_profile``
+    format, the file Halo_Serdes consumes): ``f0_hz``, ``f_hz``, ``l_dbc_hz``
+    (single-sideband L(f) in dBc/Hz), ``spurs``, ``source``.  A relative
+    path is looked up in ``mmw60/data/clock_profiles``."""
+    p = Path(path)
+    if not p.is_absolute() and not p.exists():
+        p = CLOCK_PROFILES_DIR / p
+    d = yaml.safe_load(p.read_text(encoding="utf-8"))
+    for key in ("f0_hz", "f_hz", "l_dbc_hz"):
+        if key not in d:
+            raise ValueError(f"{p}: not a clock profile (missing {key!r})")
+    if len(d["f_hz"]) != len(d["l_dbc_hz"]):
+        raise ValueError(f"{p}: f_hz and l_dbc_hz differ in length")
+    d["path"] = str(p)
+    return d
+
+
+def profile_at_carrier(prof: dict, carrier_hz: float, name: str = "clock_profile") -> TabulatedPhase:
+    """The profile's L(f) moved from its own carrier ``f0_hz`` to ``carrier_hz``
+    by 20·log10(f_c / f0): an ideal frequency multiplier / divider, no
+    multiplier floor and no harmonic-selection spurs (data/spec:
+    assumed.lo_multiplier_law; the real ×N block is ROADMAP D2).  wifitrx's
+    ``TabulatedPhase`` interpolates linearly in (log f, dB) and holds the end
+    values flat outside the table."""
+    n_db = 20.0 * np.log10(float(carrier_hz) / float(prof["f0_hz"]))
+    l_dbc = tuple(float(v) + n_db for v in prof["l_dbc_hz"])
+    return TabulatedPhase(name, f_pts=tuple(float(f) for f in prof["f_hz"]), l_dbc_pts=l_dbc)
+
+
+def make_profile(pn_cfg, carrier_hz: float) -> NoiseSource | None:
+    """The ``NoiseSource`` a ``PhaseNoiseConfig`` names, or None when it is
+    off.  ``pole_zero`` returns the same ``PoleZeroPhase`` the milestone-0
+    path always built (the fingerprint does not move)."""
+    if not pn_cfg.enabled:
+        return None
+    m = pn_cfg.model
+    if m == "pole_zero":
+        return PoleZeroPhase(psd0_dbchz=pn_cfg.psd0_dbchz, f_pole_hz=pn_cfg.f_pole_hz,
+                             f_zero_hz=pn_cfg.f_zero_hz)
+    if m == "wifitrx_wifi7":
+        return DEFAULT_WIFI7_LO_PROFILE
+    if m == "profile":
+        prof = load_clock_profile(pn_cfg.profile_path)
+        return profile_at_carrier(prof, carrier_hz, name=f"profile:{Path(prof['path']).stem}")
+    raise ValueError(f"unknown phase-noise model {m!r}")
