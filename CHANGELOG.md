@@ -4,6 +4,9 @@
 
 ## 未发布
 
+### 上游需求转交（2026-11-10）
+- ROADMAP D1–D3 已作为 issue 交给 wifi_trx_cal#4、pll_simulator#71、PA_DPD#4，D 节加链接；D3 关于 `ReferencePA` 记忆的措辞按源码更正（固定抽头、无 `fs` 参数）。只改文档。
+
 ### 解码器上限列 —— ROADMAP A3 剩余项（2026-11-10）
 - `tools/measure_thresholds.py` → `data/spec/per_thresholds.yaml`（source derived）：本库接收机在理想零中频链上 4096 B 包 PER 1e-2 的门限，11ac 20 MHz MCS 0–8 与 11be 20–320 MHz MCS 0–13 共 79 条曲线（约 16 分钟 / 4 核）。为什么：A2 证明“底板比 TX EVM 要求低 3 dB”的合规口径比解码器容忍度保守约 2 档，要换口径就得有每个 MCS 的门限；wifitrx `snr_req_db` 未审核且悲观 1–3.5 dB。
 - `frontend/grid.py::decoder_cap`：EVM 底板当噪声，−floor ≥ T + 3 dB（`assumed.decoder_cap_margin_db`）判可达，给出所需 SNR 与底板的代价；示例 02 加 dec / dec-cal 两列，示例 04 加 §4b（上限、所需 SNR、该上限处的速率与 pJ/bit）与灵敏度里的“解码器上限动了几行”和余量 1 / 6 dB 两端；合规口径的列与结论列原样保留。
