@@ -110,6 +110,11 @@ def test_rows_cross_check_and_the_uncaught_cfo_row_is_flagged():
     assert k8["irr_cal_db"] == 50.4 and k8["irr_cal_measured_at_hz"] == 160e6
     k32 = by["be_upclocked 11ac 20M K=32 @60.48 GHz"]
     assert k32["max_mcs_cal"] >= k32["max_mcs"]
+    # the decoder's cap: never below the conformance cap, priced at its own rate
+    for r in rep["rows"]:
+        assert r["dec_mcs"] is not None and r["dec_mcs"] >= r["max_mcs"] and r["dec_mcs_cal"] >= r["dec_mcs"]
+        assert r["dec_rate_mbps"] >= r["rate_mbps"] and r["dec_penalty_db"] <= 3.03
+        assert r["power_dec"]["pj_per_bit"] <= r["power"]["pj_per_bit"] * 1.001
 
 
 def test_measured_irr_lookup_takes_the_largest_bandwidth_not_above():
@@ -184,7 +189,11 @@ def test_sensitivity_runs_every_knob_and_the_back_off_moves_the_cap():
     sch = compare.scheme_matrix(ks=(8, 32))
     sens = compare.sensitivity(sch, fe)
     names = {e["knob"] for e in sens["knobs"]}
-    assert names == {k["name"] for k in compare.sensitivity_knobs()} and len(names) == 7
+    assert names == {k["name"] for k in compare.sensitivity_knobs()} and len(names) == 8
+    margin = [e for e in sens["knobs"] if e["knob"] == "decoder-cap margin"]
+    assert [e["value"] for e in margin] == [1.0, 6.0] and not any(e["mcs_moved"] for e in margin)
+    assert any(e["dec_mcs_moved"] for e in margin), "1 / 6 dB of margin must move a decoder cap"
+    assert set(sens["base"]["dec_mcs"]) == set(sens["base"]["mcs"])
     obo = [e for e in sens["knobs"] if e["knob"] == "PA back-off"]
     assert any(e["mcs_moved"] for e in obo), "±2 dB of back-off must move a PA-limited MCS cap"
     irr = next(e for e in sens["knobs"] if e["knob"] == "calibrated IRR")

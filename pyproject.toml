@@ -50,6 +50,7 @@ select = ["E", "F", "W"]
 "tools/fingerprint_walk.py" = ["E501"]
 # Chinese mechanism prose and the examples' report lines
 "src/mmw60/calcheck.py" = ["E501"]
+"tools/measure_thresholds.py" = ["E501"]
 "examples/02_upclock_grid.py" = ["E501"]
 "examples/03_calibration_at_k.py" = ["E501"]
 "examples/04_comparison_table.py" = ["E501"]

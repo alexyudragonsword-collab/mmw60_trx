@@ -42,7 +42,8 @@ import numpy as np
 from . import spec
 from .config import TOPOLOGIES, WAVEFORMS, ChannelConfig, Mmw60Config, wifi7_chain_k1, zero_if_60ghz
 from .frontend.frontend import Frontend60
-from .frontend.grid import REASON_ZH, analytic_floors, data_rate_bps, max_mcs_for_floor, pa_isolated_evm_db
+from .frontend.grid import (REASON_ZH, analytic_floors, data_rate_bps, decoder_cap, max_mcs_for_floor,
+                            pa_isolated_evm_db)
 from .power import PowerCoefficients, PowerReport, power_report
 from .vendor.wifitrx.impairments.phase_noise import cpe_partition
 from .vendor.wifitrx.link.evm_budget import PN_BAND_HZ, EvmBudget
@@ -138,6 +139,15 @@ class Row:
     eirp: dict | None = None
     power: dict | None = None
     pout_dbm: float | None = None
+    #: the decoder's cap (``frontend/grid.py::decoder_cap``): uncalibrated, at
+    #: the calibrated IRR, the SNR it needs there and what the floor costs
+    dec_mcs: int | None = None
+    dec_mcs_cal: int | None = None
+    dec_required_snr_db: float | None = None
+    dec_penalty_db: float | None = None
+    dec_rate_mbps: float | None = None
+    dec_rate_cal_mbps: float | None = None
+    power_dec: dict | None = None
 
     @property
     def label(self) -> str:
@@ -190,7 +200,7 @@ def evm_budget_reconciliation(cfg: Mmw60Config, fe: Frontend60, a: dict, pa_evm_
 
 def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None = None,
                     pa_evm_db: float | None = None, time_domain: bool = True,
-                    irr_cal_db: float | None = None) -> Row:
+                    irr_cal_db: float | None = None, dec_margin_db: float | None = None) -> Row:
     from .sim.link import evm_at
     cfg = s.cfg
     assert cfg is not None
@@ -239,7 +249,19 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
         if mmwave:
             row.eirp = fe.eirp.check(row.pout_dbm, fe.antenna_gain_dbi)
     if rate is not None:
-        row.power = power_report(cfg, fe, rate, coeffs, phy).as_dict()
+        row.power = power_report(cfg, fe, rate, coeffs, phy, mcs_index=mcs).as_dict()
+    if cfg.coded:
+        d = decoder_cap(a["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz, dec_margin_db)
+        d_cal = decoder_cap(a_cal["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz, dec_margin_db)
+        row.dec_mcs, row.dec_mcs_cal = d["mcs"], d_cal["mcs"]
+        row.dec_required_snr_db, row.dec_penalty_db = d["required_snr_db"], d["penalty_db"]
+        if d["mcs"] is not None:
+            r_dec = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d["mcs"], phy.t_symbol_eff)
+            row.dec_rate_mbps = r_dec / 1e6
+            row.power_dec = power_report(cfg, fe, r_dec, coeffs, phy, mcs_index=d["mcs"]).as_dict()
+        if d_cal["mcs"] is not None:
+            row.dec_rate_cal_mbps = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d_cal["mcs"],
+                                                  phy.t_symbol_eff) / 1e6
     if time_domain:
         flat = dc.replace(cfg, channel=ChannelConfig(model="flat"))
         row.td_evm_db = evm_at(flat, None, n_packets=1, frontend=fe)["evm_db"]
@@ -330,6 +352,14 @@ def to_markdown(rep: dict) -> str:
             f"{_f(r['td_evm_db'])} | {_f(r['evm_budget'].get('predicted_evm_db'))} | {_f(r['max_mcs'], 'MCS{}')} | "
             f"{_f(r['max_mcs_cal'], 'MCS{}')} ({r['irr_cal_db']:.0f} dB) | {_f(r['rate_mbps'], '{:.0f} Mb/s')} | "
             f"{_f(r['bits_per_s_per_hz'], '{:.2f}')} | {eirp} | {pj} | {r['verdict']} {r['reason']} |")
+    lines += ["", "## the decoder's cap (EVM floor as a noise term against the measured ideal thresholds)", "",
+              "| scheme | floor | conformance cap | decoder cap | SNR needed there | floor costs | decoder cap, IQ calibrated | rate @dec cap | pJ/bit @dec cap |",
+              "|---|---|---|---|---|---|---|---|---|"]
+    for r in rep["rows"]:
+        pjd = "—" if not r["power_dec"] else f"{r['power_dec']['pj_per_bit']:.0f}"
+        lines.append(f"| {r['label']} | {r['floor_db']:.1f} | {_f(r['max_mcs'], 'MCS{}')} | {_f(r['dec_mcs'], 'MCS{}')} | "
+                     f"{_f(r['dec_required_snr_db'], '{:.1f} dB')} | {_f(r['dec_penalty_db'], '{:.1f} dB')} | "
+                     f"{_f(r['dec_mcs_cal'], 'MCS{}')} | {_f(r['dec_rate_mbps'], '{:.0f} Mb/s')} | {pjd} |")
     lines += ["", "## rows without numbers yet", ""]
     for p in rep["pending"]:
         lines.append(f"- **{p['label']}** — {p['reason']}")
@@ -382,11 +412,15 @@ def sensitivity_knobs() -> list[dict]:
          "source": "assumed.converter_bits_per_octave"},
         {"name": "calibrated IRR", "kind": "irr", "field": "irr_after_cal_db",
          "values": (float(spec.value("assumed.irr_after_cal_db")),), "source": "assumed.irr_after_cal_db (vs measured)"},
+        {"name": "decoder-cap margin", "kind": "dec_margin", "field": "decoder_cap_margin_db", "values": (1.0, 6.0),
+         "source": "assumed.decoder_cap_margin_db"},
     ]
 
 
 def _variant(fe: Frontend60, coeffs: PowerCoefficients, knob: dict, v):
-    irr = None
+    irr = margin = None
+    if knob["kind"] == "dec_margin":
+        margin = v
     if knob["kind"] == "coeff":
         coeffs = coeffs.with_(**{knob["field"]: v})
     elif knob["kind"] == "coeff_scale":
@@ -399,7 +433,7 @@ def _variant(fe: Frontend60, coeffs: PowerCoefficients, knob: dict, v):
         fe = dc.replace(fe, converters=dc.replace(fe.converters, **{knob["field"]: v}))
     elif knob["kind"] == "irr":
         irr = v
-    return fe, coeffs, irr
+    return fe, coeffs, irr, margin
 
 
 def sensitivity(schemes: list[Scheme], fe: Frontend60, coeffs: PowerCoefficients | None = None,
@@ -409,24 +443,31 @@ def sensitivity(schemes: list[Scheme], fe: Frontend60, coeffs: PowerCoefficients
     coeffs = coeffs or PowerCoefficients.from_spec()
     built = [s for s in schemes if s.status == "built"]
 
-    def run(fe_, co_, irr_):
+    def run(fe_, co_, irr_, margin_=None):
         pa_evm = pa_isolated_evm_db(fe_.pa_model, fe_.obo_db, fe_.obo_reference) if fe_.pa_enabled else None
-        return [evaluate_scheme(s, fe_, co_, pa_evm, time_domain=False, irr_cal_db=irr_) for s in built]
+        return [evaluate_scheme(s, fe_, co_, pa_evm, time_domain=False, irr_cal_db=irr_, dec_margin_db=margin_)
+                for s in built]
 
     base = run(fe, coeffs, None)
+    base_dec = {r.label: r.dec_mcs for r in base}
+    base_dec_cal = {r.label: r.dec_mcs_cal for r in base}
     base_pj = {r.label: (r.power or {}).get("pj_per_bit") for r in base}
     base_mcs = {r.label: r.max_mcs for r in base}
     base_rank = _rank(base_pj)
-    out = {"base": {"mcs": base_mcs, "pj_per_bit": base_pj, "ranking": base_rank}, "knobs": []}
+    out = {"base": {"mcs": base_mcs, "dec_mcs": base_dec, "pj_per_bit": base_pj, "ranking": base_rank}, "knobs": []}
     for knob in sensitivity_knobs():
         for v in knob["values"]:
-            fe_, co_, irr_ = _variant(fe, coeffs, knob, v)
-            rows = run(fe_, co_, irr_)
+            fe_, co_, irr_, margin_ = _variant(fe, coeffs, knob, v)
+            rows = run(fe_, co_, irr_, margin_)
+            dec = {r.label: (r.dec_mcs_cal if knob["kind"] == "irr" else r.dec_mcs) for r in rows}
+            ref_dec = base_dec_cal if knob["kind"] == "irr" else base_dec
+            dec_moved = {lab: (ref_dec[lab], dec[lab]) for lab in dec if dec[lab] != ref_dec[lab]}
             pj = {r.label: (r.power or {}).get("pj_per_bit") for r in rows}
             mcs = {r.label: (r.max_mcs_cal if knob["kind"] == "irr" else r.max_mcs) for r in rows}
             ref_mcs = {r.label: r.max_mcs_cal for r in base} if knob["kind"] == "irr" else base_mcs
             moved = {lab: (ref_mcs[lab], mcs[lab]) for lab in mcs if mcs[lab] != ref_mcs[lab]}
             entry = {"knob": knob["name"], "value": v, "source": knob["source"], "mcs_moved": moved,
+                     "dec_mcs_moved": dec_moved,
                      "pj_per_bit": pj, "ranking": _rank(pj), "ranking_changed": _rank(pj) != base_rank,
                      "pj_ratio_max": max((pj[lab] / base_pj[lab] for lab in pj if pj[lab] and base_pj[lab]), default=None),
                      "pj_ratio_min": min((pj[lab] / base_pj[lab] for lab in pj if pj[lab] and base_pj[lab]), default=None)}
@@ -443,11 +484,14 @@ def _rank(pj: dict) -> list[str]:
 def sensitivity_markdown(sens: dict) -> str:
     lines = ["## sensitivity: which guesses decide the verdict", "",
              "base pJ/bit ranking (best first): " + " < ".join(sens["base"]["ranking"]), "",
-             "| knob (source) | at | MCS cap moved | pJ/bit × (min … max over rows) | ranking changed |", "|---|---|---|---|---|"]
+             "| knob (source) | at | conformance cap moved | decoder cap moved | pJ/bit × (min … max over rows) | ranking changed |",
+             "|---|---|---|---|---|---|"]
     for e in sens["knobs"]:
         moved = ", ".join(f"{lab}: {a}→{b}" for lab, (a, b) in e["mcs_moved"].items()) or "none"
+        dmoved = ", ".join(f"{lab}: {a}→{b}" for lab, (a, b) in e["dec_mcs_moved"].items()) or "none"
         ratio = ("—" if e["pj_ratio_min"] is None else f"{e['pj_ratio_min']:.2f} … {e['pj_ratio_max']:.2f}")
-        lines.append(f"| {e['knob']} ({e['source']}) | {e['value']} | {moved} | {ratio} | {'YES' if e['ranking_changed'] else 'no'} |")
+        lines.append(f"| {e['knob']} ({e['source']}) | {e['value']} | {moved} | {dmoved} | {ratio} | "
+                     f"{'YES' if e['ranking_changed'] else 'no'} |")
     return "\n".join(lines) + "\n"
 
 

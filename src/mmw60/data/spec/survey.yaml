@@ -597,3 +597,11 @@ entries:
     source: assumed
     cite: "本库；接收机算法选择"
     note: "归一化 min-sum 的缩放因子 α；0.75–0.8 是这类码的常用值，LLR 的绝对尺度对 min-sum 无影响。"
+
+  # ------------------------------------------------------------ A3：解码器上限
+  assumed.decoder_cap_margin_db:
+    value: 3.0
+    unit: dB
+    source: assumed
+    cite: "本库"
+    note: "'解码器上限'判定可达的口径：EVM 底板要比该 MCS 的 ideal 门限所容忍的噪声低 3 dB（−floor ≥ T + 3），此时底板吃掉 3.0 dB 灵敏度；取 0 dB 时所需 SNR 发散。同台表灵敏度节跑 1 / 6 dB 两端。与 assumed.mcs_evm_margin_db（发射机合规口径的余量）是两回事。"

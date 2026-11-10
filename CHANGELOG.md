@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### 解码器上限列 —— ROADMAP A3 剩余项（2026-11-10）
+- `tools/measure_thresholds.py` → `data/spec/per_thresholds.yaml`（source derived）：本库接收机在理想零中频链上 4096 B 包 PER 1e-2 的门限，11ac 20 MHz MCS 0–8 与 11be 20–320 MHz MCS 0–13 共 79 条曲线（约 16 分钟 / 4 核）。为什么：A2 证明“底板比 TX EVM 要求低 3 dB”的合规口径比解码器容忍度保守约 2 档，要换口径就得有每个 MCS 的门限；wifitrx `snr_req_db` 未审核且悲观 1–3.5 dB。
+- `frontend/grid.py::decoder_cap`：EVM 底板当噪声，−floor ≥ T + 3 dB（`assumed.decoder_cap_margin_db`）判可达，给出所需 SNR 与底板的代价；示例 02 加 dec / dec-cal 两列，示例 04 加 §4b（上限、所需 SNR、该上限处的速率与 pJ/bit）与灵敏度里的“解码器上限动了几行”和余量 1 / 6 dB 两端；合规口径的列与结论列原样保留。
+- 数字：11be 80 MHz × 4 解码器上限 MCS4（合规 MCS2），865 Mb/s、628 pJ/bit（合规口径 432 / 1241）；× 16 MCS2、1729 Mb/s；2.56 GHz 未校准能带 MCS0。示例 05 逐格复核：线性区预测与实测差 ≤ 0.06 dB（13.89 / 13.92、9.63 / 9.69、8.29 / 8.32），底板高于 −8 dB 的格所需 SNR 低估约 3 dB。
+- 功率列的 LDPC 解码块改按该行上限 MCS 的码率计（原按 MCS0 的 R = 1/2）：11be 两行 pJ/bit 动 −7 / −8（numbers-move：2401 → 2393、1248 → 1241）；示例 02 / 04 / 05 的 expected 重新 accept。指纹逐位不变。
+- `tests/test_thresholds.py` +4（文件标签与单调性、复量一个门限、上限算术、示例 05 的发现作守护）；`test_compare.py` 加解码器上限断言。
+
 ### 11be 编码 PER —— ROADMAP A2（2026-11-07）
 - `phy/ldpc.py`：802.11 的 12 个 QC-LDPC 码（648 / 1296 / 1944 × 1/2 … 5/6），原型矩阵进 `data/spec/ldpc_80211.yaml`（source survey：simgunz/802.11n-ldpc 与 tavildar/LDPC 两份独立转录逐项相同，双对角结构逐张校验）；系统编码器（H_p 的 GF(2) 逆）；归一化 min-sum 解码器 numpy / numba 两内核逐位相同（`MMW60_NO_JIT=1`）。
 - `phy/eht.py`：EHT MCS 0–13 × 20–320 MHz（N_SD 234 … 3920，MCS 9 / 11 在 996 音 RU 上的分数 N_DBPS 按规范保留）、LDPC PPDU 编码流程（码长 / 码字数 / 缩短 / 删余 / 重复 / 加符号）、音映射器（D_TM 9 / 12 / 20）、段解析器（160 / 320 MHz）、到 4096-QAM 的可分离 max-log LLR（≤ 256 阶保持里程碑 0 的算术）。为什么：11be 行以前只有 EVM，同台表和 PER 曲线都要它；ROADMAP 把它排在 ay 之前。

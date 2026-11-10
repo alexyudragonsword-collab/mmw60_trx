@@ -115,6 +115,37 @@ def max_mcs_for_floor(floor_db: float, standard: str, margin_db: float | None = 
     return best
 
 
+def decoder_cap(floor_db: float, standard: str, bandwidth_hz: float, margin_db: float | None = None) -> dict:
+    """The highest MCS the **decoder** can carry over an EVM floor: the floor
+    is one more noise term, so an MCS whose ideal-chain threshold is ``T``
+    (``data/spec/per_thresholds.yaml``, measured) needs
+
+        SNR_req = −10·log10( 10^(−T/10) − 10^(floor/10) )
+
+    and is counted reachable while the floor sits at least ``margin_db``
+    (data/spec: assumed.decoder_cap_margin_db) under the noise it tolerates,
+    i.e. −floor ≥ T + margin — at a 3 dB margin the floor costs 3.0 dB of
+    sensitivity.  This is the receiver's question; ``max_mcs_for_floor`` is
+    the transmitter-conformance one (floor against the standard's TX-EVM
+    limit) and sits about two MCS lower (example 05; cairn/comparison-table.md §6).
+
+    Returns ``{"mcs", "threshold_db", "required_snr_db", "penalty_db"}``;
+    ``mcs`` is None when no MCS is reachable or the base has no coded data
+    field (11ac 40 / 80 / 160 MHz: no thresholds to compare with)."""
+    m = float(spec.value("assumed.decoder_cap_margin_db")) if margin_db is None else float(margin_db)
+    best = {"mcs": None, "threshold_db": None, "required_snr_db": None, "penalty_db": None}
+    for idx in range(MAX_MCS[standard] + 1):
+        t = spec.per_threshold_db(standard, bandwidth_hz, idx)
+        if t is None or not (-floor_db >= t + m):
+            continue
+        lin = 10 ** (-t / 10) - 10 ** (floor_db / 10)
+        if lin <= 0:
+            continue
+        req = -10 * np.log10(lin)
+        best = {"mcs": idx, "threshold_db": float(t), "required_snr_db": float(req), "penalty_db": float(req - t)}
+    return best
+
+
 def data_rate_bps(standard: str, bandwidth_hz: float, mcs_index: int, t_symbol_s: float) -> float:
     table = spec.value("survey.n_sd_11ac" if standard == "11ac" else "survey.n_sd_11be")
     n_sd = int(table[float(bandwidth_hz)])
@@ -152,6 +183,13 @@ class Cell:
     data_rate_mbps: float | None = None
     dpd_pj_per_bit: float | None = None
     plan_ok: bool = True
+    #: the decoder's cap (floor as a noise term against the measured ideal
+    #: thresholds), uncalibrated and with the IQ image at the calibrated residual
+    dec_mcs: int | None = None
+    dec_mcs_cal: int | None = None
+    dec_required_snr_db: float | None = None
+    dec_rate_mbps: float | None = None
+    dec_coded: bool = True
 
     def row(self) -> str:
         iso = "" if not self.td_isolated_db else " ".join(
@@ -159,10 +197,13 @@ class Cell:
         td = "   —  " if self.td_evm_db is None else f"{self.td_evm_db:6.1f}"
         cal = "  —  " if self.max_mcs_cal is None else f"MCS{self.max_mcs_cal}"
         nopa = "  —  " if self.max_mcs_no_pa is None else f"MCS{self.max_mcs_no_pa}"
+        def dec(v):
+            return " n/a " if not self.dec_coded else ("  —  " if v is None else f"MCS{v}")
         return (f"{self.standard:<5} {self.base_bw_hz / 1e6:5.0f} x{self.k:<3} {self.bw_eff_hz / 1e9:6.2f} "
                 f"{self.scs_eff_hz / 1e6:6.2f} {self.floor_db:7.1f} {td} "
                 f"{'MCS' + str(self.max_mcs) if self.max_mcs is not None else '  —  ':>6} {cal:>6} "
-                f"{self.floor_no_pa_db:7.1f} {nopa:>6} {self.verdict:<4} {self.reason:<22} {iso}")
+                f"{self.floor_no_pa_db:7.1f} {nopa:>6} {dec(self.dec_mcs):>6} {dec(self.dec_mcs_cal):>6} "
+                f"{self.verdict:<4} {self.reason:<22} {iso}")
 
 
 def evaluate_cell(cfg: Mmw60Config, fe: Frontend60, time_domain: bool = True,
@@ -192,6 +233,14 @@ def evaluate_cell(cfg: Mmw60Config, fe: Frontend60, time_domain: bool = True,
                 ", ".join(reasons) if reasons else (REASON_ZH.get(a["dominant"], "") + " 限 MCS"),
                 floor_cal_db=a_cal["floor_db"], max_mcs_cal=mcs_cal,
                 floor_no_pa_db=a["floor_no_pa_db"], max_mcs_no_pa=mcs_no_pa, plan_ok=a["plan"]["ok"])
+    cell.dec_coded = cfg.coded
+    if cfg.coded:
+        d = decoder_cap(a["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz)
+        cell.dec_mcs, cell.dec_required_snr_db = d["mcs"], d["required_snr_db"]
+        cell.dec_mcs_cal = decoder_cap(a_cal["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz)["mcs"]
+        if d["mcs"] is not None:
+            cell.dec_rate_mbps = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d["mcs"],
+                                               phy.t_symbol_eff) / 1e6
     if mcs is not None:
         rate = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, mcs, phy.t_symbol_eff)
         cell.data_rate_mbps = rate / 1e6
@@ -220,5 +269,5 @@ def evaluate_cell(cfg: Mmw60Config, fe: Frontend60, time_domain: bool = True,
     return cell
 
 
-HEADER = ("std    base   K    BW[GHz] SCS[MHz] floor   TD-EVM  maxMCS IQcal  no-PA   maxMCS verdict reason"
-          "                 isolated TD EVM [dB]")
+HEADER = ("std    base   K    BW[GHz] SCS[MHz] floor   TD-EVM  maxMCS IQcal  no-PA   maxMCS    dec dec-cal "
+          "verdict reason                 isolated TD EVM [dB]")

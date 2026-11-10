@@ -19,7 +19,7 @@
 ### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
 - 拓扑 A 的行：`compare.PENDING[("if_extender", "be")]` 那格等 A1 落地后接入（同一个 `Frontend60` 实例；A 的 60 GHz 级在 wifitrx RF 之后插入）。
 - WiFi 7 全链路四条整合里还没做的两条：PA_DPD 的 PA / DPD 进 wifitrx 链（K = 1 可行——`ReferencePA` 的记忆按 320 MHz 样本写死，K > 1 等 D3）；Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（差 ≤ 0.4 dB，相噪口径差 3–4 dB）。
-- **MCS 上限口径**：现在的“底板比 TX EVM 要求低 3 dB”是发射机合规口径，比解码器容忍度保守约 2 档（示例 05：11be 80 MHz × 4 / 8 的 MCS4 按它超出上限，PER 却在 13.88 / 15.05 dB 到 1e-2，正是“底板当噪声”1/(1/SNR + 10^(floor/10)) 的预测 13.9 / 15.2）。待做：网格与同台表加一列“解码器上限”（ideal 门限 < −floor），需要每个 MCS 的 ideal 门限 SNR——示例 05 量了 3 个，其余要补量（wifitrx `snr_req_db` 未审核且悲观 1–3.5 dB）。
+- 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；底板高于 −8 dB 的格（2.56 GHz 未校准）可达性结论成立但所需 SNR 被低估约 3 dB（示例 05：MCS0 预测 2.15、实测 5.16 dB）——要么改用时域底板、要么这些格直接量；`per_thresholds.yaml` 是本库接收机的测量值，C1 / C2 改接收机后要 `python tools/measure_thresholds.py --jobs 4` 重量（约 16 分钟）。
 - 校准列现在是示例 03 实测 IRR 的查表，`calcheck.run_cal_at` 实跑进表要几分钟一列，留给需要它的那次。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
 

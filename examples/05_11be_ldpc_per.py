@@ -33,10 +33,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
-from mmw60 import ENGINE_BANNER, __version__                                   # noqa: E402
+from mmw60 import ENGINE_BANNER, __version__, spec                             # noqa: E402
 from mmw60.config import ChannelConfig, zero_if_60ghz                          # noqa: E402
 from mmw60.frontend import Frontend60                                          # noqa: E402
-from mmw60.frontend.grid import analytic_floors, max_mcs_for_floor, pa_isolated_evm_db  # noqa: E402
+from mmw60.frontend.grid import analytic_floors, decoder_cap, max_mcs_for_floor, pa_isolated_evm_db  # noqa: E402
 from mmw60.phy.ldpc import active_kernel                                       # noqa: E402
 from mmw60.sim.curves import CurveSpec, run_curves, save_results, sweep_line   # noqa: E402
 from mmw60.sim.link import LinkSim                                             # noqa: E402
@@ -45,6 +45,7 @@ OUT = HERE / "output"
 TARGET = 1e-2
 BASE_BW = 80e6
 KS = (4, 8)
+CAP_KS = (4, 8, 16, 32)
 MCSS = (0, 4, 7)
 GRIDS = {0: [-2.0 + x for x in range(0, 8)],            # −2 … 5 dB
          4: [10.0 + x for x in range(0, 9)],            # 10 … 18 dB
@@ -144,6 +145,40 @@ def main(argv=None) -> int:
                   + f"   ({'agree' if agree else 'cap DISAGREES'})")
     print("The floor-as-noise prediction is the one to compare with the impaired / no-PA columns: the TX-EVM-limit cap is a "
           "conformance figure, not the decoder's tolerance (cairn/comparison-table.md §6).")
+    # ---- the decoder cap of the grid / comparison table, checked where it lands
+    print("\n== the decoder cap (frontend/grid.py::decoder_cap, thresholds from data/spec/per_thresholds.yaml), checked: "
+          "impaired PER at the cap MCS and one MCS above it ==")
+    print("K   BW[MHz]  floor   cap    T[dB]  SNR needed (predicted)  measured @ PER 1e-2   one MCS above: predicted  measured")
+    cap_specs, cap_rows = [], []
+    mp, me = (6, 2) if quick else (150, 10)
+    for k in ((8,) if quick else CAP_KS):
+        cfg = dc.replace(zero_if_60ghz(k=k, standard="11be", bandwidth_hz=BASE_BW), channel=FLAT)
+        floor = analytic_floors(cfg, fe, pa_evm)["floor_db"]
+        d = decoder_cap(floor, "11be", BASE_BW)
+        if d["mcs"] is None:
+            cap_rows.append((k, floor, None, None, None, None))
+            continue
+        above = d["mcs"] + 1
+        t_above = spec.per_threshold_db("11be", BASE_BW, above)
+        pred_above = from_floor(t_above, floor)
+        cap_rows.append((k, floor, d, above, t_above, pred_above))
+        for mcs, centre in ((d["mcs"], d["required_snr_db"]), (above, pred_above if pred_above is not None else t_above + 6)):
+            grid = [round(centre - 2 + i, 2) for i in range(0, 7 if not quick else 2, 1 if not quick else 3)]
+            cap_specs.append(CurveSpec(f"cap check x{k:<2} MCS{mcs}", dc.replace(cfg, phy=dc.replace(cfg.phy, mcs=mcs)),
+                                       grid, mp, me, tags={"k": k, "mcs": mcs, "set": "cap"}))
+    cap_res = run_curves(cap_specs, TARGET, a.jobs, log=lambda s: None)
+    got = {(r["tags"]["k"], r["tags"]["mcs"]): r["snr_at_target"] for r in cap_res}
+    fmt = lambda v: "never" if v is None else f"{v:.2f}"  # noqa: E731
+    for k, floor, d, above, t_above, pred_above in cap_rows:
+        bw = BASE_BW * k / 1e6
+        if d is None:
+            print(f"{k:<3} {bw:7.0f}  {floor:5.1f}   none")
+            continue
+        print(f"{k:<3} {bw:7.0f}  {floor:5.1f}   MCS{d['mcs']:<2}  {d['threshold_db']:5.2f}  {d['required_snr_db']:10.2f}"
+              f"              {fmt(got.get((k, d['mcs']))):>8}              MCS{above}: {fmt(pred_above):>8}   {fmt(got.get((k, above))):>8}")
+    print("'never' above the cap means the floor is over that MCS's ideal threshold (or the sweep's 4 dB over the prediction "
+          "was not enough); the analytic floor is optimistic by 1-2 dB once it is above -8 dB (example 04 section 2).")
+    results = results + cap_res
     OUT.mkdir(exist_ok=True)
     save_results(results, OUT / "05_sweeps.json")
     print(f"\nwrote {OUT / '05_sweeps.json'}  [{time.time() - t0:.0f}s]")
