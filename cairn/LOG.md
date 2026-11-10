@@ -3,6 +3,16 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-07 · A2 11be 编码 PER：802.11 LDPC + EHT 数据域，DC 去除，MCS 上限口径被推翻（feat/a2-11be-ldpc-per）
+
+- 12 张 LDPC 原型矩阵来自两份独立公开转录（simgunz / tavildar），逐项相同，双对角结构逐张校验；编码器 H·c = 0 全部 12 码；min-sum 两内核逐位相同。EHT 数据域 20–320 MHz × MCS 0–13 环回零错；MCS 9 / 11 在 996 音 RU 上 N_DBPS 是分数（6533⅓），按规范保留。
+- 示例 05（11be 80 MHz × 4 / 8，4096 B，150 包 / 10 错，1 dB 步，约 3 分钟 / 4 核）PER = 1e-2 处 SNR：MCS0 ideal 0.89、impaired 0.13 / 1.04；MCS4 ideal 12.04、impaired **13.88 / 15.05**、no-PA 13.01 / 13.13；MCS7 ideal 19.04、impaired never / never、no-PA 22.84 / never。
+- **被推翻的判断 ①**：示例 04 的“MCS 上限 = 底板比 TX EVM 要求低 3 dB”（K=4 MCS2、K=8 MCS1）过保守 2 档——MCS4 impaired 真能到 1e-2。EVM 底板就是一层噪声：1/(1/SNR + 10^(floor/10)) 达到 ideal 门限即可，预测 13.9 / 15.2 dB（实测 13.88 / 15.05），MCS7 在 K=4 no-PA 预测 22.1（实测 22.84），底板高于 ideal 门限的格 never（全部对上）。TX EVM 要求是合规数，不是解码器容忍度。→ ROADMAP A3 剩余项：网格 / 同台表的上限列改用这个口径（要每个 MCS 的 ideal 门限，示例 05 已量 3 个）。
+- **被推翻的判断 ②**：以为 −25 dBc 的 RX DC 只在 CFO 把它搬进数据音后才显（EVM −30 dB）——它在 CFO 校正之前就坐在 L-STF 自相关里，SNR 5 dB 偏 602 kHz（≈ 1 个 625 kHz 子载波）、2 dB 偏 1.2 MHz，impaired 包全错。修在接收机：突发前静默段量 DC 再减（wifitrx rx_dc_offset 的量法）。**第一版用整帧均值是错的**：CFO 把一个数据音搬到离 0 Hz 80 kHz，16 符号短帧 sinc ≈ 0.47，半个音被当 DC 减掉，11ac 40×8 仅 CFO 的隔离 EVM 从 −40 掉到 −26 dB。
+- **被推翻的判断 ③**：LDPC PPDU 流程里 10 字节 / 20 MHz MCS0 直觉是 1 个符号——流程的“删余 > 10 % 且缩短不足”分支加一个符号改为重复 27 位（n_sym 2）。
+- 示例 02 / 04 的 11be 格改为编码 MCS0 载荷、前导多静默段：时域列动 ≤ 0.3 dB、结论列不动；11be 行 pJ/bit +21–22（LDPC 解码块，1–2 %）；指纹 68 值逐位不变；非慢测试 107 → 129（+22）。
+- 下一步：A3 剩余项加“上限口径改为底板当噪声 + ideal 门限”；A1 的行；ay 之前还剩 11ac 40–160 MHz 要不要 BCC 宽带交织器。
+
 ## 2026-11-07 · A3 同台表：11 行有数字、6 格点名未建，三方对账，pJ/bit 与灵敏度（feat/a3-comparison-table）
 
 - 一个 `Frontend60` 给每行。11ac 20 MHz 基准：K=1@6 GHz −17.2 / −17.5 dB MCS2 20 Mb/s 8720 pJ/bit；K=1@60.48 失锁（CFO 7.7 sc）；K=4/8/16 MCS2 78/156/312 Mb/s 3803/2456/1694 pJ/bit；K=32 MCS1（IQ）416 Mb/s 1869。11be 80 MHz：K=4 MCS2 432 Mb/s **1227**（全表最好）；K=8 MCS1 576 Mb/s 1359；K=16 MCS0 2141；K=32 不能（IQ −5.8 dB）。

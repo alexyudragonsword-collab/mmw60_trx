@@ -1,0 +1,66 @@
+engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
+mmw60 0.1.0; LDPC kernel: numba; full size
+11be 80 MHz base x K at 60.48 GHz, 4096 B, 20+20 ppm -> CFO 2.419 MHz; FEC ldpc (max 30 iterations, alpha 0.8); PA rapp_11ad OBO 8 dB from psat -> Pout 7 dBm; LO IPN -31.1 dBc; channel flat
+K    BW[MHz]  fs_eff[GS/s]  SCS[MHz]  T_sym[ns]  MCS  N_DBPS   symbols/packet  codewords  L   shortened  punctured
+4        320         0.64     0.312       3400  0        490               67         34  1944        218        218
+4        320         0.64     0.312       3400  4       2940               12         25  1944       1170        390
+4        320         0.64     0.312       3400  7       4900                7         22  1944       1340        268
+8        640         1.28     0.625       1700  0        490               67         34  1944        218        218
+8        640         1.28     0.625       1700  4       2940               12         25  1944       1170        390
+8        640         1.28     0.625       1700  7       4900                7         22  1944       1340        268
+
+== the analytic cap of example 04 for these cells (floor 3 dB under the MCS TX-EVM limit) ==
+  K=4: impaired floor -16.6 dB -> cap MCS2; no PA floor -22.0 dB -> cap MCS3
+  K=8: impaired floor -14.9 dB -> cap MCS1; no PA floor -17.9 dB -> cap MCS2
+
+== PER vs SNR (up to 150 packets or 10 errors per point; SNR = per active subcarrier Es/N0) ==
+  done 11be 80M x4  MCS0 ideal: SNR@0.01 = 0.89 dB
+  done 11be 80M x4  MCS0 impaired: SNR@0.01 = 0.13 dB
+  done 11be 80M x4  MCS0 no PA: SNR@0.01 = 0.13 dB
+  done 11be 80M x4  MCS4 ideal: SNR@0.01 = 12.04 dB
+  done 11be 80M x4  MCS4 impaired: SNR@0.01 = 13.88 dB
+  done 11be 80M x4  MCS4 no PA: SNR@0.01 = 13.01 dB
+  done 11be 80M x4  MCS7 ideal: SNR@0.01 = 19.04 dB
+  done 11be 80M x4  MCS7 impaired: SNR@0.01 = never
+  done 11be 80M x4  MCS7 no PA: SNR@0.01 = 22.84 dB
+  done 11be 80M x8  MCS0 ideal: SNR@0.01 = 0.89 dB
+  done 11be 80M x8  MCS0 impaired: SNR@0.01 = 1.04 dB
+  done 11be 80M x8  MCS0 no PA: SNR@0.01 = 0.90 dB
+  done 11be 80M x8  MCS4 ideal: SNR@0.01 = 12.04 dB
+  done 11be 80M x8  MCS4 impaired: SNR@0.01 = 15.05 dB
+  done 11be 80M x8  MCS4 no PA: SNR@0.01 = 13.13 dB
+  done 11be 80M x8  MCS7 ideal: SNR@0.01 = 19.04 dB
+  done 11be 80M x8  MCS7 impaired: SNR@0.01 = never
+  done 11be 80M x8  MCS7 no PA: SNR@0.01 = never
+
+curve                               SNR @ PER 1e-2      SNR:PER points
+11be 80M x4  MCS0 ideal            SNR@1e-2   0.89 dB   -2:1 -1:1 0:0.312 1:0.00667 2:0
+11be 80M x4  MCS0 impaired         SNR@1e-2   0.13 dB   -2:1 -1:1 0:0.312 1:0
+11be 80M x4  MCS0 no PA            SNR@1e-2   0.13 dB   -2:1 -1:1 0:0.303 1:0
+11be 80M x4  MCS4 ideal            SNR@1e-2  12.04 dB   10:1 11:1 12:0.0267 13:0
+11be 80M x4  MCS4 impaired         SNR@1e-2  13.88 dB   10:1 11:1 12:1 13:0.175 14:0.00667 15:0
+11be 80M x4  MCS4 no PA            SNR@1e-2  13.01 dB   10:1 11:1 12:0.182 13:0.0133 14:0
+11be 80M x4  MCS7 ideal            SNR@1e-2  19.04 dB   18:1 19:0.0267 20:0
+11be 80M x4  MCS7 impaired         SNR@1e-2     never   18:1 19:1 20:1 21:1 22:1 23:1 24:1 25:1 26:1 27:1 28:1
+11be 80M x4  MCS7 no PA            SNR@1e-2  22.84 dB   18:1 19:1 20:0.909 21:0.526 22:0.0781 23:0.00667 24:0
+11be 80M x8  MCS0 ideal            SNR@1e-2   0.89 dB   -2:1 -1:1 0:0.312 1:0.00667 2:0
+11be 80M x8  MCS0 impaired         SNR@1e-2   1.04 dB   -2:1 -1:1 0:0.556 1:0.0267 2:0
+11be 80M x8  MCS0 no PA            SNR@1e-2   0.90 dB   -2:1 -1:1 0:0.385 1:0.00667 2:0
+11be 80M x8  MCS4 ideal            SNR@1e-2  12.04 dB   10:1 11:1 12:0.0267 13:0
+11be 80M x8  MCS4 impaired         SNR@1e-2  15.05 dB   10:1 11:1 12:1 13:1 14:0.526 15:0.0333 16:0
+11be 80M x8  MCS4 no PA            SNR@1e-2  13.13 dB   10:1 11:1 12:1 13:0.27 14:0
+11be 80M x8  MCS7 ideal            SNR@1e-2  19.04 dB   18:1 19:0.0267 20:0
+11be 80M x8  MCS7 impaired         SNR@1e-2     never   18:1 19:1 20:1 21:1 22:1 23:1 24:1 25:1 26:1 27:1 28:1
+11be 80M x8  MCS7 no PA            SNR@1e-2     never   18:1 19:1 20:1 21:1 22:1 23:1 24:1 25:1 26:1 27:1 28:1
+
+== SNR at PER 1e-2 [dB]: ideal / impaired / no PA; the example-04 cap (floor 3 dB under the TX-EVM limit) and the floor-as-noise prediction (effective SNR = 1 / (1/SNR + 10^(floor/10)) must reach the ideal threshold) ==
+K   MCS      ideal   impaired      no PA   cap(imp) cap(noPA)  cap verdict          floor-as-noise: impaired  no PA
+4   0          0.89       0.13       0.13   MCS2     MCS3     reachable / reached       1.01       0.93   (agree)
+4   4         12.04      13.88      13.01   MCS2     MCS3     beyond cap / reached     13.92      12.51   (cap DISAGREES)
+4   7         19.04      never      22.84   MCS2     MCS3     beyond cap / never       never      22.12   (agree)
+8   0          0.89       1.04       0.90   MCS1     MCS2     reachable / reached       1.07       0.98   (agree)
+8   4         12.04      15.05      13.13   MCS1     MCS2     beyond cap / reached     15.16      13.36   (cap DISAGREES)
+8   7         19.04      never      never   MCS1     MCS2     beyond cap / never       never      never   (agree)
+The floor-as-noise prediction is the one to compare with the impaired / no-PA columns: the TX-EVM-limit cap is a conformance figure, not the decoder's tolerance (cairn/comparison-table.md §6).
+
+wrote examples/output/05_sweeps.json  [~s]

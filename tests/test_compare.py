@@ -154,10 +154,16 @@ def test_power_model_bookkeeping_matches_its_coefficients():
     assert rep7.watts("converters") == rep.watts("converters") and rep7.watts("pa") == rep.watts("pa")
     fe_more = dc.replace(fe, converters=dc.replace(fe.converters, enob_ref=fe.converters.enob_ref + 1))
     assert power_report(cfg, fe_more, 156e6, k).watts("converters") == pytest.approx(2 * rep.watts("converters"))
-    # the 11be base has no decoder block and says so
+    # the 11be base has the LDPC decoder block (min-sum ops per info bit at the max iterations)
     be = zero_if_60ghz(k=8, standard="11be", bandwidth_hz=80e6)
     r_be = power_report(be, fe, 1e9, k)
-    assert "decoder" not in [b.name for b in r_be.blocks] and any("LDPC" in o for o in r_be.omitted)
+    dec = next(b for b in r_be.blocks if b.name == "decoder")
+    assert "LDPC" in dec.note and not r_be.omitted
+    from mmw60.phy.eht import ldpc_decoder_ops_per_info_bit
+    assert dec.watts == pytest.approx(ldpc_decoder_ops_per_info_bit("1/2") * k.add_j() * 1e9)
+    # the EVM-only 11ac 40 MHz base has none and says so
+    r40 = power_report(zero_if_60ghz(k=8, standard="11ac", bandwidth_hz=40e6), fe, 1e9, k)
+    assert "decoder" not in [b.name for b in r40.blocks] and any("decoder" in o for o in r40.omitted)
     # ideal PA: no PA and no DPD block
     r_ideal = power_report(cfg.ideal(), Frontend60.from_config(cfg.ideal()), 156e6, k)
     assert {b.name for b in r_ideal.blocks} == {"lo", "fft", "decoder"}

@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### 11be 编码 PER —— ROADMAP A2（2026-11-07）
+- `phy/ldpc.py`：802.11 的 12 个 QC-LDPC 码（648 / 1296 / 1944 × 1/2 … 5/6），原型矩阵进 `data/spec/ldpc_80211.yaml`（source survey：simgunz/802.11n-ldpc 与 tavildar/LDPC 两份独立转录逐项相同，双对角结构逐张校验）；系统编码器（H_p 的 GF(2) 逆）；归一化 min-sum 解码器 numpy / numba 两内核逐位相同（`MMW60_NO_JIT=1`）。
+- `phy/eht.py`：EHT MCS 0–13 × 20–320 MHz（N_SD 234 … 3920，MCS 9 / 11 在 996 音 RU 上的分数 N_DBPS 按规范保留）、LDPC PPDU 编码流程（码长 / 码字数 / 缩短 / 删余 / 重复 / 加符号）、音映射器（D_TM 9 / 12 / 20）、段解析器（160 / 320 MHz）、到 4096-QAM 的可分离 max-log LLR（≤ 256 阶保持里程碑 0 的算术）。为什么：11be 行以前只有 EVM，同台表和 PER 曲线都要它；ROADMAP 把它排在 ay 之前。
+- `Mmw60Config.coded` 覆盖 11be 全部带宽；`RxConfig.ldpc_max_iterations / ldpc_minsum_scale`（assumed 条目）；`RxConfig.dc_removal`（在突发前的静默段上量 DC 再减掉——wifitrx rx_dc_offset 校准的量法；零中频预设开、默认关以保指纹）——**新发现**：−25 dBc 的 RX 自混频 DC 在 CFO 校正前把 L-STF 自相关估计偏置约 1 个子载波（SNR ≤ 10 dB），11be 80 MHz × 8 的 impaired 包全错；去 DC 后 2 dB 处就能解（`tests/test_frontend.py::test_dc_removal_keeps_the_stf_estimator_honest_at_low_snr`）。
+- 功率列：11be 行有了 LDPC 解码块（每边每迭代 2 次加等效、按最大迭代数计）；示例 02 / 04 的 11be 格因数据域从随机 16-QAM 变成编码 MCS0 而数字微动（numbers-move，expected 重新 accept）。
+- 示例 05：11be 80 MHz × 4 / 8、MCS 0 / 4 / 7、ideal / impaired / no-PA 的 PER–SNR，并与示例 04 的解析 MCS 上限对判——**上限口径被推翻**：TX-EVM 合规口径比解码器容忍度保守约 2 档，“底板当噪声”1/(1/SNR + 10^(floor/10)) 的预测与实测 PER 门限对上（MCS4 预测 13.9 / 15.2 vs 实测 13.88 / 15.05）；`tests/test_ldpc.py` +11 项，非慢测试 107 → 129。
+- 数字：`cairn/LOG.md` 2026-11-07（A2）；`cairn/comparison-table.md` §2 的 11be 行更新。
+
 ### 同台表与预算报表 —— ROADMAP A3（2026-11-07）
 - `mmw60.compare`：`scheme_matrix` 点名全部 8 个（拓扑 × 波形）格子（建好的有数字，没建的写里程碑 / n/a）；每行数字学、CFO 捕获、解析底板、时域 EVM、wifitrx `EvmBudget` 对账、MCS 上限（未校准 / 示例 03 实测 IRR）、速率与 b/s/Hz、EIRP 余量、功率分块；`sensitivity` 在每个系数的区间端点重跑并列出动了什么。为什么：铁律 2 要的是"每种方案在同一个实例上同台"，表必须把没建的方案也点名。
 - `mmw60.power`（Halo 示例 41 口径）：PA 直流、两只频综、I/Q 转换器（Walden）、DPD（dsp_ip × Horowitz）、基准尺寸 FFT、Viterbi，读比值不读总量；系数全部进 `survey.yaml`（survey / assumed）。

@@ -561,3 +561,39 @@ entries:
     source: derived
     cite: "examples/expected/03_calibration_at_k.txt（2026-11-07）tx_iq / rx_iq 两步 irr_min_db 的较小值，按有效带宽"
     note: "示例 03 实测的校准后镜像抑制；同台表的 'IQcal' 列用它（取不大于该行带宽的最近一档），替代 assumed.irr_after_cal_db（ROADMAP A2 第一条）。示例 02 的网格仍用 45 dB 的假设值。"
+
+  # ------------------------------------------------------------ 里程碑 1 A2：11be 编码 PER（EHT LDPC）
+  survey.eht_tone_mapper_dtm:
+    value: {20.0e+6: 9, 40.0e+6: 12, 80.0e+6: 20, 160.0e+6: 20, 320.0e+6: 20}
+    unit: tones
+    source: survey
+    cite: "IEEE 802.11ax-2021 Table 27-31 'LDPC tone mapping distance' by RU size（242: 9、484: 12、996: 20，2×996 / 4×996 每个 996 段各 20）；EHT 沿用（802.11be D3.0 §36.3.12.8）"
+    note: "未核实：原文表未贴入。D_TM 只影响频率选择性信道上的 PER（平坦信道不变）；N_SD 必须整除 D_TM（234/9、468/12、980/20）。"
+
+  survey.ldpc_ppdu_encoding_thresholds:
+    value: {l1296_over_648: 912, l1944_over_1296: 1464, l1944_over_1296_two_cw: 2916, punc_frac_a: 0.1, shrt_ratio_b: 1.2, punc_frac_c: 0.3}
+    unit: bits / ratios
+    source: survey
+    cite: "IEEE 802.11-2020 §19.3.11.7.5 'LDPC PPDU encoding process' steps (b)–(e) and Table 19-16（码长与码字数选取、缩短 / 删余 / 重复及加一个符号的两个条件）；VHT / HE / EHT 沿用同一流程"
+    note: "未核实：原文未贴入。本库按 HT/VHT 的流程（预 FEC 填充到 N_SYM·N_DBPS，等价于 HE 的 a = 4），不建 HE/EHT 的 a 因子与 PE 字段（assumed.eht_prefec_padding）。"
+
+  assumed.eht_prefec_padding:
+    value: "a=4 (HT/VHT procedure)"
+    unit: rule
+    source: assumed
+    cite: "本库"
+    note: "11be 数据域的预 FEC 填充按 HT/VHT 流程把 SERVICE+PSDU 填到整符号，不做 HE/EHT 的 a 因子（1–4）与 Packet Extension：PER 对此不敏感（只改最后一个符号的有效载荷），吞吐差 < 1 个符号。EHT 的 11 位扰码器也不建（PER 与扰码序列无关，仍用 7 位）。"
+
+  assumed.ldpc_max_iterations:
+    value: 30
+    unit: iterations
+    source: assumed
+    cite: "本库；接收机算法选择"
+    note: "归一化 min-sum 的最大迭代数（综合征为零即提前停止）；30 次在 1944 码上离 50 次的 PER 差 < 0.1 dB 量级，功率列按它计 LDPC 解码能耗。"
+
+  assumed.ldpc_minsum_scale:
+    value: 0.8
+    unit: ratio
+    source: assumed
+    cite: "本库；接收机算法选择"
+    note: "归一化 min-sum 的缩放因子 α；0.75–0.8 是这类码的常用值，LLR 的绝对尺度对 min-sum 无影响。"

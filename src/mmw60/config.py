@@ -167,6 +167,17 @@ class RxConfig:
     #: diagnostic only: equalise with the true channel (flat channel: ones)
     #: instead of the L-LTF estimate, to separate decoder loss from CSI loss
     genie_csi: bool = False
+    #: the 11be LDPC decoder (normalised min-sum; data/spec: assumed.ldpc_*)
+    ldpc_max_iterations: int = 30
+    ldpc_minsum_scale: float = 0.8
+    #: digital DC removal before the CFO estimators (zero-IF chain model): the
+    #: receiver measures its DC on a signal-free lead-in of the burst — what
+    #: wifitrx's rx_dc_offset calibration measures with the input quiet — and
+    #: subtracts it.  Off by default so the milestone-0 fingerprint stands;
+    #: the zero-IF presets switch it on: without it the −25 dBc RX DC biases
+    #: the L-STF autocorrelation by a subcarrier at SNR ≤ 10 dB
+    #: (cairn/engineering-pitfalls.md).
+    dc_removal: bool = False
 
 
 @dataclass(frozen=True)
@@ -233,8 +244,12 @@ class Mmw60Config:
 
     @property
     def coded(self) -> bool:
-        """The VHT 20 MHz data field is the only coded (PER-capable) base; every
-        other base runs EVM-only on wifitrx's random-QAM payload."""
+        """Bases with a coded (PER-capable) data field: the VHT 20 MHz base
+        (BCC, ``phy/ppdu.py``) and every 11be base (LDPC, ``phy/eht.py``);
+        the 11ac 40 / 80 / 160 MHz bases run EVM-only on wifitrx's
+        random-QAM payload (their wider BCC interleavers are not built)."""
+        if self.phy.standard == "11be":
+            return True
         return self.phy.standard == "11ac" and self.phy.bandwidth_hz == 20e6
 
     @property
@@ -340,7 +355,9 @@ def liu2025_table2(k: int = 8, mcs: int = 0, **top) -> Mmw60Config:
                                             obo_reference=str(s("assumed.pa_obo_reference")))),
         channel=ChannelConfig(model="tdl_exp", rms_delay_ns=float(s("assumed.cr_rms_delay_ns")),
                               los_k_db=float(s("assumed.cr_los_k_db"))),
-        rx=RxConfig(cfo_estimation="stf_ltf", ce_smooth_tones=int(s("assumed.ce_smooth_tones"))),
+        rx=RxConfig(cfo_estimation="stf_ltf", ce_smooth_tones=int(s("assumed.ce_smooth_tones")),
+                    ldpc_max_iterations=int(s("assumed.ldpc_max_iterations")),
+                    ldpc_minsum_scale=float(s("assumed.ldpc_minsum_scale"))),
         label=f"Liu2025 K={k} MCS{mcs}",
     )
     return dataclasses.replace(cfg, **top) if top else cfg
@@ -367,6 +384,7 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
     cfg = dataclasses.replace(base, carrier_hz=float(carrier_hz), frontend=fe,
                               phy=dataclasses.replace(base.phy, standard=standard,
                                                       bandwidth_hz=float(bandwidth_hz)),
+                              rx=dataclasses.replace(base.rx, dc_removal=True),
                               label=f"zero-IF 60 GHz {standard} {bandwidth_hz / 1e6:g} MHz x{k} MCS{mcs}")
     return dataclasses.replace(cfg, **top) if top else cfg
 

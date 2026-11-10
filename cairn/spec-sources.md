@@ -37,6 +37,7 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - 相噪 PSD 形状 PSD0·(1+(f/f_z)²)/(1+(f/f_p)²)：TGad EM 的写法（它的 PSD0 是 −90，Liu 用 −93）。
 - VHT MCS 表（N_SD = 52、N_DBPS 26/52/156）、交织 N_COL = 13、BCC 133/171、扰码 x⁷+x⁴+1：802.11 的通用知识，原文未贴入。
 - FCC 15.255 的 40 / 43 dBm：里程碑 1 用。
+- 802.11 LDPC 的 12 张原型矩阵（`data/spec/ldpc_80211.yaml`，A2）：规范 Annex F 原文未贴入，取两份独立公开转录（simgunz/802.11n-ldpc、tavildar/LDPC，MIT）逐项比对相同，再按双对角结构逐张校验；EHT 的 N_SD、D_TM、LDPC PPDU 流程阈值（912 / 1464 / 2916、10 % / 1.2 / 30 %）同样 survey。
 - 同台表 pJ/bit 列（A3）：Walden FoM 70 fJ（38.4–120.2）与 45 → 7 nm 能量比 0.175 经 Halo 的 `PowerCoefficients` 转引 Murmann / DeepScaleTool；pllsim wu19 时钟剖面是 Halo 随库数据（模型输出，不是实测）。
 
 ## 本库自己定的（assumed；每条在示例 00 有灵敏度行或在 LOG 有数字）

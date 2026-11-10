@@ -1,5 +1,7 @@
 """Composed receiver: genie timing → CFO (per ``RxConfig.cfo_estimation``) →
 L-LTF channel estimate → zero-forcing → per-symbol pilot CPE → LLR → decode.
+(The receiver's DC is removed before this, in the chain model's lead-in —
+``RxConfig.dc_removal``, ``sim/link.py``.)
 
 The order and the functions are wifitrx's ``cal/sequence.score_views``
 (``estimate_cfo`` / ``channel_estimate`` / ``smooth_channel_estimate`` /
@@ -9,8 +11,9 @@ literal reading of Liu 2025 §V-A (no CFO estimation, pilots only).
 
 ``ref`` is anything with ``symbols`` (the transmitted constellation, pilots
 included), ``data_cols``, ``pilot_cols`` and ``pilots``: a ``DataField``
-(coded VHT 20 MHz, decoded to a PER) or a ``TxRef`` (any other base, EVM
-only — ``bit_errors`` is then None).
+(coded VHT 20 MHz, BCC), an ``EhtDataField`` (coded 11be, LDPC) — both
+decoded to a PER — or a ``TxRef`` (the 11ac 40–160 MHz bases, EVM only —
+``bit_errors`` is then None).
 """
 from __future__ import annotations
 
@@ -19,6 +22,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..config import RxConfig
+from ..phy.eht import EhtDataField
 from ..phy.ppdu import DataField, decode_data_field
 from ..upclock import UpclockedPhy
 from ..vendor.wifitrx.metrics.cpe import correct_cpe_pilots
@@ -90,6 +94,10 @@ def receive(y: np.ndarray, frame: Frame, ref, phy: UpclockedPhy,
     if isinstance(ref, DataField):
         weight = np.abs(h[ref.data_cols]) ** 2
         _, errors = decode_data_field(eq, ref, weight, kernel=kernel)
+    elif isinstance(ref, EhtDataField):
+        weight = np.abs(h[ref.data_cols]) ** 2
+        _, errors = ref.decode(eq, weight, kernel=kernel, max_iter=rxc.ldpc_max_iterations,
+                               alpha=rxc.ldpc_minsum_scale)
     return RxResult(bit_errors=errors, packet_error=None if errors is None else errors > 0,
                     evm_db=evm_db, cfo_hat_hz=float(cfo_hat), cfo_stf_hz=float(f_stf),
                     cfo_ltf_hz=float(f_ltf), cfo_integer_tones=int(m_int),

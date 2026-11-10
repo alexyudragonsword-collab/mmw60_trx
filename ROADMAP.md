@@ -11,14 +11,16 @@
 
 ### A2. 拓扑 B 的剩余项（主体已在里程碑 1-B 落地：`cairn/topology-b.md`）
 - 示例 02 网格的 "IQcal" 列仍用 `assumed.irr_after_cal_db`（45 dB）；同台表（示例 04）已换成示例 03 实测的 `derived.irr_after_cal_measured_db`，一格结论都没动（`cairn/comparison-table.md` §6 ④），网格要不要跟着换只是口径统一的问题。
-- 11be 基准的编码 PER（现在只有 11ac 20 MHz 有编码数据域，其余基准 EVM-only）：需要 EHT 的 LDPC / 交织表，排在 ay 波形之前。
+- 11ac 40 / 80 / 160 MHz 基准仍是 EVM-only（它们的 BCC 交织器未建；11be 全部带宽已有 LDPC 数据域，`phy/eht.py`）；要不要补只看有没有人要 11ac 宽带的 PER。
+- 11be 数据域里没建的：HE/EHT 的预 FEC 填充 a 因子与 PE 字段（按 HT/VHT 流程，`assumed.eht_prefec_padding`）、EHT 11 位扰码器（PER 不感知）、MU-RU / 320 MHz 打孔 / DCM / 多流。
 - 转换器 ENOB 随速率的法则（`assumed.converter_bits_per_octave`）换成 Murmann 调查表的实测包络（拿到表后标 survey）。
 - DPD 的 2.56 GHz 代价现在是 dsp_ip P=4 综合面积 + Horowitz 运算能耗的记账；PA_DPD 的带宽项到了再换（D）。
 
 ### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
 - 拓扑 A 的行：`compare.PENDING[("if_extender", "be")]` 那格等 A1 落地后接入（同一个 `Frontend60` 实例；A 的 60 GHz 级在 wifitrx RF 之后插入）。
 - WiFi 7 全链路四条整合里还没做的两条：PA_DPD 的 PA / DPD 进 wifitrx 链（K = 1 可行——`ReferencePA` 的记忆按 320 MHz 样本写死，K > 1 等 D3）；Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（差 ≤ 0.4 dB，相噪口径差 3–4 dB）。
-- pJ/bit 列缺 11be 的 LDPC 解码功耗（本库不解 LDPC，表里标"不计"）；校准列现在是示例 03 实测 IRR 的查表，`calcheck.run_cal_at` 实跑进表要几分钟一列，留给需要它的那次。
+- **MCS 上限口径**：现在的“底板比 TX EVM 要求低 3 dB”是发射机合规口径，比解码器容忍度保守约 2 档（示例 05：11be 80 MHz × 4 / 8 的 MCS4 按它超出上限，PER 却在 13.88 / 15.05 dB 到 1e-2，正是“底板当噪声”1/(1/SNR + 10^(floor/10)) 的预测 13.9 / 15.2）。待做：网格与同台表加一列“解码器上限”（ideal 门限 < −floor），需要每个 MCS 的 ideal 门限 SNR——示例 05 量了 3 个，其余要补量（wifitrx `snr_req_db` 未审核且悲观 1–3.5 dB）。
+- 校准列现在是示例 03 实测 IRR 的查表，`calcheck.run_cal_at` 实跑进表要几分钟一列，留给需要它的那次。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
 
 ## B. 里程碑 2：阵列层
