@@ -51,6 +51,8 @@ select = ["E", "F", "W"]
 # Chinese mechanism prose and the examples' report lines
 "src/mmw60/calcheck.py" = ["E501"]
 "tools/measure_thresholds.py" = ["E501"]
+"tools/external_check.py" = ["E501"]
+"examples/00_liu2025_per_vs_snr.py" = ["E501"]
 "examples/02_upclock_grid.py" = ["E501"]
 "examples/03_calibration_at_k.py" = ["E501"]
 "examples/04_comparison_table.py" = ["E501"]

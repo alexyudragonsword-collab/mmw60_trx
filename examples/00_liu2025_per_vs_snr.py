@@ -9,6 +9,13 @@ L-LTF fine CFO estimate and pilot phase tracking (the paper's own "4.7"
 argument assumes the STF estimator; its "we refrained from CFO estimation"
 sentence is tested as the *literal* diagnostic row below).
 
+The three original sets keep the milestone-0 receiver (per-symbol pilot CPE,
+3-tone channel smoothing) — they are the external validation.  Two more
+sets, "rx+", run the same links with the improved receiver of ROADMAP C1 /
+C2 (pilot common phase combined across symbols, smoothing span chosen per
+packet) to show how far the curves move.  Every SNR at PER 1e-2 comes with
+the 95 % bootstrap interval of its own counting statistics (ROADMAP C3).
+
     python examples/00_liu2025_per_vs_snr.py [--quick] [--jobs N]
 
 Writes examples/output/00_per_vs_snr.png and 00_sweeps.json (what
@@ -27,9 +34,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__                      # noqa: E402
-from mmw60.config import ChannelConfig, liu2025_table2            # noqa: E402
+from mmw60.config import ChannelConfig, improved_rx, liu2025_table2  # noqa: E402
 from mmw60.phy.bcc import active_kernel                           # noqa: E402
-from mmw60.sim.curves import CurveSpec, run_curves, save_results, sweep_line  # noqa: E402
+from mmw60.sim.curves import CurveSpec, ci_text, run_curves, save_results, sweep_line  # noqa: E402
 from mmw60.sim.link import LinkSim                                # noqa: E402
 
 OUT = HERE / "output"
@@ -47,19 +54,40 @@ def flat(cfg):
     return dc.replace(cfg, channel=ChannelConfig(model="flat"))
 
 
+#: ROADMAP C3: the two points bracketing PER 1e-2 are run on to this many
+#: packet errors (or the packet cap) before the crossing is interpolated
+REFINE_ERRORS, REFINE_MAX_PACKETS = 60, 3000
+#: the improved receiver's curves start lower (its MCS0 threshold is ~2 dB down)
+GRIDS_RX = {0: [-1 + x * 0.5 for x in range(0, 17)],    # −1 .. 7 dB
+            1: [2 + x * 0.5 for x in range(0, 17)],     # 2 .. 10 dB
+            4: [11 + x * 1.0 for x in range(0, 15)]}    # 11 .. 25 dB
+
+
+def better_rx(cfg):
+    """ROADMAP C1 / C2 on (``config.improved_rx``): pilot common phase combined
+    across symbols, channel-estimate smoothing span chosen per packet."""
+    return dc.replace(cfg, rx=improved_rx(cfg.rx), label=(cfg.label + " rx+").strip())
+
+
 def specs(quick: bool) -> list[CurveSpec]:
     mp, me = (6, 2) if quick else (600, 30)
+    rf = {} if quick else {"refine_errors": REFINE_ERRORS, "refine_max_packets": REFINE_MAX_PACKETS}
     out = []
     for k in (4, 8, 16):
         for mcs in (0, 1, 4):
             grid = GRIDS[mcs][::6] if quick else GRIDS[mcs]
+            grid_rx = GRIDS_RX[mcs][::6] if quick else GRIDS_RX[mcs]
             cfg = liu2025_table2(k=k, mcs=mcs)
             out.append(CurveSpec(f"K={k:<2} MCS{mcs} impaired", cfg, grid, mp, me,
-                                 tags={"k": k, "mcs": mcs, "set": "impaired"}))
+                                 tags={"k": k, "mcs": mcs, "set": "impaired"}, **rf))
             out.append(CurveSpec(f"K={k:<2} MCS{mcs} ideal", cfg.ideal(), grid, mp, me,
-                                 tags={"k": k, "mcs": mcs, "set": "ideal"}))
+                                 tags={"k": k, "mcs": mcs, "set": "ideal"}, **rf))
             out.append(CurveSpec(f"K={k:<2} MCS{mcs} flat", flat(cfg), grid, mp, me,
-                                 tags={"k": k, "mcs": mcs, "set": "flat"}))
+                                 tags={"k": k, "mcs": mcs, "set": "flat"}, **rf))
+            out.append(CurveSpec(f"K={k:<2} MCS{mcs} flat rx+", better_rx(flat(cfg)), grid_rx, mp, me,
+                                 tags={"k": k, "mcs": mcs, "set": "flat_rx"}, **rf))
+            out.append(CurveSpec(f"K={k:<2} MCS{mcs} impaired rx+", better_rx(cfg), grid_rx, mp, me,
+                                 tags={"k": k, "mcs": mcs, "set": "impaired_rx"}, **rf))
     return out
 
 
@@ -79,6 +107,10 @@ def sensitivity_specs(quick: bool) -> list[CurveSpec]:
         ("K=8  MCS4 ideal PA",
          dc.replace(base, frontend=dc.replace(base.frontend, pa=dc.replace(pa, model="ideal")))),
         ("K=8  MCS4 no CE smoothing", dc.replace(base, rx=dc.replace(base.rx, ce_smooth_tones=1))),
+        ("K=8  MCS4 rx+ CPE window 5", dc.replace(base, rx=dc.replace(improved_rx(base.rx), cpe_window_symbols=5))),
+        ("K=8  MCS4 rx+ CPE window 33", dc.replace(base, rx=dc.replace(improved_rx(base.rx), cpe_window_symbols=33))),
+        ("K=8  MCS4 rx+ CPE only (CE fixed 3)", dc.replace(base, rx=dc.replace(improved_rx(base.rx), ce_smooth_auto=False))),
+        ("K=8  MCS4 rx+ CE auto only", dc.replace(base, rx=dc.replace(base.rx, ce_smooth_auto=True))),
     ]
     return [CurveSpec(n, c, grid, mp, me, tags={"k": 8, "mcs": 4, "set": "sensitivity"})
             for n, c in rows]
@@ -130,7 +162,11 @@ def main(argv=None) -> int:
 
     print(f"\n== PER vs SNR ({'quick' if quick else 'up to 600 packets or 30 errors per point'}) ==")
     print("sets: impaired = Table II read literally (LOS/diffuse channel, OBO from Psat); "
-          "ideal = no CFO/PN/PA; flat = same impairments on a flat channel")
+          "ideal = no CFO/PN/PA; flat = same impairments on a flat channel; "
+          "rx+ = the same link with the improved receiver (cross-symbol CPE, automatic smoothing span)")
+    if not quick:
+        print(f"the two points bracketing PER 1e-2 are run on to {REFINE_ERRORS} errors or {REFINE_MAX_PACKETS} packets; "
+              "the bracketed interval is the 95 % bootstrap interval of the crossing from the counts")
     results = run_curves(specs(quick), TARGET, a.jobs, log=lambda s: print(s, flush=True))
     print("\ncurve                              SNR @ PER 1e-2      SNR:PER points")
     for r in results:
@@ -142,6 +178,20 @@ def main(argv=None) -> int:
         for mcs in (0, 1, 4):
             cells = [at.get((k, mcs, s)) for s in ("impaired", "ideal", "flat")]
             print(f"{k:<3} {mcs:<5} " + "  ".join(f"{'never' if c is None else f'{c:.2f}':>8}" for c in cells))
+    by = {(r["tags"]["k"], r["tags"]["mcs"], r["tags"]["set"]): r for r in results}
+    print("\n== the improved receiver (rx+) against the milestone-0 one, SNR at PER 1e-2 [dB] with its 95 % interval ==")
+    print("K   MCS   flat                       flat rx+                   gain    impaired                   impaired rx+               gain")
+    for k in (4, 8, 16):
+        for mcs in (0, 1, 4):
+            row = f"{k:<3} {mcs:<5}"
+            for a_, b_ in (("flat", "flat_rx"), ("impaired", "impaired_rx")):
+                ra, rb = by.get((k, mcs, a_)), by.get((k, mcs, b_))
+                va, vb = ra["snr_at_target"], rb["snr_at_target"]
+                fa = "never" if va is None else f"{va:5.2f}"
+                fb = "never" if vb is None else f"{vb:5.2f}"
+                gain = "    —" if (va is None or vb is None) else f"{va - vb:+5.2f}"
+                row += f" {fa} {ci_text(ra)[:14]:<16}   {fb} {ci_text(rb)[:14]:<16}  {gain}  "
+            print(row.rstrip())
 
     print("\n== sensitivity (one assumed input at a time, K=8 MCS4) ==")
     sens = run_curves(sensitivity_specs(quick), TARGET, a.jobs, log=lambda s: None)
@@ -161,18 +211,21 @@ def _plot(results, path):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), sharey=True)
+    fig, axes = plt.subplots(1, 5, figsize=(25, 4.5), sharey=True)
     colors = {0: "C0", 1: "C2", 4: "C3"}
     styles = {4: ":", 8: "-", 16: "--"}
-    panel = {"impaired": 0, "ideal": 1, "flat": 2}
+    panel = {"impaired": 0, "ideal": 1, "flat": 2, "flat_rx": 3, "impaired_rx": 4}
     for r in results:
         t = r["tags"]
+        if t["set"] not in panel:
+            continue
         ax = axes[panel[t["set"]]]
         sw = r["sweep"]
         ax.semilogy(sw["snr_db"], [max(p, 1e-4) for p in sw["per"]], styles[t["k"]],
                     color=colors[t["mcs"]], marker="o", ms=3, label=f"{t['k']}x MCS{t['mcs']}")
     for ax, title in zip(axes, ("Table II literal: CFO + PN + PA, LOS/diffuse channel, OBO from Psat",
-                                "without impairments", "same impairments, flat channel")):
+                                "without impairments", "same impairments, flat channel",
+                                "flat channel, improved receiver", "Table II literal, improved receiver")):
         ax.set_title(title)
         ax.set_xlabel("SNR per subcarrier (dB)")
         ax.grid(True, which="both", alpha=0.3)

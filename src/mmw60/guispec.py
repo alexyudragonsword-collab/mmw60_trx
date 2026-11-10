@@ -81,6 +81,11 @@ KNOBS: tuple[Knob, ...] = (
          choices=CFO_MODES),
     Knob("rx.ce_smooth_tones", "int", "信道估计平滑", "channel-estimate smoothing", "tones",
          group="rx", lo=1, hi=17, step=2),
+    Knob("rx.ce_smooth_auto", "bool", "平滑跨度自动选", "automatic smoothing span", group="rx"),
+    Knob("rx.cpe_window_symbols", "int", "CPE 合并窗口", "CPE combining window", "symbols",
+         group="rx", lo=1, hi=65, step=2,
+         help_zh="1 = 逐符号导频 CPE（wifitrx 原样）；> 1 = 跨符号 MMSE 合并",
+         help_en="1 = per-symbol pilot CPE (wifitrx as is); > 1 = MMSE combining across symbols"),
 )
 
 

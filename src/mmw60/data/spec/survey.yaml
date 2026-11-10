@@ -605,3 +605,18 @@ entries:
     source: assumed
     cite: "本库"
     note: "'解码器上限'判定可达的口径：EVM 底板要比该 MCS 的 ideal 门限所容忍的噪声低 3 dB（−floor ≥ T + 3），此时底板吃掉 3.0 dB 灵敏度；取 0 dB 时所需 SNR 发散。同台表灵敏度节跑 1 / 6 dB 两端。与 assumed.mcs_evm_margin_db（发射机合规口径的余量）是两回事。"
+
+  # ------------------------------------------------------------ C1 / C2：接收机改进
+  assumed.cpe_window_symbols:
+    value: 17
+    unit: OFDM symbols
+    source: assumed
+    cite: "本库；接收机算法选择"
+    note: "跨符号导频 CPE 的 MMSE 合并窗口（rx/tracking.py）。Liu K = 8 MCS0 flat 上 5 / 9 / 17 / 33 的 PER 1e-2 点在 2.5–2.9 dB 之间（逐符号 4.5 dB），对窗口不敏感：合并权重 g 由导频残差自己量，窗口只定平滑估计的噪声。少于 3 个符号的包退回逐符号。示例 00 的灵敏度行给 5 与 33。"
+
+  assumed.ce_smooth_max_tones:
+    value: 9
+    unit: tones
+    source: assumed
+    cite: "本库；wifitrx DEFAULT_CE_SMOOTH_TONES = 9"
+    note: "信道估计平滑跨度自动选的上限（rx/tracking.py::auto_smooth_span）；平坦信道上总是取到上限，选择性信道上按估计自己的音间自相关取 1–3。"
