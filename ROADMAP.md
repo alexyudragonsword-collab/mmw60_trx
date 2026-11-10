@@ -59,23 +59,23 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 - 60.48 GHz 上 40 ppm = 2.42 MHz，K = 4 的 L-STF 范围 ±2.5 MHz 刚好接住——Liu 的 K > 4.7 门槛是 73.44 GHz 的；通式 K > 2·Δf_max / 1.25 MHz。
 - 回环定时：wifitrx `align_delay` 对复波形互相关，2.94 MHz CFO 下 1 µs 内去相关；本库用包络互相关定时（`sim/link.py::envelope_lag`）。
 
-## D. 报回上游（等用户转）
-本库不动这三个库；每条按可以直接贴进对方 ROADMAP 的格式写，用户来转；合并后本库重新 pin。
+## D. 报回上游（2026-11-10 已转交，等对方落地）
+本库不动这三个库；三条已各开一个 issue 交给对方（下面每条标题后的链接），对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
 
-### D1 → wifi_trx_cal：非标准带宽的评分波形（导频集 / 音计划，或 `pilot_positions` 接受显式导频列）
+### D1 → wifi_trx_cal：非标准带宽的评分波形（导频集 / 音计划，或 `pilot_positions` 接受显式导频列）—— [wifi_trx_cal#4](https://github.com/alexyudragonsword-collab/wifi_trx_cal/issues/4)
 - 现象：`waveform/pilots._tables` / `_pilot_half` 只认 78.125 kHz 与 312.5 kHz 两套 SCS 和 20/40/80/160/(320) MHz 的带宽键；`pilot_set="model"` 也先调 `standard_pilot_tones`。任何其他带宽（640 MHz、2.56 GHz）或 SCS × K 的 `OFDMConfig` 在 `generate_ofdm_with_pilots` 处 `ValueError`，于是 `scoring_frame` / `loopback_snapshot` / `run_full_cal` 没有评分波形。
-- 复现（mmw60_trx@caebcde）：`python examples/03_calibration_at_k.py`，K = 32（640 MHz）与 11be 80 MHz × 32（2.56 GHz）两列的 `final_loopback_evm` 为 skipped，其余 11 步照跑；`python -c "from mmw60.vendor.wifitrx.waveform.ofdm import OFDMConfig; from mmw60.vendor.wifitrx.waveform.pilots import generate_ofdm_with_pilots; from mmw60.vendor.wifitrx.waveform.tone_plan import contiguous; generate_ofdm_with_pilots(OFDMConfig(bandwidth_hz=160e6, subcarrier_spacing_hz=2.5e6, cp_fraction=1/4, tone_plan=contiguous(56), pilot_set='model'))"` 抛 "no pilot table for a 2500 kHz subcarrier spacing"。
+- 复现（mmw60_trx@a968ef7）：`python examples/03_calibration_at_k.py`，K = 32（640 MHz）与 11be 80 MHz × 32（2.56 GHz）两列的 `final_loopback_evm` 为 skipped，其余 11 步照跑；`python -c "from mmw60.vendor.wifitrx.waveform.ofdm import OFDMConfig; from mmw60.vendor.wifitrx.waveform.pilots import generate_ofdm_with_pilots; from mmw60.vendor.wifitrx.waveform.tone_plan import contiguous; generate_ofdm_with_pilots(OFDMConfig(bandwidth_hz=160e6, subcarrier_spacing_hz=2.5e6, cp_fraction=1/4, tone_plan=contiguous(56), pilot_set='model'))"` 抛 "no pilot table for a 2500 kHz subcarrier spacing"。
 - 数字：K = 32 时其余步骤已退化到 LO 泄漏环检 −35 dBc（K = 1 为 −68）、IQ irr_min 38–42 dB（55），正是最需要最终 EVM 裁决的地方。
 - 要的最小改动：`pilot_positions(config, explicit_cols=None)` 或 `TonePlan` 携带导频列；本库 `calcheck.scoring_config` 与示例 03 的 skipped 两列在等它。
 
-### D2 → pll_simulator：倍频器（×N）模型
+### D2 → pll_simulator：倍频器（×N）模型 —— [pll_simulator#71](https://github.com/alexyudragonsword-collab/pll_simulator/issues/71)
 - 现象：`arch/` 里只有 ILCM、MDLL 与参考倍频器占空比误差，没有"PLL 剖面经 ×N 倍频后的输出相噪"块；拓扑 A 的固定 LO 是 sub-7 PLL ×3 / ×4 到 60 GHz。
 - 本库现状（ROADMAP A1）：用 `export/clock_profile.py` 的剖面直接加 20·log₁₀N 当占位，标 `assumed`；缺的是倍频器自身的底噪项（高偏置处不随 N² 增长的那部分）与谐波选择滤波后的杂散。
 - 要的最小改动：`clock_profile` 的消费者侧一个 `multiply(profile, n, floor_dbchz)`，或 `export` 时直接出 ×N 后的剖面；本库 A1 的"MCS 上限随 LO 底噪 −85 … −110 dBc/Hz @ 1 MHz"表在等它（现在那张表的底噪是 assumed 的占位）。
 
-### D3 → PA_DPD：PA 带宽 / 记忆项随采样率的模型；两 DUT 级联
-- 现象：`ReferencePA` / `ThermalReferencePA` 的 FIR 记忆按 320 MHz 的样本数写死（`fs=320e6`），在 fs_eff = 2.56–20 GS/s 上记忆跨度缩成 1/8–1/64，等于无记忆；本库里程碑 1-B 的 DPD 代价因此只能用无记忆 Rapp + dsp_ip 综合数记账。
-- 复现（mmw60_trx@caebcde）：`python examples/02_upclock_grid.py` 的 DPD pJ/bit 列（11ac 20×8 MCS2 474 pJ/bit、11be 20×32 MCS1 537 pJ/bit）全部基于无记忆 PA；`examples/03_calibration_at_k.py` 的 dpd 行 K = 32 退化到 −18 / −22 dB 也只是观测 ADC 的 ENOB 效应，不含 PA 记忆。
+### D3 → PA_DPD：PA 带宽 / 记忆项随采样率的模型；两 DUT 级联 —— [PA_DPD#4](https://github.com/alexyudragonsword-collab/PA_DPD/issues/4)
+- 现象：`ReferencePA` 的电记忆是固定抽头的 FIR（输入 3 抽头、输出 2 抽头，没有采样率参数），跨度永远是 2 个样本：320 MS/s 上 6.25 ns，在 fs_eff = 2.56–20 GS/s 上缩成 0.78–0.1 ns，等于无记忆（`ThermalReferencePA` 的热时间常数已是秒并带 `fs`，缺的是电记忆那一半）；本库里程碑 1-B 的 DPD 代价因此只能用无记忆 Rapp + dsp_ip 综合数记账。
+- 复现（mmw60_trx@a968ef7）：`python examples/02_upclock_grid.py` 的 DPD pJ/bit 列（11ac 20×8 MCS2 474 pJ/bit、11be 20×32 MCS1 537 pJ/bit）全部基于无记忆 PA；`examples/03_calibration_at_k.py` 的 dpd 行 K = 32 退化到 −18 / −22 dB 也只是观测 ADC 的 ENOB 效应，不含 PA 记忆。
 - 要的最小改动：PA 模型的记忆以秒（或以 BW 的倍数）参数化而不是以样本数；两 DUT 级联（拓扑 A 的 WiFi 7 驱动 PA + 60 GHz PA，各自的 AM/AM、AM/PM 与记忆）作为一个 `PAModel`。本库 A1 的级联回退表与 A3 同台表的 pJ/bit 列在等它。
 
 ### D4 ← fmcw_radar：雷达消费清单（收件）
