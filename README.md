@@ -45,6 +45,12 @@ python tools/budget_report.py --base 11be:80e6 --k 4,8,16,32 --sensitivity -o ta
 
 结论见 `cairn/comparison-table.md`。
 
+## 解码器上限（示例 02 的 dec 列、示例 04 §4b）
+
+网格和同台表里的“MCS 上限”有两个口径并排：**合规口径**（EVM 底板比规范的 TX EVM 要求低 3 dB——发射机过不过认证）和**解码器口径**
+（底板当一层噪声，对着本库接收机实测的 ideal 门限 `data/spec/per_thresholds.yaml`——链路带不带得动）。后者高 1–2 档，示例 05 逐格用 PER 复核。
+改了接收机要重量门限：`python tools/measure_thresholds.py --jobs 4`（约 16 分钟），`--check` 只比对不写。
+
 ## 里程碑 1 · A2：11be 编码 PER（示例 05）
 
 11be 的每个带宽现在都带 EHT 数据域（`phy/ldpc.py` 的 12 个 802.11 LDPC 码 + `phy/eht.py` 的 PPDU 编码流程、音映射、段解析、到 4096-QAM 的 LLR），

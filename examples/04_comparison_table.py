@@ -115,6 +115,19 @@ def main(argv=None) -> int:
     print(f"coefficients: Walden {c['walden_fom_fj']:.0f} fJ/step; Horowitz {c['mult32_pj']:g} / {c['add32_pj']:g} pJ at 45 nm "
           f"(node scale {c['node_scale']:g}); {c['word_bits']} bit; synthesizers {c['pll60_mw']:g} / {c['pll_sub7_mw']:g} mW")
 
+    print("\n== 4b. the decoder's cap: the EVM floor as one more noise term against the measured ideal PER thresholds "
+          "(data/spec/per_thresholds.yaml); reachable while -floor >= threshold + margin ==")
+    print(f"{'scheme':<44} {'floor':>6} {'conf':>5} {'dec':>5} {'T[dB]':>6} {'SNRreq':>6} {'costs':>6} {'dec-cal':>7} {'Mb/s':>6} {'pJ/bit':>7}")
+    for r in rep["rows"]:
+        g = lambda v, fmt: "    —" if v is None else fmt.format(v)  # noqa: E731
+        thr = None if r["dec_mcs"] is None else r["dec_required_snr_db"] - r["dec_penalty_db"]
+        pjd = "      —" if not r["power_dec"] else f"{r['power_dec']['pj_per_bit']:7.0f}"
+        print(f"{r['label']:<44} {r['floor_db']:6.1f} {g(r['max_mcs'], 'MCS{}'):>5} {g(r['dec_mcs'], 'MCS{}'):>5} "
+              f"{g(thr, '{:6.2f}'):>6} {g(r['dec_required_snr_db'], '{:6.2f}'):>6} {g(r['dec_penalty_db'], '{:6.2f}'):>6} "
+              f"{g(r['dec_mcs_cal'], 'MCS{}'):>7} {g(r['dec_rate_mbps'], '{:6.0f}'):>6} {pjd}")
+    print("conf = the transmitter-conformance cap of table 1 (floor 3 dB under the standard's TX-EVM limit); dec = what the "
+          "decoder carries; the rate and pJ/bit here are at the decoder cap (table 1 and 4 stay at the conformance cap)")
+
     print("\n== 5. the LO models side by side (each its own Frontend60; analytic floor + MCS cap"
           f"{'' if quick else ' + TD EVM'}) ==")
     print(f"{'LO model':<52} {'K':>3} {'IPN[dBc]':>9} {'pn ICI':>7} {'floor':>6} {'TD':>6}  max MCS")
@@ -133,10 +146,12 @@ def main(argv=None) -> int:
         rep["sensitivity"] = compare.sensitivity(schemes, fe)
         print("base pJ/bit ranking (best first): " + " < ".join(rep["sensitivity"]["base"]["ranking"]))
         for e in rep["sensitivity"]["knobs"]:
-            moved = ", ".join(f"{lab}: {x}->{y}" for lab, (x, y) in e["mcs_moved"].items()) or "none"
             ratio = "—" if e["pj_ratio_min"] is None else f"x{e['pj_ratio_min']:.2f} … x{e['pj_ratio_max']:.2f}"
-            print(f"  {e['knob']:<26} at {str(e['value']):<8} MCS cap moved: {moved:<60} pJ/bit {ratio:<18} "
-                  f"ranking {'CHANGED' if e['ranking_changed'] else 'same'}")
+            print(f"  {e['knob']:<26} at {str(e['value']):<9} conformance cap moved on {len(e['mcs_moved']):>2} row(s), "
+                  f"decoder cap on {len(e['dec_mcs_moved']):>2}; pJ/bit {ratio:<18} ranking {'CHANGED' if e['ranking_changed'] else 'same'}")
+            for kind, moved in (("conformance", e["mcs_moved"]), ("decoder", e["dec_mcs_moved"])):
+                if moved:
+                    print(f"      {kind}: " + ", ".join(f"{lab.split(' @')[0]}: {x}->{y}" for lab, (x, y) in moved.items()))
     md = OUT / "04_comparison_table.md"
     md.write_text(compare.to_markdown(rep), encoding="utf-8")
     print(f"\nwrote {md.relative_to(HERE.parent)}")

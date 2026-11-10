@@ -41,3 +41,21 @@
     i8: {example: "05", after: "== SNR at PER 1e-2 [dB]: ideal / impaired", line: "8 4 {*} {} {*} MCS{*} MCS{*} beyond cap / reached {*} {*}"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "PER 却在 {i4} / {i8} dB 到了 1e-2，只比 ideal 的 {id4} 贵 {i4 - id4} / {i8 - id4} dB"}
+
+- name: ex04 decoder cap vs conformance cap on 11be 80 MHz x 4 (rate doubles, pJ/bit halves)
+  values:
+    rate_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} MCS{*} {} {*}"}
+    pj_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} MCS{*} {*} {}"}
+    pj_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
+  quotes:
+    - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 4 从 432 Mb/s / {pj_conf} 到 {rate_dec} Mb/s / {pj_dec}"}
+
+- name: ex05 decoder-cap prediction vs measured PER threshold in the linear region
+  values:
+    p4: {example: "05", after: "== the decoder cap", line: "4 320 {*} MCS4 {*} {} {*} MCS5: {*} {*}"}
+    m4: {example: "05", after: "== the decoder cap", line: "4 320 {*} MCS4 {*} {*} {} MCS5: {*} {*}"}
+    p8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS3 {*} {} {*} MCS4: {*} {*}"}
+    m8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS3 {*} {*} {} MCS4: {*} {*}"}
+  quotes:
+    - {doc: cairn/comparison-table.md, text: "| 4 | MCS4：{p4} / {m4} |"}
+    - {doc: cairn/comparison-table.md, text: "| 8 | MCS3：{p8} / {m8} |"}

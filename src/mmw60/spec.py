@@ -26,6 +26,7 @@ DATA_DIR = Path(__file__).resolve().parent / "data" / "spec"
 SURVEY_FILE = DATA_DIR / "survey.yaml"
 FIG4_FILE = DATA_DIR / "liu2025_fig4.yaml"
 LDPC_FILE = DATA_DIR / "ldpc_80211.yaml"
+THRESHOLDS_FILE = DATA_DIR / "per_thresholds.yaml"
 
 
 @dataclass(frozen=True)
@@ -114,3 +115,23 @@ def ldpc_document() -> dict:
 def ldpc_base_matrices() -> dict:
     """``{n: {rate: base matrix (list of rows)}}`` for n = 648 / 1296 / 1944."""
     return ldpc_document()["matrices"]
+
+
+_THRESHOLDS: dict | None = None
+
+
+def per_threshold_document() -> dict:
+    """The measured ideal-chain PER thresholds (``per_thresholds.yaml``,
+    source derived: ``tools/measure_thresholds.py``) with their tag."""
+    global _THRESHOLDS
+    if _THRESHOLDS is None:
+        _THRESHOLDS = yaml.safe_load(THRESHOLDS_FILE.read_text(encoding="utf-8"))
+    return _THRESHOLDS
+
+
+def per_threshold_db(standard: str, bandwidth_hz: float, mcs: int) -> float | None:
+    """SNR per active subcarrier at PER 1e-2 of a 4096-byte packet on the
+    ideal chain; None when the base has no coded data field or the MCS
+    never reaches the target."""
+    table = per_threshold_document()["thresholds_db"]
+    return table.get(standard, {}).get(float(bandwidth_hz), {}).get(int(mcs))

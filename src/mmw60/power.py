@@ -148,9 +148,11 @@ class PowerReport:
 
 
 def power_report(cfg, fe, bit_rate_bps: float, coeffs: PowerCoefficients | None = None,
-                 phy=None) -> PowerReport:
+                 phy=None, mcs_index: int | None = None) -> PowerReport:
     """The blocks of one scheme (``cfg`` on the shared ``fe``) per link
-    direction, priced per bit at ``bit_rate_bps`` (the rate at its MCS cap)."""
+    direction, priced per bit at ``bit_rate_bps`` (the rate at its MCS cap);
+    ``mcs_index`` is the MCS that rate belongs to (the LDPC decoder's work
+    per information bit depends on its code rate), default ``cfg.phy.mcs``."""
     k = coeffs or PowerCoefficients.from_spec()
     phy = cfg.upclocked() if phy is None else phy
     fs, bw = phy.fs_eff, phy.bandwidth_eff
@@ -193,7 +195,7 @@ def power_report(cfg, fe, bit_rate_bps: float, coeffs: PowerCoefficients | None 
     # decoder
     if cfg.coded and cfg.phy.standard == "11be":
         from .phy.eht import eht_mcs, ldpc_decoder_ops_per_info_bit
-        m = eht_mcs(cfg.phy.mcs, cfg.phy.bandwidth_hz)
+        m = eht_mcs(cfg.phy.mcs if mcs_index is None else mcs_index, cfg.phy.bandwidth_hz)
         ops = ldpc_decoder_ops_per_info_bit(m.rate_str)
         blocks.append(PowerBlock("decoder", ops * k.add_j() * bit_rate_bps,
                                  f"LDPC min-sum, 1944 R={m.rate_str}, {ops:.0f} add-equiv per info bit at the max iterations"))

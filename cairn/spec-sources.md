@@ -46,6 +46,11 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 
 A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 峰值 PAE 20 %（B 类回退规律）、60 GHz / sub-7 频综 40 / 20 mW、数字字宽 16 bit、理想 ×N 的 20·log10 搬移；每条在示例 04 §6 的灵敏度表里有两端的数（`cairn/comparison-table.md` §5）。
 
+## 本库自己量的（derived）
+
+- `data/spec/per_thresholds.yaml`：各 MCS 的 ideal PER 门限（`tools/measure_thresholds.py`）。不是规范数，是这份代码的接收机的性质；`tests/test_thresholds.py` 复量一个点守着它不与代码漂开。
+- `derived.irr_after_cal_measured_db`：示例 03 实测的校准后 IRR。
+
 ## 要原文才能关掉的问题
 
 1. Liu 2025 的 Rapp 参数与 OBO 定义（刊出版或作者）。
