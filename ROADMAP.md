@@ -63,7 +63,7 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 ## D. 报回上游（2026-11-10 已转交，等对方落地）
 本库不动这三个库；三条已各开一个 issue 交给对方（下面每条标题后的链接），对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
 
-### D1 → wifi_trx_cal：非标准带宽的评分波形（导频集 / 音计划，或 `pilot_positions` 接受显式导频列）—— [wifi_trx_cal#4](https://github.com/alexyudragonsword-collab/wifi_trx_cal/issues/4)（**正文需求对方已合进 main `96078aa`（0.7.37，schema 1.3）：`TonePlan` 自带导频；可以重新 pin。追加的 `tap_spacing` 透传未包含**）
+### D1 → wifi_trx_cal：非标准带宽的评分波形（导频集 / 音计划，或 `pilot_positions` 接受显式导频列）—— [wifi_trx_cal#4](https://github.com/alexyudragonsword-collab/wifi_trx_cal/issues/4)（**正文需求对方已合进 main `96078aa`（0.7.37，schema 1.3）：`TonePlan` 自带导频；可以重新 pin。追加的 `tap_spacing` 透传已拆到 wifi_trx_cal#5；本库 pin 完、示例 03 原先 skipped 的两列出数后来关 #4**）
 - 现象：`waveform/pilots._tables` / `_pilot_half` 只认 78.125 kHz 与 312.5 kHz 两套 SCS 和 20/40/80/160/(320) MHz 的带宽键；`pilot_set="model"` 也先调 `standard_pilot_tones`。任何其他带宽（640 MHz、2.56 GHz）或 SCS × K 的 `OFDMConfig` 在 `generate_ofdm_with_pilots` 处 `ValueError`，于是 `scoring_frame` / `loopback_snapshot` / `run_full_cal` 没有评分波形。
 - 复现（mmw60_trx@a968ef7）：`python examples/03_calibration_at_k.py`，K = 32（640 MHz）与 11be 80 MHz × 32（2.56 GHz）两列的 `final_loopback_evm` 为 skipped，其余 11 步照跑；`python -c "from mmw60.vendor.wifitrx.waveform.ofdm import OFDMConfig; from mmw60.vendor.wifitrx.waveform.pilots import generate_ofdm_with_pilots; from mmw60.vendor.wifitrx.waveform.tone_plan import contiguous; generate_ofdm_with_pilots(OFDMConfig(bandwidth_hz=160e6, subcarrier_spacing_hz=2.5e6, cp_fraction=1/4, tone_plan=contiguous(56), pilot_set='model'))"` 抛 "no pilot table for a 2500 kHz subcarrier spacing"。
 - 数字：K = 32 时其余步骤已退化到 LO 泄漏环检 −35 dBc（K = 1 为 −68）、IQ irr_min 38–42 dB（55），正是最需要最终 EVM 裁决的地方。
@@ -86,7 +86,7 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
   `CascadePA(first, second, interstage_backoff_db=)`（`stage_input_rms` / `stage_backoff_db` 可读；虚拟 DUT 的 `get_config` / `save` 报错）。级联的总小信号增益不是约 1（两个 `ReferencePA` 是 1.416），由外面的 `ScaledPA` 吸收。
 - 本库验收（本地检出 `02ca433` 实跑，对着本库 vendored 的旧副本）：默认 `ReferencePA` 与默认 GMP 拟合逐位相同；20 MHz × K、`fir_fs` = 80 MHz 的记忆贡献 −12.80 / −11.87 / −12.47 dB（K = 4 / 8 / 32，与本库之前用补零量的逐位相同的三个数）；
   fs / fir_fs = 0.5 与 2.667 都报错；按 12.5 ns 记忆的 PA 上 GMP 拟合 `tap_spacing` 1 / 4 为 −29.2 / −41.0 dB；`CascadePA` 上未改动的 ILA −15.3 → −65.6 dB。**全部通过。**
-- 链条还差两步，都不在 PA_DPD：① wifi_trx_cal 重新 vendor PA_DPD@02ca433 并给 `calibrate_dpd` / `dpd_tracking` 透传 `tap_spacing`（已在 wifi_trx_cal#4 上提，对方答“本次合并不包含，是否拆 issue 由维护者定”）；② 本库重新 pin wifi_trx_cal。
+- 链条还差两步，都不在 PA_DPD：① wifi_trx_cal 重新 vendor PA_DPD@02ca433 并给 `calibrate_dpd` / `dpd_tracking` 透传 `tap_spacing`——已单开 [wifi_trx_cal#5](https://github.com/alexyudragonsword-collab/wifi_trx_cal/issues/5)（2026-11-11，从 #4 拆出；同一条里报告了 `n_iter` 默认 2 在软压缩 PA 上发散）；② 本库重新 pin wifi_trx_cal。
 - 本库用不上 `CascadePA`：拓扑 A 的级联是 `IfExtenderTx`（芯片链 + 间级电平 + IF 滤波 + 混频 + Rapp），两级之间有带记忆的线性级和 LO 相噪，`CascadePA` 表达不了，也不需要它表达。
 - 落地后本库要做的：`fir_fs` 标 `assumed`，扫“记忆随信号缩放 / 按秒固定”两端；`fs / fir_fs` 要正整数，相关的格用 4 倍过采样；在 `tap_spacing` 通到 `calibrate_dpd` 之前不把固定秒数的 PA 与现有 DPD 配在一起出数字；做完删本条。
 
