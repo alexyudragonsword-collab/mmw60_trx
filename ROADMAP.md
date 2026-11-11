@@ -2,12 +2,16 @@
 
 **这份文件只写还没做的事。** 做完即删，并在 `CHANGELOG.md` 记一笔、`cairn/LOG.md` 记数字。每条带证据（复现方式与数字）。
 
-## A. 里程碑 1 —— 两条拓扑同台（里程碑 0 验收后开；A / B 可两个会话并行）
+## A. 里程碑 1 —— 两条拓扑同台（主体都已落地；下面是剩余项）
 
-### A1. 拓扑 A：IF 延伸
-实 IF 级模型（镜像滤波带内纹波 / 群时延、LO ×N 相噪——pll 倍频器模型没到之前用 pll 剖面 + 20·log₁₀N 占位并标 assumed、两级 PA 级联）、MLO 预补偿的 CFO 残差（= sub-7 估计误差 × 频率比，铁律 3 的 A 测试）、60 GHz 观测回环有 / 无两种 DPD、wifitrx 全套校准真跑。
-产出：MCS 上限随 LO 底噪（−85 … −110 dBc/Hz @ 1 MHz）和级联回退的表；校准步骤逐项结果表。
-验收：LO 底噪每差 10 dB，MCS 上限变化方向与 `EvmBudget` 的 CPE / ICI 预算一致、差 < 1 dB；有观测回环比无回环好的 dB 数进 LOG。
+### A1. 拓扑 A 的剩余项（主体已落地：`src/mmw60/ifext.py`、示例 06、`cairn/topology-a.md`）
+- **芯片的 PA 当驱动级太贵**：芯片 PA 在 13.3 dBm 耗 294 mW（10.1 dBm 时 202 mW），而它的输出要先衰减 24 dB 才到 60 GHz PA 的驱动电平；同样 320 MHz、865 Mb/s，拓扑 A 1127 对拓扑 B 628 pJ/bit，其中芯片 PA 占 339。
+  复现：`python examples/06_topology_a_if_extender.py` §5、`examples/04_comparison_table.py` §4。待做：芯片 PA 旁路（IF 从 PA 前取）的一档，wifitrx 的 `TxParams.pa_enabled = False` 加上它的 DPD / tx_power 两步怎么处理。
+- **60 GHz 观测回环在预设回退上没用**：OBO 8 dB 处 wifitrx 的 ILA 经 60 GHz 观测发散（−14.1 dB），保留芯片上的 DPD；回退 12 / 14 / 16 dB 才值 +5.8 / +8.2 / +7.1 dB（示例 06 §3）。
+  整套序列搬到 60 GHz 观测上更糟：IQ 校准的 IRR 从 55.7 掉到 37.8 dB，最终 EVM −14.9 dB（§2）。待做：对这颗软压缩的 Rapp 换直接学习或降阶的 DPD（要 PA_DPD 侧支持，见 D3），或在观测通路里先把第二级 PA 的失真建模扣掉再做 IQ 校准。
+- **pllsim 剖面 × N 那一行在拓扑 A 上也还是占位**：固定 LO 54.0 GHz 对 wu19 的 6.253 GHz 是 ×8.64，不是整数；拓扑 A 要的是 18.0 GHz（×3）或 13.5 GHz（×4）上的剖面（D2）。现在的 LO 扫描用 1 极 1 零剖面直接给在 LO 输出端。
+- 没建的：60 GHz 级自己的 LNA 噪声系数（SNR 轴仍按芯片 LNA 的 NF 定义，与拓扑 B 同口径）、混频器的非线性、IF 滤波器的温漂、采样钟偏差（两条拓扑都没建）；MLO 的 sub-7 链路只有 AWGN（没有它自己的相噪和多径）。
+- 11ac 20 MHz 的拓扑 A 行 pJ/bit 是 29291：20 Mb/s 的分母，不是硬件差（与 `comparison-table.md` §6 ① 同理）。
 
 ### A2. 拓扑 B 的剩余项（主体已在里程碑 1-B 落地：`cairn/topology-b.md`）
 - 示例 02 网格的 "IQcal" 列仍用 `assumed.irr_after_cal_db`（45 dB）；同台表（示例 04）已换成示例 03 实测的 `derived.irr_after_cal_measured_db`，一格结论都没动（`cairn/comparison-table.md` §6 ④），网格要不要跟着换只是口径统一的问题。
@@ -17,8 +21,7 @@
 - DPD 的 2.56 GHz 代价现在是 dsp_ip P=4 综合面积 + Horowitz 运算能耗的记账；PA_DPD 的带宽项到了再换（D）。
 
 ### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
-- 拓扑 A 的行：`compare.PENDING[("if_extender", "be")]` 那格等 A1 落地后接入（同一个 `Frontend60` 实例；A 的 60 GHz 级在 wifitrx RF 之后插入）。
-- WiFi 7 全链路四条整合里还没做的两条：PA_DPD 的 PA / DPD 进 wifitrx 链（K = 1 可行；K > 1 要先定 PA 的记忆是随信号缩放还是按秒固定，等 D3 的 `fir_fs` 与 `tap_spacing`）；Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（差 ≤ 0.4 dB，相噪口径差 3–4 dB）。
+- WiFi 7 全链路四条整合里还没做的两条：PA_DPD 的 PA / DPD 进 wifitrx 链（K = 1 可行；K > 1 要先定 PA 的记忆是随信号缩放还是按秒固定，等 D3 的 `fir_fs` 与 `tap_spacing`）；Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（A1 更正单边带换算后每行差 0.0 dB，相噪项差 0.1–1.3 dB）。
 - 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；示例 04 §6 的灵敏度从解析底板起算（每个旋钮不跑时域），2.56 GHz 行在那一节的基线是 MCS1、§4b 用时域底板是 MCS0；`per_thresholds.yaml` 是本库接收机的测量值，接收机再改要 `python tools/measure_thresholds.py --jobs 4` 重量（约 16 分钟）。
 - 校准列现在是示例 03 实测 IRR 的查表，`calcheck.run_cal_at` 实跑进表要几分钟一列，留给需要它的那次。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
@@ -69,7 +72,7 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 ### D2 → pll_simulator：倍频器（×N）模型 —— [pll_simulator#71](https://github.com/alexyudragonsword-collab/pll_simulator/issues/71)（对方已答复，2026-11-11 双方谈定接口，等剖面）
 - 现象：`arch/` 里只有 ILCM、MDLL 与参考倍频器占空比误差，没有"PLL 剖面经 ×N 倍频后的输出相噪"块；拓扑 A 的固定 LO 是 sub-7 PLL ×3 / ×4 到 60 GHz。
 - **本库的前提错了**：`profile_at_carrier` 把 6.253 GHz 的 wu19 剖面按 20·log₁₀(60.48 / 6.253) 搬移，等于 ×9.672，不是能实现的倍频器。量级（+19.7 dB）没错，同台表 §5 那三行的结论大概不动，但它不对应一条真实的 LO 链。
-  正确做法是 PLL 调到 f_c/N 重新 analyze 再整数倍频。拓扑 B 已向对方要 f_c = 60.48 GHz、N = 10（PLL 6.048 GHz）；拓扑 A 的 (f_LO, N) 等 A1 定中频后在 issue 上补。
+  正确做法是 PLL 调到 f_c/N 重新 analyze 再整数倍频。拓扑 B 已向对方要 f_c = 60.48 GHz、N = 10（PLL 6.048 GHz）；拓扑 A 的已定（A1）：f_LO = 54.00 GHz，N = 3（PLL 18.0 GHz）或 N = 4（13.5 GHz），**还没在 issue 上补**。
 - 谈定的接口：`write_clock_profile(..., multiply_by=N, floor_dbchz=…, spur_rejection_db=…)`，N 非整数报错，底噪与抑制度必填、不给默认值（对方没有实测数据）；
   f_in/2 以内是 N²·S + 底噪，以上只有底噪（本库最宽的格积分到 5.12 GHz，N = 10 时 f_in/2 = 3.024 GHz，会用到这一段）；已请对方把 N、f_in、底噪、抑制度写成独立字段。
 - 剖面到了以后本库要做的：重新 pin；`profile_at_carrier` 拒绝非整数的 f_c / f0；`floor_dbchz` 由本库给、标 `assumed`、在示例 04 §6 加灵敏度行（wu19 远端 −154 dBc/Hz，×10 后 −134，底噪高过它才看得见）；
@@ -81,7 +84,7 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
   按对方的定义（两个 FIR 换成只留直流增益，比输出之差）在 vendored `ReferencePA` 上量：逐样本 4 倍过采样 −21.4 dB、2 倍过采样（本库默认）−16.1 dB；抽头固定 12.5 ns、信号 20 MHz × K（K = 4 / 8 / 32）−12.8 / −11.9 / −12.5 dB。
   有意义的是这两端：记忆随信号缩放（换了一颗宽带的 PA），与记忆按秒固定（同一颗 PA，记忆更重而不是更轻）。
 - 谈定的接口：`ReferencePA(fs=…, fir_fs=…)`，都不给时逐位不变，`fir_fs` 由调用方给、不写死；MP / GMP 加 `tap_spacing`（对方实测 2.56 GS/s 上只改 PA 不改基函数 DPD 差约 10 dB：−42.5 对 −52.7 dB）；
-  `CascadePA(first, second, interstage_backoff_db)`：第二级相对标称 drive 再降多少 dB，总小信号增益归一到约 1，`calibrate_dpd` 只需要 `__call__`。**级联回退的定义还要 A1 会话在 issue 上确认一次。**
+  `CascadePA(first, second, interstage_backoff_db)`：第二级相对标称 drive 再降多少 dB，总小信号增益归一到约 1，`calibrate_dpd` 只需要 `__call__`。级联回退的定义已按本会话的判断答复并说明不会有第二个确认（没有另一个会话）。A1 做完后的补充：本库的级联是芯片 PA（wifitrx `ScaledPA`）+ 间级电平 + IF 滤波 + Rapp，间级电平由第二级的输出回退反推，与对方定义的 `interstage_backoff_db` 等价；两级之间有一个带记忆的线性滤波器，`CascadePA` 最好留一个两级之间的线性算子入口。
 - 落地后本库要做的：等 wifi_trx_cal 重新 vendor 并透传 `tap_spacing`（D1 追加项）再重新 pin；`fir_fs` 标 `assumed`，扫上面两端；`fs / fir_fs` 先只支持正整数，本库默认 2 倍过采样时相关的格换 4 倍过采样跑；在 `tap_spacing` 通到 `calibrate_dpd` 之前不把固定秒数的 PA 与现有 DPD 配在一起出数字。
 
 ### D4 ← fmcw_radar：雷达消费清单（收件）

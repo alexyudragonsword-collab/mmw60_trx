@@ -79,3 +79,26 @@
     - {doc: cairn/external-validation.md, text: "flat MCS0 到 {f0rx} dB，比原文好 {4.2 - f0rx} dB"}
     - {doc: cairn/external-validation.md, text: "| 8 | 0 | 4.2 | {f0rx} [2.43, 2.62] | −1.66 | {i0rx} [2.99, 3.22] |"}
 
+- name: ex04 topology A against topology B on the same 320 MHz (decoder cap, pJ/bit)
+  values:
+    a_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be 11be 320M IF extender @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} MCS{*} {*} {}"}
+    b_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} MCS{*} {*} {}"}
+  quotes:
+    - {doc: cairn/topology-a.md, text: "拓扑 A（11be 320 MHz，K = 1）{a_pj} pJ/bit，拓扑 B（80 MHz × 4）{b_pj} pJ/bit"}
+    - {doc: cairn/topology-a.md, text: "A 每比特贵 {a_pj / b_pj} 倍"}
+
+- name: ex06 topology A link EVM with the multi-link CFO pre-compensation on, off, and at zero ppm
+  values:
+    mlo_on: {example: "06", after: "== 6. CFO", line: "MLO pre-compensation on (the preset) link EVM {} dB"}
+    mlo_off: {example: "06", after: "== 6. CFO", line: "MLO off: the raw offset reaches the chip link EVM {} dB"}
+    ppm0: {example: "06", after: "== 6. CFO", line: "ppm = 0 (the CFO term off) link EVM {} dB"}
+  quotes:
+    - {doc: cairn/topology-a.md, text: "链路 EVM：预补偿开 {mlo_on} dB；关掉 +{mlo_off} dB（失败）；ppm = 0 时 {ppm0} dB"}
+
+- name: ex06 the decoder cap of topology A checked with PER
+  values:
+    pred: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS4 {*} {} {*} MCS5: {*} {*}"}
+    meas: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS4 {*} {*} {} MCS5: {*} {*}"}
+  quotes:
+    - {doc: cairn/topology-a.md, text: "MCS4 预测 {pred} dB、实测 {meas} dB"}
+

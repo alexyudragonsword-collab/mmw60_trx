@@ -2,7 +2,7 @@
 
 60 GHz（57–71 GHz 免许可段）WiFi 收发机行为级仿真框架。两种拓扑在同一个引擎里同台：
 
-- **A = IF 延伸**：WiFi 7 芯片原样，5–7 GHz 射频输出当实 IF，一级固定 LO（×3 / ×4）60 GHz 上下变频 + 镜像滤波 + PA / LNA；波形不变。（里程碑 1）
+- **A = IF 延伸**：WiFi 7 芯片原样，5–7 GHz 射频输出当实 IF，一级固定 LO（×3 / ×4）60 GHz 上下变频 + 镜像滤波 + PA / LNA；波形不变。（已建：示例 06）
 - **B = IMMW upclocking**（Liu 等，"Wi-Fi 8: Embracing the Millimeter-Wave Era"，IEEE Comm. Mag. 2025-03）：PHY / MAC 不动，时钟 ×K，带宽和子载波间距同乘，宽带零中频 60 GHz transceiver。（里程碑 0 已建）
 
 引擎是 vendored 的 [`wifi_trx_cal`](https://github.com/alexyudragonsword-collab/wifi_trx_cal)（`src/mmw60/vendor/wifitrx/`，按完整 SHA pin，整包 verbatim）；本库加的是 upclocking 层、VHT 数据域编解码（PER）、Rapp PA、L-STF 粗 CFO 估计、1 极 1 零相噪、信道与接收机组合。
@@ -31,6 +31,17 @@ python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_
 `frontend.model: zero_if_chain` 把 wifitrx 的 `TxChain`/`RxChain` 跑在 `fs_eff` 上——转换器位数按 ENOB(fs_eff)、IQ 失配按绝对 ps、PA 回退由模拟 VGA 调到位——这正是"WiFi 7 芯片的零中频架构时钟 ×K"。
 示例 02 是 "基准带宽 × K" 网格（11ac 20–160、11be 20–320 MHz × K 4–32）：每格解析底板与时域 EVM 交叉核对、能/不能 + 原因、MCS 上限、DPD pJ/bit；
 示例 03 把 wifitrx 的校准序列在每个 K 上逐步真跑。结论见 `cairn/topology-b.md`。
+
+## 里程碑 1 · A1：拓扑 A，IF 延伸（示例 06）
+
+芯片是 wifitrx 自己的收发机（K = 1），按它自己的配方随机化损伤并跑完 14 步校准；60 GHz 级（间级电平、IF 带通、固定 LO 混频、共享前端的 PA）显式插在它的 RF 输出之后（`src/mmw60/ifext.py`）。
+CFO 靠多链路的 sub-7 估计乘频率比预补偿（`impairments/cfo.py::MloCfo`）。示例 06 出八张表：频率规划、逐步校准（芯片耦合器 / 60 GHz 观测回环）、有无观测回环的 DPD、MCS 上限随 LO 相噪、级联回退、CFO、假设的灵敏度、PER 复核。
+
+```bash
+python examples/06_topology_a_if_extender.py --jobs 4     # 全量约 4 分钟；--quick 冒烟
+```
+
+结论见 `cairn/topology-a.md`。
 
 ## 里程碑 1 · A3：同台表（示例 04、`tools/budget_report.py`）
 
@@ -73,7 +84,7 @@ python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 5 分钟（4 核�
 - `ROADMAP.md`：只写没做的。
 - `cairn/LOG.md`：每轮的数字原值与被推翻的判断。
 - `cairn/upclocking.md`：K 的建模方式与 5.88 MHz / 4.7 门槛的推导。
-- `cairn/topology-b.md`、`cairn/comparison-table.md`：拓扑 B 的网格 / 校准结论与同台表。
+- `cairn/topology-a.md`、`cairn/topology-b.md`、`cairn/comparison-table.md`：两条拓扑各自的结论与同台表。
 - `src/mmw60/data/spec/survey.yaml`：每一个文献数字的出处与标签。
 
 ## CI

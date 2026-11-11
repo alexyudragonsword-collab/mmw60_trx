@@ -61,6 +61,17 @@ authoring_mode: ai_generated
 - **时域 EVM 列是接收机读到的 EVM**：换接收机它就动（≤ 2.56 GHz 的格低了 0.1–1.2 dB），解析列不动。拿它当“前端底板”时要记得里面有信道估计的份额。
 - **归因先量再写**：2.56 GHz MCS0 从 5.42 到 1.06 dB，动手前猜是跨符号 CPE 的功劳；拆开量是自动平滑 3.4 dB、CPE 2.0 dB（理想链上反过来：0.85 / 1.7 dB）。
 
+## 拓扑 A 踩到的（A1，2026-11-11；`src/mmw60/ifext.py`、`tests/test_ifext.py`）
+
+- **wifitrx 的 `ipn_dbc` 是单边带口径**（相位功率 / 2，`impairments/phase_noise.py` 的 docstring 写着）：相位方差 = 2 × 10^(dBc/10)。A3 把 10^(dBc/10) 直接喂给 `EvmBudget.ipn_rad2`，
+  相噪项读低 3.0 dB，当时还给它找了个物理解释（“不含 100 MHz 以上的底板”）。**一个恒定的 3.0 dB 差先查因子 2，再找物理。**
+- **`BoundedDPD` 不能 `copy.deepcopy`**：它的 `__getattr__` 把未知属性转给 `self.model`，deepcopy 重建对象时 `model` 还没设，无限递归。预失真器是拟合好的无状态可调用对象，复制链时共享它。
+- **`tx_power` 步的目标功率是在 wifitrx 自己的参考驱动（0.25 rms）上定义的**：链路跑在 0.15，差 4.4 dB。配置里的 `chip_pout_dbm` 指链路驱动下的输出，建链时换算。这颗芯片的增益码到 18.9 dBm 封顶。
+- **整套校准不能照搬到 60 GHz 观测回环**：第二级 PA（OBO 8 dB）在观测通路里，IQ 校准把它的失真当镜像修（IRR 55.7 → 37.8 dB），DPD 的 ILA 发散后 wifitrx 照样把它写进链里（芯片输出 EVM −9.6 dB）。
+  只把 DPD 一步放到 60 GHz 观测上，并且与已有的预失真器在同一观测通路上比过再决定写不写。
+- **`ideal()` 改的是配置，芯片在缓存里**：拓扑 A 的理想链靠 `ifext.chip = "frontend"`（共享前端自己的 1× 链），不是把校准过的 wifitrx 芯片“关掉损伤”。铁律 2 的理想对比还要在同一过采样倍数上比（芯片 4 倍、拓扑 B 2 倍，LPF 群时延的份额不同：−43.0 对 −39.9 dB）。
+- **拓扑 A 的 K = 1 @60.48 GHz 行与拓扑 B 的 K = 1 行硬件上看起来一样，差别全在 CFO**：B 的 K = 1 失锁（+13 dB），A 靠 MLO 预补偿（−18.2 dB）。
+
 ## 文献对不上时的几个"口径"而非"参数"
 
 - **OBO 参考点**：11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB；"OBO 8 dB" 相对 Psat 是平均功率在 P1dB 之上 1.5 dB（孤立 EVM −17 dB），相对 P1dB 则是 −26 dB 量级。两种都跑，哪种是原文的意思写进 external-validation。

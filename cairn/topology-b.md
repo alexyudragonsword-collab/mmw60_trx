@@ -19,7 +19,7 @@ authoring_mode: ai_generated
 随 K 变的量全部在 `frontend/Frontend60` 里派生：转换器位数 = round(ENOB(fs_eff))，ENOB 每倍采样率降 0.5 bit（`assumed.converter_bits_per_octave`）；
 LPF 角频 = wifitrx `recommended_lpf_corner_hz(BW × K)`；IQ 失配按绝对 ps / ns（同一器件在更宽的带上更差）；LO 泄漏 −30 dBc、RX 自混频 DC −25 dBc；
 PA = 11ad EM Rapp 的 dBm 版 `ScaledRappPA`（Psat 15 dBm、增益 20 dB，都是 `assumed`），工作点由模拟 VGA 调到 Psat − OBO，数字驱动固定 −16.5 dBFS（DAC 不削顶）。
-`Frontend60` 是两拓扑共用的实例（`LinkSim(cfg, frontend=fe)`，`tests/test_frontend.py::test_law2_*`）；A 会话拿同一个对象做 60 GHz 级。
+`Frontend60` 是两拓扑共用的实例（`LinkSim(cfg, frontend=fe)`，`tests/test_frontend.py::test_law2_*`）；拓扑 A 拿同一个对象做 60 GHz 级（`topology-a.md`）。
 
 锚：前端全关时 K = 1 与 K = 8 的链路 EVM 相同（−39.9 dB，差 < 0.1 dB）——链路里剩下的是 LPF 群时延与信道估计平滑的偏差，K 只改时间尺度。
 里程碑 0 的 behavioural 路径逐位不变（指纹 68 个值相同）。
