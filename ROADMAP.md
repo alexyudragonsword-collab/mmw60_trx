@@ -64,10 +64,14 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 - 数字：K = 32 时其余步骤已退化到 LO 泄漏环检 −35 dBc（K = 1 为 −68）、IQ irr_min 38–42 dB（55），正是最需要最终 EVM 裁决的地方。
 - 要的最小改动：`pilot_positions(config, explicit_cols=None)` 或 `TonePlan` 携带导频列；本库 `calcheck.scoring_config` 与示例 03 的 skipped 两列在等它。
 
-### D2 → pll_simulator：倍频器（×N）模型 —— [pll_simulator#71](https://github.com/alexyudragonsword-collab/pll_simulator/issues/71)
+### D2 → pll_simulator：倍频器（×N）模型 —— [pll_simulator#71](https://github.com/alexyudragonsword-collab/pll_simulator/issues/71)（对方已答复，2026-11-11 双方谈定接口，等剖面）
 - 现象：`arch/` 里只有 ILCM、MDLL 与参考倍频器占空比误差，没有"PLL 剖面经 ×N 倍频后的输出相噪"块；拓扑 A 的固定 LO 是 sub-7 PLL ×3 / ×4 到 60 GHz。
-- 本库现状（ROADMAP A1）：用 `export/clock_profile.py` 的剖面直接加 20·log₁₀N 当占位，标 `assumed`；缺的是倍频器自身的底噪项（高偏置处不随 N² 增长的那部分）与谐波选择滤波后的杂散。
-- 要的最小改动：`clock_profile` 的消费者侧一个 `multiply(profile, n, floor_dbchz)`，或 `export` 时直接出 ×N 后的剖面；本库 A1 的"MCS 上限随 LO 底噪 −85 … −110 dBc/Hz @ 1 MHz"表在等它（现在那张表的底噪是 assumed 的占位）。
+- **本库的前提错了**：`profile_at_carrier` 把 6.253 GHz 的 wu19 剖面按 20·log₁₀(60.48 / 6.253) 搬移，等于 ×9.672，不是能实现的倍频器。量级（+19.7 dB）没错，同台表 §5 那三行的结论大概不动，但它不对应一条真实的 LO 链。
+  正确做法是 PLL 调到 f_c/N 重新 analyze 再整数倍频。拓扑 B 已向对方要 f_c = 60.48 GHz、N = 10（PLL 6.048 GHz）；拓扑 A 的 (f_LO, N) 等 A1 定中频后在 issue 上补。
+- 谈定的接口：`write_clock_profile(..., multiply_by=N, floor_dbchz=…, spur_rejection_db=…)`，N 非整数报错，底噪与抑制度必填、不给默认值（对方没有实测数据）；
+  f_in/2 以内是 N²·S + 底噪，以上只有底噪（本库最宽的格积分到 5.12 GHz，N = 10 时 f_in/2 = 3.024 GHz，会用到这一段）；已请对方把 N、f_in、底噪、抑制度写成独立字段。
+- 剖面到了以后本库要做的：重新 pin；`profile_at_carrier` 拒绝非整数的 f_c / f0；`floor_dbchz` 由本库给、标 `assumed`、在示例 04 §6 加灵敏度行（wu19 远端 −154 dBc/Hz，×10 后 −134，底噪高过它才看得见）；
+  同台表 `pllsim wu19 profile x N` 三行换成新剖面；A1 的"MCS 上限随 LO 相噪 −85 … −110 dBc/Hz @ 1 MHz"表与它是两回事（那是 1 MHz 处的 LO 相噪电平，wu19 ×10 后是 −98.5），不要混用。
 
 ### D3 → PA_DPD：PA 带宽 / 记忆项随采样率的模型；两 DUT 级联 —— [PA_DPD#4](https://github.com/alexyudragonsword-collab/PA_DPD/issues/4)
 - 现象：`ReferencePA` 的电记忆是固定抽头的 FIR（输入 3 抽头、输出 2 抽头，没有采样率参数），跨度永远是 2 个样本：320 MS/s 上 6.25 ns，在 fs_eff = 2.56–20 GS/s 上缩成 0.78–0.1 ns，等于无记忆（`ThermalReferencePA` 的热时间常数已是秒并带 `fs`，缺的是电记忆那一半）；本库里程碑 1-B 的 DPD 代价因此只能用无记忆 Rapp + dsp_ip 综合数记账。

@@ -532,7 +532,7 @@ entries:
     unit: law
     source: assumed
     cite: "本库；理想倍频 / 分频：L(f) 平移 20·log10(f_c / f0)"
-    note: "pllsim 剖面搬到载频的占位规律：没有倍频器自身的底噪项与谐波选择杂散（ROADMAP D2 到了再换）。"
+    note: "pllsim 剖面搬到载频的占位规律：没有倍频器自身的底噪项与谐波选择杂散（ROADMAP D2 到了再换）。更正（2026-11-11，pll_simulator#71）：现有 wu19 剖面 6.253 GHz 到 60.48 GHz 是 ×9.672，不是整数倍，不对应可实现的倍频器；只有 +19.7 dB 的量级可用，等对方出 6.048 GHz × 10 的剖面。"
 
   assumed.pll60_power_mw:
     value: 40.0
