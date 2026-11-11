@@ -63,14 +63,36 @@ def analytic_floors(cfg: Mmw60Config, fe: Frontend60, pa_evm_db: float | None = 
     # CFO capture
     cfo = abs(cfg.cfo_hz)
     out["cfo_hz"] = cfo
-    out["cfo_captured"] = cfo <= sim_phy.stf_capture_hz if cfg.rx.cfo_estimation == "stf_ltf" else (
-        cfo <= sim_phy.ltf_capture_hz if cfg.rx.cfo_estimation == "ltf" else True)
+    topo_a = cfg.topology == "if_extender"
+    seen = cfo
+    if topo_a:
+        # what reaches the chip's estimators after the multi-link pre-compensation
+        # (iron rule 3): the sub-7 estimate's error × f_c / f_sub7, measured
+        from ..impairments.cfo import MloCfo
+        mlo = MloCfo(cfg.carrier_hz, cfg.xo_ppm_tx, cfg.xo_ppm_rx, sub7_hz=cfg.ifext.mlo_sub7_hz,
+                     sub7_snr_db=cfg.ifext.mlo_sub7_snr_db, enabled=cfg.ifext.mlo_enabled)
+        st = mlo.residual_stats(n=100, seed=cfg.seed)
+        out["cfo_residual_rms_hz"], out["cfo_residual_max_hz"] = st["rms_hz"], st["max_abs_hz"]
+        out["cfo_precompensation"] = "mlo" if cfg.ifext.mlo_enabled else "off"
+        seen = st["max_abs_hz"]
+    out["cfo_captured"] = seen <= sim_phy.stf_capture_hz if cfg.rx.cfo_estimation == "stf_ltf" else (
+        seen <= sim_phy.ltf_capture_hz if cfg.rx.cfo_estimation == "ltf" else True)
     terms = {}
     # phase noise: ICI after CPE, both LOs
     if fe.lo.profile is not None and cfg.lo.phase_noise.enabled:
         part = cpe_partition(fe.lo.profile.psd, t_fft, 1e3, fs / 2)
         n_lo = {"both": 2, "tx": 1, "rx": 1}.get(cfg.lo.phase_noise.apply, 0)
         terms["phase_noise"] = n_lo * part["ici_rad2"]
+    # topology A: the chip's own share — its residual after its calibration (measured:
+    # the sequence's final loopback EVM, once per link end) and its two synthesizers
+    if topo_a and cfg.ifext.chip == "wifitrx":
+        from ..ifext import chip_facts
+        facts = chip_facts(cfg, sim_phy.bandwidth_eff, fs)
+        out["chip"] = {k: v for k, v in facts.items() if k != "lo_profile"}
+        if facts["residual_evm_db"] is not None:
+            terms["chip"] = 10 ** (facts["residual_evm_db"] / 10)
+        if facts["lo_profile"] is not None:
+            terms["chip_lo"] = 2 * cpe_partition(facts["lo_profile"].psd, t_fft, 1e3, fs / 2)["ici_rad2"]
     # IQ image, TX and RX, averaged over the occupied tones (uncalibrated)
     if cfg.frontend.iq.enabled:
         if irr_after_cal_db is not None:
@@ -102,7 +124,11 @@ def analytic_floors(cfg: Mmw60Config, fe: Frontend60, pa_evm_db: float | None = 
     no_pa = sum(v for k, v in terms.items() if k != "pa")
     out["floor_no_pa_db"] = _db(no_pa) if no_pa > 0 else -np.inf
     out["dominant"] = max(terms, key=terms.get) if terms else None
-    out["plan"] = zero_if_plan(cfg.carrier_hz, sim_phy.bandwidth_eff, fs, scs, cfg.cfo_hz)
+    if topo_a:
+        from ..ifext import if_plan
+        out["plan"] = if_plan(cfg.carrier_hz, cfg.lo.if_hz, cfg.lo.n_mult, sim_phy.bandwidth_eff)
+    else:
+        out["plan"] = zero_if_plan(cfg.carrier_hz, sim_phy.bandwidth_eff, fs, scs, cfg.cfo_hz)
     return out
 
 
@@ -167,7 +193,7 @@ def data_rate_bps(standard: str, bandwidth_hz: float, mcs_index: int, t_symbol_s
 
 
 REASON_ZH = {"cfo": "CFO 捕获", "phase_noise": "相噪", "iq_image": "IQ 不平衡", "converters": "转换器",
-             "pa": "PA", "isi": "GI 外 ISI", "plan": "频率规划"}
+             "pa": "PA", "isi": "GI 外 ISI", "plan": "频率规划", "chip": "芯片残差", "chip_lo": "芯片 LO 相噪"}
 
 
 @dataclass

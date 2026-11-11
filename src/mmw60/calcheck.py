@@ -114,26 +114,35 @@ def run_cal_at(fe: Frontend60, k: int, base_bw_hz: float = 20e6, oversampling: i
                log=None) -> CalRun:
     bw_eff = base_bw_hz * k
     fs_eff = bw_eff * oversampling
+    tx, rx = fe.build_chains(bw_eff, fs_eff)
+    path = LoopbackPath(atten_db=recommended_loopback_atten_db(bw_eff), delay_ns=6.0)
+    return run_cal_on(tx, rx, path, k, bw_eff, oversampling, profile, with_dpd, seed, log)
+
+
+def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: int = 2,
+               profile: str = "poweron", with_dpd: bool = True, seed: int = 0, log=None,
+               drive_scale: float = 0.12) -> CalRun:
+    """The step table on chains built elsewhere (topology A: the chip's own
+    chains, observed on its coupler or through the 60 GHz loopback)."""
+    fs_eff = bw_eff * oversampling
     cfg, waveform = scoring_config(bw_eff, oversampling)
     full = cfg is not None
     if cfg is None:
         cfg = plain_config(bw_eff, k, oversampling)
-    tx, rx = fe.build_chains(bw_eff, fs_eff)
-    path = LoopbackPath(atten_db=recommended_loopback_atten_db(bw_eff), delay_ns=6.0)
     prof = PROFILES[profile]
     plan = planned_steps(prof, with_iip2=rx.params.im2.enabled, with_dpd=with_dpd)
     run = CalRun(k=k, bw_eff_hz=bw_eff, fs_eff_hz=fs_eff, waveform=waveform)
     ctx: dict = {"results": []}
     if full:
         try:
-            snap = loopback_snapshot(tx, rx, path, cfg, drive_scale=0.12, seed=seed)
+            snap = loopback_snapshot(tx, rx, path, cfg, drive_scale=drive_scale, seed=seed)
             ctx.update({"snap_before": snap, "evm_before": snap["evm_db"]})
             run.evm_before_db = float(snap["evm_db"])
         except Exception as e:      # noqa: BLE001
             run.rows.append(StepRow(k, bw_eff, fs_eff, "loopback_snapshot", "failed",
                                     detail=f"{type(e).__name__}: {e}"[:160]))
             full = False
-    runners = _step_runners(tx, rx, cfg, path, prof, profile, with_dpd, None, 0.12, seed, ctx)
+    runners = _step_runners(tx, rx, cfg, path, prof, profile, with_dpd, None, drive_scale, seed, ctx)
     for name in plan:
         if name == "final_loopback_evm" and not full:
             run.rows.append(StepRow(k, bw_eff, fs_eff, name, "skipped", detail=waveform,

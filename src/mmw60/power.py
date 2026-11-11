@@ -167,12 +167,30 @@ def power_report(cfg, fe, bit_rate_bps: float, coeffs: PowerCoefficients | None 
                                  f"Pout {pout_dbm:.1f} dBm, PAE {100 * pae:.1f} % (class-B law from {100 * pa.pae_max:.0f} %)"))
     else:
         omitted.append("PA ideal (no DC power counted)")
+    topo_a = cfg.topology == "if_extender"
+    # topology A: the chip's own PA drives the 60 GHz stage (measured on the calibrated chip)
+    if topo_a and cfg.ifext.chip == "wifitrx":
+        from .ifext import chip_facts
+        f = chip_facts(cfg, bw, fs)
+        blocks.append(PowerBlock("chip_pa", f["pa_dc_w"],
+                                 f"the chip's PA as the driver: Pout {f['pout_dbm']:.1f} dBm, average PAE {100 * f['pa_pae']:.1f} %"))
     # synthesizers
     mm = cfg.carrier_hz >= k.mmwave_above_hz
     p_lo = k.pll60_w if mm else k.pll_sub7_w
-    blocks.append(PowerBlock("lo", 2 * p_lo, f"TX + RX synthesizer at {1e3 * p_lo:.0f} mW each ({'60 GHz' if mm else 'sub-7'} figure)"))
+    if topo_a:
+        blocks.append(PowerBlock("lo", 2 * (k.pll60_w + k.pll_sub7_w),
+                                 f"per link end the chip's synthesizer ({1e3 * k.pll_sub7_w:.0f} mW) and the fixed LO "
+                                 f"({1e3 * k.pll60_w:.0f} mW), TX + RX"))
+    else:
+        blocks.append(PowerBlock("lo", 2 * p_lo, f"TX + RX synthesizer at {1e3 * p_lo:.0f} mW each ({'60 GHz' if mm else 'sub-7'} figure)"))
     # converters: I/Q DAC + I/Q ADC at ENOB(fs_eff)
-    if fe.converters_enabled and cfg.frontend.converters.enabled:
+    if topo_a:
+        # the chip's own converters, priced by the same law at the chip's rate
+        enob = fe.converters.enob(fs)
+        blocks.append(PowerBlock("converters", 4 * k.converter_w(fs, enob),
+                                 f"the chip's 2 DAC + 2 ADC at {fs / 1e9:.2f} GS/s, ENOB {enob:.1f} by the same law, "
+                                 f"Walden {k.walden_fom_j * 1e15:.0f} fJ"))
+    elif fe.converters_enabled and cfg.frontend.converters.enabled:
         enob = fe.converters.enob(fs)
         blocks.append(PowerBlock("converters", 4 * k.converter_w(fs, enob),
                                  f"2 DAC + 2 ADC at {fs / 1e9:.2f} GS/s, ENOB {enob:.1f}, Walden {k.walden_fom_j * 1e15:.0f} fJ"))

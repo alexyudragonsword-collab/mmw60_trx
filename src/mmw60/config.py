@@ -35,7 +35,17 @@ PN_SIDES = ("off", "tx", "rx", "both")
 #: placeholder until pll_simulator's multiplier model (ROADMAP D2)
 PN_MODELS = ("pole_zero", "wifitrx_wifi7", "profile", "off")
 CHANNELS = ("flat", "tdl_exp", "tap_table")
-FRONTEND_MODELS = ("behavioural", "zero_if_chain")
+#: if_extender_chain = topology A: the chip's chains at K = 1 with the 60 GHz
+#: stage after / before them (``mmw60.ifext``)
+FRONTEND_MODELS = ("behavioural", "zero_if_chain", "if_extender_chain")
+#: LO scheme -> the multiplication from the PLL to the LO (zero_if: the LO is the carrier)
+LO_SCHEMES = {"zero_if": 1, "fixed_lo_x3": 3, "fixed_lo_x4": 4}
+#: topology A's chip: wifitrx = wifitrx's own transceiver, randomised and run
+#: through its calibration sequence (the WiFi 7 chip as delivered); frontend =
+#: the shared ``Frontend60``'s chain at 1× with its PA bypassed (the K = 1 row
+#: of the comparison table, uncalibrated — and what ``ideal()`` selects)
+IFEXT_CHIPS = ("wifitrx", "frontend")
+DPD_OBSERVATIONS = ("chip", "mmw")
 
 
 @dataclass(frozen=True)
@@ -85,8 +95,40 @@ class PhaseNoiseConfig:
 
 @dataclass(frozen=True)
 class LoConfig:
-    scheme: str = "zero_if"           # zero_if (topology B) | fixed_lo_x3 | fixed_lo_x4 (topology A, M1)
+    scheme: str = "zero_if"           # zero_if (topology B) | fixed_lo_x3 | fixed_lo_x4 (topology A)
     phase_noise: PhaseNoiseConfig = field(default_factory=PhaseNoiseConfig)
+    #: topology A: the intermediate frequency the chip's channel sits at; the
+    #: fixed LO is f_c − if_hz, from a PLL at (f_c − if_hz) / N (data/spec: assumed.ifext_if_hz)
+    if_hz: float = 0.0
+
+    @property
+    def n_mult(self) -> int:
+        return LO_SCHEMES[self.scheme]
+
+
+@dataclass(frozen=True)
+class IfExtConfig:
+    """Topology A's 60 GHz stage around the chip (data/spec: assumed.ifext_*, assumed.mlo_*).
+    Ignored by topology B."""
+    chip: str = "wifitrx"             # one of IFEXT_CHIPS
+    chip_seed: int = 5                # which chip (wifitrx's randomised impairments)
+    #: the chip PA's average output at the link's digital drive, set by the
+    #: calibration's tx_power step; None = the chip's delivered gain code
+    chip_pout_dbm: float | None = None
+    with_dpd: bool = True
+    #: where the DPD observes: the chip's own coupler (it linearises the chip PA
+    #: only) or a 60 GHz coupler after the second PA, down-converted with the same LO
+    dpd_observation: str = "chip"
+    filter_enabled: bool = True
+    filter_bw_hz: float = 1.2e9
+    filter_order: int = 5
+    filter_ripple_db: float = 0.5
+    filter_center_hz: float = 6.525e9
+    image_rejection_db: float | None = 30.0
+    #: CFO pre-compensation from the multi-link sub-7 GHz estimate × f_c / f_sub7
+    mlo_enabled: bool = True
+    mlo_sub7_hz: float = 5.5e9
+    mlo_sub7_snr_db: float = 20.0
 
 
 @dataclass(frozen=True)
@@ -203,6 +245,7 @@ class Mmw60Config:
     frontend: FrontendConfig = field(default_factory=FrontendConfig)
     channel: ChannelConfig = field(default_factory=ChannelConfig)
     rx: RxConfig = field(default_factory=RxConfig)
+    ifext: IfExtConfig = field(default_factory=IfExtConfig)
     seed: int = 0
     label: str = ""
 
@@ -227,6 +270,12 @@ class Mmw60Config:
             raise ValueError("frontend.pa.obo_reference must be psat | p1db")
         if self.frontend.model not in FRONTEND_MODELS:
             raise ValueError(f"frontend.model must be one of {FRONTEND_MODELS}")
+        if self.lo.scheme not in LO_SCHEMES:
+            raise ValueError(f"lo.scheme must be one of {tuple(LO_SCHEMES)}")
+        if self.ifext.chip not in IFEXT_CHIPS:
+            raise ValueError(f"ifext.chip must be one of {IFEXT_CHIPS}")
+        if self.ifext.dpd_observation not in DPD_OBSERVATIONS:
+            raise ValueError(f"ifext.dpd_observation must be one of {DPD_OBSERVATIONS}")
 
     # --- derived ---------------------------------------------------------
     @property
@@ -281,6 +330,10 @@ class Mmw60Config:
                 converters=dataclasses.replace(self.frontend.converters, enabled=False),
                 iq=dataclasses.replace(self.frontend.iq, enabled=False),
                 lo_leak_dbc=None, rx_dc_dbc=None),
+            # topology A: the chip without its own impairments is the shared front end's
+            # chain at 1× (the K = 1 row); the IF filter and the image band go with them
+            ifext=dataclasses.replace(self.ifext, chip="frontend", filter_enabled=False,
+                                      image_rejection_db=None),
             label=(self.label + " ideal").strip())
 
     def with_(self, **top) -> "Mmw60Config":
@@ -332,7 +385,8 @@ def _from_dict(cls, d: dict):
 _NESTED = {
     (Mmw60Config, "phy"): PhyConfig, (Mmw60Config, "lo"): LoConfig,
     (Mmw60Config, "frontend"): FrontendConfig, (Mmw60Config, "channel"): ChannelConfig,
-    (Mmw60Config, "rx"): RxConfig, (LoConfig, "phase_noise"): PhaseNoiseConfig,
+    (Mmw60Config, "rx"): RxConfig, (Mmw60Config, "ifext"): IfExtConfig,
+    (LoConfig, "phase_noise"): PhaseNoiseConfig,
     (FrontendConfig, "pa"): PaConfig, (FrontendConfig, "array"): ArrayConfig,
     (FrontendConfig, "converters"): ConverterConfig, (FrontendConfig, "iq"): IqConfig,
 }
@@ -425,6 +479,35 @@ def wifi7_chain_k1(mcs: int = 0, standard: str = "11ac", bandwidth_hz: float = 2
         lo=dataclasses.replace(cfg.lo, phase_noise=dataclasses.replace(
             cfg.lo.phase_noise, model="wifitrx_wifi7")),
         label=f"WiFi 7 chain K=1 {standard} {bandwidth_hz / 1e6:g} MHz MCS{mcs}")
+
+
+def if_extender_60ghz(mcs: int = 0, standard: str = "11be", bandwidth_hz: float = 80e6,
+                      carrier_hz: float = 60.48e9, **top) -> Mmw60Config:
+    """Topology A: the WiFi 7 chip at K = 1 on a 6 GHz-band IF, then the 60 GHz
+    stage.  Crystal, LO phase-noise numbers, the 60 GHz PA and its back-off,
+    EIRP limit, channel and receiver are topology B's (``zero_if_60ghz``) — the
+    shared ``Frontend60`` (iron rule 2).  The baseband converters / IQ / LO
+    leakage / RX DC are the chip's own (wifitrx's, calibrated by its sequence),
+    so the front-end switches for those are off here."""
+    s = spec.value
+    b = zero_if_60ghz(k=1, mcs=mcs, standard=standard, bandwidth_hz=bandwidth_hz, carrier_hz=carrier_hz)
+    fe = dataclasses.replace(b.frontend, model="if_extender_chain",
+                             converters=dataclasses.replace(b.frontend.converters, enabled=False),
+                             iq=dataclasses.replace(b.frontend.iq, enabled=False),
+                             lo_leak_dbc=None, rx_dc_dbc=None)
+    flt = s("assumed.ifext_filter")
+    mlo = s("assumed.mlo_sub7")
+    cfg = dataclasses.replace(
+        b, topology="if_extender", waveform="be", frontend=fe,
+        phy=dataclasses.replace(b.phy, oversampling=int(s("assumed.ifext_chip_oversampling"))),
+        lo=dataclasses.replace(b.lo, scheme=str(s("assumed.ifext_lo_scheme")), if_hz=float(s("assumed.ifext_if_hz"))),
+        ifext=IfExtConfig(chip="wifitrx", chip_seed=int(s("assumed.ifext_chip_seed")),
+                          filter_bw_hz=float(flt["bandwidth_hz"]), filter_order=int(flt["order"]),
+                          filter_ripple_db=float(flt["ripple_db"]), filter_center_hz=float(flt["center_hz"]),
+                          image_rejection_db=float(s("assumed.ifext_image_rejection_db")),
+                          mlo_sub7_hz=float(mlo["carrier_hz"]), mlo_sub7_snr_db=float(mlo["snr_db"])),
+        label=f"IF extender 60 GHz {standard} {bandwidth_hz / 1e6:g} MHz MCS{mcs}")
+    return dataclasses.replace(cfg, **top) if top else cfg
 
 
 def wifi7_baseline_k1(mcs: int = 0) -> Mmw60Config:

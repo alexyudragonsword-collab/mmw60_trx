@@ -4,6 +4,17 @@
 
 ## 未发布
 
+### 拓扑 A：IF 延伸 —— ROADMAP A1（2026-11-11）
+- `src/mmw60/ifext.py`：`IfExtenderTx` / `IfExtenderRx`（wifitrx `TxChain` / `RxChain` 的子类，60 GHz 级显式加在父类调用之后 / 之前，级关掉时逐位等于父类）；
+  间级电平、IF 带通（Chebyshev-I 低通等效）、固定 LO 混频、共享 `Frontend60` 的 60 GHz PA；频率规划 `if_plan`；芯片按 wifitrx 自己的配方随机化并跑完 `run_full_cal`（铁律 4）；DPD 可在 60 GHz 观测回环上重训，比不过已有的不写入。
+- `impairments/cfo.py::MloCfo`（铁律 3 的 A 接法）：sub-7 链路的 CFO 估计 × f_c / f_sub7 预补偿，残差 = 估计误差 × 频率比，估计器真跑；ppm = 0 时整项关掉。
+- 配置：`topology: if_extender` 可运行（`if_extender_60ghz` 预设），`LoConfig.if_hz`、`IfExtConfig`、`frontend.model: if_extender_chain`；9 个 assumed 条目（IF、LO 方案、滤波器、镜像抑制、芯片 seed / 过采样、MLO 的 sub-7 链路、同源晶振）。**schema 变化**：`Mmw60Config` 多一个 `ifext` 块，`LinkSim` 对拓扑 A 不再抛 `NotImplementedError`。
+- 同台表：拓扑 A 的行接入（`compare.PENDING` 里去掉那格），解析底板多“芯片残差”“芯片 LO”两项，功耗多“芯片 PA 当驱动级”一块、每端两个频综；示例 04 加拓扑 A 在 320 MHz 上的一行。
+- 示例 06：频率规划、逐步校准（芯片耦合器 / 60 GHz 观测回环）、有无观测回环的 DPD、MCS 上限随 LO 相噪（对 `EvmBudget`）、级联回退、CFO、假设的灵敏度、PER 复核。
+- **更正（numbers-move，示例 04 的 EvmBudget 列）**：`compare._pn_terms` 把 wifitrx 单边带口径的 IPN 当相位方差，少了 2 倍；A3 记下的“EvmBudget 乐观 3–4 dB”里 3.0 dB 是这个错。改正后每行 EvmBudget − 底板 = 0.0 dB。
+- 数字：拓扑 A 11be 80 MHz 链路 EVM −18.2 dB、解码器上限 MCS4；同样 320 MHz、865 Mb/s 上 A 1127 对 B 628 pJ/bit；60 GHz 观测回环的 DPD 在回退 12 / 14 / 16 dB 值 +5.8 / +8.2 / +7.1 dB，在预设的 8 dB 上值 0；LO 扫描 EvmBudget 与时域差 ≤ 0.23 dB。
+- `tests/test_ifext.py` +11；`test_laws.py` / `test_compare.py` / `test_examples.py` 跟着“拓扑 A 已建”更新。里程碑 0 指纹不变。
+
 ### 接收机精度 —— ROADMAP C1–C3（2026-11-11）
 - C1 `rx/tracking.py::smoothed_cpe`：导频公共相位跨符号 MMSE 合并（窗内留一平均 + 按导频残差自己量出的收缩系数，残余 CFO 斜坡先去后加）；`RxConfig.cpe_window_symbols`，1 = wifitrx 逐符号估计（逐位相同）。
 - C2 `rx/tracking.py::auto_smooth_span`：信道估计平滑跨度逐包从估计自己的音间自相关选（指数时延谱模型定 1 音还是 3 音，再宽看实测偏差）；`RxConfig.ce_smooth_auto / ce_smooth_max_tones`。

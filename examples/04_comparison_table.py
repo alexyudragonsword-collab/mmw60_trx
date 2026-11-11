@@ -69,6 +69,9 @@ def main(argv=None) -> int:
     if not quick:
         schemes += [s for s in compare.scheme_matrix(ks=(4, 8, 16, 32), standard="11be", bandwidth_hz=80e6)
                     if s.status == "built"]
+        # topology A on the widest channel the chip has: the same 320 MHz at 60 GHz as 80 MHz × 4
+        schemes += [s for s in compare.scheme_matrix(ks=(), standard="11be", bandwidth_hz=320e6)
+                    if s.key == ("if_extender", "be")]
     fe = Frontend60.from_config(zero_if_60ghz(k=8))
     d = fe.describe()
     print(f"mmw60 {__version__}; {'QUICK' if quick else 'full'}; one Frontend60 for every row: PA {d['pa']} Psat "
@@ -98,8 +101,12 @@ def main(argv=None) -> int:
     for r in rep["rows"]:
         t, b = r["terms_db"], r["evm_budget"]
         f = lambda v: "     —" if v is None or v < -150 else f"{v:7.1f}"  # noqa: E731
+        own = f"   chip residual {t['chip']:.1f}, chip LO {t['chip_lo']:.1f}" if "chip" in t and "chip_lo" in t else ""
         print(f"{r['label']:<44} {f(b['pn_ici_db'])} {f(b['pn_budget_db'])} {b['cpe_tracked_fraction']:7.1%} "
-              f"{f(t.get('iq_image'))} {f(t.get('converters'))} {f(t.get('pa'))} {f(t.get('isi'))}")
+              f"{f(t.get('iq_image'))} {f(t.get('converters'))} {f(t.get('pa'))} {f(t.get('isi'))}{own}")
+    print("only in the IF-extender rows: the chip's residual after its own calibration (measured) and its synthesizer's ICI, "
+          "the IF filter (equalised: 0 dB here) and the image band's noise (a noise-figure term, example 06); only in the "
+          "zero-IF rows: the uncalibrated baseband IQ image, the converters at ENOB(fs_eff), LO leakage and RX DC")
     print("\n== 4. power blocks per bit at the cap [pJ/bit] (Halo example 41's method: public-figure coefficients, read ratios) ==")
     print(f"{'scheme':<44} {'Mb/s':>6} {'pa':>6} {'lo':>6} {'conv':>6} {'dpd':>6} {'fft':>6} {'dec':>6} {'total':>7}  not counted")
     for r in rep["rows"]:
@@ -109,8 +116,9 @@ def main(argv=None) -> int:
             continue
         bl = p["blocks"]
         g = lambda n: f"{bl[n]['pj_per_bit']:6.0f}" if n in bl else "     —"  # noqa: E731
+        chip = f"; total includes the chip's PA as the driver, {bl['chip_pa']['pj_per_bit']:.0f}" if "chip_pa" in bl else ""
         print(f"{r['label']:<44} {p['bit_rate_bps'] / 1e6:6.0f} {g('pa')} {g('lo')} {g('converters')} {g('dpd')} "
-              f"{g('fft')} {g('decoder')} {p['pj_per_bit']:7.0f}  {'; '.join(p['omitted']) or '—'}")
+              f"{g('fft')} {g('decoder')} {p['pj_per_bit']:7.0f}  {'; '.join(p['omitted']) or '—'}{chip}")
     c = rep["coefficients"]
     print(f"coefficients: Walden {c['walden_fom_fj']:.0f} fJ/step; Horowitz {c['mult32_pj']:g} / {c['add32_pj']:g} pJ at 45 nm "
           f"(node scale {c['node_scale']:g}); {c['word_bits']} bit; synthesizers {c['pll60_mw']:g} / {c['pll_sub7_mw']:g} mW")

@@ -44,6 +44,8 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 
 基准带宽 20 MHz；SNR = 每有效子载波 Es/N0；相噪 TX/RX 各一份；CR 信道 = 指数 PDP 7 ns rms + LOS/散射 10 dB；OBO 参考 Psat（另给 P1dB）；信道估计平滑 3 音（里程碑 0 的接收机；`zero_if_60ghz` 预设逐包自动选，上限 9 音 `assumed.ce_smooth_max_tones`）；跨符号 CPE 合并窗 17 个符号（`assumed.cpe_window_symbols`，示例 00 有 5 / 33 的灵敏度行）；genie 定时；只建 L-STF / L-LTF / Data；扰码种子 93。
 
+拓扑 A（A1）的一组：IF 6.48 GHz、固定 LO ×3、IF 带通（Chebyshev-I 5 阶 0.5 dB、通带 1.2 GHz）、镜像抑制 30 dB、芯片 seed 5 与 4 倍过采样、MLO 的 sub-7 链路 5.5 GHz / 20 dB、同源晶振；每条在示例 06 §7 有灵敏度行（`cairn/topology-a.md` §9）。
+
 A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 峰值 PAE 20 %（B 类回退规律）、60 GHz / sub-7 频综 40 / 20 mW、数字字宽 16 bit、理想 ×N 的 20·log10 搬移；每条在示例 04 §6 的灵敏度表里有两端的数（`cairn/comparison-table.md` §5）。
 
 ## 本库自己量的（derived）

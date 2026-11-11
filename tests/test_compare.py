@@ -30,7 +30,8 @@ def test_law2_matrix_names_every_topology_x_waveform_pair():
     keys = {s.key for s in MATRIX}
     assert keys == {(t, w) for t in TOPOLOGIES for w in WAVEFORMS}
     built = {s.key for s in MATRIX if s.status == "built"}
-    assert built == {("upclock_zero_if", w) for w in WAVEFORMS_BUILT}
+    # topology B carries both built waveforms; topology A keeps the WiFi 7 waveform as it is
+    assert built == {("upclock_zero_if", w) for w in WAVEFORMS_BUILT} | {("if_extender", "be")}
     for s in MATRIX:
         if s.status == "pending":
             assert "milestone" in s.reason and s.cfg is None
@@ -50,15 +51,20 @@ def test_law2_matrix_names_every_topology_x_waveform_pair():
 def test_law2_every_scheme_on_the_shared_frontend_reads_the_k1_evm_when_ideal(scheme):
     """Iron rule 2, the milestone-1 form: one ``Frontend60`` instance for
     every scheme; with ppm = 0, ideal LO, ideal PA (and converters / IQ /
-    leakage off) each scheme's EVM is the K = 1 chain's within 0.1 dB.
-    Topology A and the ay waveforms skip with the milestone that builds them."""
+    leakage off) each scheme's EVM is the K = 1 chain's within 0.1 dB — the
+    K = 1 chain at the scheme's own oversampling (topology A's chip runs at
+    4×, the LPF's group-delay share of the floor depends on it).  Topology A
+    ideal is that chain with a transparent 60 GHz stage after it.  The ay
+    waveforms skip with the milestone that builds them."""
     if scheme.status != "built":
         pytest.skip(scheme.reason)
     # the hardware is the instance, not the config: the ideal front end is
     # built once and every scheme runs on it
     fe = Frontend60.from_config(zero_if_60ghz(k=8).ideal())
     assert not fe.pa_enabled and not fe.converters_enabled and fe.lo.profile is None and not fe.tx_iq.enabled
-    ref = evm_at(dc.replace(wifi7_chain_k1().ideal(), channel=FLAT), None, n_packets=1, frontend=fe)["evm_db"]
+    k1 = wifi7_chain_k1().ideal()
+    k1 = dc.replace(k1, channel=FLAT, phy=dc.replace(k1.phy, oversampling=scheme.cfg.phy.oversampling))
+    ref = evm_at(k1, None, n_packets=1, frontend=fe)["evm_db"]
     sim = LinkSim(dc.replace(scheme.cfg.ideal(), channel=FLAT), frontend=fe)
     assert sim.frontend is fe and sim.frontend.eirp is fe.eirp and sim.frontend.lo is fe.lo
     e = evm_at(dc.replace(scheme.cfg.ideal(), channel=FLAT), None, n_packets=1, frontend=fe)["evm_db"]
@@ -70,9 +76,9 @@ def test_law2_report_hands_one_instance_to_every_row_and_the_k1_row_is_the_ancho
     rep = compare.build(compare.scheme_matrix(ks=(1, 8)), fe, time_domain=True)
     assert rep["frontend_ids"]["frontend"] == id(fe) and rep["frontend_ids"]["eirp"] == id(fe.eirp)
     labels = [r["label"] for r in rep["rows"]]
-    assert len(labels) == 3 and len(rep["pending"]) == 6 and len(rep["matrix"]) == 8
+    assert len(labels) == 4 and len(rep["pending"]) == 5 and len(rep["matrix"]) == 8
     # the K = 1 chain row reads what evm_at reads for the same config on the same instance
-    k1 = next(r for r in rep["rows"] if r["waveform"] == "be")
+    k1 = next(r for r in rep["rows"] if r["waveform"] == "be" and r["topology"] == "upclock_zero_if")
     e = evm_at(dc.replace(wifi7_chain_k1(), channel=FLAT), None, n_packets=1, frontend=fe)["evm_db"]
     assert k1["td_evm_db"] == pytest.approx(e, abs=1e-9)
     # the shared LO: the sub-7 row's phase-noise term equals the 60 GHz rows' (same profile instance)
@@ -131,7 +137,7 @@ def test_markdown_lists_every_scheme_and_json_round_trips(tmp_path):
     md = compare.to_markdown(rep)
     for s in sch:
         assert s.label in md
-    assert "milestone 3" in md and "A1" in md
+    assert "milestone 3" in md and "IF extender" in md
     json.loads(json.dumps(compare.report_json(rep), default=str))
 
 
@@ -245,7 +251,7 @@ def test_budget_report_cli_writes_markdown_and_json(tmp_path):
     text = md.read_text(encoding="utf-8")
     assert "be_upclocked 11ac 20M K=8 @60.48 GHz" in text and "pending" in text and "pJ/bit" in text
     d = json.loads(js.read_text(encoding="utf-8"))
-    assert len(d["rows"]) == 3 and len(d["pending"]) == 6 and "_rows" not in d
+    assert len(d["rows"]) == 4 and len(d["pending"]) == 5 and "_rows" not in d
     with pytest.raises(ValueError, match="unique"):
         compare.build(compare.scheme_matrix(ks=(8, 8)), time_domain=False)
     assert budget_report.parse_base("11be:80e6") == ("11be", 80e6)
