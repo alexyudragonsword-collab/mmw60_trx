@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/cal/dpd_cal.py
+# Vendored from wifi_trx_cal@da37888ab16f6a5f34d1d0f3d329a4b857b5f37b: src/wifitrx/cal/dpd_cal.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """DPD calibration through the TX -> loopback -> RX observation path.
 
@@ -42,10 +42,18 @@ def _capture(tx: TxChain, rx: RxChain, path: LoopbackPath,
 def calibrate_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
                   path: LoopbackPath | None = None, n_iter: int = 2,
                   order: int = 7, memory_depth: int = 5,
-                  drive_scale: float = 0.25, seed: int = 17) -> CalResult:
+                  drive_scale: float = 0.25, seed: int = 17,
+                  tap_spacing: int = 1) -> CalResult:
     """``drive_scale`` sets the digital rms level (unit-power reference times
     drive_scale) so the OFDM peaks stay inside DAC full scale and the PA
-    runs at a sane backoff — ILA diverges if driven past saturation."""
+    runs at a sane backoff — ILA diverges if driven past saturation.
+
+    ``tap_spacing`` puts the GMP basis's memory taps that many samples
+    apart (see :mod:`wifitrx.pa.memory_polynomial`).  1 is the historical
+    sample-spaced basis; a PA whose memory is fixed in seconds
+    (``ReferencePA(fs=..., fir_fs=...)``) run at ``fs`` needs ``fs /
+    fir_fs`` here, or the predistorter's memory shrinks with the sampling
+    rate while the PA's does not (issue #5)."""
     if path is None:
         path = LoopbackPath(atten_db=40.0, delay_ns=6.0)
     fs = tx.fs
@@ -86,7 +94,8 @@ def calibrate_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
         cap = _capture(tx, rx, path, x)
         if g0 is None:
             g0 = np.vdot(x, cap) / np.vdot(x, x)
-        model = GMPModel(order=order, memory_depth=memory_depth)
+        model = GMPModel(order=order, memory_depth=memory_depth,
+                         tap_spacing=tap_spacing)
         model.fit(cap / g0, u)
         dpd_model = model
         # programmed envelope-bounded: the polynomial is a model of the
@@ -101,7 +110,7 @@ def calibrate_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
     return CalResult(
         name="dpd",
         estimated={"order": order, "memory_depth": memory_depth,
-                   "x_max": x_max},
+                   "tap_spacing": int(tap_spacing), "x_max": x_max},
         corrections={"dpd": "GMP ILA predistorter programmed on TxChain, "
                             "envelope-bounded at the training peak"},
         trace=trace,

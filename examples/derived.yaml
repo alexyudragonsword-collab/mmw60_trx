@@ -126,3 +126,23 @@
   quotes:
     - {doc: cairn/comparison-table.md, text: "pllsim 剖面与 Liu 的 pole-zero 同量级（IPN 差 {ipn_pz - ipn_x10} dB）"}
     - {doc: cairn/comparison-table.md, text: "| {ipn_x10} dBc | {ici_x10} / −17.7 / −17.8 |"}
+
+- name: ex07 the preset back-off — memory fixed in seconds against memory that scales with the signal (TX EVM after DPD)
+  values:
+    sc4: {example: "07", after: "== what the memory law costs after DPD", line: "K=4 {} {*} {*} {*} {*} {*} x{*} {*}"}
+    fx4: {example: "07", after: "== what the memory law costs after DPD", line: "K=4 {*} {*} {*} {*} {*} {} x{*} {*}"}
+    sc8: {example: "07", after: "== what the memory law costs after DPD", line: "K=8 {} {*} {*} {*} {*} {*} x{*} {*}"}
+    fx8: {example: "07", after: "== what the memory law costs after DPD", line: "K=8 {*} {*} {*} {*} {*} {} x{*} {*}"}
+    sc32: {example: "07", after: "== what the memory law costs after DPD", line: "K=32 {} {*} {*} {*} {*} {*} x{*} {*}"}
+    fx32: {example: "07", after: "== what the memory law costs after DPD", line: "K=32 {*} {*} {*} {*} {*} {} x{*} {*}"}
+  quotes:
+    - {doc: ROADMAP.md, text: "最好只有 {fx4} / {fx8} / {fx32} dB"}
+    - {doc: ROADMAP.md, text: "是 {sc4} / {sc8} / {sc32} dB，差 {fx4 - sc4} / {fx8 - sc8} / {fx32 - sc32} dB"}
+    - {doc: cairn/topology-b.md, text: "对随信号缩放的同一颗 PA 损失 {fx32 - sc32}–{fx4 - sc4} dB"}
+
+- name: ex07 K = 32 — the matched tap spacing wins only once backed off (10.5 dB)
+  values:
+    m105: {example: "07", after: "== sensitivity: the back-off", line: "K=32 10.5 {*} {*} {} {*} {*}"}
+    s105: {example: "07", after: "== sensitivity: the back-off", line: "K=32 10.5 {*} {} {*} {*} {*}"}
+  quotes:
+    - {doc: ROADMAP.md, text: "只在回退 ≥ 10.5 dB 且 K = 32 时赢（{m105} 对逐样本 {s105} dB）"}

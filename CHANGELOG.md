@@ -4,6 +4,15 @@
 
 ## 未发布
 
+### 重新 pin wifitrx@da37888（DPD 抽头间隔透传）；PA 的电记忆研究 —— ROADMAP D3（2026-11-11）
+- `src/mmw60/vendor/wifitrx/` 重新同步到 `da37888ab16f6a5f34d1d0f3d329a4b857b5f37b`（0.7.38；106 个文件 verbatim，9 个正文有变化：PA 模型更新到 PA_DPD@02ca433，`calibrate_dpd` / `run_full_cal` / `dpd_tracking` 可传抽头间隔）。pin 四处一起改。里程碑 0 指纹逐位不变，已有示例的输出不变。
+- `src/mmw60/pamemory.py`（新）：带电记忆的参考 PA 进拓扑 B 的链路。`memory_pa`（按前端的增益 / Psat 定标；`fir_fs` 给定时抽头按秒固定，不给时随信号缩放）、`run_row` / `study` / `cost_rows`（wifitrx 的校准序列在该 PA 上真跑，DPD 关 / 各抽头间隔）、`candidate_spacings`、`best_spacing`。
+- `calcheck.run_cal_at`：`pa=`（换发射 PA）、`dpd_tap_spacing=`（透传到 wifitrx 的 DPD 步，`CalRun.dpd_tap_spacing` 记的是该步自己写下的值）、`obo_db=`（把最终 EVM 检查放到指定的输出回退上：先修 VGA，落点不对就带修正重跑整套序列，`CalRun.passes` / `pout_dbm`）。默认参数下行为不变。
+- 示例 07（新）：K = 4 / 8 / 32（11be 80 MHz 基准）× 两种记忆规律 × DPD 关 / 四个抽头间隔，全部在预设回退 8 dB 上；回退灵敏度（10.5 / 13 dB）；记忆快慢的灵敏度（抽头 12.5 / 3.125 / 0.78 ns）。
+- 规范条目 +5，全是 assumed：`pa_memory_model`、`pa_memory_fir_fs_hz`（80 MS/s）及其灵敏度档、回退档、DPD 抽头间隔候选。预设与同台表不变（PA 仍是无记忆的 Rapp）。
+- 数字：记忆按秒固定（12.5 ns）时，回退 8 dB 上 DPD 后 TX EVM 最好 −18.6 / −21.5 / −22.7 dB（K = 4 / 8 / 32），随信号缩放 −25.9 / −27.5 / −25.9 dB；匹配的抽头间隔只在回退 ≥ 10.5 dB 的 K = 32 上赢。
+- `tests/test_pamemory.py` 新增（4 项快 + 2 项慢）。
+
 ### 重新 pin 两个上游：wifitrx@96078aa 的评分波形、pll_simulator@d67043e 的 ×10 剖面 —— ROADMAP D1 / D2（2026-11-11）
 - `src/mmw60/vendor/wifitrx/` 重新同步到 `96078aa9438c590a24d13959472263ec5f9ab623`（0.7.37；106 个文件 verbatim，7 个文件的正文有变化），pin 在 `tools/vendor_check.py`、`tools/vendor_manifest.json`、`tests/test_vendor_check.py`、CI 四处一起改。里程碑 0 指纹逐位不变。
 - `calcheck.upclocked_scoring_config`：没有标准导频表的带宽（640 MHz、2.56 GHz）用基准波形 × K 评分（基准的音与导频原样，音距 × K；靠 wifitrx 新的 `TonePlan(..., pilots=)`）。示例 03 原先 skipped 的两列跑出最终 EVM；

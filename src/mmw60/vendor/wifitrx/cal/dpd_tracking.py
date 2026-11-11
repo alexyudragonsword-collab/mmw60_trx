@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/cal/dpd_tracking.py
+# Vendored from wifi_trx_cal@da37888ab16f6a5f34d1d0f3d329a4b857b5f37b: src/wifitrx/cal/dpd_tracking.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Background DPD tracking against a drifting PA (temperature/aging).
 
@@ -80,13 +80,15 @@ def _pin_observation(tx: TxChain, rx: RxChain, x: np.ndarray,
 def tracking_adapter(tx: TxChain, rx: RxChain, x: np.ndarray,
                      path: LoopbackPath, order: int = 7,
                      memory_depth: int = 5, forget: float = 0.4,
-                     warm_blocks: int = 3) -> AdaptiveDPD:
+                     warm_blocks: int = 3,
+                     tap_spacing: int = 1) -> AdaptiveDPD:
     """An RLS tracker converged on the chain as it is now.
 
     This is the runtime loop a part runs when DPD tracking is enabled:
     warm-started from pass-through against the raw chain (the programmed
     predistorter bypassed), at the GMP order and memory of the one-shot
-    ILA, with the per-block forgetting ``track_dpd`` uses.  The receive
+    ILA (``tap_spacing`` included: pass the one-shot step's own basis),
+    with the per-block forgetting ``track_dpd`` uses.  The receive
     LPF is lifted for the wideband observation and put back, as in
     ``track_dpd``.  Does not touch ``tx.dpd``.
     """
@@ -95,8 +97,8 @@ def tracking_adapter(tx: TxChain, rx: RxChain, x: np.ndarray,
     rx.params.lpf.enabled = False
     try:
         adpd = AdaptiveDPD(model_factory=lambda: GMPModel(
-            order=order, memory_depth=memory_depth), forget=forget,
-            method="rls")
+            order=order, memory_depth=memory_depth,
+            tap_spacing=tap_spacing), forget=forget, method="rls")
         adpd.warm_start(_observation_fn(tx, rx, path), x, blocks=warm_blocks)
     finally:
         rx.params.lpf.enabled = lpf_was
@@ -133,7 +135,8 @@ def track_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
               drive_scale: float = 0.15, order: int = 7,
               memory_depth: int = 5, forget: float = 0.4,
               updates_per_state: int = 3, warm_blocks: int = 3,
-              compare_frozen: bool = True) -> CalResult:
+              compare_frozen: bool = True,
+              tap_spacing: int = 1) -> CalResult:
     # forget is applied per BLOCK (thousands of samples each), not per
     # sample: aggressive forgetting is statistically safe and necessary,
     # otherwise stale pre-drift data dominates the RLS covariance and the
@@ -157,7 +160,8 @@ def track_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
 
     tx.pa.set_state(float(drift_schedule[0]))
     adpd = AdaptiveDPD(model_factory=lambda: GMPModel(order=order,
-                                                      memory_depth=memory_depth),
+                                                      memory_depth=memory_depth,
+                                                      tap_spacing=tap_spacing),
                        forget=forget, method="rls")
     adpd.warm_start(pa_fn, x, blocks=warm_blocks)
     tx.dpd = adpd.predistort
@@ -181,7 +185,8 @@ def track_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
     # point moves at fixed drive), so absolute EVM degradation is physics;
     # tracking quality = staying close to this floor.
     oracle = AdaptiveDPD(model_factory=lambda: GMPModel(order=order,
-                                                        memory_depth=memory_depth),
+                                                        memory_depth=memory_depth,
+                                                        tap_spacing=tap_spacing),
                          forget=forget, method="rls")
     oracle.warm_start(pa_fn, x, blocks=warm_blocks)
     tx.dpd = oracle.predistort
@@ -200,7 +205,7 @@ def track_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
     return CalResult(
         name="dpd_tracking",
         estimated={"order": order, "memory_depth": memory_depth,
-                   "forget": forget},
+                   "tap_spacing": int(tap_spacing), "forget": forget},
         trace=[{"state": float(s), "evm_track_db": float(et),
                 "evm_frozen_db": (float(ef) if evm_frozen else None),
                 "resid_db": float(r)}

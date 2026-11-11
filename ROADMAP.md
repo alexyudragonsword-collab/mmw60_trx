@@ -20,10 +20,10 @@
 - 11ac 40 / 80 / 160 MHz 基准仍是 EVM-only（它们的 BCC 交织器未建；11be 全部带宽已有 LDPC 数据域，`phy/eht.py`）；要不要补只看有没有人要 11ac 宽带的 PER。
 - 11be 数据域里没建的：HE/EHT 的预 FEC 填充 a 因子与 PE 字段（按 HT/VHT 流程，`assumed.eht_prefec_padding`）、EHT 11 位扰码器（PER 不感知）、MU-RU / 320 MHz 打孔 / DCM / 多流。
 - 转换器 ENOB 随速率的法则（`assumed.converter_bits_per_octave`）换成 Murmann 调查表的实测包络（拿到表后标 survey）。
-- DPD 的 2.56 GHz 代价现在是 dsp_ip P=4 综合面积 + Horowitz 运算能耗的记账；PA_DPD 的带宽项到了再换（D）。
+- DPD 的 2.56 GHz 代价现在是 dsp_ip P=4 综合面积 + Horowitz 运算能耗的记账，按逐样本的 GMP 算；带记忆的 PA 上基函数要改（C8 第一条），那时项数与代价要重算。
 
 ### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
-- WiFi 7 全链路四条整合里还没做的两条：PA_DPD 的 PA / DPD 进 wifitrx 链（K = 1 可行；K > 1 要先定 PA 的记忆是随信号缩放还是按秒固定，等 D3 的 `fir_fs` 与 `tap_spacing`）；Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（A1 更正单边带换算后每行差 0.0 dB，相噪项差 0.1–1.3 dB）。
+- WiFi 7 全链路四条整合：PA_DPD 的 PA / DPD 进 wifitrx 链在 K > 1 上已作为灵敏度研究接通（`pamemory.py`、示例 07：参考 PA 带记忆、wifitrx 的 DPD 步、抽头间隔透传），但预设与同台表的 PA 仍是无记忆的 Rapp，带记忆的 PA 没有进任何一行（C8）。还没做的一条：Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（A1 更正单边带换算后每行差 0.0 dB，相噪项差 0.1–1.3 dB）。
 - 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；示例 04 §6 的灵敏度从解析底板起算（每个旋钮不跑时域），2.56 GHz 行在那一节的基线是 MCS1、§4b 用时域底板是 MCS0；`per_thresholds.yaml` 是本库接收机的测量值，接收机再改要 `python tools/measure_thresholds.py --jobs 4` 重量（约 16 分钟）。
 - 校准列现在是示例 03 实测 IRR 的查表，`calcheck.run_cal_at` 实跑进表要几分钟一列，留给需要它的那次。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
@@ -67,18 +67,20 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 - **倍频器底噪在这张表上看不见**：示例 04 §5，底噪 −160 / −150 / −140 / −130 dBc/Hz 四档，IPN 都是 −33.0 dBc、底板与 MCS 上限一格不动；只有 K = 32 的相噪 ICI 项从 −36.1 到 −33.0 dB。在 OBO 8 dB 处 LO 不是瓶颈，底噪的取值（`assumed.lo_multiplier_floor_dbchz`，没有出处）目前不影响任何结论；PA 回退加大或换线性 PA 之后要重看。
 - 剖面文件里的杂散表（4 MHz 小数杂散 ×10 后 −43.7 dBc、谐波抑制 40 dB）引擎不消费（铁律 6）；要看杂散得上逐周期引擎。
 
+### C8. PA 记忆研究（示例 07）发现的（见 `cairn/LOG.md` 2026-11-11、`cairn/topology-b.md` §3b）
+- **记忆按秒固定时，预设回退点上 DPD 基本失效，换抽头间隔救不回来**：`python examples/07_pa_memory_dpd.py`，参考 PA、抽头 12.5 ns、回退 8 dB，DPD 后 TX EVM 在 K = 4 / 8 / 32 最好只有 −18.6 / −21.5 / −22.7 dB，
+  记忆随信号缩放的同一颗 PA 是 −25.9 / −27.5 / −25.9 dB，差 7.3 / 6.0 / 3.2 dB；K = 4 上四个抽头间隔全都比不开 DPD（−20.6 dB）差。匹配间隔（fs_eff / fir_fs）只在回退 ≥ 10.5 dB 且 K = 32 时赢（−27.9 对逐样本 −24.2 dB）。
+  原因（对方在 wifi_trx_cal#5 拆出来的）：预失真器与 PA 之间的发射基带低通有逐样本的记忆，PA 的记忆隔几十个样本，等间隔的 GMP 两头只能顾一头。待做：混合间隔的基函数（PA_DPD 的设计问题，对方没提；要的话另开 issue），或把观测 / 预失真放到低通之后。
+- **`fir_fs` 是整件事的未知数**：12.5 ns 是 sub-7 GHz WiFi PA 的时间常数原样搬过来，偏悲观；K = 32、回退 8 dB 上抽头 3.125 / 0.78 ns 时 DPD 后 −21.3 / −25.8 dB，随信号缩放 −25.9 dB。没有 60 GHz PA 记忆时间常数的出处，查到之前这张表只能读趋势。
+- **预设的 Rapp 在回退 8 dB 上过 wifitrx 的 DPD 步没有收益**：K = 4 / 8 上开关 DPD 都是 −18.6 / −19.0 dB（K = 32 −19.0 到 −22.4）。这颗 PA 的 P1dB 在 Psat 下 9.5 dB，回退 8 dB 时平均功率已在 P1dB 之上；再叠加对方默认迭代 2 次（B40）。
+  同台表的 DPD 代价列因此是“付了钱没拿到线性度”的记账，与 A1 第二条是同一件事。
+- **示例 03 的校准表不在预设回退点上**：wifitrx 默认驱动在本库前端上落在回退 10.4–10.7 dB，不是预设的 8 dB。示例 07 已按预设回退重跑整套序列（`run_cal_at(obo_db=…)`）；示例 03 没改（改了全表都动），读它的 DPD / 最终 EVM 两行时要知道回退多了 2.5 dB。
+- **wifitrx 的 `ScaledPA` 对抽头被拉开的 PA 定标偏 1.80 dB**：它在幅度斜坡上找小信号增益，抽头隔 ≥ 2 个样本时只读到主抽头。本库在逐样本的同一颗 PA 上取定标再换模型（`pamemory.memory_pa`）；已在 wifi_trx_cal#5 的验收里告知对方。
+
 ## D. 报回上游
 本库不动这三个库；需求各开一个 issue 交给对方，对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
-D1（wifi_trx_cal#4，非标准带宽的评分波形）与 D2（pll_simulator#71，倍频器模型）已落地并 pin 完（2026-11-11，`cairn/LOG.md`），条目已删；剩 D3 这一条链。
-
-### D3 → PA_DPD：PA 电记忆定义在指定采样率上；两 DUT 级联 —— [PA_DPD#4](https://github.com/alexyudragonsword-collab/PA_DPD/issues/4)（**对方已落地并合进 main `02ca433`；issue 留着由本库验收后关**）
-- 对方交付：`ReferencePA(fs=, fir_fs=)`（只接受正整数的 fs / fir_fs，否则报错；都不给时逐位不变）、`MemoryPolynomialModel` / `GMPModel(tap_spacing=)`（默认 1 不写进 `get_config`）、
-  `CascadePA(first, second, interstage_backoff_db=)`（`stage_input_rms` / `stage_backoff_db` 可读；虚拟 DUT 的 `get_config` / `save` 报错）。级联的总小信号增益不是约 1（两个 `ReferencePA` 是 1.416），由外面的 `ScaledPA` 吸收。
-- 本库验收（本地检出 `02ca433` 实跑，对着本库 vendored 的旧副本）：默认 `ReferencePA` 与默认 GMP 拟合逐位相同；20 MHz × K、`fir_fs` = 80 MHz 的记忆贡献 −12.80 / −11.87 / −12.47 dB（K = 4 / 8 / 32，与本库之前用补零量的逐位相同的三个数）；
-  fs / fir_fs = 0.5 与 2.667 都报错；按 12.5 ns 记忆的 PA 上 GMP 拟合 `tap_spacing` 1 / 4 为 −29.2 / −41.0 dB；`CascadePA` 上未改动的 ILA −15.3 → −65.6 dB。**全部通过。**
-- 链条还差两步，都不在 PA_DPD：① wifi_trx_cal 重新 vendor PA_DPD@02ca433 并给 `calibrate_dpd` / `dpd_tracking` 透传 `tap_spacing`——已单开 [wifi_trx_cal#5](https://github.com/alexyudragonsword-collab/wifi_trx_cal/issues/5)（2026-11-11，从 #4 拆出；同一条里报告了 `n_iter` 默认 2 在软压缩 PA 上发散）；② 本库重新 pin wifi_trx_cal。
-- 本库用不上 `CascadePA`：拓扑 A 的级联是 `IfExtenderTx`（芯片链 + 间级电平 + IF 滤波 + 混频 + Rapp），两级之间有带记忆的线性级和 LO 相噪，`CascadePA` 表达不了，也不需要它表达。
-- 落地后本库要做的：`fir_fs` 标 `assumed`，扫“记忆随信号缩放 / 按秒固定”两端；`fs / fir_fs` 要正整数，相关的格用 4 倍过采样；在 `tap_spacing` 通到 `calibrate_dpd` 之前不把固定秒数的 PA 与现有 DPD 配在一起出数字；做完删本条。
+D1（wifi_trx_cal#4，非标准带宽的评分波形）、D2（pll_simulator#71，倍频器模型）、D3（PA_DPD#4 的 `fs` / `fir_fs` 与 `tap_spacing`，经 wifi_trx_cal#5 透传）都已落地并 pin 完（2026-11-11，`cairn/LOG.md`），条目已删。现在没有等上游的事。
+对方自己还开着的两件，与本库有关但不由本库推动：wifi_trx_cal 的 B40（`calibrate_dpd` 默认迭代 2 次、`run_full_cal` 不透传 `n_iter`）与 B38（非标准音计划下 TX 视图 replay 的 gap）。
 
 ### D4 ← fmcw_radar：雷达消费清单（收件）
 - fmcw_radar 会报一份"它能从本库 `Frontend60` 用什么、缺什么"的清单：能用 PA（`ScaledRappPA`）、LO 泄漏（`Lo60.tx_leak_dbc`）、LO 剖面形状（`PoleZeroPhase`）；缺天线增益、LNA NF、TX–RX 隔离、倍频器底噪。

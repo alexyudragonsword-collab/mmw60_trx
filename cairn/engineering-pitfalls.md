@@ -23,6 +23,10 @@ authoring_mode: ai_generated
 - **更正（2026-11-11，wifitrx@96078aa）**：上面两条“导频表只认标准带宽”“`run_full_cal` 在 K ≠ 1 直接失败”对带导频的显式音计划已不成立：`TonePlan(..., pilots=)` / `contiguous(n, pilots=…)` 的导频跟着音计划走，
   `pilot_positions` 不再查表，任何 SCS 都能生成评分波形。本库的用法是 `calcheck.upclocked_scoring_config`（基准的音与导频 × K）。不带导频的音计划在非标准 SCS 上仍然 ValueError。
 - **校准采集按符号数给，样本数随基准 FFT 点数变**：8 个符号在 11ac 20 MHz 基准上只有 1280 个样本，K = 32 时 GMP 拟合不够，DPD 之后比不开还差 3.5 dB（`topology-b.md` §3，`assumed.cal_capture_symbols`）。换基准或换 K 后先看采集了多少样本。
+- **wifitrx `ScaledPA` 在幅度斜坡上找小信号增益**：`ReferencePA(fs=, fir_fs=)` 的抽头隔 ≥ 2 个样本时它只读到主抽头（g0 = 1.0000，逐样本时 1.2295），同一颗 PA 的小信号增益被定高 1.80 dB；Psat 的锚不受影响。
+  比较两种记忆规律时在逐样本的那颗上取定标再换 `pa_model`（`pamemory.memory_pa`）。已告知对方（wifi_trx_cal#5）。
+- **wifitrx 默认驱动（`final_drive_scale` 0.12）在本库前端上落在回退 10.4–10.7 dB，不是预设的 8 dB**；不同的 PA 模型在同一驱动下还差约 1 dB。要在指定回退上读 DPD / 最终 EVM 用 `run_cal_at(obo_db=…)`（整套序列重跑到落点对上）。
+- **DPD 抽头间隔不能直接取 fs_eff / fir_fs**：预失真器与 PA 之间的发射基带低通有逐样本的记忆（`topology-b.md` §3b）。`run_cal_at` 记下的 `dpd_tap_spacing` 是 DPD 步自己写进 `estimated` 的值，不是传进去的值。
 - **`TDLChannel.k_db` 只让第一个 tap 变 Rician**，尾部功率不变；要 LOS 占优（抑制 GI 之外的 ISI）用本库 `channel.ExponentialTdl(los_k_db=…)`。
 - `EvmBudget` 默认 `t_fft_s = 12.8e-6`：用时必须传 `1/SCS_eff`。
 

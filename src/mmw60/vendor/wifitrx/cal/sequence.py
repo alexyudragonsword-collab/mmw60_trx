@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/cal/sequence.py
+# Vendored from wifi_trx_cal@da37888ab16f6a5f34d1d0f3d329a4b857b5f37b: src/wifitrx/cal/sequence.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Canonical power-up calibration sequence.
 
@@ -297,7 +297,7 @@ def _step_runners(tx: TxChain, rx: RxChain, cfg: OFDMConfig,
                   path: LoopbackPath, prof: dict, profile: str,
                   with_dpd: bool, target_pout_dbm: float | None,
                   final_drive_scale: float, seed: int,
-                  ctx: dict) -> dict:
+                  ctx: dict, dpd_tap_spacing: int = 1) -> dict:
     """One zero-argument callable per step name, each running that step
     exactly as the canonical sequence does.
 
@@ -392,7 +392,8 @@ def _step_runners(tx: TxChain, rx: RxChain, cfg: OFDMConfig,
         wf = generate_ofdm(cfg)
         dpd_path = replace(path, atten_db=max(path.atten_db, 40.0))
         return calibrate_dpd(tx, rx, wf, dpd_path,
-                             drive_scale=final_drive_scale)
+                             drive_scale=final_drive_scale,
+                             tap_spacing=dpd_tap_spacing)
 
     def agc_sweep():
         return calibrate_agc(
@@ -484,7 +485,7 @@ def run_full_cal(tx: TxChain, rx: RxChain, cfg: OFDMConfig,
                  with_dpd: bool = True, target_pout_dbm: float | None = None,
                  final_drive_scale: float = 0.12, profile: str = "factory",
                  seed: int = 0,
-                 on_step=None) -> list[CalResult]:
+                 on_step=None, dpd_tap_spacing: int = 1) -> list[CalResult]:
     """Execute the canonical sequence; returns the ordered CalResult list.
 
     ``final_drive_scale=0.12`` puts the final EVM check at ~16.5 dB PA
@@ -495,6 +496,11 @@ def run_full_cal(tx: TxChain, rx: RxChain, cfg: OFDMConfig,
     ``profile`` selects the capture-time budget: "factory" (exhaustive)
     or "poweron" (fast: bisection searches, shorter captures, single IQ
     iteration — a fraction of the capture time at a small EVM cost).
+
+    ``dpd_tap_spacing`` is the DPD step's GMP tap spacing (see
+    ``calibrate_dpd``): a property of the part at this sampling rate, not
+    of the capture-time budget, so it is an argument rather than a
+    profile field.  1, the default, is the sample-spaced basis.
 
     ``on_step``, if given, is called with each CalResult right after its
     step completes (the GUI step-through mode hooks per-step snapshots
@@ -527,7 +533,8 @@ def run_full_cal(tx: TxChain, rx: RxChain, cfg: OFDMConfig,
     ctx = {"results": results, "snap_before": snap_before,
            "evm_before": snap_before["evm_db"]}
     runners = _step_runners(tx, rx, cfg, path, prof, profile, with_dpd,
-                            target_pout_dbm, final_drive_scale, seed, ctx)
+                            target_pout_dbm, final_drive_scale, seed, ctx,
+                            dpd_tap_spacing=dpd_tap_spacing)
     for name in plan:
         _emit(runners[name]())
     # The validated plan is only worth anything if it matches what actually
@@ -543,7 +550,8 @@ def run_cal_steps(tx: TxChain, rx: RxChain, cfg: OFDMConfig,
                   profile: str = "poweron",
                   target_pout_dbm: float | None = None,
                   final_drive_scale: float = 0.12,
-                  seed: int = 0) -> list[CalResult]:
+                  seed: int = 0,
+                  dpd_tap_spacing: int = 1) -> list[CalResult]:
     """Run a named subset of the canonical sequence, in the given order.
 
     This is the recalibration path — what ``deps.recal_steps`` prices
@@ -579,7 +587,8 @@ def run_cal_steps(tx: TxChain, rx: RxChain, cfg: OFDMConfig,
     ctx = {"results": results}
     runners = _step_runners(tx, rx, cfg, path, prof, profile,
                             "dpd" in names, target_pout_dbm,
-                            final_drive_scale, seed, ctx)
+                            final_drive_scale, seed, ctx,
+                            dpd_tap_spacing=dpd_tap_spacing)
     for name in names:
         results.append(runners[name]())
     return results

@@ -1,0 +1,69 @@
+engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
+mmw60 0.1.0; full; base 11be 80 MHz, 2x oversampling; PA gain 20 dB, Psat 15 dBm; memory PA: wifitrx_reference_pa (assumed), taps defined at 80 MS/s = 12.5 ns apart (assumed)
+every row's last EVM check sits at the same output back-off: 8 dB from Psat, the front end's preset (the drive is trimmed and the sequence rerun until it does)
+EVM columns in dB: 'dpd step' is the DPD step's own PA-output reading, 'TX EVM' and 'loopback' are the last step's, as a standard receiver reads them; OBO is the back-off that check landed on
+the Rapp rows: this PA's P1dB is 9.5 dB under Psat, so at this back-off the average sits above P1dB and wifitrx's DPD step (2 ILA iterations) has little headroom: compare its off / x1 rows
+
+== K = 4: 320 MHz at 0.64 GS/s; a 12.5 ns tap is 8 samples; back-off 8 dB ==
+PA                                                  DPD taps   OBO  dpd step  TX EVM  loopback
+Rapp, memoryless (the preset)                            off   8.0         —   -18.6     -19.0
+Rapp, memoryless (the preset)                             x1   8.0     -19.5   -18.6     -19.1
+reference PA, memory scales with the signal              off   8.0         —   -20.9     -21.6
+reference PA, memory scales with the signal               x1   8.0     -26.4   -25.9     -29.3
+reference PA, taps 12.5 ns apart (x8 samples)            off   8.0         —   -20.6     -21.3
+reference PA, taps 12.5 ns apart (x8 samples)             x1   8.0     -17.4   -14.8     -15.0
+reference PA, taps 12.5 ns apart (x8 samples)             x2   8.0     -18.0   -16.1     -16.4
+reference PA, taps 12.5 ns apart (x8 samples)             x4   8.0     -18.7   -17.4     -17.9
+reference PA, taps 12.5 ns apart (x8 samples)             x8   8.0     -19.9   -18.6     -19.1  <- best spacing
+  [~s]
+
+== K = 8: 640 MHz at 1.28 GS/s; a 12.5 ns tap is 16 samples; back-off 8 dB ==
+PA                                                  DPD taps   OBO  dpd step  TX EVM  loopback
+Rapp, memoryless (the preset)                            off   8.0         —   -18.9     -19.1
+Rapp, memoryless (the preset)                             x1   8.0     -19.2   -19.0     -19.3
+reference PA, memory scales with the signal              off   8.0         —   -21.2     -21.6
+reference PA, memory scales with the signal               x1   8.1     -27.7   -27.5     -30.5
+reference PA, taps 12.5 ns apart (x16 samples)           off   8.0         —   -20.9     -21.2
+reference PA, taps 12.5 ns apart (x16 samples)            x1   8.0     -21.7   -21.5     -22.1  <- best spacing
+reference PA, taps 12.5 ns apart (x16 samples)            x2   8.0     -21.3   -20.9     -21.5
+reference PA, taps 12.5 ns apart (x16 samples)            x4   8.0     -21.0   -20.8     -21.4
+reference PA, taps 12.5 ns apart (x16 samples)           x16   8.0     -21.0   -20.9     -21.5
+  [~s]
+
+== K = 32: 2560 MHz at 5.12 GS/s; a 12.5 ns tap is 64 samples; back-off 8 dB ==
+PA                                                  DPD taps   OBO  dpd step  TX EVM  loopback
+Rapp, memoryless (the preset)                            off   7.9         —   -19.0     -18.5
+Rapp, memoryless (the preset)                             x1   8.0     -22.2   -22.4     -22.1
+reference PA, memory scales with the signal              off   8.0         —   -21.5     -21.1
+reference PA, memory scales with the signal               x1   8.0     -25.1   -25.9     -25.2
+reference PA, taps 12.5 ns apart (x64 samples)           off   8.0         —   -20.7     -20.1
+reference PA, taps 12.5 ns apart (x64 samples)            x1   7.9     -23.3   -22.7     -22.2  <- best spacing
+reference PA, taps 12.5 ns apart (x64 samples)            x2   7.9     -17.7   -17.8     -17.6
+reference PA, taps 12.5 ns apart (x64 samples)            x4   8.1     -16.6   -16.6      -8.2
+reference PA, taps 12.5 ns apart (x64 samples)           x64   7.9     -18.3   -18.5     -11.7
+  [~s]
+
+== what the memory law costs after DPD at back-off 8 dB (TX EVM, dB; the reference PA only) ==
+       scales  fixed, x1  fixed, matched  cost at x1  cost at matched  fixed, best  best taps   fixed, off
+ K=4    -25.9      -14.8           -18.6        11.1              7.3        -18.6         x8        -20.6   DPD does not help
+ K=8    -27.5      -21.5           -20.9         6.1              6.6        -21.5         x1        -20.9
+K=32    -25.9      -22.7           -18.5         3.2              7.3        -22.7         x1        -20.7
+cost = fixed-in-seconds memory minus memory that scales with the signal; 'matched' is x(fs_eff / fir_fs); 'fixed, off' is the same PA without the DPD step
+
+== sensitivity: the back-off (assumed.pa_memory_obo_sensitivity_db; TX EVM, dB) ==
+       OBO   scales  fixed, x1  fixed, matched  cost at x1  cost at matched
+ K=8   8.0    -27.5      -21.5           -20.9         6.1              6.6
+ K=8  10.5    -28.5      -25.9           -26.4         2.6              2.1
+ K=8  13.0    -28.6      -27.4           -27.8         1.2              0.7
+K=32   8.0    -25.9      -22.7           -18.5         3.2              7.3
+K=32  10.5    -28.6      -24.2           -27.9         4.5              0.7
+K=32  13.0    -28.2      -25.0           -28.5         3.2             -0.3
+
+== sensitivity: how fast the PA's memory is, K = 32, back-off 8 dB (assumed.pa_memory_fir_fs_hz) ==
+ taps defined at       tap  samples  TX EVM, x1  TX EVM, matched  matched - x1
+         80 MS/s   12.5 ns       64       -22.7            -18.5           4.1
+        320 MS/s   3.12 ns       16       -20.5            -21.3          -0.9
+       1280 MS/s  0.781 ns        4       -24.2            -25.8          -1.6
+        (scales)         —        1       -25.9            -25.9           0.0
+
+[~s]
