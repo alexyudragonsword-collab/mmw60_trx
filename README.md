@@ -89,6 +89,6 @@ python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 5 分钟（4 核�
 
 ## CI
 
-lint、测试（jit / no-jit）、示例冒烟、vendor 漂移（需要能读 private 的 `wifi_trx_cal`：secret `SIBLING_READ_KEY`（wifi_trx_cal 上只读 deploy key 的私钥，推荐）或 `SIBLING_READ_TOKEN`（只读 token）；两个都没有时该作业按设计是红的）、数值指纹（base vs head，`(numbers-move)` 标记是逃生口）。
+lint、测试（jit / no-jit）、示例冒烟、vendor 漂移（需要能读 private 的 `wifi_trx_cal` 的 `SIBLING_READ_TOKEN` secret，否则该作业按设计是红的）、数值指纹（base vs head，`(numbers-move)` 标记是逃生口）。
 
 MIT License。

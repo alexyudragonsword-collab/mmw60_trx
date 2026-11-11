@@ -11,7 +11,6 @@
 - `impairments/phase_noise.py`：`load_clock_profile` 读出 `multiply_by` / `f_in_hz` / `floor_dbchz` / `spur_rejection_db`；`profile_at_carrier` 只接受整数的 f_c / f0（`profile_ratio`），带倍频器的文件只在自己的 f0 上用，非整数比与分频报错。**行为变化**：原先任意比值都按 20·log10 平移。
 - 四个剖面文件入库（`data/clock_profiles/pllsim_wu19_x10_60p48g_floor{160,150,140,130}.yaml`，pll_simulator@d67043e 的 CLI 在本地生成）；规范条目 +4（`survey.clock_profile_wu19_x10`、`assumed.lo_multiplier_floor_dbchz`、`assumed.lo_multiplier_spur_rejection_db`、`assumed.cal_capture_symbols`），`assumed.lo_multiplier_law` 改写。
 - **numbers-move**（示例 03、04）：示例 03 的 640 MHz / 2.56 GHz 两列整套换了激励，最终 EVM −19.3 / −26.0 dB，两列其余各步的数也动了（K = 1 / 4 / 8 / 16 四列不动）；示例 04 §5 的 pllsim 行从非整数的 ×9.672 换成 ×10 剖面（IPN −33.2 → −33.0 dBc，相噪 ICI 动 0.2–0.3 dB，MCS 上限不动），多三行底噪灵敏度；`derived.irr_after_cal_measured_db` 的 640 MHz / 2.56 GHz 两档改为 46.5 / 37.9 dB（同台表没有一格因此改变）。
-- CI `vendor-drift`：checkout 姊妹库多认一个 secret `SIBLING_READ_KEY`（wifi_trx_cal 上只读 deploy key 的私钥，走 SSH，不过期、只读这一个仓库）；原有的 `SIBLING_READ_TOKEN` 仍可用。
 - `tests/test_calcheck.py` 新增（5 项，含“640 MHz 的最终 EVM 是评分出来的，不是 skipped”，已做变异验证）；`tests/test_compare.py` +1（整数倍守卫）。
 
 ### 拓扑 A 的 DPD 结论更正：间接学习的迭代次数（2026-11-11）

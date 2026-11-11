@@ -18,7 +18,6 @@
 - **被推翻的判断**：① ROADMAP D1 写 K = 32 上各步已退化、“正是最需要最终 EVM 裁决的地方”，言下之意 2.56 GHz 的最终 EVM 会最差；实测 2.56 GHz（996 音）−26.0 dB 与 320 MHz 持平，差的是音数最少的 640 MHz 那列，原因是采集长度；
   ② `topology-b.md` §3 原表 640 MHz 列有四格抄成了 2.56 GHz 列的数，已更正。倍频器底噪（没有出处的假设）四档下结论一格不动，目前不是需要担心的假设。
 - 文档：`topology-b.md` §3、`comparison-table.md` §4、`engineering-pitfalls.md`、ROADMAP（删 D1 / D2 与 C5 第一条，加 C7 四条，A1 第三条改写）。
-- CI `vendor-drift` 一直红的解法定了（用户选的）：wifi_trx_cal 上加只读 deploy key，私钥存成本库 secret `SIBLING_READ_KEY`；`ci.yml` 的 checkout 已加 `ssh-key`，密钥要用户自己配。
 - 下一步：wifi_trx_cal#4 验收后关；PA_DPD#4 等 wifi_trx_cal#5（`tap_spacing` 透传）落地后再 pin 一次；C7 的采集长度按样本数给。
 
 ## 2026-11-11 · 拓扑 A 的 DPD：留最好的一次迭代，A1 的结论更正落地（feat/a1-dpd-early-stop）

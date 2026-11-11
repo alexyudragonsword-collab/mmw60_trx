@@ -78,13 +78,10 @@ jobs:
 
   # Vendor drift: src/mmw60/vendor/wifitrx must still match the pinned
   # wifi_trx_cal commit.  wifi_trx_cal is a private repository: the checkout
-  # needs either SIBLING_READ_KEY (the private half of a read-only deploy key
-  # added to wifi_trx_cal: no expiry, that one repository only) or
-  # SIBLING_READ_TOKEN (a token with read access to it, polar_tx's method).
-  # With the key set the checkout goes over SSH; otherwise it uses the token.
-  # Without either the checkout fails, every file is skipped and
-  # --fail-on-skip turns the job red on purpose: an unverified vendor tree is
-  # not a pass.
+  # needs a SIBLING_READ_TOKEN secret with read access to it (polar_tx's
+  # method).  Without the secret the checkout fails, every file is skipped
+  # and --fail-on-skip turns the job red on purpose: an unverified vendor
+  # tree is not a pass.
   vendor-drift:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -98,7 +95,6 @@ jobs:
         with:
           repository: alexyudragonsword-collab/wifi_trx_cal
           ref: 96078aa9438c590a24d13959472263ec5f9ab623
-          ssh-key: ${{ secrets.SIBLING_READ_KEY }}
           token: ${{ secrets.SIBLING_READ_TOKEN || github.token }}
           path: _siblings/wifi_trx_cal
       - uses: actions/setup-python@v5
