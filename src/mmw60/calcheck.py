@@ -9,24 +9,32 @@ arguments the delivered sequence uses).  Each runner is wrapped so a step
 that raises is recorded as *failed* with its exception instead of aborting
 the table, and the metric that step's own ``spec`` names is read out.
 
-What the scoring waveform can be at a given effective bandwidth is itself a
-finding: wifitrx's pilot tables exist for the standard bandwidths (11ac
-20–160 MHz, 11be 20–320 MHz), so the EVM snapshots — and with them
-``final_loopback_evm`` — have no waveform beyond 320 MHz; the other steps
-use plain OFDM or tones and run at any rate.
+The scoring waveform.  wifitrx's pilot tables exist for the standard
+bandwidths (11ac 20–160 MHz, 11be 20–320 MHz); an effective bandwidth that
+is one of them is scored on the standard's waveform at that bandwidth, as
+before.  Beyond them (640 MHz, 2.56 GHz) the waveform is the **upclocked**
+one: the base bandwidth's standard waveform with the subcarrier spacing × K
+— the same tones and the same pilot tones, K times faster — which wifitrx
+accepts since 96078aa as a tone plan that carries its own pilots
+(``TonePlan.pilots``; wifi_trx_cal#4).  Until then those cells had no
+scoring waveform and ``final_loopback_evm`` was skipped.
 """
 from __future__ import annotations
 
+import dataclasses
 import traceback
 from dataclasses import dataclass, field
 
 import numpy as np
 
+from . import spec
 from .frontend import Frontend60
 from .vendor.wifitrx.cal.deps import planned_steps
 from .vendor.wifitrx.cal.sequence import PROFILES, _step_runners, loopback_snapshot
 from .vendor.wifitrx.chain.loopback import LoopbackPath, recommended_loopback_atten_db
 from .vendor.wifitrx.waveform.ofdm import OFDMConfig
+from .vendor.wifitrx.waveform.pilots import pilot_positions
+from .vendor.wifitrx.waveform.tone_plan import contiguous
 
 STANDARD_SCS = {312.5e3: (20e6, 40e6, 80e6, 160e6), 78.125e3: (20e6, 40e6, 80e6, 160e6, 320e6)}
 
@@ -47,8 +55,13 @@ MECHANISM = {
     "tx_power": "与 fs 无关",
     "dpd": "GMP ILA 在 fs_eff 上辨识；PA 无记忆时阶数/记忆深度冗余但收敛；观测通路 ADC ENOB 随 fs 下降是辨识噪声",
     "agc_sweep": "探针音 23 MHz 固定（bw ≥ 80 MHz）；AGC 门限按 320 MHz 调",
-    "final_loopback_evm": "需要 wifitrx 标准带宽的导频波形（≤ 320 MHz）；更宽带宽没有评分波形",
+    "final_loopback_evm": "标准带宽（≤ 320 MHz）用该带宽的标准波形；更宽的用基准波形 × K（同样的音与导频，wifitrx 96078aa 起的 TonePlan.pilots）",
 }
+
+
+# wifitrx's readings of the last step: the composite loopback and the TX-only /
+# RX-only views at the same operating point, each as a standard receiver reads it
+FINAL_VIEWS = ("evm_modem_db", "tx_evm_modem_db", "rx_evm_modem_db", "rx_nf_db")
 
 
 @dataclass
@@ -74,6 +87,9 @@ class CalRun:
     rows: list = field(default_factory=list)
     evm_before_db: float | None = None
     evm_after_db: float | None = None
+    final_views: dict = field(default_factory=dict)      # FINAL_VIEWS of the last step, when it ran
+    n_symbols: int = 0                                    # capture length, OFDM symbols
+    capture_samples: int = 0                              # the same in samples at fs_eff
 
     @property
     def label(self) -> str:
@@ -90,6 +106,37 @@ def scoring_config(bw_eff_hz: float, oversampling: int = 2, n_symbols: int = 8) 
                                window_fraction=1 / 32 if scs == 78.125e3 else 1 / 16),
                     f"{'11ac' if scs == 312.5e3 else '11be'} {bw_eff_hz / 1e6:g} MHz (standard pilots)")
     return None, "no standard pilot set at this bandwidth"
+
+
+def upclocked_scoring_config(base_bw_hz: float, k: int, oversampling: int = 2, n_symbols: int = 8,
+                             standard: str | None = None) -> tuple[OFDMConfig | None, str]:
+    """The base bandwidth's standard scoring waveform with the clock × K: the
+    same active tones and the same pilot tones at K times the subcarrier
+    spacing.  ``standard`` picks the numerology where the base bandwidth has
+    both (80 MHz: "11ac" 312.5 kHz or "11be" 78.125 kHz; default the first
+    table that has it, as ``scoring_config``)."""
+    scs_of = {"11ac": 312.5e3, "11be": 78.125e3}
+    base = None
+    for scs, bws in STANDARD_SCS.items():
+        if standard is not None and scs != scs_of[standard]:
+            continue
+        if any(abs(base_bw_hz - b) < 1 for b in bws):
+            cp = 1 / 4 if scs == 312.5e3 else 1 / 16
+            base = OFDMConfig(bandwidth_hz=base_bw_hz, subcarrier_spacing_hz=scs, cp_fraction=cp, qam_order=64,
+                              n_symbols=n_symbols, oversampling=oversampling,
+                              window_fraction=1 / 32 if scs == 78.125e3 else 1 / 16)
+            break
+    if base is None:
+        return None, "no standard pilot set at the base bandwidth"
+    tones = base.active_tone_indices()
+    plan = contiguous(base.n_active, pilots=tones[pilot_positions(base)])
+    if not np.array_equal(plan.indices, tones):
+        return None, "the base plan is not a contiguous block"
+    cfg = dataclasses.replace(base, bandwidth_hz=base_bw_hz * k, subcarrier_spacing_hz=base.subcarrier_spacing_hz * k,
+                              tone_plan=plan)
+    name = "11ac" if base.subcarrier_spacing_hz == 312.5e3 else "11be"
+    return cfg, (f"{name} {base_bw_hz / 1e6:g} MHz x{k} upclocked ({base.n_active} tones at "
+                 f"{base.subcarrier_spacing_hz * k / 1e6:g} MHz, the base's {plan.pilots.size} pilots)")
 
 
 def plain_config(bw_eff_hz: float, k: int, oversampling: int = 2, n_symbols: int = 8) -> OFDMConfig:
@@ -111,27 +158,35 @@ def _metric(res) -> tuple[str, float | None]:
 
 def run_cal_at(fe: Frontend60, k: int, base_bw_hz: float = 20e6, oversampling: int = 2,
                profile: str = "poweron", with_dpd: bool = True, seed: int = 0,
-               log=None) -> CalRun:
+               log=None, standard: str | None = None, n_symbols: int | None = None) -> CalRun:
     bw_eff = base_bw_hz * k
     fs_eff = bw_eff * oversampling
     tx, rx = fe.build_chains(bw_eff, fs_eff)
     path = LoopbackPath(atten_db=recommended_loopback_atten_db(bw_eff), delay_ns=6.0)
-    return run_cal_on(tx, rx, path, k, bw_eff, oversampling, profile, with_dpd, seed, log)
+    return run_cal_on(tx, rx, path, k, bw_eff, oversampling, profile, with_dpd, seed, log,
+                      base_bw_hz=base_bw_hz, standard=standard, n_symbols=n_symbols)
 
 
 def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: int = 2,
                profile: str = "poweron", with_dpd: bool = True, seed: int = 0, log=None,
-               drive_scale: float = 0.12) -> CalRun:
+               drive_scale: float = 0.12, base_bw_hz: float | None = None,
+               standard: str | None = None, n_symbols: int | None = None) -> CalRun:
     """The step table on chains built elsewhere (topology A: the chip's own
-    chains, observed on its coupler or through the 60 GHz loopback)."""
+    chains, observed on its coupler or through the 60 GHz loopback).
+    ``n_symbols`` is the length of every capture in OFDM symbols (default
+    data/spec: assumed.cal_capture_symbols)."""
     fs_eff = bw_eff * oversampling
-    cfg, waveform = scoring_config(bw_eff, oversampling)
+    n_sym = int(spec.value("assumed.cal_capture_symbols")) if n_symbols is None else int(n_symbols)
+    cfg, waveform = scoring_config(bw_eff, oversampling, n_sym)
+    if cfg is None and base_bw_hz is not None and k > 1:
+        cfg, waveform = upclocked_scoring_config(base_bw_hz, k, oversampling, n_sym, standard=standard)
     full = cfg is not None
     if cfg is None:
-        cfg = plain_config(bw_eff, k, oversampling)
+        cfg = plain_config(bw_eff, k, oversampling, n_sym)
     prof = PROFILES[profile]
     plan = planned_steps(prof, with_iip2=rx.params.im2.enabled, with_dpd=with_dpd)
-    run = CalRun(k=k, bw_eff_hz=bw_eff, fs_eff_hz=fs_eff, waveform=waveform)
+    run = CalRun(k=k, bw_eff_hz=bw_eff, fs_eff_hz=fs_eff, waveform=waveform, n_symbols=n_sym,
+                 capture_samples=n_sym * (cfg.fft_size + cfg.cp_len) * cfg.oversampling)
     ctx: dict = {"results": []}
     if full:
         try:
@@ -159,6 +214,8 @@ def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: 
                                     (res.notes or "")[:80], MECHANISM.get(name, "")))
             if name == "final_loopback_evm":
                 run.evm_after_db = float(res.metrics_after.get("evm_db", np.nan))
+                run.final_views = {key: float(res.metrics_after[key]) for key in FINAL_VIEWS
+                                   if key in res.metrics_after}
         except Exception:      # noqa: BLE001
             tb = traceback.format_exc().splitlines()[-1]
             run.rows.append(StepRow(k, bw_eff, fs_eff, name, "failed", detail=tb[:160],

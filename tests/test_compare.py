@@ -4,17 +4,20 @@ options and the budget-report command line."""
 import dataclasses as dc
 import json
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
+import yaml
 
 from conftest import REPO
 from mmw60 import compare, spec
 from mmw60.config import (PN_MODELS, TOPOLOGIES, WAVEFORMS, WAVEFORMS_BUILT, ChannelConfig, LoConfig, Mmw60Config,
-                          PhaseNoiseConfig, wifi7_baseline_k1, wifi7_chain_k1, zero_if_60ghz)
+                          PhaseNoiseConfig, if_extender_60ghz, wifi7_baseline_k1, wifi7_chain_k1, zero_if_60ghz)
 from mmw60.frontend import Frontend60
 from mmw60.frontend.dpd_cost import dsp_ip_models
-from mmw60.impairments.phase_noise import PoleZeroPhase, load_clock_profile, make_profile, profile_at_carrier
+from mmw60.impairments.phase_noise import (PoleZeroPhase, load_clock_profile, make_profile, profile_at_carrier,
+                                            profile_ratio)
 from mmw60.power import PowerCoefficients, power_report
 from mmw60.sim.link import LinkSim, evm_at
 from mmw60.vendor.wifitrx.impairments.phase_noise import DEFAULT_WIFI7_LO_PROFILE
@@ -124,10 +127,18 @@ def test_rows_cross_check_and_the_uncaught_cfo_row_is_flagged():
 
 
 def test_measured_irr_lookup_takes_the_largest_bandwidth_not_above():
-    assert compare.measured_irr_after_cal_db(160e6) == (50.4, 160e6)
-    assert compare.measured_irr_after_cal_db(200e6) == (50.4, 160e6)
-    assert compare.measured_irr_after_cal_db(10e6) == (55.3, 20e6)
-    assert compare.measured_irr_after_cal_db(5.12e9) == (38.4, 2560e6)
+    table = {float(k): float(v) for k, v in spec.value("derived.irr_after_cal_measured_db").items()}
+    assert sorted(table) == [20e6, 80e6, 160e6, 320e6, 640e6, 2560e6]
+    assert compare.measured_irr_after_cal_db(160e6) == (table[160e6], 160e6)
+    assert compare.measured_irr_after_cal_db(200e6) == (table[160e6], 160e6)
+    assert compare.measured_irr_after_cal_db(10e6) == (table[20e6], 20e6)
+    assert compare.measured_irr_after_cal_db(5.12e9) == (table[2560e6], 2560e6)
+    # the table is example 03's own tx_iq / rx_iq readings (the smaller of the two per bandwidth)
+    text = (REPO / "examples" / "expected" / "03_calibration_at_k.txt").read_text(encoding="utf-8")
+    rows = {ln.split()[0]: ln for ln in text.splitlines() if ln.startswith(("tx_iq ", "rx_iq "))}
+    for col, bw in enumerate(sorted(table)):
+        cells = [float(rows[name].split()[2 + 2 * col]) for name in ("tx_iq", "rx_iq")]
+        assert min(cells) == table[bw], (bw, cells)
 
 
 def test_markdown_lists_every_scheme_and_json_round_trips(tmp_path):
@@ -217,6 +228,7 @@ def test_lo_profile_models_load_scale_and_refuse_bad_input():
     assert make_profile(PhaseNoiseConfig(apply="off"), 60e9) is None
     prof = load_clock_profile("bench_wu19_spll_frac_52m_6p253g.yaml")
     assert prof["f0_hz"] == pytest.approx(spec.value("survey.clock_profile_wu19")["f0_hz"], rel=1e-6)
+    assert prof["multiply_by"] == 1 and prof["floor_dbchz"] is None
     f = np.array([1e4, 1e6, 1e8])
     at_f0 = profile_at_carrier(prof, prof["f0_hz"]).psd(f)
     at_60 = profile_at_carrier(prof, 8 * prof["f0_hz"]).psd(f)
@@ -226,11 +238,59 @@ def test_lo_profile_models_load_scale_and_refuse_bad_input():
     with pytest.raises(ValueError, match="phase_noise.model"):
         Mmw60Config(lo=LoConfig(phase_noise=PhaseNoiseConfig(model="leeson")))
     assert set(PN_MODELS) == {"pole_zero", "wifitrx_wifi7", "profile", "off"}
+    x10 = spec.value("survey.clock_profile_wu19_x10")
     cfg = dc.replace(zero_if_60ghz(k=8), lo=LoConfig(phase_noise=PhaseNoiseConfig(
-        model="profile", profile_path="bench_wu19_spll_frac_52m_6p253g.yaml")))
+        model="profile", profile_path=x10["file"])))
     fe = Frontend60.from_config(cfg)
     assert fe.describe()["lo_profile"].startswith("profile:") and -40 < fe.lo.ipn_dbc() < -25
     assert LinkSim(cfg).describe()["frontend"]["lo_profile"] == fe.describe()["lo_profile"]
+
+
+def test_lo_profile_is_an_integer_multiplier_or_refused(tmp_path):
+    """pll_simulator#71: only an integer f_c / f0 is a multiplier that can be
+    built; a file that already went through pllsim's xN block (its floor
+    included) is used at its own carrier only."""
+    x10 = spec.value("survey.clock_profile_wu19_x10")
+    floors = {}
+    for name in (x10["file"], *x10["sensitivity_files"]):
+        p = load_clock_profile(name)
+        assert p["multiply_by"] == x10["multiply_by"] == 10
+        assert p["f0_hz"] == pytest.approx(x10["f0_hz"]) and p["f_in_hz"] == pytest.approx(x10["f_in_hz"])
+        assert p["spur_rejection_db"] == spec.value("assumed.lo_multiplier_spur_rejection_db")
+        assert "d67043e" in p["source"] and "d67043e" in spec.survey("survey.clock_profile_wu19_x10").cite
+        floors[p["floor_dbchz"]] = profile_at_carrier(p, 60.48e9)
+    base = load_clock_profile(x10["file"])
+    assert base["floor_dbchz"] == spec.value("assumed.lo_multiplier_floor_dbchz")
+    assert sorted(floors) == [-160.0, -150.0, -140.0, -130.0]
+    # the profile is used as written (no second shift), and a higher floor only raises the far-out PSD
+    ssb = 10 * np.log10(floors[-150.0].psd(np.array(base["f_hz"])) / 2)        # psd() is S_phi = 2 L(f)
+    assert np.allclose(ssb, base["l_dbc_hz"])
+    far = [10 * np.log10(floors[f].psd(np.array([1e9]))[0]) for f in sorted(floors)]
+    assert far == sorted(far) and far[-1] - far[0] > 3.0
+    close = [10 * np.log10(floors[f].psd(np.array([1e5]))[0]) for f in sorted(floors)]
+    assert max(close) - min(close) < 0.01
+    for carrier in (54.0e9, 2 * 60.48e9, 73.44e9):
+        with pytest.raises(ValueError, match="integer multiple|already multiplied"):
+            profile_at_carrier(base, carrier)
+    raw = load_clock_profile(spec.value("survey.clock_profile_wu19")["file"])
+    with pytest.raises(ValueError, match="not an integer multiple"):
+        profile_at_carrier(raw, 60.48e9)                     # x9.672: the row the table used to carry
+    with pytest.raises(ValueError, match="not an integer multiple"):
+        profile_at_carrier(raw, raw["f0_hz"] / 2)            # a divider is not modelled either
+    assert profile_ratio(raw, 9 * raw["f0_hz"]) == 9
+    bad = tmp_path / "bad.yaml"
+    text = Path(base["path"]).read_text(encoding="utf-8")
+    bad.write_text(text.replace("multiply_by: 10", "multiply_by: 9"), encoding="utf-8")
+    assert "multiply_by: 9" in bad.read_text(encoding="utf-8")
+    with pytest.raises(ValueError, match="is not f0_hz"):
+        load_clock_profile(bad)
+    bad.write_text("\n".join(ln for ln in text.splitlines() if not ln.startswith("floor_dbchz")), encoding="utf-8")
+    assert "floor_dbchz" not in yaml.safe_load(bad.read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="must state 'floor_dbchz'"):
+        load_clock_profile(bad)
+    with pytest.raises(ValueError, match="integer multiple"):
+        Frontend60.from_config(dc.replace(if_extender_60ghz(mcs=4, carrier_hz=62.64e9), lo=LoConfig(
+            phase_noise=PhaseNoiseConfig(model="profile", profile_path=x10["file"]))))
 
 
 def test_wifi7_chain_k1_preset_is_the_zero_if_chain_at_1x_with_the_wifi7_lo():

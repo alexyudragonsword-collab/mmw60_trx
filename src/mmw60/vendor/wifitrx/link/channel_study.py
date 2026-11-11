@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/link/channel_study.py
+# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/link/channel_study.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """What a dispersive channel costs, and what it does to a receiver
 setting that was chosen on a flat one.

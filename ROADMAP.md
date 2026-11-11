@@ -11,7 +11,7 @@
   整套序列搬到 60 GHz 观测上更糟，IQ 校准的 IRR 从 55.7 掉到 37.8 dB（§2）。本库已改成 1 … N 次迭代里留最好的（`train_dpd_mmw`）。
   待做：这类 PA 上换直接学习，或目标增益按可达的峰值输出折算（PA_DPD 有 `dpd/direct.py`，针对样条预失真器；已在 PA_DPD#4 上问对方要不要单开 issue）；
   或在观测通路里先把第二级 PA 的失真建模扣掉再做 IQ 校准。
-- **pllsim 剖面 × N 那一行在拓扑 A 上也还是占位**：固定 LO 54.0 GHz 对 wu19 的 6.253 GHz 是 ×8.64，不是整数；拓扑 A 要的是 18.0 GHz（×3）或 13.5 GHz（×4）上的剖面（D2）。现在的 LO 扫描用 1 极 1 零剖面直接给在 LO 输出端。
+- **拓扑 A 没有 pllsim 推出来的 LO 行**：pll_simulator 的模型只覆盖到 12 GHz，拓扑 A 的 18.0 GHz（×3）/ 13.5 GHz（×4）它不出（pll_simulator#71 的答复）；可行的是 6.0 GHz × 9 = 54.0 GHz（对方 CLI 能出，IPN −33.99 dBc）。现在的 LO 扫描用 1 极 1 零剖面直接给在 LO 输出端。待做：`LO_SCHEMES` 加 ×9 一档并生成该剖面；`make_profile` 现在对两条拓扑都传载频（60.48 GHz），拓扑 A 要改成传 LO 频率（54.0 GHz）才接得上，复现：`Frontend60.from_config(dc.replace(if_extender_60ghz(mcs=4), lo=LoConfig(phase_noise=PhaseNoiseConfig(model='profile', profile_path='pllsim_wu19_x10_60p48g_floor150.yaml'))))` 不报错，用的是 60.48 GHz 的剖面，比 54.0 GHz 的高 20·log10(60.48/54) = 1.0 dB。
 - 没建的：60 GHz 级自己的 LNA 噪声系数（SNR 轴仍按芯片 LNA 的 NF 定义，与拓扑 B 同口径）、混频器的非线性、IF 滤波器的温漂、采样钟偏差（两条拓扑都没建）；MLO 的 sub-7 链路只有 AWGN（没有它自己的相噪和多径）。
 - 11ac 20 MHz 的拓扑 A 行 pJ/bit 是 29291：20 Mb/s 的分母，不是硬件差（与 `comparison-table.md` §6 ① 同理）。
 
@@ -50,7 +50,6 @@ ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、�
 Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 原文。
 
 ### C5. 里程碑 1-B 发现的（见 `cairn/LOG.md` 2026-11-07）
-- wifitrx 的 EVM 评分波形只在标准带宽（11ac 20–160、11be 20–320 MHz）上有导频表：640 MHz / 2.56 GHz 的 `final_loopback_evm` 无法运行（示例 03 标 skipped）。上游需求见 D。
 - 60.48 GHz 上 40 ppm = 2.42 MHz，K = 4 的 L-STF 范围 ±2.5 MHz 刚好接住——Liu 的 K > 4.7 门槛是 73.44 GHz 的；通式 K > 2·Δf_max / 1.25 MHz。
 - 回环定时：wifitrx `align_delay` 对复波形互相关，2.94 MHz CFO 下 1 µs 内去相关；本库用包络互相关定时（`sim/link.py::envelope_lag`）。
 
@@ -60,26 +59,17 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 - **平滑跨度选择器在窄带上有散布**：flat 理想链 `zero_if_60ghz(k=8)`（11ac 20 MHz，56 音）120 包的 `RxResult.ce_span` 分布，SNR 3 dB 时 9 音 67 %、3 音 32 %，12 dB 时 56 % / 39 %；
   同样条件 11be 80 MHz（996 音）全部取 9 音。56 个音上“多于 3 音”那一步的偏差估计，自己的散布 W₃·√(2/N) 与要省的噪声同量级。待做：信道准静态时跨包平均自相关，或改 DFT 域去噪。
 
-## D. 报回上游（2026-11-10 已转交，等对方落地）
-本库不动这三个库；三条已各开一个 issue 交给对方（下面每条标题后的链接），对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
+### C7. 重新 pin wifitrx@96078aa、接入 pllsim ×10 剖面时发现的（见 `cairn/LOG.md` 2026-11-11）
+- **校准采集 8 个符号在窄基准 × 大 K 上不够**：`python examples/03_calibration_at_k.py` 的 K = 32、11ac 20 MHz 基准（640 MHz，52 音，1280 样本）一列，DPD 之后仅发 EVM −19.3 dB，不开 DPD −22.8 dB，采 32 个符号 −27.8 dB（同一示例的灵敏度节）；
+  同样 640 MHz 用 11be 20 MHz 基准（242 音，4352 样本）−27.2 dB。默认值没改（`assumed.cal_capture_symbols` = 8，每列同一个符号数）。待做：采集长度按样本数而不是符号数给（或按 GMP 系数个数的倍数），K = 1 为什么够、K = 32 为什么不够要单独验证（候选是观测 ADC 的 ENOB 随 fs 下降）。
+- **2.56 GHz 列的退化项没有被最终 EVM 惩罚**：RX 角频偏 8.7 %、LO 泄漏环检 −39.8 dBc、IRR 37.9 / 42.1 dB，而 modem 口径的最终 EVM 是 −26.0 dB（与 320 MHz 的 −26.1 持平），genie 口径的回环 EVM 只有 −12.9 dB。
+  两个口径差 11 dB 的部分是接收机的信道估计与导频跟踪吸收掉的线性项；哪些项在真实链路（多径、每包重估）里仍然吸收得掉没有验证。
+- **倍频器底噪在这张表上看不见**：示例 04 §5，底噪 −160 / −150 / −140 / −130 dBc/Hz 四档，IPN 都是 −33.0 dBc、底板与 MCS 上限一格不动；只有 K = 32 的相噪 ICI 项从 −36.1 到 −33.0 dB。在 OBO 8 dB 处 LO 不是瓶颈，底噪的取值（`assumed.lo_multiplier_floor_dbchz`，没有出处）目前不影响任何结论；PA 回退加大或换线性 PA 之后要重看。
+- 剖面文件里的杂散表（4 MHz 小数杂散 ×10 后 −43.7 dBc、谐波抑制 40 dB）引擎不消费（铁律 6）；要看杂散得上逐周期引擎。
 
-### D1 → wifi_trx_cal：非标准带宽的评分波形（导频集 / 音计划，或 `pilot_positions` 接受显式导频列）—— [wifi_trx_cal#4](https://github.com/alexyudragonsword-collab/wifi_trx_cal/issues/4)（**正文需求对方已合进 main `96078aa`（0.7.37，schema 1.3）：`TonePlan` 自带导频；可以重新 pin。追加的 `tap_spacing` 透传已拆到 wifi_trx_cal#5；本库 pin 完、示例 03 原先 skipped 的两列出数后来关 #4**）
-- 现象：`waveform/pilots._tables` / `_pilot_half` 只认 78.125 kHz 与 312.5 kHz 两套 SCS 和 20/40/80/160/(320) MHz 的带宽键；`pilot_set="model"` 也先调 `standard_pilot_tones`。任何其他带宽（640 MHz、2.56 GHz）或 SCS × K 的 `OFDMConfig` 在 `generate_ofdm_with_pilots` 处 `ValueError`，于是 `scoring_frame` / `loopback_snapshot` / `run_full_cal` 没有评分波形。
-- 复现（mmw60_trx@a968ef7）：`python examples/03_calibration_at_k.py`，K = 32（640 MHz）与 11be 80 MHz × 32（2.56 GHz）两列的 `final_loopback_evm` 为 skipped，其余 11 步照跑；`python -c "from mmw60.vendor.wifitrx.waveform.ofdm import OFDMConfig; from mmw60.vendor.wifitrx.waveform.pilots import generate_ofdm_with_pilots; from mmw60.vendor.wifitrx.waveform.tone_plan import contiguous; generate_ofdm_with_pilots(OFDMConfig(bandwidth_hz=160e6, subcarrier_spacing_hz=2.5e6, cp_fraction=1/4, tone_plan=contiguous(56), pilot_set='model'))"` 抛 "no pilot table for a 2500 kHz subcarrier spacing"。
-- 数字：K = 32 时其余步骤已退化到 LO 泄漏环检 −35 dBc（K = 1 为 −68）、IQ irr_min 38–42 dB（55），正是最需要最终 EVM 裁决的地方。
-- 要的最小改动：`pilot_positions(config, explicit_cols=None)` 或 `TonePlan` 携带导频列；本库 `calcheck.scoring_config` 与示例 03 的 skipped 两列在等它。
-
-- 追加（2026-11-11，同一 issue 的评论）：`calibrate_dpd` 与 `dpd_tracking` 的 `GMPModel(...)` 写死了、没有抽头间隔参数；PA_DPD#4 给 MP / GMP 加 `tap_spacing` 之后要本库重新 vendor 并透传，排在 D3 之后。
-
-### D2 → pll_simulator：倍频器（×N）模型 —— [pll_simulator#71](https://github.com/alexyudragonsword-collab/pll_simulator/issues/71)（**对方已落地并合并，issue 已关（2026-11-11）；剩下的都是本库的事**）
-- 对方交付（`d67043e1197692dc203287b437613f7b9db83bb7`）：`write_clock_profile(..., multiply_by=N, floor_dbchz=…, spur_rejection_db=…)` 与 CLI `pllsim export … --multiply-by`；N 非整数报错，底噪与抑制度必填；
-  文件多四个独立字段（`multiply_by` / `f_in_hz` / `floor_dbchz` / `spur_rejection_db`），f_in/2 以内是 N²·S + 底噪，以上只有底噪。
-- 本库验收（本地检出该 commit 实跑）：×10（PLL 6.048 GHz → 60.48 GHz）510 点到 30.24 GHz，本库现有读取器直接读得进；IPN 10 kHz–100 MHz −33.04 dBc（占位 −33.18），相噪 ICI 11be K = 1 / 11ac K = 8 为 −26.87 / −31.15 dB（占位 −27.03 / −31.43）；
-  ×9（6.0 GHz → 54.0 GHz）同样可出，IPN −33.99 dBc。4 MHz 小数杂散 ×10 后 −43.7 dBc（60.48 GHz / 52 MHz = 15120/13，任何整数 N 都在 fref/13）。
-- 拓扑 A 的 ×3 / ×4（PLL 18.0 / 13.5 GHz）对方不出：超出其模型的 12 GHz 覆盖范围，不外推。拓扑 A 继续用 1 极 1 零剖面；要 pllsim 推出来的对照行可用 6.0 GHz × 9，本库自己拿合并后的 CLI 生成。
-- **待做（本库）**：pin `d67043e`，在它上面生成 ×10 剖面放进 `data/clock_profiles/`，生成命令与 commit 进 `survey.yaml`（对方 `examples/out/` 不入库，文件要自己生成）；`profile_at_carrier` 拒绝非整数的 f_c / f0；
-  `floor_dbchz` / `spur_rejection_db` 标 `assumed` 并在示例 04 §6 加灵敏度行（对方 ex22 的 −160 dBc/Hz 与 40 dB 是占位，没有出处；PLL 远端 ×N² 约 −134 dBc/Hz，底噪高过它才看得见）；
-  同台表 `pllsim wu19 profile x N` 三行换成新剖面（预计动 0.1–0.3 dB，numbers-move）；`assumed.lo_multiplier_law` 改写；做完删本条。
+## D. 报回上游
+本库不动这三个库；需求各开一个 issue 交给对方，对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
+D1（wifi_trx_cal#4，非标准带宽的评分波形）与 D2（pll_simulator#71，倍频器模型）已落地并 pin 完（2026-11-11，`cairn/LOG.md`），条目已删；剩 D3 这一条链。
 
 ### D3 → PA_DPD：PA 电记忆定义在指定采样率上；两 DUT 级联 —— [PA_DPD#4](https://github.com/alexyudragonsword-collab/PA_DPD/issues/4)（**对方已落地并合进 main `02ca433`；issue 留着由本库验收后关**）
 - 对方交付：`ReferencePA(fs=, fir_fs=)`（只接受正整数的 fs / fir_fs，否则报错；都不给时逐位不变）、`MemoryPolynomialModel` / `GMPModel(tap_spacing=)`（默认 1 不写进 `get_config`）、

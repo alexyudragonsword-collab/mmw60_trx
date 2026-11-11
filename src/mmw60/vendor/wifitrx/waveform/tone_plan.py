@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/waveform/tone_plan.py
+# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/waveform/tone_plan.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Which subcarriers carry something, and where the holes are.
 
@@ -27,6 +27,18 @@ straddling a gap averages across a discontinuity, which is why that
 function takes the plan's segments rather than convolving blindly.
 
 ``None`` everywhere keeps the contiguous behaviour, bit for bit.
+
+A plan may also carry **its own pilot tones** (``TonePlan.pilots``).
+The two pilot tables in ``pilots.py`` hold the standard's sets for the
+two 802.11 numerologies at 20-320 MHz and nothing else; a numerology
+outside them — another subcarrier spacing, 640 MHz, a clock scaled by
+K — has no pilot set, so its scoring waveform could not be built and the
+calibration's final step had nothing to score (issue #4, from the sister
+library mmw60_trx).  This model does not invent tables for numerologies
+the standard does not define; the caller names the pilots, and they
+travel with the plan, because every caller of the pilot machinery
+(``cal.sequence.scoring_frame``, the link studies, the workbench)
+derives the pilots from the config and nothing else.
 """
 from __future__ import annotations
 
@@ -52,10 +64,14 @@ LEGACY_RANGES = {
 
 @dataclass(frozen=True)
 class TonePlan:
-    """Signed, sorted, DC-excluded subcarrier indices plus a label."""
+    """Signed, sorted, DC-excluded subcarrier indices plus a label, and
+    optionally the plan's own pilot tones (signed indices, a subset of
+    ``indices``).  ``pilots=None`` leaves the pilots to the numerology's
+    table, exactly as before."""
 
     indices: np.ndarray
     label: str = "custom"
+    pilots: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         idx = np.asarray(self.indices, dtype=int)
@@ -66,6 +82,31 @@ class TonePlan:
         if bool((np.diff(idx) <= 0).any()):
             raise ValueError("tone indices must be sorted and unique")
         object.__setattr__(self, "indices", idx)
+        if self.pilots is not None:
+            pil = np.sort(np.asarray(self.pilots, dtype=int).ravel())
+            if pil.size == 0:
+                raise ValueError("a plan's pilot set, when given, is not empty")
+            if bool((np.diff(pil) == 0).any()):
+                raise ValueError("pilot tones must be unique")
+            if pil.size >= idx.size:
+                raise ValueError(f"{pil.size} pilots leave no data tone in "
+                                 f"a {idx.size}-tone plan")
+            # explicit membership test rather than np.isin: the Android
+            # call-surface allow-list holds names verified against numpy
+            # 1.19.5, and isin is not one of them
+            at = np.searchsorted(idx, pil)
+            inside = (at < idx.size) & (idx[np.minimum(at, idx.size - 1)] == pil)
+            if not bool(inside.all()):
+                raise ValueError("pilot tones must be tones of the plan: "
+                                 f"{pil[~inside].tolist()} are not")
+            object.__setattr__(self, "pilots", pil)
+
+    def pilot_columns(self) -> np.ndarray | None:
+        """Column positions (into the plan's active-tone axis) of the
+        plan's own pilots, or ``None`` when it carries none."""
+        if self.pilots is None:
+            return None
+        return np.searchsorted(self.indices, self.pilots).astype(int)
 
     @property
     def n_active(self) -> int:
@@ -99,11 +140,12 @@ class TonePlan:
                     and (self.indices == mirror).all())
 
 
-def contiguous(n_active: int) -> TonePlan:
-    """The historical block: +-1 .. +-n_active/2, DC excluded."""
+def contiguous(n_active: int, pilots=None) -> TonePlan:
+    """The historical block: +-1 .. +-n_active/2, DC excluded; optionally
+    with the caller's own pilot tones (signed indices inside the block)."""
     half = n_active // 2
     idx = np.concatenate([np.arange(-half, 0), np.arange(1, half + 1)])
-    return TonePlan(idx, label=f"contiguous {n_active}")
+    return TonePlan(idx, label=f"contiguous {n_active}", pilots=pilots)
 
 
 def _ranges_for(bandwidth_hz: float, subcarrier_spacing_hz: float,
@@ -152,7 +194,19 @@ def punctured(plan: TonePlan, bandwidth_hz: float,
     if not keep.any():
         raise ValueError("puncturing removed every tone")
     tag = ",".join(str(int(d)) for d in drop)
-    return TonePlan(plan.indices[keep], label=f"{plan.label} minus 20MHz #{tag}")
+    pilots = None
+    if plan.pilots is not None:
+        # the plan's own pilots that survive; a punctured subchannel takes
+        # its pilots with it, as it takes its data tones
+        kept = plan.indices[keep]
+        at = np.searchsorted(kept, plan.pilots)
+        alive = (at < kept.size) & (kept[np.minimum(at, kept.size - 1)]
+                                    == plan.pilots)
+        if not bool(alive.any()):
+            raise ValueError("puncturing removed every pilot of the plan")
+        pilots = plan.pilots[alive]
+    return TonePlan(plan.indices[keep], label=f"{plan.label} minus 20MHz #{tag}",
+                    pilots=pilots)
 
 
 def subband(bandwidth_hz: float, subcarrier_spacing_hz: float,
@@ -184,3 +238,30 @@ def subband(bandwidth_hz: float, subcarrier_spacing_hz: float,
             f"sub-band {idx.min()}..{idx.max()} leaves the {bandwidth_hz / 1e6:g} "
             f"MHz channel (+-{nfft // 2} tones)")
     return TonePlan(idx, label=f"{idx.size}-tone sub-band at {int(centre_tone):+d}")
+
+
+def to_record(plan) -> object:
+    """A tone plan as JSON-ready data, for the cal-state file's conditions
+    block: a plan name (``"standard"``) passes through; a ``TonePlan``
+    becomes its label, its contiguous runs as ``[lo, hi]`` pairs (a
+    2.56 GHz plan is 30800 tones but a handful of runs) and its own
+    pilots.  ``from_record`` inverts it exactly."""
+    if plan is None or isinstance(plan, str):
+        return plan
+    idx = plan.indices
+    breaks = [0, *(np.nonzero(np.diff(idx) != 1)[0] + 1).tolist(), idx.size]
+    runs = [[int(idx[a]), int(idx[b - 1])] for a, b in zip(breaks[:-1], breaks[1:])]
+    return {"label": plan.label, "ranges": runs,
+            "pilots": None if plan.pilots is None
+            else [int(x) for x in plan.pilots]}
+
+
+def from_record(rec) -> object:
+    """The plan a ``to_record`` value describes (``None`` and plan names
+    pass through)."""
+    if rec is None or isinstance(rec, str):
+        return rec
+    idx = np.concatenate([np.arange(int(lo), int(hi) + 1)
+                          for lo, hi in rec["ranges"]])
+    return TonePlan(idx, label=str(rec.get("label", "custom")),
+                    pilots=rec.get("pilots"))

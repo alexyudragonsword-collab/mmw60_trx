@@ -30,17 +30,27 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
-from mmw60 import ENGINE_BANNER, __version__, compare                              # noqa: E402
+from mmw60 import ENGINE_BANNER, __version__, compare, spec                        # noqa: E402
 from mmw60.config import LoConfig, PhaseNoiseConfig, zero_if_60ghz                 # noqa: E402
 from mmw60.frontend import Frontend60                                              # noqa: E402
 from mmw60.frontend.grid import analytic_floors, max_mcs_for_floor, pa_isolated_evm_db  # noqa: E402
+from mmw60.impairments.phase_noise import load_clock_profile                        # noqa: E402
 from mmw60.sim.link import evm_at                                                   # noqa: E402
 
 OUT = HERE / "output"
+_X10 = spec.value("survey.clock_profile_wu19_x10")
+
+
+def _x10_row(path: str) -> tuple[str, PhaseNoiseConfig]:
+    floor = load_clock_profile(path)["floor_dbchz"]
+    tag = " (assumed)" if floor == spec.value("assumed.lo_multiplier_floor_dbchz") else ""
+    return (f"pllsim wu19 x{_X10['multiply_by']}, floor {floor:.0f} dBc/Hz{tag}",
+            PhaseNoiseConfig(model="profile", profile_path=path))
+
+
 LO_MODELS = (("pole_zero (11ad EM shape, Liu numbers)", PhaseNoiseConfig()),
              ("wifitrx_wifi7 (the WiFi 7 synthesizer)", PhaseNoiseConfig(model="wifitrx_wifi7")),
-             ("pllsim wu19 profile x N (assumed.lo_multiplier_law)",
-              PhaseNoiseConfig(model="profile", profile_path="bench_wu19_spll_frac_52m_6p253g.yaml")))
+             _x10_row(_X10["file"]), *(_x10_row(f) for f in _X10["sensitivity_files"]))
 
 
 def _row_line(r: dict) -> str:
@@ -141,6 +151,8 @@ def main(argv=None) -> int:
     print("\n== 5. the LO models side by side (each its own Frontend60; analytic floor + MCS cap"
           f"{'' if quick else ' + TD EVM'}) ==")
     print(f"{'LO model':<52} {'K':>3} {'IPN[dBc]':>9} {'pn ICI':>7} {'floor':>6} {'TD':>6}  max MCS")
+    print(f"(pllsim rows: the wu19 preset retuned to {_X10['f_in_hz'] / 1e9:g} GHz through pllsim's x{_X10['multiply_by']} block, "
+          "survey.clock_profile_wu19_x10; the floor is the multiplier's, assumed.lo_multiplier_floor_dbchz)")
     pa_evm = pa_isolated_evm_db(fe.pa_model, fe.obo_db, fe.obo_reference)
     for name, pn in LO_MODELS:
         for k in ((8,) if quick else (1, 8, 32)):
