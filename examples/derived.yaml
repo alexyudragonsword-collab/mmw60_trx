@@ -127,23 +127,24 @@
     - {doc: cairn/comparison-table.md, text: "pllsim 剖面与 Liu 的 pole-zero 同量级（IPN 差 {ipn_pz - ipn_x10} dB）"}
     - {doc: cairn/comparison-table.md, text: "| {ipn_x10} dBc | {ici_x10} / −17.7 / −17.8 |"}
 
-- name: ex07 the preset back-off — memory fixed in seconds against memory that scales with the signal (TX EVM after DPD)
+- name: ex07 what memory fixed in seconds costs in back-off at equal TX EVM after DPD (K = 8 and K = 32)
   values:
-    sc4: {example: "07", after: "== what the memory law costs after DPD", line: "K=4 {} {*} {*} {*} {*} {*} x{*} {*}"}
-    fx4: {example: "07", after: "== what the memory law costs after DPD", line: "K=4 {*} {*} {*} {*} {*} {} x{*} {*}"}
-    sc8: {example: "07", after: "== what the memory law costs after DPD", line: "K=8 {} {*} {*} {*} {*} {*} x{*} {*}"}
-    fx8: {example: "07", after: "== what the memory law costs after DPD", line: "K=8 {*} {*} {*} {*} {*} {} x{*} {*}"}
-    sc32: {example: "07", after: "== what the memory law costs after DPD", line: "K=32 {} {*} {*} {*} {*} {*} x{*} {*}"}
-    fx32: {example: "07", after: "== what the memory law costs after DPD", line: "K=32 {*} {*} {*} {*} {*} {} x{*} {*}"}
+    s8_25: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=8 -25 dB {} dB {*} dB {*} dB"}
+    f8_25: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=8 -25 dB {*} dB {} dB {*} dB"}
+    s8_27: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=8 -27 dB {} dB {*} dB {*} dB"}
+    f8_27: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=8 -27 dB {*} dB {} dB {*} dB"}
+    s32_25: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -25 dB {} dB {*} dB {*} dB"}
+    f32_25: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -25 dB {*} dB {} dB {*} dB"}
+    s32_27: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -27 dB {} dB {*} dB {*} dB"}
+    f32_27: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -27 dB {*} dB {} dB {*} dB"}
   quotes:
-    - {doc: ROADMAP.md, text: "最好 {fx4} / {fx8} / {fx32} dB"}
-    - {doc: ROADMAP.md, text: "是 {sc4} / {sc8} / {sc32} dB，差 {fx4 - sc4} / {fx8 - sc8} / {fx32 - sc32} dB"}
+    - {doc: ROADMAP.md, text: "随信号缩放的要退 {s8_25} / {s8_27} dB，按秒固定的要退 {f8_25} / {f8_27} dB（代价 {f8_25 - s8_25} / {f8_27 - s8_27} dB）"}
+    - {doc: ROADMAP.md, text: "K = 32 上 {s32_25} / {s32_27} 对 {f32_25} / {f32_27} dB（代价 {f32_25 - s32_25} / {f32_27 - s32_27} dB）"}
 
-- name: ex07 K = 32 — the sample-spaced basis does not reach taps 64 samples away (preset back-off and 13 dB)
+- name: ex07 the DPD cliff on the scales-with-the-signal PA at K = 8 (7.0 to 7.5 dB of back-off)
   values:
-    x1_8: {example: "07", after: "== sensitivity: the back-off", line: "K=32 8.0 {*} {} {*} {*} {*}"}
-    m_8: {example: "07", after: "== sensitivity: the back-off", line: "K=32 8.0 {*} {*} {} {*} {*}"}
-    x1_13: {example: "07", after: "== sensitivity: the back-off", line: "K=32 13.0 {*} {} {*} {*} {*}"}
-    m_13: {example: "07", after: "== sensitivity: the back-off", line: "K=32 13.0 {*} {*} {} {*} {*}"}
+    e70: {example: "07", after: "== K = 8: TX EVM after DPD against the back-off", line: "7.0 {} {*} {*} {*} {*}"}
+    e75: {example: "07", after: "== K = 8: TX EVM after DPD against the back-off", line: "7.5 {} {*} {*} {*} {*}"}
   quotes:
-    - {doc: ROADMAP.md, text: "逐样本基函数比匹配间隔差 {x1_8 - m_8} dB（回退 8 dB）到 {x1_13 - m_13} dB（13 dB）"}
+    - {doc: ROADMAP.md, text: "7.0 → 7.5 dB 之间从 {e70} 跳到 {e75} dB"}
+    - {doc: cairn/engineering-pitfalls.md, text: "回退 7.0 → 7.5 dB 之间 EVM 差 {e70 - e75} dB"}

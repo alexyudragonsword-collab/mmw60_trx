@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### PA 记忆的代价按回退读：示例 07 改以回退扫描为主表（2026-11-11）
+- `pamemory`：`run_many`（同一行只跑一次，可多进程，数字与进程数无关）、`row_key` / `study_keys` / `cost_keys` / `sweep_keys` / `sweep_points`、`backoff_for_evm`（EVM 达到目标所需的最小回退，格点间线性插值）、`backoff_penalty`（两种记忆规律在同一 EVM 上各要退多少、差多少）。`study` / `cost_rows` 多一个 `jobs` 参数。
+- 示例 07：新增“DPD 后 TX EVM 随回退”的扫描（K = 8、32）与“达到 −25 / −27 dB 要退多少”的表；记忆快慢的灵敏度改成按回退代价报；预设回退上的全表保留，但注明它在崖上。`--jobs` 默认最多 4 个进程。
+- 规范条目：`assumed.pa_memory_obo_sensitivity_db` 换成 `assumed.pa_memory_obo_sweep_db`（细格点）、`assumed.pa_memory_obo_sweep_coarse_db`、`assumed.pa_memory_target_evm_db`。
+- **结论更正（第三版）**：记忆按秒固定（12.5 ns）的代价是多退 0.5–2.3 dB（K = 8：1.6 / 2.3 dB；K = 32：0.5 / 0.6 dB），不是上一条写的“EVM 差 4.1 / 5.8 / 0.6 dB、隔 8–16 个样本最糟”。预设的 8 dB 回退在 DPD 的崖上，单点上的 EVM 差读到的是两条崖的间距。
+- `tests/test_pamemory.py`：+3（插值、进程数无关、崖与回退代价的慢测试），去掉一条按旧结论写的慢测试。只动 `pamemory`、示例 07 与文档；其余示例输出与指纹不变。
+
 ### 重新 pin wifitrx@7b8d08e（0.7.40）：DPD 步留观测最好的一轮，`ScaledPA` 稳态定标（2026-11-11）
 - `src/mmw60/vendor/wifitrx/` 重新同步到 `7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02`（106 个文件 verbatim，3 个正文有变化：`cal/dpd_cal.py`、`pa/scaled.py`、`__init__.py`）。两处都是本库在 wifi_trx_cal#5 验收时报告、对方修掉的（B40、B41）。里程碑 0 指纹逐位不变。
 - `pamemory.memory_pa`：去掉“在逐样本的 PA 上取定标再换模型”的绕法。

@@ -604,12 +604,26 @@ entries:
     cite: "本库；assumed.pa_memory_fir_fs_hz 的灵敏度档：抽头 3.125 ns / 0.78 ns"
     note: "示例 07 末节用：记忆比 WiFi PA 快 4 倍 / 16 倍时，逐样本与匹配抽头间隔的差。都要整除 K = 32 的 5.12 GS/s。"
 
-  assumed.pa_memory_obo_sensitivity_db:
-    value: [10.5, 13.0]
+  assumed.pa_memory_obo_sweep_db:
+    value: [7.0, 7.5, 8.0, 8.5, 9.0, 10.0, 12.0]
     unit: dB
     source: assumed
-    cite: "本库；示例 07 的回退灵敏度档，另加预设的 8 dB（assumed 的 OBO 口径：自 Psat）"
-    note: "10.5 dB 是 wifitrx 默认驱动在本库前端上落到的回退（示例 03 的各列都在 10.4–10.7 dB），13 dB 是再退 2.5 dB。记忆的代价随回退变化很大，所以三档都报。"
+    cite: "本库；示例 07 的回退扫描格点（自 Psat），含预设的 8 dB"
+    note: "DPD 的收益在 PA 接近饱和时断崖式消失，预设的 8 dB 正好在崖上：随信号缩放的那颗崖在约 7.2 dB，按秒固定的那颗晚 1–2 dB。单点上读 EVM 差读到的主要是崖，所以要扫回退、在同样的 EVM 上比回退。格点在崖附近取 0.5 dB，离开后放宽。"
+
+  assumed.pa_memory_obo_sweep_coarse_db:
+    value: [7.0, 8.0, 9.0, 10.0, 12.0]
+    unit: dB
+    source: assumed
+    cite: "本库；示例 07 末节（记忆快慢）用的较粗格点"
+    note: "只为控制示例的运行时间；插值出的回退代价比细格点粗约 ±0.3 dB。"
+
+  assumed.pa_memory_target_evm_db:
+    value: [-25.0, -27.0]
+    unit: dB
+    source: assumed
+    cite: "本库；比较两种记忆规律时取的目标 TX EVM（DPD 之后，标准接收机口径）"
+    note: "−25 dB 约是 11be MCS5–6 的发射 EVM 要求量级，−27 dB 接近本库前端上 DPD 后的地板（约 −28.5 dB）。读法：达到同一个目标各自要退多少，差值就是按秒固定的记忆在输出功率上的代价。"
 
   assumed.pa_memory_dpd_candidates:
     value: [2, 4]

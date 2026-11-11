@@ -38,10 +38,10 @@ python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_
 PA 的记忆是随信号缩放还是按秒固定，代价差多少；DPD 基函数的抽头间隔该取多少（在链路上量，不直接取 fs_eff / fir_fs）。每一行都落在预设的输出回退上。
 
 ```bash
-python examples/07_pa_memory_dpd.py                       # 全量约 2 分钟；--quick 冒烟
+python examples/07_pa_memory_dpd.py                       # 全量约 5 分钟（默认最多 4 个进程，--jobs 可改）；--quick 冒烟
 ```
 
-结论见 `cairn/topology-b.md` §3b：代价由 PA 的抽头隔多少个样本决定。隔 8–16 个样本时预设回退点上比随信号缩放的同一颗 PA 差 4–6 dB，换抽头间隔救不回来；隔 64 个样本（K = 32）时匹配的抽头间隔追得上，逐样本的基函数差 2.5 dB。
+结论见 `cairn/topology-b.md` §3b：代价按回退读。达到同样的 DPD 后 EVM，记忆按秒固定（12.5 ns）的 PA 要多退 0.5–2.3 dB；预设的 8 dB 回退正好在 DPD 的崖上，在这一个点上读到的 EVM 差（最多 6 dB）不是代价。
 
 ## 里程碑 1 · A1：拓扑 A，IF 延伸（示例 06）
 

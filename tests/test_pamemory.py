@@ -104,13 +104,48 @@ def test_every_row_lands_on_the_asked_back_off(fe):
     assert all(r.obo_db == pytest.approx(fe.obo_db, abs=0.1) for r in rows)
 
 
+def test_backoff_for_evm_reads_the_first_crossing():
+    obo = [7.0, 8.0, 9.0, 10.0]
+    evm = [-20.0, -22.0, -26.0, -28.0]
+    assert pamemory.backoff_for_evm(obo, evm, -24.0) == (pytest.approx(8.5), True)
+    assert pamemory.backoff_for_evm(obo, evm, -22.0) == (pytest.approx(8.0), True)
+    assert pamemory.backoff_for_evm(obo[::-1], evm[::-1], -27.0) == (pytest.approx(9.5), True)   # order does not matter
+    assert pamemory.backoff_for_evm(obo, evm, -19.0) == (7.0, False)       # there at the first point: an upper bound
+    assert pamemory.backoff_for_evm(obo, evm, -30.0) == (None, False)      # never reached inside the sweep
+    # a dip that comes back: the first crossing counts
+    dip = pamemory.backoff_for_evm([7.0, 8.0, 9.0, 10.0], [-20.0, -26.0, -23.0, -27.0], -25.0)
+    assert dip == (pytest.approx(7.0 + 5 / 6), True)
+
+
+def test_rows_do_not_depend_on_the_worker_count_and_duplicates_run_once(fe):
+    keys = [*pamemory.cost_keys(8, 20e6, "11be", 10.0), *pamemory.cost_keys(8, 20e6, "11be", 10.0),
+            pamemory.row_key(8, 20e6, "11be", "rapp", obo_db=10.0)]
+    serial = pamemory.run_many(fe, keys, jobs=1)
+    pooled = pamemory.run_many(fe, keys, jobs=2)
+    assert list(serial) == list(pooled) and len(serial) == 4                 # three cost rows + the Rapp, once each
+    for key in serial:
+        assert serial[key] == pooled[key], key                               # the dataclass compares every field
+    pts = pamemory.sweep_points(serial, 8, 20e6, "11be", [10.0])
+    assert len(pts) == 1 and pts[0].fixed_best_evm_db == min(pts[0].fixed_x1.tx_evm_db, pts[0].fixed_matched.tx_evm_db)
+    pen = pamemory.backoff_penalty(pts, -10.0)
+    assert pen["scales"] == 10.0 and not pen["scales_exact"] and pen["cost"] is None    # one point: no crossing
+    assert spec.value("assumed.pa_memory_obo_sweep_db")[2] == fe.obo_db                 # the preset is on the grid
+    assert set(spec.value("assumed.pa_memory_obo_sweep_coarse_db")) <= set(spec.value("assumed.pa_memory_obo_sweep_db"))
+
+
 @pytest.mark.slow
-def test_fixed_memory_defeats_the_dpd_at_the_preset_back_off(fe):
-    """Example 07 at K = 8 and the preset 8 dB back-off: memory that scales
-    with the signal is linearised, memory fixed at 12.5 ns is not, at either
-    tap spacing."""
-    scales, sample, matched = pamemory.cost_rows(fe, 8, 80e6, "11be", fe.obo_db)
-    off = pamemory.run_row(fe, 8, 80e6, "11be", fir_fs_hz=80e6, tap_spacing=None, obo_db=fe.obo_db)
-    assert scales.tx_evm_db < -25.0
-    assert min(sample.tx_evm_db, matched.tx_evm_db) - scales.tx_evm_db > 4.0
-    assert min(sample.tx_evm_db, matched.tx_evm_db) > off.tx_evm_db - 1.5      # the DPD buys about nothing
+def test_the_preset_back_off_sits_on_the_dpd_cliff_and_the_cost_is_read_in_back_off(fe):
+    """Example 07 at K = 8: between 7 and 8 dB of back-off the predistorter
+    on the scales-with-the-signal PA goes from useless to 6 dB of gain; the
+    fixed-memory PA gets there 1–3 dB of back-off later.  The EVM gap read
+    at the preset 8 dB (several dB) is that offset between the two cliffs,
+    not the price of the memory."""
+    obos = (7.0, 8.0, 9.0, 10.0, 12.0)
+    done = pamemory.run_many(fe, pamemory.sweep_keys(8, 80e6, "11be", obos), jobs=2)
+    pts = {p.obo_db: p for p in pamemory.sweep_points(done, 8, 80e6, "11be", obos)}
+    assert pts[7.0].scales.tx_evm_db - pts[8.0].scales.tx_evm_db > 4.0               # the cliff, inside one dB
+    assert pts[8.0].fixed_best_evm_db - pts[8.0].scales.tx_evm_db > 4.0              # the gap read on it
+    assert pts[12.0].fixed_best_evm_db - pts[12.0].scales.tx_evm_db < 1.5            # and gone off it
+    pen = pamemory.backoff_penalty(list(pts.values()), -25.0)
+    assert pen["scales_exact"] and pen["fixed_exact"] and 0.8 < pen["cost"] < 3.0
+    assert 7.0 < pen["scales"] < 8.0 < pen["fixed"] < 10.0
