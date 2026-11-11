@@ -42,8 +42,8 @@ import numpy as np
 from . import spec
 from .config import TOPOLOGIES, WAVEFORMS, ChannelConfig, Mmw60Config, wifi7_chain_k1, zero_if_60ghz
 from .frontend.frontend import Frontend60
-from .frontend.grid import (REASON_ZH, analytic_floors, data_rate_bps, decoder_cap, max_mcs_for_floor,
-                            pa_isolated_evm_db)
+from .frontend.grid import (REASON_ZH, analytic_floors, data_rate_bps, decoder_cap, decoder_floor_db,
+                            max_mcs_for_floor, pa_isolated_evm_db)
 from .power import PowerCoefficients, PowerReport, power_report
 from .vendor.wifitrx.impairments.phase_noise import cpe_partition
 from .vendor.wifitrx.link.evm_budget import PN_BAND_HZ, EvmBudget
@@ -148,6 +148,7 @@ class Row:
     dec_rate_mbps: float | None = None
     dec_rate_cal_mbps: float | None = None
     power_dec: dict | None = None
+    dec_floor_db: float | None = None       # analytic floor, or the time-domain EVM when that reads worse
 
     @property
     def label(self) -> str:
@@ -250,8 +251,12 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
             row.eirp = fe.eirp.check(row.pout_dbm, fe.antenna_gain_dbi)
     if rate is not None:
         row.power = power_report(cfg, fe, rate, coeffs, phy, mcs_index=mcs).as_dict()
+    if time_domain:
+        flat = dc.replace(cfg, channel=ChannelConfig(model="flat"))
+        row.td_evm_db = evm_at(flat, None, n_packets=1, frontend=fe)["evm_db"]
     if cfg.coded:
-        d = decoder_cap(a["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz, dec_margin_db)
+        row.dec_floor_db = decoder_floor_db(a["floor_db"], row.td_evm_db, bool(a["cfo_captured"]))
+        d = decoder_cap(row.dec_floor_db, cfg.phy.standard, cfg.phy.bandwidth_hz, dec_margin_db)
         d_cal = decoder_cap(a_cal["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz, dec_margin_db)
         row.dec_mcs, row.dec_mcs_cal = d["mcs"], d_cal["mcs"]
         row.dec_required_snr_db, row.dec_penalty_db = d["required_snr_db"], d["penalty_db"]
@@ -262,9 +267,6 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
         if d_cal["mcs"] is not None:
             row.dec_rate_cal_mbps = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d_cal["mcs"],
                                                   phy.t_symbol_eff) / 1e6
-    if time_domain:
-        flat = dc.replace(cfg, channel=ChannelConfig(model="flat"))
-        row.td_evm_db = evm_at(flat, None, n_packets=1, frontend=fe)["evm_db"]
     return row
 
 
@@ -353,11 +355,11 @@ def to_markdown(rep: dict) -> str:
             f"{_f(r['max_mcs_cal'], 'MCS{}')} ({r['irr_cal_db']:.0f} dB) | {_f(r['rate_mbps'], '{:.0f} Mb/s')} | "
             f"{_f(r['bits_per_s_per_hz'], '{:.2f}')} | {eirp} | {pj} | {r['verdict']} {r['reason']} |")
     lines += ["", "## the decoder's cap (EVM floor as a noise term against the measured ideal thresholds)", "",
-              "| scheme | floor | conformance cap | decoder cap | SNR needed there | floor costs | decoder cap, IQ calibrated | rate @dec cap | pJ/bit @dec cap |",
+              "| scheme | floor used (worse of analytic / time-domain) | conformance cap | decoder cap | SNR needed there | floor costs | decoder cap, IQ calibrated | rate @dec cap | pJ/bit @dec cap |",
               "|---|---|---|---|---|---|---|---|---|"]
     for r in rep["rows"]:
         pjd = "—" if not r["power_dec"] else f"{r['power_dec']['pj_per_bit']:.0f}"
-        lines.append(f"| {r['label']} | {r['floor_db']:.1f} | {_f(r['max_mcs'], 'MCS{}')} | {_f(r['dec_mcs'], 'MCS{}')} | "
+        lines.append(f"| {r['label']} | {_f(r['dec_floor_db'])} | {_f(r['max_mcs'], 'MCS{}')} | {_f(r['dec_mcs'], 'MCS{}')} | "
                      f"{_f(r['dec_required_snr_db'], '{:.1f} dB')} | {_f(r['dec_penalty_db'], '{:.1f} dB')} | "
                      f"{_f(r['dec_mcs_cal'], 'MCS{}')} | {_f(r['dec_rate_mbps'], '{:.0f} Mb/s')} | {pjd} |")
     lines += ["", "## rows without numbers yet", ""]

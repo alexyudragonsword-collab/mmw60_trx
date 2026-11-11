@@ -118,6 +118,9 @@ def smoothed_cpe(rx_symbols: np.ndarray, pilot_cols: np.ndarray, pilots: np.ndar
 
 
 # ---------------------------------------------------------------- C2: smoothing span from the estimate
+_FLAT_TOL = 1e-6       # a model bias under −60 dBc of the channel power is below anything this chain resolves
+
+
 def tone_autocorrelation(h: np.ndarray, segments, max_lag: int) -> np.ndarray:
     """Re R(d) = Re mean_k H_k·conj(H_{k+d}) for d = 0 … max_lag, pairs taken
     inside the frequency-contiguous runs only."""
@@ -143,9 +146,11 @@ def auto_smooth_span(h: np.ndarray, segments=None, max_tones: int = 9, return_in
     pattern's share of an IQ image or PA distortion) does not reach — is
     fitted with the real part of an exponential delay profile's,
     ``c(d) = P / (1 + a²·d²)``; P is the channel's own power and
-    ``W = R(0) − P`` the error a boxcar averages down.  Three tones are
-    taken when the model's bias, ≈ (8/3)·P·a⁴, is below the (2/3)·W they
-    remove, one otherwise.  (A parabolic extrapolation instead of this fit
+    ``W = R(0) − P`` the error a boxcar averages down.  One tone is taken
+    when the model's bias, ≈ (8/3)·P·a⁴, exceeds the (2/3)·W three tones
+    remove, three otherwise — a tie (no noise visible, flat model) goes to
+    three: the first version gave up smoothing there and the noise-free
+    11be 20 MHz chain read −41.2 dB for the fixed span's −45.6.  (A parabolic extrapolation instead of this fit
     under-reads P on a selective channel — 0.91 for 1.0 at 15 ns rms and a
     5 MHz tone spacing — and books the rest as noise to be smoothed.)
 
@@ -180,7 +185,11 @@ def auto_smooth_span(h: np.ndarray, segments=None, max_tones: int = 9, return_in
     else:
         bias3 = p
     info.update({"channel_power": p, "white_power": white, "a2": a2, "model_bias2_3": bias3})
-    if bias3 + white / 3.0 >= white:
+    # one tone only when the model's bias is worth more than the noise three tones remove.  A tie is
+    # not that: with no noise visible (W clipped at 0: a noise-free chain, or a narrow band at high
+    # SNR where W's own scatter exceeds it) and a channel the model calls flat, three tones cost
+    # nothing and still take out whatever tone-to-tone error sits under the fit's resolution
+    if bias3 + white / 3.0 > white + _FLAT_TOL * p:
         return (1, info) if return_info else 1
     best = 3
     if max_tones >= 5:

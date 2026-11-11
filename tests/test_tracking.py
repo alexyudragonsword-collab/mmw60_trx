@@ -221,3 +221,27 @@ def test_external_check_verdict_has_three_states(capsys):
     ok.append({"tags": {"k": 8, "mcs": 4, "set": "impaired"}, "snr_at_target": 19.9, "sweep": {"per": [1.0, 0.0]},
                "ci": {"lo_db": 19.8, "hi_db": 20.0}})
     assert external_check.compare(ok, "impaired") == 0
+
+
+def test_auto_span_does_not_give_up_smoothing_when_it_sees_no_noise():
+    """The tie in the 1-vs-3 decision: no noise visible and a flat model.
+    The first version returned 1 there and the noise-free chain lost the
+    4 dB the fixed 3-tone span was taking out of the LTF estimate's own
+    tone-to-tone error (11be 20 MHz: −41.2 for −45.6 dB)."""
+    import dataclasses as dc
+
+    from mmw60.config import ChannelConfig, zero_if_60ghz
+    from mmw60.sim.link import evm_at
+    assert auto_smooth_span(np.ones(242, dtype=complex)) >= 3
+    base = dc.replace(zero_if_60ghz(k=4, standard="11be", bandwidth_hz=20e6),
+                      channel=ChannelConfig(model="flat")).ideal()
+    assert base.rx.ce_smooth_auto
+    fixed = dc.replace(base, rx=dc.replace(base.rx, ce_smooth_auto=False))
+    auto_db = evm_at(base, None, n_packets=1)["evm_db"]
+    fixed_db = evm_at(fixed, None, n_packets=1)["evm_db"]
+    assert fixed.rx.ce_smooth_tones == 3 and auto_db <= fixed_db + 0.3, (auto_db, fixed_db)
+    # ... and a selective channel with no noise still gets one tone
+    k = np.arange(242)
+    h = 1.0 + 0.9 * np.exp(-2j * np.pi * k * 0.21)
+    assert auto_smooth_span(h) == 1
+

@@ -8,16 +8,18 @@
 The threshold of an MCS is the SNR (per active subcarrier Es/N0) at which
 the PER of a 4096-byte packet crosses 1e-2 on the **ideal** zero-IF chain
 (no CFO, ideal LO, ideal PA, converters / IQ / leakage off, flat channel):
-what this library's receiver — LTF channel estimate, per-symbol pilot CPE,
-BCC Viterbi or min-sum LDPC — needs when the only impairment is thermal
-noise.  The "decoder cap" of the grid and of the comparison table
+what this library's receiver — LTF channel estimate with the span chosen
+per packet, cross-symbol pilot CPE (the ``zero_if_60ghz`` preset's
+receiver, ``config.improved_rx``), BCC Viterbi or min-sum LDPC — needs when
+the only impairment is thermal noise.  The "decoder cap" of the grid and of the comparison table
 (``frontend/grid.py::decoder_cap``) treats a front end's EVM floor as one
 more noise term against these numbers; example 05 shows that prediction
 matching the impaired PER curves.
 
 They are properties of this code, not of a standard: every one of them
-moves if the receiver changes (ROADMAP C1's CPE smoothing would lower
-them), which is why the file records the library version and why
+moves if the receiver changes (the cross-symbol CPE and the automatic
+smoothing span lowered them by 0.1–2.8 dB over the milestone-0 receiver),
+which is why the file records the library version and why
 ``tests/test_thresholds.py`` re-measures one point.  wifitrx's
 ``link/mcs.py::snr_req_db`` is not used: it is marked unaudited there and
 sits 1–3.5 dB above what this receiver measures.
@@ -85,8 +87,9 @@ def document(table: dict, step: float, max_packets: int, min_errors: int) -> dic
         "cite": (f"tools/measure_thresholds.py (mmw60 {__version__}): PER {TARGET:g} crossing of a 4096-byte packet on the "
                  f"ideal zero-IF chain (zero_if_60ghz(k={K_MEASURE}).ideal(), flat channel), SNR per active subcarrier, "
                  f"{step:g} dB steps, up to {max_packets} packets or {min_errors} errors per point, log-linear interpolation"),
-        "note": ("本库接收机自己的门限（LTF 信道估计 + 逐符号导频 CPE + BCC Viterbi / min-sum LDPC），不是规范数：接收机一改就要重量"
-                 "（tests/test_thresholds.py 复量一个点）。统计散布约 ±0.3 dB（1e-2 处每点十几个错包，见 ROADMAP C3）。"
+        "note": ("本库接收机自己的门限（LTF 信道估计、平滑跨度逐包自动选 + 跨符号导频 CPE 合并 + BCC Viterbi / min-sum LDPC，"
+                 "即 zero_if_60ghz 预设的接收机），不是规范数：接收机一改就要重量（tests/test_thresholds.py 复量一个点）。"
+                 "统计散布约 ±0.3 dB（1e-2 处每点十几个错包；要更窄用 per_sweep 的 refine_errors 与 snr_at_per_ci）。"
                  "11ac 只有 20 MHz 基准有编码数据域。"),
         "packet_bytes": 4096,
         "target_per": TARGET,

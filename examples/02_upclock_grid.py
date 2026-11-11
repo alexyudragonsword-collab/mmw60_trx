@@ -60,7 +60,8 @@ def main(argv=None) -> int:
           " maxMCS = uncorrected IQ; IQcal = IQ image at the calibrated residual (assumed.irr_after_cal_db);"
           " no-PA = the front end without the PA term (the back-off is the designer's knob per MCS, the rest is not);"
           " dec / dec-cal = the decoder's cap (the floor as a noise term against the measured ideal PER thresholds,"
-          " data/spec/per_thresholds.yaml, 3 dB margin), uncalibrated / IQ calibrated; n/a = base without a coded data field."
+          " data/spec/per_thresholds.yaml, 3 dB margin), uncalibrated / IQ calibrated; the uncalibrated one from the worse of"
+          " the analytic floor and the TD EVM of the cell; n/a = base without a coded data field."
           " maxMCS and the verdict are the transmitter-conformance reading (floor against the TX-EVM limit)")
     bases = BASES[::4] if quick else BASES
     ks = (8, 32) if quick else KS
