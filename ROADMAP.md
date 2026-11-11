@@ -72,7 +72,7 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 ### D2 → pll_simulator：倍频器（×N）模型 —— [pll_simulator#71](https://github.com/alexyudragonsword-collab/pll_simulator/issues/71)（对方已答复，2026-11-11 双方谈定接口，等剖面）
 - 现象：`arch/` 里只有 ILCM、MDLL 与参考倍频器占空比误差，没有"PLL 剖面经 ×N 倍频后的输出相噪"块；拓扑 A 的固定 LO 是 sub-7 PLL ×3 / ×4 到 60 GHz。
 - **本库的前提错了**：`profile_at_carrier` 把 6.253 GHz 的 wu19 剖面按 20·log₁₀(60.48 / 6.253) 搬移，等于 ×9.672，不是能实现的倍频器。量级（+19.7 dB）没错，同台表 §5 那三行的结论大概不动，但它不对应一条真实的 LO 链。
-  正确做法是 PLL 调到 f_c/N 重新 analyze 再整数倍频。拓扑 B 已向对方要 f_c = 60.48 GHz、N = 10（PLL 6.048 GHz）；拓扑 A 的已定（A1）：f_LO = 54.00 GHz，N = 3（PLL 18.0 GHz）或 N = 4（13.5 GHz），**还没在 issue 上补**。
+  正确做法是 PLL 调到 f_c/N 重新 analyze 再整数倍频。拓扑 B 已向对方要 f_c = 60.48 GHz、N = 10（PLL 6.048 GHz）；拓扑 A 的已定并已在 issue 上补（2026-11-11）：f_LO = 54.00 GHz，N = 3（PLL 18.0 GHz）为必要的一份，N = 4（13.5 GHz）有余力再出；并说明这两个频率离 wu19 的 6.253 GHz 很远，没有可信的 VCO 模型就不要外推。
 - 谈定的接口：`write_clock_profile(..., multiply_by=N, floor_dbchz=…, spur_rejection_db=…)`，N 非整数报错，底噪与抑制度必填、不给默认值（对方没有实测数据）；
   f_in/2 以内是 N²·S + 底噪，以上只有底噪（本库最宽的格积分到 5.12 GHz，N = 10 时 f_in/2 = 3.024 GHz，会用到这一段）；已请对方把 N、f_in、底噪、抑制度写成独立字段。
 - 剖面到了以后本库要做的：重新 pin；`profile_at_carrier` 拒绝非整数的 f_c / f0；`floor_dbchz` 由本库给、标 `assumed`、在示例 04 §6 加灵敏度行（wu19 远端 −154 dBc/Hz，×10 后 −134，底噪高过它才看得见）；
