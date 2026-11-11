@@ -172,11 +172,15 @@ def test_law4_the_chip_is_calibrated_by_running_wifitrx_sequence():
 
 
 @pytest.mark.slow
-def test_dpd_through_the_60ghz_observation_helps_at_deep_back_off_and_is_not_programmed_when_it_diverges():
-    """ROADMAP A1's "with / without the 60 GHz observation loopback": at 14 dB
-    back-off the predistorter trained on the cascade beats the chip-only one
-    by several dB; near saturation wifitrx's indirect-learning fit diverges
-    and the chip-only predistorter stays programmed."""
+def test_dpd_through_the_60ghz_observation_keeps_the_best_iteration_and_never_does_worse_than_the_chip_only_one():
+    """ROADMAP A1's "with / without the 60 GHz observation loopback".  wifitrx's
+    indirect-learning fit iterates, and on this soft Rapp every extra
+    iteration is worse than the one before near saturation; the first
+    version took wifitrx's default (2) and concluded the observation was
+    worth nothing at 8 dB back-off.  The fit is now run for 1 … N
+    iterations and the best candidate on the observation path stays — which
+    is never worse than the chip-only predistorter, and several dB better
+    at deep back-off."""
     from mmw60.vendor.wifitrx.cal.sequence import tx_evm
     from mmw60.vendor.wifitrx.waveform.ofdm import OFDMConfig
     score = OFDMConfig(bandwidth_hz=BW, qam_order=64, n_symbols=8, oversampling=OS)
@@ -190,16 +194,32 @@ def test_dpd_through_the_60ghz_observation_helps_at_deep_back_off_and_is_not_pro
             st.lo_profile = keep
 
     out = {}
-    for obo in (6.0, 14.0):
+    for obo in (6.0, 10.0, 14.0):
         c = with_obo(small(), obo)
         fe = Frontend60.from_config(c)
         chip = LinkSim(c, frontend=fe)
-        mmw = LinkSim(dc.replace(c, ifext=dc.replace(c.ifext, dpd_observation="mmw")), frontend=fe)
-        out[obo] = (tx_evm_db(chip), tx_evm_db(mmw), mmw.ifx.dpd_mmw)
+        mmw = LinkSim(dc.replace(c, ifext=dc.replace(c.ifext, dpd_observation="mmw", dpd_max_iterations=3)),
+                      frontend=fe)
+        info = mmw.ifx.dpd_mmw
+        out[obo] = (tx_evm_db(chip), tx_evm_db(mmw), info)
+        it = info["evm_by_iterations_db"]
+        assert set(it) == {1, 2, 3} and info["max_iterations"] == 3
+        # what stays programmed is the best of what was read, the chip-only one included
+        best = min([info["evm_chip_dpd_db"], *it.values()])
+        assert info["evm_programmed_db"] == pytest.approx(best)
+        assert info["chip_dpd_kept"] == (info["programmed"] == "chip")
+        # the same output power either way, and never worse than without the observation
+        assert mmw.pout_dbm == pytest.approx(chip.pout_dbm, abs=0.05)
+        assert out[obo][1] < out[obo][0] + 0.5, (obo, out[obo])
+    # near saturation iterating makes it worse, monotonically
+    it6 = out[6.0][2]["evm_by_iterations_db"]
+    assert it6[1] < it6[2] < it6[3], it6
+    # at deep back-off the observation is worth several dB
     chip14, mmw14, info14 = out[14.0]
     assert not info14["chip_dpd_kept"] and mmw14 < chip14 - 3.0, out[14.0]
-    chip6, mmw6, info6 = out[6.0]
-    assert info6["chip_dpd_kept"] and mmw6 == pytest.approx(chip6, abs=1e-9), out[6.0]
+    assert Mmw60Config(ifext=dc.replace(small().ifext, dpd_max_iterations=1)).ifext.dpd_max_iterations == 1
+    with pytest.raises(ValueError):
+        Mmw60Config(ifext=dc.replace(small().ifext, dpd_max_iterations=0))
 
 
 # ---------------------------------------------------------------- ROADMAP A1 acceptance: LO noise

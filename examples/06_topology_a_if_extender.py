@@ -183,7 +183,8 @@ def main(argv=None) -> int:
 
     # ---------------------------------------------------------------- 3. DPD with / without the 60 GHz observation
     print("\n== 3. the predistorter against the 60 GHz PA's back-off: TX EVM at the 60 GHz PA output [dB] ==")
-    print("OBO2[dB]  Pout[dBm]   no DPD   chip-only DPD   60 GHz-observed DPD   gain of the observation   programmed")
+    print("OBO2[dB]  Pout[dBm]   no DPD   chip-only DPD   60 GHz-observed, 1 / 2 / 3 ILA iterations   programmed        "
+          "TX EVM programmed   gain of the observation")
     dpd_rows = []
     for obo in (OBO2[1::3] if quick else OBO2):
         c = with_obo(cfg, obo)
@@ -194,16 +195,18 @@ def main(argv=None) -> int:
         s_chip.ifx.tx.dpd = None
         e_none = stage_tx_evm(s_chip.ifx, score)
         s_chip.ifx.tx.dpd = keep
-        s_mmw = LinkSim(dc.replace(c, ifext=dc.replace(c.ifext, dpd_observation="mmw")), frontend=f2)
+        s_mmw = LinkSim(dc.replace(c, ifext=dc.replace(c.ifext, dpd_observation="mmw", dpd_max_iterations=3)), frontend=f2)
         m = s_mmw.ifx.dpd_mmw
-        # what the fit itself reads through the observation (kept or not), and what is programmed
-        s_try = s_mmw.ifx
-        e_prog = stage_tx_evm(s_try, score)
-        dpd_rows.append((obo, s_chip.pout_dbm, e_none, e_chip, m["evm_after_db"], e_prog, m["chip_dpd_kept"]))
-        print(f"{obo:7.0f}  {s_chip.pout_dbm:9.2f}  {e_none:7.2f}  {e_chip:14.2f}  {m['evm_after_db']:20.2f}  "
-              f"{e_chip - e_prog:+23.2f}   {'chip-only (the 60 GHz fit did worse)' if m['chip_dpd_kept'] else '60 GHz-observed'}")
-    print("no DPD / chip-only / programmed: wifitrx tx_evm on the 64-QAM scoring frame; '60 GHz-observed' is the fit's own before/after "
-          "metric (calibrate_dpd, 256-QAM stimulus). The device keeps whichever predistorter reads better on the observation path.")
+        e_prog = stage_tx_evm(s_mmw.ifx, score)
+        it = m["evm_by_iterations_db"]
+        prog = "chip-only" if m["chip_dpd_kept"] else f"{m['programmed']} iteration(s)"
+        dpd_rows.append((obo, e_chip, e_prog, m["programmed"]))
+        print(f"{obo:7.0f}  {s_chip.pout_dbm:9.2f}  {e_none:7.2f}  {e_chip:14.2f}        {it[1]:7.2f} / {it[2]:7.2f} / {it[3]:7.2f}"
+              f"             {prog:<16}  {e_prog:17.2f}  {e_chip - e_prog:+23.2f}")
+    print("no DPD / chip-only / TX EVM programmed: wifitrx tx_evm on the 64-QAM scoring frame. The three iteration columns are "
+          "what the selection reads: EVM at the 60 GHz PA output on the fit's own 256-QAM stimulus, every candidate back at the "
+          "same output power, the LO's phase noise cancelled as in the observation loopback. The best candidate stays programmed "
+          "(the preset tries 1 and 2: assumed.ifext_dpd_max_iterations; wifitrx's calibrate_dpd alone always does 2).")
 
     # ---------------------------------------------------------------- 4. MCS cap vs the fixed LO's noise
     print("\n== 4. MCS cap against the fixed LO's phase noise at 1 MHz (one-pole / one-zero profile, TX and RX LO) ==")

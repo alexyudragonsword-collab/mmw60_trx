@@ -649,6 +649,13 @@ entries:
     cite: "本库；wifitrx 自己的波形默认 4 倍过采样，DPD 的 ACLR 观测要 fs ≥ 3 × BW"
     note: "拓扑 A 里芯片的 DAC / ADC 采样率。拓扑 B 用 2 倍（fs_eff 已是数 GS/s）。"
 
+  assumed.ifext_dpd_max_iterations:
+    value: 2
+    unit: iterations
+    source: assumed
+    cite: "本库；wifitrx cal/dpd_cal.py::calibrate_dpd 的默认 n_iter = 2"
+    note: "60 GHz 观测回环上重训 DPD 时间接学习的迭代上限。本库在 1 … 上限里各训一次，放回同一输出功率、在同一观测通路上读 EVM，留最好的一个（也可能是芯片上原有的）。迭代越多在软压缩 PA 靠近饱和时越差：回退 8 dB 处 1 / 2 / 3 次是 −21.1 / −15.0 / +3.2 dB（示例 06 §3）。"
+
   assumed.mlo_sub7:
     value: {carrier_hz: 5.5e+9, snr_db: 20.0}
     unit: sub-7 GHz link

@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### 拓扑 A 的 DPD 结论更正：间接学习的迭代次数（2026-11-11）
+- `IfExtender.train_dpd_mmw`：60 GHz 观测回环上的 DPD 不再只跑 wifitrx `calibrate_dpd` 的默认 2 次迭代，而是 1 … N 次各训一次，每个候选放回同一输出功率、在同一观测通路上读 EVM，
+  连同芯片上原有的预失真器留最好的；`IfExtConfig.dpd_max_iterations`（`assumed.ifext_dpd_max_iterations` = 2）。候选之间的比较改在同一条件下做（第一版的基线带着固定 LO 的相噪，候选不带）。
+- **更正（numbers-move，示例 06 §3）**：A1 写的“预设 8 dB 回退上观测回环值 0 dB、ILA 发散”是迭代 2 次造成的。迭代 1 次：回退 6 / 8 / 10 / 12 / 14 / 16 dB 处观测回环值 0 / +1.3 / +6.2 / +9.5 / +9.7 / +8.8 dB。
+- 上游往来记入 ROADMAP D 节：pll_simulator#71 已落地并关闭（`d67043e`），PA_DPD#4 已落地并验收通过（`02ca433`，issue 留到链条走完），wifi_trx_cal#4 的正文需求已落地（`96078aa`）。本库的重新 pin 都还没做。
+- `tests/test_ifext.py`：守护测试改为“留最好的一次迭代，且不比芯片上的差”。
+
 ### 拓扑 A：IF 延伸 —— ROADMAP A1（2026-11-11）
 - `src/mmw60/ifext.py`：`IfExtenderTx` / `IfExtenderRx`（wifitrx `TxChain` / `RxChain` 的子类，60 GHz 级显式加在父类调用之后 / 之前，级关掉时逐位等于父类）；
   间级电平、IF 带通（Chebyshev-I 低通等效）、固定 LO 混频、共享 `Frontend60` 的 60 GHz PA；频率规划 `if_plan`；芯片按 wifitrx 自己的配方随机化并跑完 `run_full_cal`（铁律 4）；DPD 可在 60 GHz 观测回环上重训，比不过已有的不写入。

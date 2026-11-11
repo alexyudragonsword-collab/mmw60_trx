@@ -340,6 +340,7 @@ class IfExtender:
     chip: str
     cal_results: list = field(default_factory=list)
     dpd_observation: str = "chip"
+    dpd_max_iterations: int = 2
     pout_dbm: float | None = None
     chip_pout_dbm: float | None = None
     dpd_mmw: dict | None = None
@@ -377,7 +378,8 @@ class IfExtender:
             tx, rx, res = IfExtenderTx(t0.params, fs_hz), IfExtenderRx(r0.params, fs_hz), []
         tx.stage, rx.stage = tx_stage, rx_stage
         tx.stage_on = rx.stage_on = True
-        return cls(tx=tx, rx=rx, plan=plan, chip=ix.chip, cal_results=res, dpd_observation=ix.dpd_observation)
+        return cls(tx=tx, rx=rx, plan=plan, chip=ix.chip, cal_results=res, dpd_observation=ix.dpd_observation,
+                   dpd_max_iterations=ix.dpd_max_iterations)
 
     # ------------------------------------------------------------ operating point
     def set_interstage(self, x_digital: np.ndarray, target_pout_dbm: float, tol_db: float = 0.02) -> float:
@@ -400,43 +402,61 @@ class IfExtender:
                 st.interstage_gain_db += err * 1.2
         return p
 
-    def train_dpd_mmw(self, bandwidth_hz: float, oversampling: int, drive_scale: float) -> dict:
+    def train_dpd_mmw(self, bandwidth_hz: float, oversampling: int, drive_scale: float,
+                      target_pout_dbm: float | None = None, max_iterations: int = 2) -> dict:
         """Retrain the predistorter on the cascade through a 60 GHz observation
         loopback (coupler after the second PA, the same fixed LO converting
-        down, the chip's receiver): wifitrx's ``calibrate_dpd``, unchanged."""
+        down, the chip's receiver) with wifitrx's ``calibrate_dpd``, unchanged
+        — and stop where it stops helping.
+
+        wifitrx's indirect-learning fit iterates (``n_iter``, default 2).  On a
+        soft-compressing PA near saturation every further iteration undoes the
+        one before it (this Rapp at 8 dB back-off: −21 dB after one iteration,
+        −15 dB after two, +3 dB after three — cairn/topology-a.md §4).  So the
+        fit is run for 1 … ``max_iterations`` iterations, each candidate is put
+        back at the same output power and read on the same observation path as
+        the predistorter already programmed, and the best of them stays —
+        which may be the chip-only one."""
         from dataclasses import replace
 
         from .vendor.wifitrx.cal.dpd_cal import calibrate_dpd
         from .vendor.wifitrx.waveform.ofdm import generate_ofdm
         tx, rx = self.tx, self.rx
+        st = tx.stage
         wf = generate_ofdm(replace(cal_ofdm_config(bandwidth_hz, oversampling), n_symbols=8))
         x = wf.x * drive_scale
-        chip_dpd = tx.dpd
         tx.stage_on = True
-        evm_chip_dpd = _pa_out_evm_db(tx, wf, x)        # the cascade with the chip-only predistorter
-        tx.dpd = None
-        # the DPD observes at the cold coupler point (≥ 40 dB on the chip, wifitrx's dpd step)
-        path = mmw_observation_path(tx, bandwidth_hz, x, min_atten_db=40.0)
-        atten = path.atten_db
-        tx.stage.lo_shared_loopback = rx.stage.lo_shared_loopback = True
+        if target_pout_dbm is None:
+            target_pout_dbm = power_dbm(tx(x))
+        chip_dpd = tx.dpd
+        gain0 = st.interstage_gain_db
+        st.lo_shared_loopback = rx.stage.lo_shared_loopback = True      # the observation: the LO's phase noise cancels
         try:
-            res = calibrate_dpd(tx, rx, wf, path, drive_scale=drive_scale)
+            def read() -> float:
+                """EVM at the 60 GHz PA output with the candidate programmed, at the target output power."""
+                self.set_interstage(x, target_pout_dbm)
+                return _pa_out_evm_db(tx, wf, x)
+
+            candidates = [("chip", chip_dpd, read(), gain0)]
+            atten = None
+            for n_iter in range(1, int(max_iterations) + 1):
+                st.interstage_gain_db = gain0
+                tx.dpd = None
+                # the DPD observes at the cold coupler point (≥ 40 dB on the chip, wifitrx's dpd step)
+                path = mmw_observation_path(tx, bandwidth_hz, x, min_atten_db=40.0)
+                atten = path.atten_db
+                calibrate_dpd(tx, rx, wf, path, n_iter=n_iter, drive_scale=drive_scale)
+                e = read()
+                candidates.append((n_iter, tx.dpd, e if np.isfinite(e) else np.inf, st.interstage_gain_db))
         finally:
-            tx.stage.lo_shared_loopback = rx.stage.lo_shared_loopback = False
-        self.dpd_mmw = {"evm_before_db": float(res.metrics_before["evm_db"]),
-                        "evm_after_db": float(res.metrics_after["evm_db"]),
-                        "aclr_before_dbc": float(res.metrics_before["aclr_worst_dbc"]),
-                        "aclr_after_dbc": float(res.metrics_after["aclr_worst_dbc"]),
-                        "evm_chip_dpd_db": float(evm_chip_dpd),
-                        "coupler_atten_db": float(atten), "passed": bool(res.passed),
-                        "chip_dpd_kept": False}
-        after = self.dpd_mmw["evm_after_db"]
-        if not np.isfinite(after) or after > evm_chip_dpd:
-            # the indirect-learning fit did worse than the predistorter already programmed
-            # (wifitrx: "ILA diverges if driven past saturation"); the device sees both on
-            # the same observation path and keeps the better one
-            tx.dpd = chip_dpd
-            self.dpd_mmw["chip_dpd_kept"] = True
+            st.lo_shared_loopback = rx.stage.lo_shared_loopback = False
+        best = min(candidates, key=lambda c: c[2])
+        tx.dpd, st.interstage_gain_db = best[1], best[3]
+        self.dpd_mmw = {"evm_chip_dpd_db": float(candidates[0][2]),
+                        "evm_by_iterations_db": {int(c[0]): float(c[2]) for c in candidates[1:]},
+                        "programmed": best[0], "evm_programmed_db": float(best[2]),
+                        "chip_dpd_kept": best[0] == "chip", "coupler_atten_db": float(atten),
+                        "max_iterations": int(max_iterations)}
         return self.dpd_mmw
 
     def finish(self, x_digital: np.ndarray, target_pout_dbm: float, bandwidth_hz: float,
@@ -447,7 +467,7 @@ class IfExtender:
         self.tx.stage_on = True
         self.pout_dbm = self.set_interstage(x_digital, target_pout_dbm)
         if self.chip == "wifitrx" and self.dpd_observation == "mmw" and self.tx.stage.pa is not None:
-            self.train_dpd_mmw(bandwidth_hz, oversampling, drive_scale)
+            self.train_dpd_mmw(bandwidth_hz, oversampling, drive_scale, target_pout_dbm, self.dpd_max_iterations)
             self.pout_dbm = self.set_interstage(x_digital, target_pout_dbm)
         return self.pout_dbm
 
