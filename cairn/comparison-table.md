@@ -118,14 +118,22 @@ SNR_req = −10·log10(10^(−T/10) − 10^(floor/10))；判可达的口径是 �
 
 ## 4. LO 三种剖面并排（各自的 `Frontend60`；`PhaseNoiseConfig.model`）
 
-| 模型 | IPN 10 kHz–100 MHz | K = 8：相噪 ICI / 底板 / 时域 | K = 32：底板 / 时域 |
+| 模型 | IPN 10 kHz–100 MHz | K = 8：相噪 ICI / 底板 / 时域 | K = 32：相噪 ICI / 底板 / 时域 |
 |---|---|---|---|
-| `pole_zero`（11ad EM 形状、Liu 的数） | −31.1 dBc | −28.0 / −17.4 / −17.3 | −15.2 / −15.3 |
-| `wifitrx_wifi7`（WiFi 7 频综，vendored 剖面） | −46.9 dBc | −49.6 / −17.8 / −18.1 | −15.3 / −15.5 |
-| `profile`：pllsim wu19 剖面 × N（+19.7 dB，`assumed.lo_multiplier_law`） | −33.2 dBc | −32.3 / −17.7 / −17.8 | −15.2 / −15.5 |
+| `pole_zero`（11ad EM 形状、Liu 的数） | −31.1 dBc | −28.0 / −17.4 / −17.4 | −31.6 / −15.2 / −15.4 |
+| `wifitrx_wifi7`（WiFi 7 频综，vendored 剖面） | −46.9 dBc | −49.6 / −17.8 / −18.5 | −54.7 / −15.3 / −16.0 |
+| `profile`：pllsim wu19 6.048 GHz × 10，倍频器底噪 −150 dBc/Hz（`survey.clock_profile_wu19_x10`） | −33.0 dBc | −32.0 / −17.7 / −17.8 | −36.1 / −15.2 / −15.7 |
+| 同上，底噪 −160 / −140 / −130 dBc/Hz | −33.0 dBc（三档相同） | −32.0 / −31.9 / −31.6，底板 −17.7 / −17.7 / −17.6 | −36.1 / −35.7 / −33.0，底板都是 −15.2 |
 
-WiFi 7 频综好 16 dB IPN，底板只好 0.4 dB：在 OBO 8 dB 处 LO 不是瓶颈。pllsim 剖面经理想 ×N 与 Liu 的 pole-zero 同量级（差 2 dB）——
-这条是"WiFi 7 全链路四条整合"里的"pll 剖面替换解析相噪"：接口已通，倍频器自身的底噪与杂散等 pll_simulator 的 D2。
+WiFi 7 频综好 16 dB IPN，底板只好 0.4 dB：在 OBO 8 dB 处 LO 不是瓶颈。pllsim 剖面与 Liu 的 pole-zero 同量级（IPN 差 2 dB）。
+倍频器底噪四档的 MCS 上限一格不动：PLL 远端 ×10² 在 100 MHz 处 L(f) 约 −133.6 dBc/Hz，−150 与 −160 埋在它下面，−130 才在 K = 32 的相噪 ICI 上露出 3 dB，而那一行是 PA 限。
+
+- 剖面怎么来的：pll_simulator@`d67043e` 的 `pllsim export bench_wu19_spll_frac_52m_6p253g --set fout=6.048G --set osc.f0=6.048G --clock-profile <file> --multiply-by 10 --floor-dbchz=<F> --spur-rejection-db 40`，
+  本库在本地检出的该 commit 上生成四个文件入库（`src/mmw60/data/clock_profiles/pllsim_wu19_x10_60p48g_floor*.yaml`）。f_in/2 以内是 N²·S 加底噪，以上只有底噪；杂散表不消费（铁律 6）。
+- `profile_at_carrier` 只接受整数的 f_c / f0（`assumed.lo_multiplier_law`）：带倍频器的文件只在自己的 f0 上用，不带的按理想 20·log10(N) 平移；非整数比与分频报错。
+- **更正（2026-11-11，pin pll_simulator@d67043e）**：本节原先的 `profile` 行是 wu19 的 6.253 GHz 剖面按 20·log10 平移 +19.7 dB，那是 ×9.672，不对应可实现的倍频器（pll_simulator#71 指出）。换成 ×10 剖面后 IPN −33.2 → −33.0 dBc，
+  相噪 ICI K = 1 / 8 / 32 从 −28.1 / −32.3 / −36.4 到 −27.9 / −32.0 / −36.1 dB，底板 K = 1 从 −17.5 到 −17.4 dB，其余底板与 MCS 上限不动。原表 `pole_zero` 与 `wifitrx_wifi7` 两行的时域读数是 C1–C3 之前的（−17.3 / −18.1、−15.3 / −15.5），这次按现在的示例输出改正。
+- 这条是"WiFi 7 全链路四条整合"里的"pll 剖面替换解析相噪"：接口与倍频器模型都已接通。拓扑 A 没有对应的行（ROADMAP A1）。
 
 ## 5. pJ/bit（`mmw60.power`，Halo 示例 41 的口径：公开数系数，读比值不读总量）
 
@@ -157,7 +165,7 @@ K = 8（20 MHz 基准，156 Mb/s）：pa 404、lo 513、conv 1040、dpd 474、ff
 2. 以为 K 越大 pJ/bit 一定越低——20 MHz 基准上 K = 32 比 K = 16 差（1869 对 1694）：IQ 把上限压到 MCS1，DPD 项随带宽涨过了 PA 项。
 3. 以为 EvmBudget 会和本库底板对不上（相噪口径差 3–4 dB）——总量差 ≤ 0.4 dB，因为每一行都是 PA 项主导；只有把 PA 回退拉大或 DPD 之后，口径差才会露出来。
    （A1 更正：那 3–4 dB 里 3.0 dB 是本库把单边带 IPN 当相位方差的换算错，见 §3；改正后相噪项本身也只差 0.1–1.3 dB，没有什么会“露出来”。）
-4. 以为 A2 第一条（实测 IRR 替换假设 45 dB）会改网格结论——≤ 640 MHz 实测 ≥ 46.8 dB 比假设好，2.56 GHz 的 38.4 dB 仍回到 PA 限的 MCS2：一格都不动。
+4. 以为 A2 第一条（实测 IRR 替换假设 45 dB）会改网格结论——≤ 640 MHz 实测 ≥ 46.8 dB 比假设好，2.56 GHz 的 38.4 dB 仍回到 PA 限的 MCS2：一格都不动。（2026-11-11 重新 pin wifitrx@96078aa 后这两档是 46.5 / 37.9 dB，同台表仍然一格不动。）
 6. （A2，示例 05）以为“MCS 上限 = 底板比该 MCS 的 TX EVM 要求低 3 dB”是解码器能不能活的判据——11be 80 MHz × 4 / 8 的 MCS4（16-QAM 3/4）按它“超出上限”（MCS2 / MCS1），PER 却在 12.14 / 13.91 dB 到了 1e-2，只比 ideal 的 11.09 贵 1.05 / 2.82 dB。
    EVM 底板就是一层噪声：有效 SNR = 1/(1/SNR + 10^(floor/10)) 达到 ideal 门限即可，预测 12.54 / 13.40 dB；MCS7 在底板高于其门限（18.10）的格 never、K = 4 no-PA（底板 −22.0）预测 20.38、实测 21.08。
    （这里的数是 C1–C3 改进接收机后重跑的；A2 当时逐符号 CPE 的接收机读 13.88 / 15.05 对 ideal 12.04，结论相同。）

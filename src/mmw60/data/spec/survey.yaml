@@ -528,11 +528,25 @@ entries:
     note: "只进 pJ/bit 列。回退下的 PAE 按 B 类规律 PAE(Pout) = PAE_max · sqrt(Pout / Psat)（frontend/pa.py），OBO 8 dB 处 7.9 %；换成 A 类（∝ Pout/Psat）PA 项再差 2.5 倍。未查具体器件。"
 
   assumed.lo_multiplier_law:
-    value: "20log10"
+    value: "integer_n"
     unit: law
     source: assumed
-    cite: "本库；理想倍频 / 分频：L(f) 平移 20·log10(f_c / f0)"
-    note: "pllsim 剖面搬到载频的占位规律：没有倍频器自身的底噪项与谐波选择杂散（ROADMAP D2 到了再换）。更正（2026-11-11，pll_simulator#71）：现有 wu19 剖面 6.253 GHz 到 60.48 GHz 是 ×9.672，不是整数倍，不对应可实现的倍频器；只有 +19.7 dB 的量级可用，等对方出 6.048 GHz × 10 的剖面。"
+    cite: "本库 impairments/phase_noise.py::profile_at_carrier；pll_simulator#71（d67043e 落地）"
+    note: "pllsim 剖面怎么到载频：只接受整数的 f_c / f0。带倍频器的文件（pllsim export --multiply-by N，f_in/2 以内 N²·S + 底噪，以上只有底噪）只在自己的 f0 上原样使用，不再平移；不带倍频器的文件按理想规律 20·log10(N) 平移，没有底噪项。非整数比（原先 6.253 GHz 到 60.48 GHz 的 ×9.672）与分频一律报错。更正（2026-11-11）：原先的值是 '20log10'，对任意比值都平移，那一行不对应可实现的倍频器，已由 ×10 剖面替换。"
+
+  assumed.lo_multiplier_floor_dbchz:
+    value: -150.0
+    unit: dBc/Hz
+    source: assumed
+    cite: "本库；倍频器输出端的加性相噪底，未查具体器件（pll_simulator ex22 的 −160 dBc/Hz 是对方的占位，没有出处）"
+    note: "pllsim ×10 剖面的底噪参数。PLL 远端 ×10² 在 100 MHz 处 L(f) 约 −133.6 dBc/Hz，−150 与 −160 都埋在它下面（100 MHz 处 −150 比 −160 高 0.09 dB）；−140 / −130 比 −160 高 0.9 / 5.1 dB。示例 04 第 5 节有 −160 / −140 / −130 三档灵敏度行，每档一个入库的剖面文件。"
+
+  assumed.lo_multiplier_spur_rejection_db:
+    value: 40.0
+    unit: dB
+    source: assumed
+    cite: "本库；倍频器对非选中谐波的抑制，未查具体器件（pll_simulator ex22 的占位值）"
+    note: "只写进剖面文件的杂散表，引擎不消费：本库是线性化基带引擎，杂散结论不能背书（铁律 6）。4 MHz 小数杂散 ×10 后 −43.7 dBc 同样只在文件里。"
 
   assumed.pll60_power_mw:
     value: 40.0
@@ -553,13 +567,27 @@ entries:
     unit: pllsim clock profile
     source: survey
     cite: "Halo_Serdes@13ef8438ab82c9d364ff24c591da33d64afbe598 data/clock_profiles/bench_wu19_spll_frac_52m_6p253g.yaml（pllsim 0.9.6 commit 67fe1c72 的 bench 预设输出；Wu 2019 JSSC 亚采样小数 PLL 6.253 GHz）"
-    note: "未核实（姊妹库模型输出，不是实测）：同台表里 'LO = pllsim 剖面 ×N' 的灵敏度行用它，按 assumed.lo_multiplier_law 搬到 60.48 GHz（+19.7 dB）。文件原样复制到 src/mmw60/data/clock_profiles/。"
+    note: "未核实（姊妹库模型输出，不是实测）：不带倍频器的原始剖面，文件原样复制到 src/mmw60/data/clock_profiles/。更正（2026-11-11）：同台表不再用它（到 60.48 GHz 是 ×9.672，非整数，现在报错）；只留给理想 ×N 规律的测试（整数倍）。"
+
+  survey.clock_profile_wu19_x10:
+    value: {file: "pllsim_wu19_x10_60p48g_floor150.yaml", f0_hz: 60.48e+9, f_in_hz: 6.048e+9, multiply_by: 10, sensitivity_files: ["pllsim_wu19_x10_60p48g_floor160.yaml", "pllsim_wu19_x10_60p48g_floor140.yaml", "pllsim_wu19_x10_60p48g_floor130.yaml"]}
+    unit: pllsim clock profile
+    source: survey
+    cite: "pll_simulator@d67043e1197692dc203287b437613f7b9db83bb7：pllsim export bench_wu19_spll_frac_52m_6p253g --set fout=6.048G --set osc.f0=6.048G --clock-profile <file> --multiply-by 10 --floor-dbchz=<F> --spur-rejection-db 40（F = −150，灵敏度 −160 / −140 / −130）"
+    note: "未核实（姊妹库模型输出，不是实测）：Wu 2019 预设重调到 6.048 GHz 再过对方的 ×10 倍频器模型，510 点到 30.24 GHz。本库在本地检出的该 commit 上生成（对方 examples/out/ 不入库）；底噪与抑制度是 assumed.lo_multiplier_floor_dbchz / assumed.lo_multiplier_spur_rejection_db。同台表 'LO = pllsim wu19 x10' 各行用它。拓扑 A 的 ×3 / ×4（PLL 18.0 / 13.5 GHz）超出对方模型的 12 GHz 覆盖范围，没有对应文件。"
+
+  assumed.cal_capture_symbols:
+    value: 8
+    unit: OFDM symbols
+    source: assumed
+    cite: "本库 calcheck.py；wifitrx 校准序列每次采集的长度，按符号数给"
+    note: "示例 03 / 06 的每一列都用 8 个符号，所以采集的样本数随基准 FFT 点数变：11ac 20 MHz 基准（64 点）只有 1280 个样本，11be 80 MHz 基准（1024 点）有 17408 个。K = 32 的 640 MHz 列（52 音、10 MHz 音距）上 8 个符号不够 GMP 拟合：仅发 EVM −19.3 dB，比不开 DPD 的 −22.8 dB 还差；32 个符号 −27.8 dB。示例 03 有 32 符号的灵敏度行。"
 
   derived.irr_after_cal_measured_db:
-    value: {20.0e+6: 55.3, 80.0e+6: 55.2, 160.0e+6: 50.4, 320.0e+6: 51.1, 640.0e+6: 46.8, 2560.0e+6: 38.4}
+    value: {20.0e+6: 55.3, 80.0e+6: 55.2, 160.0e+6: 50.4, 320.0e+6: 51.1, 640.0e+6: 46.5, 2560.0e+6: 37.9}
     unit: dB per side
     source: derived
-    cite: "examples/expected/03_calibration_at_k.txt（2026-11-07）tx_iq / rx_iq 两步 irr_min_db 的较小值，按有效带宽"
+    cite: "examples/expected/03_calibration_at_k.txt（2026-11-11，wifitrx@96078aa）tx_iq / rx_iq 两步 irr_min_db 的较小值，按有效带宽"
     note: "示例 03 实测的校准后镜像抑制；同台表的 'IQcal' 列用它（取不大于该行带宽的最近一档），替代 assumed.irr_after_cal_db（ROADMAP A2 第一条）。示例 02 的网格仍用 45 dB 的假设值。"
 
   # ------------------------------------------------------------ 里程碑 1 A2：11be 编码 PER（EHT LDPC）
@@ -619,7 +647,7 @@ entries:
     unit: scheme
     source: assumed
     cite: "本库；60 GHz 常见的 LO 生成方式之一（约 20 GHz 的 PLL 接三倍频）"
-    note: "固定 LO 的倍频数：×3（PLL 18.0 GHz）或 ×4（13.5 GHz）。相噪用参数化的 1 极 1 零剖面直接给在 LO 输出端，所以 N 只进频率规划与 PLL 频率，不改相噪数字；pllsim 剖面 × N 那一行是占位（assumed.lo_multiplier_law，pll_simulator#71）。"
+    note: "固定 LO 的倍频数：×3（PLL 18.0 GHz）或 ×4（13.5 GHz）。相噪用参数化的 1 极 1 零剖面直接给在 LO 输出端，所以 N 只进频率规划与 PLL 频率，不改相噪数字；pllsim ×10 剖面那几行是零中频 60.48 GHz 的（survey.clock_profile_wu19_x10）；对方模型不覆盖 18.0 / 13.5 GHz，拓扑 A 没有 pllsim 推出来的行（pll_simulator#71）。"
 
   assumed.ifext_filter:
     value: {bandwidth_hz: 1.2e+9, order: 5, ripple_db: 0.5, center_hz: 6.525e+9}

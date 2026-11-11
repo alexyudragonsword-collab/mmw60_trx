@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/metrics/irr.py
+# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/metrics/irr.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Measured image-rejection and LO-leakage metrics from captures."""
 from __future__ import annotations

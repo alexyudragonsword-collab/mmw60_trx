@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/handoff/replay.py
+# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/handoff/replay.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Consume a cal-state file from the outside, the way its recipient will.
 
@@ -46,6 +46,7 @@ import numpy as np
 from ..metrics.evm import evm_of_signal
 from ..temprule import value_at
 from ..waveform.ofdm import OFDMConfig, generate_ofdm
+from ..waveform.tone_plan import from_record
 
 #: Per-view (low, high) acceptance band for the closure gap [dB], set
 #: from a 10-seed sweep (40 MHz / 256-QAM, DPD on) rather than guessed.
@@ -265,6 +266,35 @@ def _injectors(cond: dict, values: dict) -> dict:
 
 # ---- the replay -------------------------------------------------------
 
+def stimulus_config(cond: dict) -> OFDMConfig:
+    """The scoring waveform's recipe, rebuilt from a conditions block.
+
+    Every field the file records is used; a field it does not record
+    (a file older than schema 1.3) takes the generator's default, which
+    is what every earlier replay did — so an old file replays exactly as
+    before, and a new one replays the waveform it was measured with.
+    Oversampling is 1 on purpose: the replay injects at the symbol rate.
+    """
+    kw = {}
+    for name in ("cp_fraction", "window_fraction"):
+        if name in cond:
+            kw[name] = float(cond[name])
+    if cond.get("tone_plan") is not None:
+        kw["tone_plan"] = from_record(cond["tone_plan"])
+    if "pilot_set" in cond:
+        kw["pilot_set"] = str(cond["pilot_set"])
+    return OFDMConfig(
+        bandwidth_hz=float(cond["bandwidth_hz"]),
+        qam_order=int(cond["qam_order"]),
+        n_symbols=int(cond["n_symbols"]),
+        oversampling=1,
+        subcarrier_spacing_hz=float(
+            cond.get("subcarrier_spacing_hz", 78.125e3)),
+        seed=cond.get("waveform_seed", 0),
+        **kw,
+    )
+
+
 def _at_temperature(res: dict, values: dict, measured_key: str,
                     temp_c: float, recalibrated: bool) -> tuple[dict, float, dict]:
     """The residual surface synthesised at ``temp_c`` under the file's
@@ -360,15 +390,7 @@ def replay(path: str | os.PathLike, view: str = "tx",
                      else ("corrections frozen, DPD tracked, interpolated"
                            if tracked else "frozen corrections, interpolated"))
 
-    cfg = OFDMConfig(
-        bandwidth_hz=float(cond["bandwidth_hz"]),
-        qam_order=int(cond["qam_order"]),
-        n_symbols=int(cond["n_symbols"]),
-        oversampling=1,
-        subcarrier_spacing_hz=float(
-            cond.get("subcarrier_spacing_hz", 78.125e3)),
-        seed=cond.get("waveform_seed", 0),
-    )
+    cfg = stimulus_config(cond)
     ref = generate_ofdm(cfg)
     fs = cfg.sample_rate_hz
     injectors = _injectors(cond, values)

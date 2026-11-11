@@ -109,3 +109,20 @@
   quotes:
     - {doc: cairn/topology-a.md, text: "带上它在 8 dB 回退上 TX EVM 从 {chip8} 到 {prog8} dB"}
 
+
+- name: ex03 K = 32 on the 11ac 20 MHz base (640 MHz) — the capture length decides the DPD, not the bandwidth
+  values:
+    s8: {example: "03", after: "== sensitivity: capture length", line: "8 1280 {*} {*} {} {*}"}
+    s32: {example: "03", after: "== sensitivity: capture length", line: "32 5120 {*} {*} {} {*}"}
+    nodpd: {example: "03", after: "== sensitivity: capture length", line: "8 1280 off {*} {} {*}"}
+  quotes:
+    - {doc: cairn/topology-b.md, text: "DPD 之后仅发 EVM {s8} dB，比不开 DPD 的 {nodpd} dB 还差 {s8 - nodpd} dB；采 32 个符号（5120 样本）是 {s32} dB"}
+
+- name: ex04 the pllsim x10 LO profile against the 11ad pole-zero one (IPN, K = 8 phase-noise ICI)
+  values:
+    ipn_x10: {example: "04", after: "== 5. the LO models", line: "pllsim wu19 x10, floor -150 dBc/Hz (assumed) 8 {} {*} {*} {*} MCS{*}"}
+    ici_x10: {example: "04", after: "== 5. the LO models", line: "pllsim wu19 x10, floor -150 dBc/Hz (assumed) 8 {*} {} {*} {*} MCS{*}"}
+    ipn_pz: {example: "04", after: "== 5. the LO models", line: "pole_zero (11ad EM shape, Liu numbers) 8 {} {*} {*} {*} MCS{*}"}
+  quotes:
+    - {doc: cairn/comparison-table.md, text: "pllsim 剖面与 Liu 的 pole-zero 同量级（IPN 差 {ipn_pz - ipn_x10} dB）"}
+    - {doc: cairn/comparison-table.md, text: "| {ipn_x10} dBc | {ici_x10} / −17.7 / −17.8 |"}

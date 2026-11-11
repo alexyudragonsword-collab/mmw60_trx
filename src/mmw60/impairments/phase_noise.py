@@ -72,8 +72,12 @@ CLOCK_PROFILES_DIR = Path(__file__).resolve().parent.parent / "data" / "clock_pr
 def load_clock_profile(path: str | Path) -> dict:
     """A pllsim clock phase-noise profile (``pllsim.export.clock_profile``
     format, the file Halo_Serdes consumes): ``f0_hz``, ``f_hz``, ``l_dbc_hz``
-    (single-sideband L(f) in dBc/Hz), ``spurs``, ``source``.  A relative
-    path is looked up in ``mmw60/data/clock_profiles``."""
+    (single-sideband L(f) in dBc/Hz), ``spurs``, ``source``.  A file pllsim
+    wrote through its ×N multiplier (pll_simulator@d67043e, ``--multiply-by``)
+    also carries ``multiply_by``, ``f_in_hz``, ``floor_dbchz`` and
+    ``spur_rejection_db``; ``multiply_by`` is 1 and the other three are None
+    when the file has no multiplier.  A relative path is looked up in
+    ``mmw60/data/clock_profiles``."""
     p = Path(path)
     if not p.is_absolute() and not p.exists():
         p = CLOCK_PROFILES_DIR / p
@@ -83,18 +87,61 @@ def load_clock_profile(path: str | Path) -> dict:
             raise ValueError(f"{p}: not a clock profile (missing {key!r})")
     if len(d["f_hz"]) != len(d["l_dbc_hz"]):
         raise ValueError(f"{p}: f_hz and l_dbc_hz differ in length")
+    n = d.get("multiply_by", 1)
+    if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+        raise ValueError(f"{p}: multiply_by must be a positive integer, got {n!r}")
+    d["multiply_by"] = n
+    for key in ("f_in_hz", "floor_dbchz", "spur_rejection_db"):
+        d[key] = None if d.get(key) is None else float(d[key])
+    if n > 1:
+        for key in ("f_in_hz", "floor_dbchz", "spur_rejection_db"):
+            if d[key] is None:
+                raise ValueError(f"{p}: a multiplied profile (multiply_by = {n}) must state {key!r}")
+        if abs(d["f_in_hz"] * n - float(d["f0_hz"])) > _RATIO_TOL * float(d["f0_hz"]):
+            raise ValueError(f"{p}: f_in_hz x multiply_by = {d['f_in_hz'] * n:.6g} Hz is not f0_hz = "
+                             f"{float(d['f0_hz']):.6g} Hz")
     d["path"] = str(p)
     return d
 
 
+_RATIO_TOL = 1e-6      # relative tolerance on "f_c / f0 is an integer"
+
+
+def profile_ratio(prof: dict, carrier_hz: float) -> int:
+    """The integer f_c / f0 a profile may be moved by, or ValueError.
+
+    Only an integer ratio is a frequency multiplier that can be built
+    (pll_simulator#71: the earlier 6.253 GHz → 60.48 GHz row was ×9.672).  A
+    file that already went through pllsim's ×N block carries that block's
+    floor, so it is used at its own ``f0_hz`` only: moving it again by the
+    ideal law would scale the floor too."""
+    ratio = float(carrier_hz) / float(prof["f0_hz"])
+    n = int(round(ratio))
+    where = prof.get("path", "clock profile")
+    if n < 1 or abs(ratio - n) > _RATIO_TOL * max(ratio, 1.0):
+        raise ValueError(f"{where}: carrier {float(carrier_hz):.6g} Hz is x{ratio:.4f} of the profile's f0 "
+                         f"{float(prof['f0_hz']):.6g} Hz, not an integer multiple; generate the profile at "
+                         "carrier / N (pllsim export --multiply-by N)")
+    if prof.get("multiply_by", 1) > 1 and n != 1:
+        raise ValueError(f"{where}: already multiplied by {prof['multiply_by']} to {float(prof['f0_hz']):.6g} Hz "
+                         f"(floor {prof['floor_dbchz']} dBc/Hz included); it cannot be moved to "
+                         f"{float(carrier_hz):.6g} Hz by the ideal law")
+    return n
+
+
 def profile_at_carrier(prof: dict, carrier_hz: float, name: str = "clock_profile") -> TabulatedPhase:
-    """The profile's L(f) moved from its own carrier ``f0_hz`` to ``carrier_hz``
-    by 20·log10(f_c / f0): an ideal frequency multiplier / divider, no
-    multiplier floor and no harmonic-selection spurs (data/spec:
-    assumed.lo_multiplier_law; the real ×N block is ROADMAP D2).  wifitrx's
+    """The profile's L(f) at ``carrier_hz``.
+
+    A file written through pllsim's ×N block (``multiply_by`` > 1) is used as
+    it is, at its own ``f0_hz``: N²·S plus the multiplier floor inside
+    f_in / 2, the floor alone above.  A file without a multiplier is moved by
+    the ideal law 20·log10(N) at an integer N = f_c / f0 only, with no floor
+    (data/spec: assumed.lo_multiplier_law).  The file's spur list is not
+    consumed: this is a linearised engine (iron law 6).  wifitrx's
     ``TabulatedPhase`` interpolates linearly in (log f, dB) and holds the end
     values flat outside the table."""
-    n_db = 20.0 * np.log10(float(carrier_hz) / float(prof["f0_hz"]))
+    n = profile_ratio(prof, carrier_hz)
+    n_db = 20.0 * np.log10(n) if n > 1 else 0.0
     l_dbc = tuple(float(v) + n_db for v in prof["l_dbc_hz"])
     return TabulatedPhase(name, f_pts=tuple(float(f) for f in prof["f_hz"]), l_dbc_pts=l_dbc)
 

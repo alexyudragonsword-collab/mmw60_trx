@@ -49,25 +49,33 @@ PA = 11ad EM Rapp 的 dBm 版 `ScaledRappPA`（Psat 15 dBm、增益 20 dB，都�
 
 ## 3. 校准：wifitrx 序列在每个 K 上（示例 03，`examples/expected/03_calibration_at_k.txt`）
 
-链路 = 同一个 `Frontend60`，poweron 剖面；K = 1/4/8/16（20/80/160/320 MHz，wifitrx 有标准导频的评分波形）、K = 32（640 MHz）与 11be 80 MHz × 32（2.56 GHz，无评分波形）。
+链路 = 同一个 `Frontend60`，poweron 剖面，wifitrx@96078aa；K = 1/4/8/16（20/80/160/320 MHz，wifitrx 有标准导频的评分波形）、K = 32（640 MHz）与 11be 80 MHz × 32（2.56 GHz）。
+后两列没有标准导频表，用**基准波形 × K**（`calcheck.upclocked_scoring_config`：基准带宽的音与导频原样，音距 × K；wifitrx 96078aa 起 `TonePlan` 自带导频，wifi_trx_cal#4），整套序列的激励与评分都是它。每次采集 8 个符号（`assumed.cal_capture_symbols`）。
 
 | 步骤 | K=1 | K=4 | K=8 | K=16 | K=32 (640M) | 80M×32 (2.56G) | 机理 |
 |---|---|---|---|---|---|---|---|
-| tx_lpf_corner / rx_lpf_corner | ok / ok | ok / ok | ok / ok | ok / ok | ok / **退化 6.4 %** | ok / **退化 13.6 %** | 角频随 BW 缩放；2^14 样本的扫频分辨率随 fs 变粗 |
-| rx_dc_offset（worst dBFS） | −78.8 | −72.9 | −69.9 | −67.1 | −57.8 | −57.8 | 读 DC 箱；残余随 fs 上的噪声带宽升高 |
-| tx_lo_leak_loopback（dBc） | −68.5 | −72.2 | −68.1 | **−55.0** | **−35.5** | **−35.5** | RX LO 偏置固定 4.8 MHz：K ≥ 8 时泄漏箱落进信号带内 |
-| loopback_delay（ns） | 71.7 | 23.3 | 14.7 | 10.5 | 6.7 | 6.7 | 6 ns 回环 + LPF 群时延；max_lag 32 样本在 ≥ 5.3 GS/s 越界（2.56 GHz 处 5.12 GS/s 刚好未越） |
-| tx_iq（irr_min dB） | 55.3 | 55.8 | 50.4 | 51.1 | 46.8 | **38.4** | 绝对 ps 失配在宽带上相位误差 ∝ K，校正 FIR 抽头数不变 |
-| rx_iq（irr_min dB） | 56.3 | 55.2 | 50.6 | 52.3 | 47.8 | **41.8** | 同上 |
-| group_delay（误差 ps） | −6.1 | −27.6 | −40.8 | −17.9 | 7.9 | 7.9 | 容差 80 ps 内 |
-| dpd（PA 输出 EVM dB） | −27.3 | −25.0 | −26.5 | −26.4 | −18.4 | **−22.3** | 观测 ADC ENOB 随 fs 下降 + 无记忆 PA 的 GMP 冗余 |
+| tx_lpf_corner / rx_lpf_corner | ok / ok | ok / ok | ok / ok | ok / ok | ok / ok | ok / **退化 8.7 %** | 角频随 BW 缩放；2^14 样本的扫频分辨率随 fs 变粗 |
+| rx_dc_offset（worst dBFS） | −78.8 | −72.9 | −69.9 | −67.1 | −63.8 | −57.8 | 读 DC 箱；残余随 fs 上的噪声带宽升高 |
+| tx_lo_leak_loopback（dBc） | −68.5 | −72.2 | −68.1 | **−55.0** | **−56.9** | **−39.8** | RX LO 偏置固定 4.8 MHz：K ≥ 8 时泄漏箱落进信号带内 |
+| loopback_delay（ns） | 71.7 | 23.3 | 14.7 | 10.5 | 8.2 | 6.8 | 6 ns 回环 + LPF 群时延；max_lag 32 样本在 ≥ 5.3 GS/s 越界（2.56 GHz 处 5.12 GS/s 刚好未越） |
+| tx_iq（irr_min dB） | 55.3 | 55.8 | 50.4 | 51.1 | 46.9 | **37.9** | 绝对 ps 失配在宽带上相位误差 ∝ K，校正 FIR 抽头数不变 |
+| rx_iq（irr_min dB） | 56.3 | 55.2 | 50.6 | 52.3 | 46.5 | **42.1** | 同上 |
+| group_delay（误差 ps） | −6.1 | −27.6 | −40.8 | −17.9 | −8.6 | 8.1 | 容差 80 ps 内 |
+| dpd（PA 输出 EVM dB） | −27.3 | −25.0 | −26.5 | −26.4 | **−19.7** | −25.2 | 观测 ADC ENOB 随 fs 下降；640 MHz 列见下面的采集长度 |
 | agc_sweep（落点误差 dB） | 0.3 | 0.1 | 0.3 | 0.0 | 0.1 | 0.1 | 探针 23 MHz 固定，未受影响 |
-| final_loopback_evm（tx_evm_modem dB） | −25.5 | −25.1 | −26.7 | −26.1 | **skipped** | **skipped** | 无评分波形（wifitrx 导频表只到 320 MHz） |
+| final_loopback_evm（tx_evm_modem dB） | −25.5 | −25.1 | −26.7 | −26.1 | **−19.3** | −26.0 | 标准带宽用标准波形，更宽的用基准波形 × K |
 
-- 没有一步在 2.56 GHz 上抛异常；"失效"表现为退化：LO 泄漏环检从 −68 到 −35 dBc（4.8 MHz 固定偏置在 2.5 MHz 音距下落在第 2 个子载波上，泄漏箱被数据淹没），IQ 校准从 55 到 38–42 dB，DPD 从 −27 到 −22 dB。
-- 校准后的 IRR 实测值（38–42 dB @ 2.56 GHz、47–48 @ 640 MHz、50–52 @ 160–320 MHz）比网格假设的 45 dB 在 2.56 GHz 处差 3–7 dB：网格 "IQcal" 列在 2.56 GHz 处偏乐观约 1 个 MCS（ROADMAP A2 第一条）。
+最后一步的三个视图（wifitrx 的 modem 口径，标准接收机读到的；回环 / 仅发 / 仅收，dB）：K = 1 −26.4 / −25.5 / −27.4；K = 16 −29.3 / −26.1 / −27.9；640 MHz −19.4 / −19.3 / −29.6；2.56 GHz −24.3 / −26.0 / −28.3。
+2.56 GHz 列的 genie 口径回环 EVM 校准前后是 2.2 / −12.9 dB，modem 口径 −24.3 dB：差的那部分是标准接收机的信道估计与导频跟踪能吸收的线性项。
+
+- 没有一步在 2.56 GHz 上抛异常；"失效"表现为退化：LO 泄漏环检从 −68 到 −40 dBc（4.8 MHz 固定偏置在 2.5 MHz 音距下落在第 2 个子载波上，泄漏箱被数据淹没），IQ 校准从 55 到 38–42 dB，RX 角频偏 8.7 %。最终 EVM 仍是 −26.0 dB，与 320 MHz 的 −26.1 持平。
+- **640 MHz 那列差的是采集长度，不是带宽**：11ac 20 MHz 基准 × 32 只有 52 个音、64 点 FFT，8 个符号是 1280 个样本，GMP 拟合不够：DPD 之后仅发 EVM −19.3 dB，比不开 DPD 的 −22.8 dB 还差 3.5 dB；采 32 个符号（5120 样本）是 −27.8 dB。
+  同样 640 MHz 换 11be 20 MHz 基准 × 32（242 音、2.5 MHz 音距，8 个符号 4352 样本）是 −27.2 dB。K = 1 的同一个 64 点波形 8 个符号够用（−25.5 dB）；K = 32 上为什么不够没有单独验证（候选：观测 ADC 的 ENOB 随 fs 下降，辨识噪声更大）。示例 03 有 32 符号的灵敏度行；默认值没有改（每列同一个符号数）。
+- 校准后的 IRR 实测值（38–42 dB @ 2.56 GHz、46–47 @ 640 MHz、50–52 @ 160–320 MHz）比网格假设的 45 dB 在 2.56 GHz 处差 3–7 dB：网格 "IQcal" 列在 2.56 GHz 处偏乐观约 1 个 MCS（ROADMAP A2 第一条）。
   更正（2026-11-07，同台表）：把实测值真放进 IQcal 列后 2.56 GHz 仍是 PA 限的 MCS2——"偏乐观 1 个 MCS" 没有兑现，一格都没动（`comparison-table.md` §6 ④）；实测表在 `derived.irr_after_cal_measured_db`。
-- 评分波形的缺口是上游需求（ROADMAP D）：wifitrx 的 `pilot_positions` 只认标准带宽的表，640 MHz / 2.56 GHz 上 `scoring_frame` 无法构造。
+- 更正（2026-11-11，重新 pin wifitrx@96078aa）：本节原先写 640 MHz 与 2.56 GHz 两列的 `final_loopback_evm` 是 skipped（wifitrx 的导频表只到 320 MHz），其余步骤在无导频的纯 OFDM 激励上跑。现在两列整套都用基准波形 × K，
+  所以这两列的其他数字也动了：640 MHz 的 rx_lpf_corner 6.4 % → 0.0、LO 泄漏 −50.8 → −56.9 dBc、dpd −18.4 → −19.7；2.56 GHz 的 rx_lpf_corner 13.6 % → 8.7、LO 泄漏 −35.5 → −39.8、tx_iq 38.4 → 37.9、rx_iq 41.8 → 42.1、dpd −22.3 → −25.2。
+  K = 1 / 4 / 8 / 16 四列一个数没动。原表 640 MHz 列的 rx_dc / LO 泄漏 / 回环延迟 / 群时延四格抄成了 2.56 GHz 列的数（−57.8 / −35.5 / 6.7 / 7.9），当时的实测是 −64.1 / −50.8 / 8.1 / −8.7。
 
 ## 4. 被推翻的判断
 

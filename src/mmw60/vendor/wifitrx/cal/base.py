@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/cal/base.py
+# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/cal/base.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Calibration result/state containers.
 
@@ -18,13 +18,18 @@ from typing import Any
 #: The cal-state file's major format tag (the inspector carries its own
 #: copy — it must stay stdlib-only and importable next to the JSON).
 FORMAT = "wifitrx-cal-state-v1"
-#: Additive changes inside v1, MAJOR.MINOR.  1.2 (0.7.35): the optional
+#: Additive changes inside v1, MAJOR.MINOR.  1.3 (0.7.37): the stimulus
+#: recipe in conditions is complete — cp_fraction, pilot_set and, for a
+#: non-default tone plan, tone_plan (index runs plus the plan's own
+#: pilots) — so a consumer rebuilds the waveform that was measured, not
+#: the default numerology at the same bandwidth; files without them
+#: rebuild with the defaults, as before.  1.2 (0.7.35): the optional
 #: residuals.temperature block (per-key sampled points, interpolation
 #: rule and post-recalibration bound) plus temp_class / lsb in every
 #: impairment specification entry; 1.1 (0.7.18): the three
 #: *_evm_modem_db totals and conditions.ce_smooth_tones; 1.0: everything
 #: before, which wrote no schema_version at all.
-SCHEMA_VERSION = "1.2"
+SCHEMA_VERSION = "1.3"
 
 
 @dataclass

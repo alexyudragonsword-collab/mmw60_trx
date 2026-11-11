@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/handoff/inspector.py
+# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/handoff/inspector.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Standalone cal-state inspector: stdlib-only, checks against embedded spec.
 
@@ -24,7 +24,7 @@ import sys
 
 FORMAT = "wifitrx-cal-state-v1"
 #: mirrors wifitrx.cal.base.SCHEMA_VERSION (stdlib-only file: no import)
-SCHEMA_VERSION = "1.2"
+SCHEMA_VERSION = "1.3"
 
 # severity ordering for the exit code: any "error" -> exit 1
 SEVERITIES = ("error", "warning", "info")

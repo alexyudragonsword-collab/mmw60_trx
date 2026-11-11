@@ -20,6 +20,9 @@ authoring_mode: ai_generated
 - **`stf_waveform` 硬编码 0.8e-6 s 与 1.25e6 Hz**：在基准数字学上用没问题（K 只改 fs 的解释）。
 - **wifitrx 的 `estimate_cfo` 只用 LTF 两段**（±SCS/2），STF 只是 AGC 激励："the estimators never look at it"。STF 粗估计是本库 `rx/cfo.py` 写的。
 - **`run_full_cal` 在 K ≠ 1 直接失败**（第一步 `generate_ofdm_with_pilots`），另有绝对频偏探针（4.8 / 5.1 MHz、11 / 17 / 23 MHz）、固定样本窗（`max_lag = 32`）、320 MHz 调的阈值。里程碑 1 的校准表要逐项记这些。
+- **更正（2026-11-11，wifitrx@96078aa）**：上面两条“导频表只认标准带宽”“`run_full_cal` 在 K ≠ 1 直接失败”对带导频的显式音计划已不成立：`TonePlan(..., pilots=)` / `contiguous(n, pilots=…)` 的导频跟着音计划走，
+  `pilot_positions` 不再查表，任何 SCS 都能生成评分波形。本库的用法是 `calcheck.upclocked_scoring_config`（基准的音与导频 × K）。不带导频的音计划在非标准 SCS 上仍然 ValueError。
+- **校准采集按符号数给，样本数随基准 FFT 点数变**：8 个符号在 11ac 20 MHz 基准上只有 1280 个样本，K = 32 时 GMP 拟合不够，DPD 之后比不开还差 3.5 dB（`topology-b.md` §3，`assumed.cal_capture_symbols`）。换基准或换 K 后先看采集了多少样本。
 - **`TDLChannel.k_db` 只让第一个 tap 变 Rician**，尾部功率不变；要 LOS 占优（抑制 GI 之外的 ISI）用本库 `channel.ExponentialTdl(los_k_db=…)`。
 - `EvmBudget` 默认 `t_fft_s = 12.8e-6`：用时必须传 `1/SCS_eff`。
 

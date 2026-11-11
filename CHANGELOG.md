@@ -4,6 +4,15 @@
 
 ## 未发布
 
+### 重新 pin 两个上游：wifitrx@96078aa 的评分波形、pll_simulator@d67043e 的 ×10 剖面 —— ROADMAP D1 / D2（2026-11-11）
+- `src/mmw60/vendor/wifitrx/` 重新同步到 `96078aa9438c590a24d13959472263ec5f9ab623`（0.7.37；106 个文件 verbatim，7 个文件的正文有变化），pin 在 `tools/vendor_check.py`、`tools/vendor_manifest.json`、`tests/test_vendor_check.py`、CI 四处一起改。里程碑 0 指纹逐位不变。
+- `calcheck.upclocked_scoring_config`：没有标准导频表的带宽（640 MHz、2.56 GHz）用基准波形 × K 评分（基准的音与导频原样，音距 × K；靠 wifitrx 新的 `TonePlan(..., pilots=)`）。示例 03 原先 skipped 的两列跑出最终 EVM；
+  `CalRun.final_views` 带出 wifitrx 最后一步的回环 / 仅发 / 仅收三个视图；采集长度成为显式参数（`n_symbols`，`assumed.cal_capture_symbols` = 8）并有 32 符号的灵敏度行。
+- `impairments/phase_noise.py`：`load_clock_profile` 读出 `multiply_by` / `f_in_hz` / `floor_dbchz` / `spur_rejection_db`；`profile_at_carrier` 只接受整数的 f_c / f0（`profile_ratio`），带倍频器的文件只在自己的 f0 上用，非整数比与分频报错。**行为变化**：原先任意比值都按 20·log10 平移。
+- 四个剖面文件入库（`data/clock_profiles/pllsim_wu19_x10_60p48g_floor{160,150,140,130}.yaml`，pll_simulator@d67043e 的 CLI 在本地生成）；规范条目 +4（`survey.clock_profile_wu19_x10`、`assumed.lo_multiplier_floor_dbchz`、`assumed.lo_multiplier_spur_rejection_db`、`assumed.cal_capture_symbols`），`assumed.lo_multiplier_law` 改写。
+- **numbers-move**（示例 03、04）：示例 03 的 640 MHz / 2.56 GHz 两列整套换了激励，最终 EVM −19.3 / −26.0 dB，两列其余各步的数也动了（K = 1 / 4 / 8 / 16 四列不动）；示例 04 §5 的 pllsim 行从非整数的 ×9.672 换成 ×10 剖面（IPN −33.2 → −33.0 dBc，相噪 ICI 动 0.2–0.3 dB，MCS 上限不动），多三行底噪灵敏度；`derived.irr_after_cal_measured_db` 的 640 MHz / 2.56 GHz 两档改为 46.5 / 37.9 dB（同台表没有一格因此改变）。
+- `tests/test_calcheck.py` 新增（5 项，含“640 MHz 的最终 EVM 是评分出来的，不是 skipped”，已做变异验证）；`tests/test_compare.py` +1（整数倍守卫）。
+
 ### 拓扑 A 的 DPD 结论更正：间接学习的迭代次数（2026-11-11）
 - `IfExtender.train_dpd_mmw`：60 GHz 观测回环上的 DPD 不再只跑 wifitrx `calibrate_dpd` 的默认 2 次迭代，而是 1 … N 次各训一次，每个候选放回同一输出功率、在同一观测通路上读 EVM，
   连同芯片上原有的预失真器留最好的；`IfExtConfig.dpd_max_iterations`（`assumed.ifext_dpd_max_iterations` = 2）。候选之间的比较改在同一条件下做（第一版的基线带着固定 LO 的相噪，候选不带）。

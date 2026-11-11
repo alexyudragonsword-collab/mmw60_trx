@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/waveform/pilots.py
+# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/waveform/pilots.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Pilot tone placement and insertion, per numerology.
 
@@ -111,6 +111,10 @@ def standard_pilot_tones(config: OFDMConfig) -> np.ndarray:
 def pilot_positions(config: OFDMConfig) -> np.ndarray:
     """Column indices (into the n_active axis) of the pilot tones.
 
+    A plan that carries its own pilots (``TonePlan.pilots``) is used as
+    given and nothing is looked up — the only path for a numerology the
+    two tables below do not cover.
+
     With a real tone plan (``OFDMConfig.tone_plan``) the pilots sit on
     their standard tone indices and the mapping is a direct lookup —
     the lever arm the SCO estimator sees is then the standard's exactly.
@@ -122,6 +126,17 @@ def pilot_positions(config: OFDMConfig) -> np.ndarray:
     (0.7.17; the lever-arm error this costs is under 5 % at the band
     edge).
     """
+    plan = config.tone_plan
+    own = plan.pilot_columns() if hasattr(plan, "pilot_columns") else None
+    if own is not None:
+        # the plan names its pilots: no table is consulted, so a
+        # numerology the standard does not define (another spacing,
+        # 640 MHz, a K-scaled clock) still gets a scoring waveform
+        if getattr(config, "pilot_set", "standard") == "model":
+            raise ValueError("the tone plan carries its own pilots and "
+                             "pilot_set='model' asks for evenly spaced ones; "
+                             "say one or the other")
+        return own
     if getattr(config, "pilot_set", "standard") == "model":
         return model_pilot_positions(config)
     if config.tone_plan is not None:

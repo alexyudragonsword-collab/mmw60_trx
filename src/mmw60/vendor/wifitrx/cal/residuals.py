@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@cc06b9ac8dafb5cbb261a59280e81ae0cfbf787c: src/wifitrx/cal/residuals.py
+# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/cal/residuals.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """What each delivered residual means, shipped inside the cal-state file.
 
@@ -466,6 +466,13 @@ def run_conditions(cfg, tx=None, rx=None, *, with_dpd: bool | None = None,
         "qam_order": int(cfg.qam_order),
         "n_symbols": int(cfg.n_symbols),
         "subcarrier_spacing_hz": float(cfg.subcarrier_spacing_hz),
+        # the rest of the stimulus recipe: before schema 1.3 the replay
+        # rebuilt a different waveform whenever these were not the
+        # defaults (the 11ac/n option's CP was rebuilt at 8 samples
+        # instead of 32), because they were never written down
+        "cp_fraction": float(cfg.cp_fraction),
+        "window_fraction": float(cfg.window_fraction),
+        "pilot_set": str(getattr(cfg, "pilot_set", "standard")),
         "waveform_seed": cfg.seed,
         "oversampling": int(cfg.oversampling),
         # the loopback shares one LO between TX and RX, so the composite
@@ -477,6 +484,11 @@ def run_conditions(cfg, tx=None, rx=None, *, with_dpd: bool | None = None,
         "ce_smooth_tones": int(DEFAULT_CE_SMOOTH_TONES if ce_smooth_tones is None
                                else ce_smooth_tones),
     }
+    from ..waveform.tone_plan import to_record
+    # null = the default contiguous block, "standard" = the numerology's
+    # real plan, otherwise the index runs and the plan's own pilots —
+    # each enough to rebuild the plan exactly
+    cond["tone_plan"] = to_record(getattr(cfg, "tone_plan", None))
     if tx is not None:
         cond["tx_lpf_order"] = int(tx.params.lpf.order)
         cond["tx_lpf_family"] = str(tx.params.lpf.family)
