@@ -178,4 +178,4 @@ K = 8（20 MHz 基准，156 Mb/s）：pa 404、lo 513、conv 1040、dpd 474、ff
 
 - 解码器上限列的剩余：11ac 40–160 MHz 没有门限（要先建 BCC 宽带交织器）；示例 04 §6 的灵敏度仍从解析底板起算（每个旋钮不跑时域），2.56 GHz 那行在那一节比 §4b 高一档；门限随接收机改动要重量（`tools/measure_thresholds.py --check`）。
 Halo ADC 校准接入（要 vendor halo 的 adc 模块，现在转换器列是 ENOB 法则）；
-PA_DPD 的 PA / DPD 进 wifitrx 链（K = 1 可行，K > 1 等 D3 的"记忆按秒参数化"）；11be 的 LDPC 解码功耗；校准列（`calcheck.run_cal_at` 实跑进表，现用示例 03 实测 IRR 的表）。
+带记忆的 PA 进表（PA_DPD 的参考 PA 与 wifitrx 的 DPD 在 K > 1 上已作为灵敏度研究接通，示例 07、`topology-b.md` §3b；表里的 PA 仍是无记忆的 Rapp，且表里计了 DPD 的功耗、底板用的是未预失真的 Rapp）；11be 的 LDPC 解码功耗；校准列（`calcheck.run_cal_at` 实跑进表，现用示例 03 实测 IRR 的表）。

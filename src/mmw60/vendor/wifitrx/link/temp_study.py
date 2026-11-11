@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@96078aa9438c590a24d13959472263ec5f9ab623: src/wifitrx/link/temp_study.py
+# Vendored from wifi_trx_cal@da37888ab16f6a5f34d1d0f3d329a4b857b5f37b: src/wifitrx/link/temp_study.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Temperature hold study: how far does a 25 degC calibration survive?
 
@@ -72,6 +72,19 @@ def _result(results: list[CalResult], name: str) -> CalResult | None:
         if r.name == name:
             return r
     return None
+
+
+def _dpd_basis(results: list[CalResult]) -> dict:
+    """The delivered DPD step's GMP basis — order, memory and tap
+    spacing as it recorded them — so the tracker and a recalibration
+    rebuild the predistorter the part was calibrated with, not the
+    library defaults (identical today unless the run passed
+    ``dpd_tap_spacing``)."""
+    r = _result(results, "dpd")
+    est = r.estimated if r is not None else {}
+    return {"order": int(est.get("order", 7)),
+            "memory_depth": int(est.get("memory_depth", 5)),
+            "tap_spacing": int(est.get("tap_spacing", 1))}
 
 
 def _rx_dc_worst_dbfs(rx: RxChain, n: int, rng: np.random.Generator) -> float:
@@ -340,7 +353,8 @@ def temperature_hold_study(tx: TxChain, rx: RxChain, path: LoopbackPath,
             # the receiver's own IM3 must not be learned into the inverse)
             track_path = replace(path, atten_db=max(path.atten_db, 40.0))
             x_track = generate_ofdm(cfg).x * drive_scale
-            tracker = tracking_adapter(tx, rx, x_track, track_path)
+            tracker = tracking_adapter(tx, rx, x_track, track_path,
+                                       **_dpd_basis(results))
 
         rows = []
         for t in temps:
@@ -364,7 +378,9 @@ def temperature_hold_study(tx: TxChain, rx: RxChain, path: LoopbackPath,
                                        profile=recal_profile,
                                        target_pout_dbm=target_pout,
                                        final_drive_scale=drive_scale,
-                                       seed=seed)
+                                       seed=seed,
+                                       dpd_tap_spacing=_dpd_basis(
+                                           results)["tap_spacing"])
                 recal = {
                     "steps": [r.name for r in redone],
                     "corrections": {r.name: _correction_summary(r)

@@ -32,6 +32,17 @@ python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_
 示例 02 是 "基准带宽 × K" 网格（11ac 20–160、11be 20–320 MHz × K 4–32）：每格解析底板与时域 EVM 交叉核对、能/不能 + 原因、MCS 上限、DPD pJ/bit；
 示例 03 把 wifitrx 的校准序列在每个 K 上逐步真跑。结论见 `cairn/topology-b.md`。
 
+## PA 的电记忆与 DPD 抽头间隔（示例 07）
+
+预设的 60 GHz PA 没有记忆。示例 07 把一颗带电记忆的参考 PA（wifitrx / PA_DPD 的 `ReferencePA`，假设）放进拓扑 B 的链路，在 K = 4 / 8 / 32 上真跑 wifitrx 的校准序列，回答两个问题：
+PA 的记忆是随信号缩放还是按秒固定，代价差多少；DPD 基函数的抽头间隔该取多少（在链路上量，不直接取 fs_eff / fir_fs）。每一行都落在预设的输出回退上。
+
+```bash
+python examples/07_pa_memory_dpd.py                       # 全量约 2 分钟；--quick 冒烟
+```
+
+结论见 `cairn/topology-b.md` §3b：记忆按秒固定（12.5 ns）时，预设回退点上 DPD 基本失效，比随信号缩放的同一颗 PA 差 3–7 dB。
+
 ## 里程碑 1 · A1：拓扑 A，IF 延伸（示例 06）
 
 芯片是 wifitrx 自己的收发机（K = 1），按它自己的配方随机化损伤并跑完 14 步校准；60 GHz 级（间级电平、IF 带通、固定 LO 混频、共享前端的 PA）显式插在它的 RF 输出之后（`src/mmw60/ifext.py`）。

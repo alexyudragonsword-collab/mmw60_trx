@@ -52,6 +52,7 @@ select = ["E", "F", "W"]
 "src/mmw60/calcheck.py" = ["E501"]
 # eight tables of wide report lines
 "examples/06_topology_a_if_extender.py" = ["E402", "E501"]
+"examples/07_pa_memory_dpd.py" = ["E402", "E501"]
 "tools/measure_thresholds.py" = ["E501"]
 "tools/external_check.py" = ["E501"]
 "examples/00_liu2025_per_vs_snr.py" = ["E501"]

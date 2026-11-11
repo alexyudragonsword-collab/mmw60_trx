@@ -8,7 +8,7 @@ import pytest
 import vendor_check as vc          # tools/ is on sys.path (conftest)
 from conftest import REPO
 
-PIN = "96078aa9438c590a24d13959472263ec5f9ab623"
+PIN = "da37888ab16f6a5f34d1d0f3d329a4b857b5f37b"
 
 
 def test_every_vendored_file_has_the_header():

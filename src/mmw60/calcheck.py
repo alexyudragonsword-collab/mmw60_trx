@@ -30,8 +30,9 @@ import numpy as np
 from . import spec
 from .frontend import Frontend60
 from .vendor.wifitrx.cal.deps import planned_steps
-from .vendor.wifitrx.cal.sequence import PROFILES, _step_runners, loopback_snapshot
+from .vendor.wifitrx.cal.sequence import PROFILES, _step_runners, loopback_snapshot, scoring_frame
 from .vendor.wifitrx.chain.loopback import LoopbackPath, recommended_loopback_atten_db
+from .vendor.wifitrx.units import power_dbm
 from .vendor.wifitrx.waveform.ofdm import OFDMConfig
 from .vendor.wifitrx.waveform.pilots import pilot_positions
 from .vendor.wifitrx.waveform.tone_plan import contiguous
@@ -90,6 +91,9 @@ class CalRun:
     final_views: dict = field(default_factory=dict)      # FINAL_VIEWS of the last step, when it ran
     n_symbols: int = 0                                    # capture length, OFDM symbols
     capture_samples: int = 0                              # the same in samples at fs_eff
+    pout_dbm: float | None = None                         # PA output power at the final EVM check
+    passes: int = 1                                       # runs of the sequence it took to land on the asked back-off
+    dpd_tap_spacing: int | None = None                    # the DPD step's GMP tap spacing, as the step recorded it
 
     @property
     def label(self) -> str:
@@ -156,21 +160,73 @@ def _metric(res) -> tuple[str, float | None]:
     return "", None
 
 
+def _trim_drive(tx, x: np.ndarray, target_dbm: float, tol_db: float = 0.02) -> float:
+    """Trim ``tx.params.vga_gain_db`` until the PA's average output for
+    ``x`` is ``target_dbm`` (compression makes dPout / dPin < 1, so each
+    step is a little more than the error); returns the achieved power."""
+    for _ in range(16):
+        err = target_dbm - power_dbm(tx(x))
+        if abs(err) < tol_db:
+            break
+        tx.params.vga_gain_db += err * 1.2
+    return float(power_dbm(tx(x)))
+
+
 def run_cal_at(fe: Frontend60, k: int, base_bw_hz: float = 20e6, oversampling: int = 2,
                profile: str = "poweron", with_dpd: bool = True, seed: int = 0,
-               log=None, standard: str | None = None, n_symbols: int | None = None) -> CalRun:
+               log=None, standard: str | None = None, n_symbols: int | None = None,
+               pa=None, dpd_tap_spacing: int = 1, obo_db: float | None = None,
+               obo_tol_db: float = 0.1, drive_scale: float = 0.12) -> CalRun:
+    """wifitrx's sequence on the front end's own chains at K.  ``pa`` swaps
+    the transmit PA for another model in wifitrx's physical domain (the
+    memory study: ``pamemory.memory_pa``); ``dpd_tap_spacing`` is the DPD
+    step's GMP tap spacing in samples.
+
+    ``obo_db`` puts the final EVM check at that output back-off from Psat
+    instead of wherever wifitrx's default drive lands: the VGA is trimmed on
+    the scoring waveform before the sequence, and because calibration (the
+    predistorter above all) moves the output power, the sequence is run
+    again on fresh chains with the trim corrected by what the final check
+    read, until that reading is within ``obo_tol_db``.  ``CalRun.passes``
+    counts the runs."""
     bw_eff = base_bw_hz * k
     fs_eff = bw_eff * oversampling
-    tx, rx = fe.build_chains(bw_eff, fs_eff)
     path = LoopbackPath(atten_db=recommended_loopback_atten_db(bw_eff), delay_ns=6.0)
-    return run_cal_on(tx, rx, path, k, bw_eff, oversampling, profile, with_dpd, seed, log,
-                      base_bw_hz=base_bw_hz, standard=standard, n_symbols=n_symbols)
+    trim_db, run = None, None
+    for n_pass in range(1, 5):
+        tx, rx = fe.build_chains(bw_eff, fs_eff)
+        if pa is not None:
+            tx.pa = pa
+        if obo_db is not None:
+            if trim_db is None:
+                n_sym = int(spec.value("assumed.cal_capture_symbols")) if n_symbols is None else int(n_symbols)
+                cfg, _ = scoring_config(bw_eff, oversampling, n_sym)
+                if cfg is None:
+                    cfg, _ = upclocked_scoring_config(base_bw_hz, k, oversampling, n_sym, standard=standard)
+                if cfg is None:
+                    raise ValueError("obo_db needs a scoring waveform at this bandwidth")
+                _trim_drive(tx, scoring_frame(cfg)[0].x * drive_scale, fe.psat_dbm - obo_db)
+                trim_db = tx.params.vga_gain_db
+            else:
+                tx.params.vga_gain_db = trim_db
+        run = run_cal_on(tx, rx, path, k, bw_eff, oversampling, profile, with_dpd, seed, log,
+                         drive_scale=drive_scale, base_bw_hz=base_bw_hz, standard=standard, n_symbols=n_symbols,
+                         dpd_tap_spacing=dpd_tap_spacing)
+        run.passes = n_pass
+        if obo_db is None or run.pout_dbm is None:
+            break
+        err = (fe.psat_dbm - obo_db) - run.pout_dbm
+        if abs(err) <= obo_tol_db:
+            break
+        trim_db += err * 1.2
+    return run
 
 
 def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: int = 2,
                profile: str = "poweron", with_dpd: bool = True, seed: int = 0, log=None,
                drive_scale: float = 0.12, base_bw_hz: float | None = None,
-               standard: str | None = None, n_symbols: int | None = None) -> CalRun:
+               standard: str | None = None, n_symbols: int | None = None,
+               dpd_tap_spacing: int = 1) -> CalRun:
     """The step table on chains built elsewhere (topology A: the chip's own
     chains, observed on its coupler or through the 60 GHz loopback).
     ``n_symbols`` is the length of every capture in OFDM symbols (default
@@ -197,7 +253,8 @@ def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: 
             run.rows.append(StepRow(k, bw_eff, fs_eff, "loopback_snapshot", "failed",
                                     detail=f"{type(e).__name__}: {e}"[:160]))
             full = False
-    runners = _step_runners(tx, rx, cfg, path, prof, profile, with_dpd, None, drive_scale, seed, ctx)
+    runners = _step_runners(tx, rx, cfg, path, prof, profile, with_dpd, None, drive_scale, seed, ctx,
+                            dpd_tap_spacing=int(dpd_tap_spacing))
     for name in plan:
         if name == "final_loopback_evm" and not full:
             run.rows.append(StepRow(k, bw_eff, fs_eff, name, "skipped", detail=waveform,
@@ -212,10 +269,14 @@ def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: 
                 status = "degraded"
             run.rows.append(StepRow(k, bw_eff, fs_eff, name, status, m, v, res.passed,
                                     (res.notes or "")[:80], MECHANISM.get(name, "")))
+            if name == "dpd":                     # what the step itself recorded, not what was asked for
+                run.dpd_tap_spacing = int(res.estimated.get("tap_spacing", 1))
             if name == "final_loopback_evm":
                 run.evm_after_db = float(res.metrics_after.get("evm_db", np.nan))
                 run.final_views = {key: float(res.metrics_after[key]) for key in FINAL_VIEWS
                                    if key in res.metrics_after}
+                if "rx_input_dbm" in res.metrics_after:     # the PA output the final check ran at
+                    run.pout_dbm = float(res.metrics_after["rx_input_dbm"]) + float(path.atten_db)
         except Exception:      # noqa: BLE001
             tb = traceback.format_exc().splitlines()[-1]
             run.rows.append(StepRow(k, bw_eff, fs_eff, name, "failed", detail=tb[:160],
