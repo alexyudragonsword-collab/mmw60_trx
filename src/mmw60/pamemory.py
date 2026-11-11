@@ -56,17 +56,14 @@ def memory_pa(fe: Frontend60, fs_eff_hz: float, fir_fs_hz: float | None = None) 
     (small-signal gain, Psat, peak PAE).  ``fir_fs_hz`` None: the taps are
     one sample apart at ``fs_eff_hz`` (memory scales with the signal).
 
-    The anchors are taken on the sample-spaced PA and kept for the spread
-    one: the two have the same static curve (the same taps, only further
-    apart), but wifitrx's ``ScaledPA`` finds the small-signal gain on an
-    amplitude ramp, and with the taps two or more samples apart it reads the
-    main tap alone — 1.80 dB more gain for the same part.  Anchoring each
-    law separately would put the two ends of the comparison at different
-    drive levels."""
-    pa = ScaledPA(ReferencePA(), gain_db=fe.pa_gain_db, psat_dbm=fe.psat_dbm, pae_max=fe.pa_pae_max)
-    if fir_fs_hz is not None:
-        pa.pa_model = ReferencePA(fs=float(fs_eff_hz), fir_fs=float(fir_fs_hz))
-    return pa
+    Both memory laws get the same static curve: wifitrx's ``ScaledPA`` reads
+    a PA with memory level by level in steady state since 0.7.40
+    (wifi_trx_cal B41).  Before that it read the small-signal gain on an
+    amplitude ramp and, with the taps two or more samples apart, saw the
+    main tap alone — 1.80 dB more gain for the same part, which this
+    function used to work around by anchoring on the sample-spaced PA."""
+    inner = ReferencePA() if fir_fs_hz is None else ReferencePA(fs=float(fs_eff_hz), fir_fs=float(fir_fs_hz))
+    return ScaledPA(inner, gain_db=fe.pa_gain_db, psat_dbm=fe.psat_dbm, pae_max=fe.pa_pae_max)
 
 
 @dataclass

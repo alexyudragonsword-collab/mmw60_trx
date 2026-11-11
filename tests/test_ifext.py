@@ -172,15 +172,14 @@ def test_law4_the_chip_is_calibrated_by_running_wifitrx_sequence():
 
 
 @pytest.mark.slow
-def test_dpd_through_the_60ghz_observation_keeps_the_best_iteration_and_never_does_worse_than_the_chip_only_one():
+def test_dpd_through_the_60ghz_observation_keeps_the_best_pass_and_never_does_worse_than_the_chip_only_one():
     """ROADMAP A1's "with / without the 60 GHz observation loopback".  wifitrx's
-    indirect-learning fit iterates, and on this soft Rapp every extra
-    iteration is worse than the one before near saturation; the first
-    version took wifitrx's default (2) and concluded the observation was
-    worth nothing at 8 dB back-off.  The fit is now run for 1 … N
-    iterations and the best candidate on the observation path stays — which
-    is never worse than the chip-only predistorter, and several dB better
-    at deep back-off."""
+    indirect-learning fit iterates, and on this soft Rapp every extra pass
+    is worse than the one before near saturation.  Since wifi_trx_cal 0.7.39
+    its DPD step reads each pass on the observation path and keeps the best
+    (or none); this library then sets that pick against the predistorter the
+    chip already has, at the same output power, and keeps the better — never
+    worse than the chip-only one, and several dB better at deep back-off."""
     from mmw60.vendor.wifitrx.cal.sequence import tx_evm
     from mmw60.vendor.wifitrx.waveform.ofdm import OFDMConfig
     score = OFDMConfig(bandwidth_hz=BW, qam_order=64, n_symbols=8, oversampling=OS)
@@ -202,18 +201,20 @@ def test_dpd_through_the_60ghz_observation_keeps_the_best_iteration_and_never_do
                       frontend=fe)
         info = mmw.ifx.dpd_mmw
         out[obo] = (tx_evm_db(chip), tx_evm_db(mmw), info)
-        it = info["evm_by_iterations_db"]
-        assert set(it) == {1, 2, 3} and info["max_iterations"] == 3
-        # what stays programmed is the best of what was read, the chip-only one included
-        best = min([info["evm_chip_dpd_db"], *it.values()])
-        assert info["evm_programmed_db"] == pytest.approx(best)
+        obs = info["observed_by_pass_db"]
+        assert len(obs) == 4 and info["max_iterations"] == 3          # no predistorter + three passes
+        # wifitrx kept the pass its own observation read best
+        assert info["kept_pass"] == int(np.argmin(obs))
+        # what stays programmed is the better of that pick and the chip-only one, read at the same output power
+        assert info["evm_programmed_db"] == pytest.approx(min(info["evm_chip_dpd_db"], info["evm_fitted_db"]))
         assert info["chip_dpd_kept"] == (info["programmed"] == "chip")
+        assert info["chip_dpd_kept"] or info["programmed"] == info["kept_pass"]
         # the same output power either way, and never worse than without the observation
         assert mmw.pout_dbm == pytest.approx(chip.pout_dbm, abs=0.05)
         assert out[obo][1] < out[obo][0] + 0.5, (obo, out[obo])
-    # near saturation iterating makes it worse, monotonically
-    it6 = out[6.0][2]["evm_by_iterations_db"]
-    assert it6[1] < it6[2] < it6[3], it6
+    # near saturation iterating makes it worse, pass after pass
+    obs6 = out[6.0][2]["observed_by_pass_db"]
+    assert obs6[1] < obs6[2] < obs6[3], obs6
     # at deep back-off the observation is worth several dB
     chip14, mmw14, info14 = out[14.0]
     assert not info14["chip_dpd_kept"] and mmw14 < chip14 - 3.0, out[14.0]

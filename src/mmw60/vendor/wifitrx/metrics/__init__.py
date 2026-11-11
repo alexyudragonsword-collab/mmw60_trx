@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@da37888ab16f6a5f34d1d0f3d329a4b857b5f37b: src/wifitrx/metrics/__init__.py
+# Vendored from wifi_trx_cal@7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02: src/wifitrx/metrics/__init__.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 from .evm import EVMResult, evm, evm_of_signal
 from .spectrum import psd, default_wifi_mask, check_mask
