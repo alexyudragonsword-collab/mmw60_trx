@@ -69,14 +69,15 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 
 - 追加（2026-11-11，同一 issue 的评论）：`calibrate_dpd` 与 `dpd_tracking` 的 `GMPModel(...)` 写死了、没有抽头间隔参数；PA_DPD#4 给 MP / GMP 加 `tap_spacing` 之后要本库重新 vendor 并透传，排在 D3 之后。
 
-### D2 → pll_simulator：倍频器（×N）模型 —— [pll_simulator#71](https://github.com/alexyudragonsword-collab/pll_simulator/issues/71)（对方已答复，2026-11-11 双方谈定接口，等剖面）
-- 现象：`arch/` 里只有 ILCM、MDLL 与参考倍频器占空比误差，没有"PLL 剖面经 ×N 倍频后的输出相噪"块；拓扑 A 的固定 LO 是 sub-7 PLL ×3 / ×4 到 60 GHz。
-- **本库的前提错了**：`profile_at_carrier` 把 6.253 GHz 的 wu19 剖面按 20·log₁₀(60.48 / 6.253) 搬移，等于 ×9.672，不是能实现的倍频器。量级（+19.7 dB）没错，同台表 §5 那三行的结论大概不动，但它不对应一条真实的 LO 链。
-  正确做法是 PLL 调到 f_c/N 重新 analyze 再整数倍频。拓扑 B 已向对方要 f_c = 60.48 GHz、N = 10（PLL 6.048 GHz）；拓扑 A 的已定并已在 issue 上补（2026-11-11）：f_LO = 54.00 GHz，N = 3（PLL 18.0 GHz）为必要的一份，N = 4（13.5 GHz）有余力再出；并说明这两个频率离 wu19 的 6.253 GHz 很远，没有可信的 VCO 模型就不要外推。
-- 谈定的接口：`write_clock_profile(..., multiply_by=N, floor_dbchz=…, spur_rejection_db=…)`，N 非整数报错，底噪与抑制度必填、不给默认值（对方没有实测数据）；
-  f_in/2 以内是 N²·S + 底噪，以上只有底噪（本库最宽的格积分到 5.12 GHz，N = 10 时 f_in/2 = 3.024 GHz，会用到这一段）；已请对方把 N、f_in、底噪、抑制度写成独立字段。
-- 剖面到了以后本库要做的：重新 pin；`profile_at_carrier` 拒绝非整数的 f_c / f0；`floor_dbchz` 由本库给、标 `assumed`、在示例 04 §6 加灵敏度行（wu19 远端 −154 dBc/Hz，×10 后 −134，底噪高过它才看得见）；
-  同台表 `pllsim wu19 profile x N` 三行换成新剖面；A1 的"MCS 上限随 LO 相噪 −85 … −110 dBc/Hz @ 1 MHz"表与它是两回事（那是 1 MHz 处的 LO 相噪电平，wu19 ×10 后是 −98.5），不要混用。
+### D2 → pll_simulator：倍频器（×N）模型 —— [pll_simulator#71](https://github.com/alexyudragonsword-collab/pll_simulator/issues/71)（**对方已落地并合并，issue 已关（2026-11-11）；剩下的都是本库的事**）
+- 对方交付（`d67043e1197692dc203287b437613f7b9db83bb7`）：`write_clock_profile(..., multiply_by=N, floor_dbchz=…, spur_rejection_db=…)` 与 CLI `pllsim export … --multiply-by`；N 非整数报错，底噪与抑制度必填；
+  文件多四个独立字段（`multiply_by` / `f_in_hz` / `floor_dbchz` / `spur_rejection_db`），f_in/2 以内是 N²·S + 底噪，以上只有底噪。
+- 本库验收（本地检出该 commit 实跑）：×10（PLL 6.048 GHz → 60.48 GHz）510 点到 30.24 GHz，本库现有读取器直接读得进；IPN 10 kHz–100 MHz −33.04 dBc（占位 −33.18），相噪 ICI 11be K = 1 / 11ac K = 8 为 −26.87 / −31.15 dB（占位 −27.03 / −31.43）；
+  ×9（6.0 GHz → 54.0 GHz）同样可出，IPN −33.99 dBc。4 MHz 小数杂散 ×10 后 −43.7 dBc（60.48 GHz / 52 MHz = 15120/13，任何整数 N 都在 fref/13）。
+- 拓扑 A 的 ×3 / ×4（PLL 18.0 / 13.5 GHz）对方不出：超出其模型的 12 GHz 覆盖范围，不外推。拓扑 A 继续用 1 极 1 零剖面；要 pllsim 推出来的对照行可用 6.0 GHz × 9，本库自己拿合并后的 CLI 生成。
+- **待做（本库）**：pin `d67043e`，在它上面生成 ×10 剖面放进 `data/clock_profiles/`，生成命令与 commit 进 `survey.yaml`（对方 `examples/out/` 不入库，文件要自己生成）；`profile_at_carrier` 拒绝非整数的 f_c / f0；
+  `floor_dbchz` / `spur_rejection_db` 标 `assumed` 并在示例 04 §6 加灵敏度行（对方 ex22 的 −160 dBc/Hz 与 40 dB 是占位，没有出处；PLL 远端 ×N² 约 −134 dBc/Hz，底噪高过它才看得见）；
+  同台表 `pllsim wu19 profile x N` 三行换成新剖面（预计动 0.1–0.3 dB，numbers-move）；`assumed.lo_multiplier_law` 改写；做完删本条。
 
 ### D3 → PA_DPD：PA 电记忆定义在指定采样率上；两 DUT 级联 —— [PA_DPD#4](https://github.com/alexyudragonsword-collab/PA_DPD/issues/4)（对方已答复，2026-11-11 接口谈定，等落地）
 - 现象：`ReferencePA` 的电记忆是固定抽头的 FIR（输入 3 抽头、输出 2 抽头，没有采样率参数）；没有两 DUT 级联的 `PAModel`（拓扑 A 的 WiFi 7 驱动 PA + 60 GHz PA）。本库的 DPD 代价至今用无记忆 Rapp + dsp_ip 综合数记账（示例 02 的 DPD pJ/bit 列、示例 03 的 dpd 行）。
