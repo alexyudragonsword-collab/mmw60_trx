@@ -93,19 +93,19 @@ def main(argv=None) -> int:
 
     cost_head = (f"{'scales':>8} {'fixed, x1':>10} {'fixed, matched':>15} {'cost at x1':>11} {'cost at matched':>16}")
     print(f"\n== what the memory law costs after DPD at back-off {obo:g} dB (TX EVM, dB; the reference PA only) ==")
-    print(f"{'K':>3} {cost_head} {'fixed, best':>12} {'best taps':>10} {'fixed, off':>12}")
+    print(f"{'':>4} {cost_head} {'fixed, best':>12} {'best taps':>10} {'fixed, off':>12}")
     for k, scales, sample, matched, best, off in summary:
-        print(_cost_line(f"{k:>3}", scales, sample, matched, best, off))
+        print(_cost_line(f"{'K=' + str(k):>4}", scales, sample, matched, best, off))
     print("cost = fixed-in-seconds memory minus memory that scales with the signal; 'matched' is x(fs_eff / fir_fs); "
           "'fixed, off' is the same PA without the DPD step")
 
     if not quick:
         print("\n== sensitivity: the back-off (assumed.pa_memory_obo_sensitivity_db; TX EVM, dB) ==")
-        print(f"{'K':>3} {'OBO':>5} {cost_head}")
+        print(f"{'':>4} {'OBO':>5} {cost_head}")
         for k, scales, sample, matched, _, _ in summary[1:]:
-            print(_cost_line(f"{k:>3} {obo:5.1f}", scales, sample, matched))
+            print(_cost_line(f"{'K=' + str(k):>4} {obo:5.1f}", scales, sample, matched))
             for o in (float(v) for v in spec.value("assumed.pa_memory_obo_sensitivity_db")):
-                print(_cost_line(f"{k:>3} {o:5.1f}", *pamemory.cost_rows(fe, k, base, STANDARD, o)), flush=True)
+                print(_cost_line(f"{'K=' + str(k):>4} {o:5.1f}", *pamemory.cost_rows(fe, k, base, STANDARD, o)), flush=True)
 
         k = 32
         print(f"\n== sensitivity: how fast the PA's memory is, K = {k}, back-off {obo:g} dB (assumed.pa_memory_fir_fs_hz) ==")
