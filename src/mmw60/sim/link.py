@@ -14,8 +14,13 @@ Two front-end models, both topology B (``upclock_zero_if``):
   level set from the SNR through the LNA state's noise figure; timing by
   cross-correlation with the known frame (the chain's group delay).
 
-Topology A raises ``NotImplementedError`` until the other session lands it;
-the config already names it (iron rule 1).
+Topology A (``if_extender``, ``mmw60.ifext``): the chip's own wifitrx chains
+at K = 1 — built and calibrated the way wifitrx does — with the 60 GHz stage
+(interstage level, IF filter, fixed-LO mixer, the shared front end's PA)
+inserted after the transmit chain and before the receive chain; the CFO at
+the RF plane is what is left after the multi-link pre-compensation
+(``impairments.cfo.MloCfo``).  Everything else — frame, channel, SNR
+definition, receiver — is the same code path as topology B's chain.
 """
 from __future__ import annotations
 
@@ -25,7 +30,7 @@ import numpy as np
 
 from ..channel import make_channel
 from ..config import Mmw60Config
-from ..impairments.cfo import CfoModel
+from ..impairments.cfo import CfoModel, MloCfo
 from ..impairments.noise import add_awgn_per_tone, per_sample_snr_offset_db
 from ..impairments.phase_noise import lo_phase, make_profile
 from ..pa.rapp import ModifiedRappPA, apply_pa_at_obo
@@ -81,11 +86,12 @@ class LinkSim:
     (iron rule 2); otherwise it is built from the config."""
 
     def __init__(self, cfg: Mmw60Config, frontend=None):
-        if cfg.topology != "upclock_zero_if":
-            raise NotImplementedError(f"topology {cfg.topology!r}: milestone 1")
         from ..config import WAVEFORMS_BUILT
         if cfg.waveform not in WAVEFORMS_BUILT:
             raise NotImplementedError(f"waveform {cfg.waveform!r}: milestone 3")
+        self.topology_a = cfg.topology == "if_extender"
+        if self.topology_a and (cfg.waveform != "be" or int(cfg.upclock_k) != 1):
+            raise ValueError("topology A keeps the WiFi 7 waveform at K = 1 (waveform 'be', upclock_k 1)")
         self.cfg = cfg
         self.coded = cfg.coded
         self.ldpc = cfg.phy.standard == "11be"
@@ -104,7 +110,11 @@ class LinkSim:
         self.n_active = self.base.n_active
         self.data_cols = np.setdiff1d(np.arange(self.n_active), self.pilot_cols)
         self.pilots = pilot_sequence(self.n_symbols, self.pilot_cols.size, cfg.phy.pilot_seed)
-        self.cfo = CfoModel(cfg.carrier_hz, cfg.xo_ppm_tx, cfg.xo_ppm_rx)
+        if self.topology_a:
+            self.cfo = MloCfo(cfg.carrier_hz, cfg.xo_ppm_tx, cfg.xo_ppm_rx, sub7_hz=cfg.ifext.mlo_sub7_hz,
+                              sub7_snr_db=cfg.ifext.mlo_sub7_snr_db, enabled=cfg.ifext.mlo_enabled)
+        else:
+            self.cfo = CfoModel(cfg.carrier_hz, cfg.xo_ppm_tx, cfg.xo_ppm_rx)
         pn = cfg.lo.phase_noise
         self.pn_profile = make_profile(pn, cfg.carrier_hz)
         self.pn_sides = pn.apply if pn.enabled else "off"
@@ -115,7 +125,20 @@ class LinkSim:
         self.model = cfg.frontend.model
         self.pa = None
         self.frontend = None
-        if self.model == "behavioural":
+        self.ifx = None
+        if self.topology_a:
+            from ..frontend import Frontend60
+            from ..ifext import IfExtender
+            self.model = "if_extender_chain"
+            self.frontend = frontend if frontend is not None else Frontend60.from_config(cfg)
+            self.ifx = IfExtender.build(cfg, self.frontend, self.phy.bandwidth_eff, self.phy.fs_eff,
+                                        DIGITAL_DRIVE_RMS)
+            self.tx, self.rx = self.ifx.tx, self.ifx.rx
+            _, frame0 = self.transmit(np.random.default_rng(cfg.seed))
+            self.pout_dbm = self.ifx.finish(frame0.x * DIGITAL_DRIVE_RMS, self.frontend.target_pout_dbm(),
+                                            self.phy.bandwidth_eff, self.base.oversampling, DIGITAL_DRIVE_RMS)
+            self.occupied_bw_hz = self.n_active * self.phy.scs_eff
+        elif self.model == "behavioural":
             self.pa = ModifiedRappPA(ampm=cfg.frontend.pa.ampm) if cfg.frontend.pa.enabled else None
         else:
             from ..frontend import Frontend60
@@ -183,11 +206,13 @@ class LinkSim:
         xp = np.concatenate([np.zeros(n_sil, dtype=complex), x[-N_WARMUP:], x, x[:N_GUARD]]) * DIGITAL_DRIVE_RMS
         start = n_sil + N_WARMUP
         tx, rx = self.tx, self.rx
+        if self.ifx is not None:
+            tx.stage_rng = rx.stage_rng = rng          # the fixed LO's phase noise, per packet
         phi_tx = tx.lo_phase(xp.size, rng) if tx.params.lo.enabled else None
         y = tx(xp, phi_lo=phi_tx)
         pa_info = {"pout_dbm": power_dbm(y[start:start + n])}
         y, taps = self.channel.apply(y, fs, rng)
-        y = self.cfo.apply(y, fs)
+        y = self.cfo.apply(y, fs, rng)
         if snr_db is None:
             p_in = -50.0
             rx.noise_enabled = False
@@ -196,6 +221,11 @@ class LinkSim:
             rx.noise_enabled = True
         y = y * db_to_amp(p_in - power_dbm(y[n_sil:]))
         rx.agc(p_in)
+        if self.ifx is not None and rx.noise_enabled and rx.stage.image_rejection_db is not None:
+            # the image band's noise folded in by the down-conversion (topology A only)
+            nf = rx.params.lna_states[rx.lna_idx].nf_db
+            sigma2 = 10 ** ((KT_DBM_HZ + nf - rx.stage.image_rejection_db) / 10) * fs
+            y = y + np.sqrt(sigma2 / 2) * (rng.standard_normal(y.size) + 1j * rng.standard_normal(y.size))
         phi_rx = rx.lo_phase(y.size, rng) if rx.params.lo.enabled else None
         z = rx(y, phi_lo=phi_rx, rng=rng)
         dc = 0.0 + 0.0j
@@ -249,6 +279,9 @@ class LinkSim:
         if self.frontend is not None:
             d["frontend"] = self.frontend.describe(self.phy.fs_eff)
             d["frontend"]["pout_dbm_set"] = self.pout_dbm
+        if self.ifx is not None:
+            d["if_extender"] = self.ifx.describe()
+            d["cfo_precompensation"] = "mlo" if self.cfg.ifext.mlo_enabled else "off"
         return d
 
 

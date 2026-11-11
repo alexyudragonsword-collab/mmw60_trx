@@ -28,12 +28,20 @@ def test_law1_yaml_configs_round_trip_to_the_presets():
     assert Mmw60Config.from_yaml(REPO / "configs" / "wifi7_baseline_k1.yaml") == wifi7_baseline_k1(0)
 
 
-def test_law1_both_topologies_are_named_and_the_unbuilt_one_refuses():
+def test_law1_both_topologies_are_named_and_an_inconsistent_config_refuses():
+    """Both topologies are built; what the config says is what runs.  Topology A
+    is the WiFi 7 waveform at K = 1 behind a fixed LO: a config that names it
+    with the upclocked waveform, K > 1 or the zero-IF LO scheme is refused
+    instead of being quietly reinterpreted."""
     assert set(TOPOLOGIES) == {"if_extender", "upclock_zero_if"}
-    with pytest.raises(NotImplementedError, match="milestone 1"):
-        LinkSim(Mmw60Config(topology="if_extender"))
+    with pytest.raises(ValueError, match="WiFi 7 waveform at K = 1"):
+        LinkSim(Mmw60Config(topology="if_extender"))                       # default waveform be_upclocked
+    with pytest.raises(ValueError, match="fixed_lo"):
+        LinkSim(Mmw60Config(topology="if_extender", waveform="be"))        # default lo.scheme zero_if
     with pytest.raises(ValueError):
         Mmw60Config(topology="something_else")
+    with pytest.raises(ValueError):
+        Mmw60Config(lo=dc.replace(Mmw60Config().lo, scheme="fixed_lo_x5"))
 
 
 def test_law1_waveform_enum_is_complete_and_ay_refuses():

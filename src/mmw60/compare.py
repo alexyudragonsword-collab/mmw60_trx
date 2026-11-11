@@ -3,9 +3,10 @@ front end, one LO chain, one channel, one EIRP ceiling (iron rule 2), with
 the K = 1 baseline row, and its budget report (d2d_link's ``report`` method).
 
 ``scheme_matrix`` names **every** cell of ``TOPOLOGIES × WAVEFORMS``: the
-built ones get a config and numbers, the unbuilt ones a row that says which
-milestone brings them (topology A: milestone 1 / A1; 802.11ay: milestone 3)
-or that the pair is not a scheme (A keeps the waveform; ay is B's hardware).
+built ones get a config and numbers (topology B's two waveforms; topology A
+with the WiFi 7 waveform, ``mmw60.ifext``), the unbuilt ones a row that says
+which milestone brings them (802.11ay: milestone 3) or that the pair is not
+a scheme (A keeps the waveform; ay is B's hardware).
 A table that silently left a scheme out would not be the comparison the
 rules ask for, so ``tests/test_compare.py`` checks the matrix is complete.
 
@@ -40,7 +41,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from . import spec
-from .config import TOPOLOGIES, WAVEFORMS, ChannelConfig, Mmw60Config, wifi7_chain_k1, zero_if_60ghz
+from .config import (TOPOLOGIES, WAVEFORMS, ChannelConfig, Mmw60Config, if_extender_60ghz, wifi7_chain_k1,
+                     zero_if_60ghz)
 from .frontend.frontend import Frontend60
 from .frontend.grid import (REASON_ZH, analytic_floors, data_rate_bps, decoder_cap, decoder_floor_db,
                             max_mcs_for_floor, pa_isolated_evm_db)
@@ -50,7 +52,6 @@ from .vendor.wifitrx.link.evm_budget import PN_BAND_HZ, EvmBudget
 
 #: why a (topology, waveform) cell has no numbers yet
 PENDING = {
-    ("if_extender", "be"): "pending: milestone 1 / A1 (topology A, the other session)",
     ("upclock_zero_if", "ay_ofdm"): "pending: milestone 3 (802.11ay OFDM on the zero-IF hardware)",
     ("upclock_zero_if", "ay_sc"): "pending: milestone 3 (802.11ay single carrier)",
 }
@@ -87,6 +88,10 @@ def scheme_matrix(ks=(1, 4, 8, 16, 32), standard: str = "11ac", bandwidth_hz: fl
                     cfg = zero_if_60ghz(k=k, mcs=mcs, standard=standard, bandwidth_hz=bandwidth_hz, carrier_hz=carrier_hz)
                     rows.append(Scheme(f"be_upclocked {standard} {bandwidth_hz / 1e6:g}M K={k} @{carrier_hz / 1e9:g} GHz",
                                        topo, wf, cfg))
+            elif (topo, wf) == ("if_extender", "be"):
+                cfg = if_extender_60ghz(mcs=mcs, standard=standard, bandwidth_hz=bandwidth_hz, carrier_hz=carrier_hz)
+                rows.append(Scheme(f"be {standard} {bandwidth_hz / 1e6:g}M IF extender @{carrier_hz / 1e9:g} GHz",
+                                   topo, wf, cfg))
             elif (topo, wf) in PENDING:
                 rows.append(Scheme(f"{wf} on {topo}", topo, wf, None, "pending", PENDING[(topo, wf)]))
             else:
@@ -165,7 +170,10 @@ def _pn_terms(cfg: Mmw60Config, fe: Frontend60, phy) -> dict:
     t_fft, fs = phy.t_fft_eff, phy.fs_eff
     part = cpe_partition(fe.lo.profile.psd, t_fft, 1e3, fs / 2)
     band = cpe_partition(fe.lo.profile.psd, t_fft, PN_BAND_HZ[0], PN_BAND_HZ[1])
-    ipn_rad2 = 10 ** (fe.lo.lo_model().ipn_dbc(*PN_BAND_HZ) / 10)
+    # wifitrx's ipn_dbc is the single-sideband convention (phase power / 2): the phase
+    # variance EvmBudget takes is twice 10^(dBc/10).  (Until A1 this line left the 2 out
+    # and the budget's phase-noise term read 3.0 dB low — cairn/comparison-table.md §3.)
+    ipn_rad2 = 2 * 10 ** (fe.lo.lo_model().ipn_dbc(*PN_BAND_HZ) / 10)
     out.update(ici_rad2=out["n_lo"] * part["ici_rad2"],
                budget_rad2=out["n_lo"] * ipn_rad2 * (1 - band["tracked_fraction"]),
                tracked_fraction=float(band["tracked_fraction"]),
@@ -188,8 +196,9 @@ def evm_budget_reconciliation(cfg: Mmw60Config, fe: Frontend60, a: dict, pa_evm_
         kw["pa_nmse_db"] = t["pa"]
     if pn["n_lo"] and pn.get("ipn_rad2"):
         kw["ipn_rad2"] = pn["n_lo"] * pn["ipn_rad2"]
-    if "isi" in t:
-        kw["extra_db"] = {"isi": t["isi"]}
+    extra = {k: v for k, v in t.items() if k not in ("phase_noise", "iq_image", "converters", "pa")}
+    if extra:
+        kw["extra_db"] = extra        # GI-tail ISI; topology A's chip residual and chip-LO ICI
     b = EvmBudget(**kw)
     rep = b.report()
     return {"predicted_evm_db": rep["predicted_evm_db"], "components_db": rep["components_db"],

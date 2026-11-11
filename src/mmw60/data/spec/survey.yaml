@@ -606,6 +606,63 @@ entries:
     cite: "本库"
     note: "'解码器上限'判定可达的口径：EVM 底板要比该 MCS 的 ideal 门限所容忍的噪声低 3 dB（−floor ≥ T + 3），此时底板吃掉 3.0 dB 灵敏度；取 0 dB 时所需 SNR 发散。同台表灵敏度节跑 1 / 6 dB 两端。与 assumed.mcs_evm_margin_db（发射机合规口径的余量）是两回事。"
 
+  # ------------------------------------------------------------ 拓扑 A：IF 延伸（A1）
+  assumed.ifext_if_hz:
+    value: 6.48e+9
+    unit: Hz
+    source: assumed
+    cite: "本库；6 GHz 频段（5.925–7.125 GHz）里的一个信道中心，使固定 LO 为整 54.0 GHz"
+    note: "拓扑 A 的中频：芯片的信道所在的频率。载频 60.48 GHz 时 f_LO = 54.00 GHz。换信道靠芯片在 6 GHz 段内调 IF，固定 LO 不动（59.925–61.125 GHz 可达）。"
+
+  assumed.ifext_lo_scheme:
+    value: "fixed_lo_x3"
+    unit: scheme
+    source: assumed
+    cite: "本库；60 GHz 常见的 LO 生成方式之一（约 20 GHz 的 PLL 接三倍频）"
+    note: "固定 LO 的倍频数：×3（PLL 18.0 GHz）或 ×4（13.5 GHz）。相噪用参数化的 1 极 1 零剖面直接给在 LO 输出端，所以 N 只进频率规划与 PLL 频率，不改相噪数字；pllsim 剖面 × N 那一行是占位（assumed.lo_multiplier_law，pll_simulator#71）。"
+
+  assumed.ifext_filter:
+    value: {bandwidth_hz: 1.2e+9, order: 5, ripple_db: 0.5, center_hz: 6.525e+9}
+    unit: Chebyshev-I bandpass
+    source: assumed
+    cite: "本库；通带取整个 6 GHz 段（芯片在段内调 IF 换信道），0.5 dB 纹波 5 阶是 LTCC / 声学带通的常见量级，未查具体器件"
+    note: "IF 带通滤波器的低通等效；信道离通带中心越远，带内纹波与群时延展宽越大。示例 06 有信道在通带边缘的灵敏度行。"
+
+  assumed.ifext_image_rejection_db:
+    value: 30.0
+    unit: dB
+    source: assumed
+    cite: "本库；RF 预选滤波对 f_LO − f_IF 镜像带的抑制，未查具体器件"
+    note: "接收侧镜像带的噪声折进信号带：噪声系数恶化 10·log10(1 + 10^(−IRR/10)) = 0.004 dB（30 dB）、0.41 dB（10 dB）。只有拓扑 A 有这一项（零中频没有镜像带），同台表里标出。"
+
+  assumed.ifext_chip_seed:
+    value: 5
+    unit: seed
+    source: assumed
+    cite: "本库；wifitrx handoff/runner.build_calibrated_trx 的默认 seed"
+    note: "拓扑 A 的芯片是 wifitrx 自己随机化损伤后跑完校准序列的收发机（芯片原样）；seed 选哪一颗芯片。示例 06 有换芯片的灵敏度行。"
+
+  assumed.ifext_chip_oversampling:
+    value: 4
+    unit: x bandwidth
+    source: assumed
+    cite: "本库；wifitrx 自己的波形默认 4 倍过采样，DPD 的 ACLR 观测要 fs ≥ 3 × BW"
+    note: "拓扑 A 里芯片的 DAC / ADC 采样率。拓扑 B 用 2 倍（fs_eff 已是数 GS/s）。"
+
+  assumed.mlo_sub7:
+    value: {carrier_hz: 5.5e+9, snr_db: 20.0}
+    unit: sub-7 GHz link
+    source: assumed
+    cite: "本库；MLO 的 sub-7 链路取 5 GHz 段一个信道，SNR 20 dB"
+    note: "拓扑 A 的 CFO 接法（铁律 3）：sub-7 链路用 L-STF + L-LTF 估出自己的 CFO，乘 f_c / f_sub7（= 11.0）预补偿 60 GHz 链路，残差 = sub-7 估计误差 × 频率比。前提是每台设备的 sub-7 LO、芯片 IF LO 与 60 GHz 固定 LO 同源一颗晶振（assumed.mlo_common_reference）。"
+
+  assumed.mlo_common_reference:
+    value: true
+    unit: bool
+    source: assumed
+    cite: "本库；多链路设备各射频共用一颗参考晶振是常规做法"
+    note: "不成立时（60 GHz 级自带晶振）sub-7 的估计与 60 GHz 的 CFO 无关，MLO 预补偿失效，2.42 MHz 落在芯片 L-STF 的 ±625 kHz 之外。"
+
   # ------------------------------------------------------------ C1 / C2：接收机改进
   assumed.cpe_window_symbols:
     value: 17
