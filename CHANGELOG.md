@@ -4,6 +4,15 @@
 
 ## 未发布
 
+### 接收机精度 —— ROADMAP C1–C3（2026-11-11）
+- C1 `rx/tracking.py::smoothed_cpe`：导频公共相位跨符号 MMSE 合并（窗内留一平均 + 按导频残差自己量出的收缩系数，残余 CFO 斜坡先去后加）；`RxConfig.cpe_window_symbols`，1 = wifitrx 逐符号估计（逐位相同）。
+- C2 `rx/tracking.py::auto_smooth_span`：信道估计平滑跨度逐包从估计自己的音间自相关选（指数时延谱模型定 1 音还是 3 音，再宽看实测偏差）；`RxConfig.ce_smooth_auto / ce_smooth_max_tones`。
+- C3 `per_sweep(refine_errors=…)` 把夹住目标 PER 的两点续跑到固定错包数，`snr_at_per_ci` 给 bootstrap 95 % 区间；`tools/external_check.py` 的判决三态（within / OUTSIDE / 分不出）。
+- 预设：`zero_if_60ghz` 用改进的一档（`config.improved_rx`），`liu2025_table2` 保留里程碑 0 的接收机（对外校验与指纹钉在它上面，指纹 68 值逐位不变）。两个新 assumed 条目（窗 17 符号、跨度上限 9 音）。
+- `per_thresholds.yaml` 用改进接收机重量（numbers-move）：11ac 20 MHz 降 1.0–2.8 dB，11be 降 0.1–2.1 dB；`decoder_floor_db`：未校准的解码器上限从解析底板与时域 EVM 中较差的一个起算。
+- 数字：示例 00 改进接收机比里程碑 0 的好 2.7–3.7 dB；同台表最好的一行从 11be 80 MHz × 4（865 Mb/s、628 pJ/bit）变成 × 8（1729 Mb/s、467 pJ/bit）；2.56 GHz MCS0 的 PER 1e-2 点 5.16 → 0.60 dB。示例 00 / 02 / 04 / 05 的期望输出随之更新。
+- `tests/test_tracking.py` +10、`test_thresholds.py` +1；非慢测试 133 → 144。ROADMAP 删 C1–C3，加 C6（过程中发现的三条）。
+
 ### 上游需求转交（2026-11-10）
 - ROADMAP D1–D3 已作为 issue 交给 wifi_trx_cal#4、pll_simulator#71、PA_DPD#4，D 节加链接；D3 关于 `ReferencePA` 记忆的措辞按源码更正（固定抽头、无 `fs` 参数）。只改文档。
 

@@ -374,7 +374,7 @@ def liu2025_table2(k: int = 8, mcs: int = 0, **top) -> Mmw60Config:
 
 
 def improved_rx(rx: RxConfig | None = None) -> RxConfig:
-    """The receiver with ROADMAP C1 / C2 on: pilot common phase combined across
+    """The receiver with milestone-0 findings C1 / C2 on: pilot common phase combined across
     ``assumed.cpe_window_symbols`` symbols and the channel-estimate smoothing
     span chosen per packet up to ``assumed.ce_smooth_max_tones``.  The Liu
     2025 preset keeps the milestone-0 receiver (its numbers are the external

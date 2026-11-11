@@ -1,6 +1,7 @@
 """Receiver refinements over wifitrx's per-symbol pilot CPE and fixed-span channel
-smoothing (ROADMAP C1 / C2).  Both are options of ``RxConfig`` and off by
-default, so the milestone-0 receiver (and its fingerprint) is unchanged.
+smoothing (milestone-0 findings C1 / C2, cairn/LOG.md 2026-11-11).  Both are
+options of ``RxConfig`` and off by default, so the milestone-0 receiver (and
+its fingerprint) is unchanged.
 
 **Cross-symbol CPE** (``smoothed_cpe``).  wifitrx's ``correct_cpe_pilots``
 rotates every OFDM symbol by the phase of its own N_p pilots.  At low SNR

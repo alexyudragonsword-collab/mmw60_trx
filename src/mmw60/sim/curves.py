@@ -22,7 +22,7 @@ class CurveSpec:
     stop_below: float = 1e-3
     tags: dict = field(default_factory=dict)
     #: run the two points bracketing the target on to this many packet errors
-    #: (0 = off) or ``refine_max_packets`` packets (ROADMAP C3)
+    #: (0 = off) or ``refine_max_packets`` packets (finding C3)
     refine_errors: int = 0
     refine_max_packets: int = 0
 

@@ -19,7 +19,7 @@
 ### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
 - 拓扑 A 的行：`compare.PENDING[("if_extender", "be")]` 那格等 A1 落地后接入（同一个 `Frontend60` 实例；A 的 60 GHz 级在 wifitrx RF 之后插入）。
 - WiFi 7 全链路四条整合里还没做的两条：PA_DPD 的 PA / DPD 进 wifitrx 链（K = 1 可行——`ReferencePA` 的记忆按 320 MHz 样本写死，K > 1 等 D3）；Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（差 ≤ 0.4 dB，相噪口径差 3–4 dB）。
-- 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；底板高于 −8 dB 的格（2.56 GHz 未校准）可达性结论成立但所需 SNR 被低估约 3 dB（示例 05：MCS0 预测 2.15、实测 5.16 dB）——要么改用时域底板、要么这些格直接量；`per_thresholds.yaml` 是本库接收机的测量值，C1 / C2 改接收机后要 `python tools/measure_thresholds.py --jobs 4` 重量（约 16 分钟）。
+- 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；示例 04 §6 的灵敏度从解析底板起算（每个旋钮不跑时域），2.56 GHz 行在那一节的基线是 MCS1、§4b 用时域底板是 MCS0；`per_thresholds.yaml` 是本库接收机的测量值，接收机再改要 `python tools/measure_thresholds.py --jobs 4` 重量（约 16 分钟）。
 - 校准列现在是示例 03 实测 IRR 的查表，`calcheck.run_cal_at` 实跑进表要几分钟一列，留给需要它的那次。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
 
@@ -41,16 +41,6 @@ ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、�
 
 ## C. 里程碑 0 过程中发现的问题
 
-### C1. 接收机：逐符号导频 CPE 的尾部代价 ≈ 2.5 dB（MCS0）
-复现：`tests/test_link.py::test_full_receiver_costs_a_known_amount_over_the_decoder`；K = 8 flat MCS0，genie CSI 下 PER 1e-2 在 1.5–2 dB（压在并集界上），只加 4 导频逐符号 CPE 就到 4.4 dB。机理见 `cairn/engineering-pitfalls.md`。待做：跨符号平滑 / 跟踪环的 CPE（相噪在 K ≥ 8 的符号时长内相关性强，平滑不会丢跟踪），作为 `RxConfig` 的一档，并看它把示例 00 的 MCS0 曲线左移多少。
-
-### C2. 信道估计平滑跨度应随相干带宽 / 音距缩放
-复现：K = 16、15 ns rms Rayleigh、`ce_smooth_tones=3` → EVM −7 dB，`=1` → −14 dB（`tests/test_link.py::test_k16_symbol_*` 用 1 音）。待做：平滑跨度按 `coherence_bandwidth_hz / scs_eff` 自动选，或改成 DFT 域去噪。
-
-### C3. PER = 1e-2 处 SNR 的统计散布约 ±0.5 dB
-复现：示例 00 的 K = 8 MCS4 flat 配置，300 包 / 20 错的灵敏度行读 19.67 dB，600 包 / 30 错的正式曲线读 20.42 dB（同一代码、不同 RNG 消耗）。
-1e-2 处每点只有 ~6–30 个错包，再经对数线性插值。待做：按固定错包数（≥ 100）收敛、给出 bootstrap 置信区间，并在 external_check 的差值旁打印它；验收门限 1 dB 与这个散布同量级，现在的"OUTSIDE/within"判决对 1.0–1.3 dB 的差没有分辨力。
-
 ### C4. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
 Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 原文。
 
@@ -58,6 +48,12 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 - wifitrx 的 EVM 评分波形只在标准带宽（11ac 20–160、11be 20–320 MHz）上有导频表：640 MHz / 2.56 GHz 的 `final_loopback_evm` 无法运行（示例 03 标 skipped）。上游需求见 D。
 - 60.48 GHz 上 40 ppm = 2.42 MHz，K = 4 的 L-STF 范围 ±2.5 MHz 刚好接住——Liu 的 K > 4.7 门槛是 73.44 GHz 的；通式 K > 2·Δf_max / 1.25 MHz。
 - 回环定时：wifitrx `align_delay` 对复波形互相关，2.94 MHz CFO 下 1 µs 内去相关；本库用包络互相关定时（`sim/link.py::envelope_lag`）。
+
+### C6. C1–C3 过程中发现的（见 `cairn/LOG.md` 2026-11-11）
+- **门限表自己还没用上 C3 的逼近**：`tools/measure_thresholds.py` 仍是每点 ≤ 200 包 / 15 错、0.5 dB 步。同一格（11be 80 MHz MCS4 理想链）门限表读 11.40、示例 05 读 11.09；
+  解码器上限的预测因此带约 ±0.3 dB（K = 4 的 MCS4 预测 12.97、实测 12.12）。待做：工具加 `--refine`（`per_sweep(refine_errors=…)` 已有，79 条曲线约多 3 倍时间），区间写进文件。
+- **平滑跨度选择器在窄带上有散布**：flat 理想链 `zero_if_60ghz(k=8)`（11ac 20 MHz，56 音）120 包的 `RxResult.ce_span` 分布，SNR 3 dB 时 9 音 67 %、3 音 32 %，12 dB 时 56 % / 39 %；
+  同样条件 11be 80 MHz（996 音）全部取 9 音。56 个音上“多于 3 音”那一步的偏差估计，自己的散布 W₃·√(2/N) 与要省的噪声同量级。待做：信道准静态时跨包平均自相关，或改 DFT 域去噪。
 
 ## D. 报回上游（2026-11-10 已转交，等对方落地）
 本库不动这三个库；三条已各开一个 issue 交给对方（下面每条标题后的链接），对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。

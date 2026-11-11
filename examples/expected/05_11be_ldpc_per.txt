@@ -14,61 +14,61 @@ K    BW[MHz]  fs_eff[GS/s]  SCS[MHz]  T_sym[ns]  MCS  N_DBPS   symbols/packet  c
   K=8: impaired floor -14.9 dB -> cap MCS1; no PA floor -17.9 dB -> cap MCS2
 
 == PER vs SNR (up to 150 packets or 10 errors per point; SNR = per active subcarrier Es/N0) ==
-  done 11be 80M x4  MCS0 ideal: SNR@0.01 = 0.89 dB
-  done 11be 80M x4  MCS0 impaired: SNR@0.01 = 0.13 dB
-  done 11be 80M x4  MCS0 no PA: SNR@0.01 = 0.13 dB
-  done 11be 80M x4  MCS4 ideal: SNR@0.01 = 12.04 dB
-  done 11be 80M x4  MCS4 impaired: SNR@0.01 = 13.88 dB
-  done 11be 80M x4  MCS4 no PA: SNR@0.01 = 13.01 dB
-  done 11be 80M x4  MCS7 ideal: SNR@0.01 = 19.04 dB
+  done 11be 80M x4  MCS0 ideal: SNR@0.01 = -0.91 dB
+  done 11be 80M x4  MCS0 impaired: SNR@0.01 = -0.85 dB
+  done 11be 80M x4  MCS0 no PA: SNR@0.01 = -0.88 dB
+  done 11be 80M x4  MCS4 ideal: SNR@0.01 = 11.09 dB
+  done 11be 80M x4  MCS4 impaired: SNR@0.01 = 12.14 dB
+  done 11be 80M x4  MCS4 no PA: SNR@0.01 = 11.16 dB
+  done 11be 80M x4  MCS7 ideal: SNR@0.01 = 18.10 dB
   done 11be 80M x4  MCS7 impaired: SNR@0.01 = never
-  done 11be 80M x4  MCS7 no PA: SNR@0.01 = 22.84 dB
-  done 11be 80M x8  MCS0 ideal: SNR@0.01 = 0.89 dB
-  done 11be 80M x8  MCS0 impaired: SNR@0.01 = 1.04 dB
-  done 11be 80M x8  MCS0 no PA: SNR@0.01 = 0.90 dB
-  done 11be 80M x8  MCS4 ideal: SNR@0.01 = 12.04 dB
-  done 11be 80M x8  MCS4 impaired: SNR@0.01 = 15.05 dB
-  done 11be 80M x8  MCS4 no PA: SNR@0.01 = 13.13 dB
-  done 11be 80M x8  MCS7 ideal: SNR@0.01 = 19.04 dB
+  done 11be 80M x4  MCS7 no PA: SNR@0.01 = 21.08 dB
+  done 11be 80M x8  MCS0 ideal: SNR@0.01 = -0.91 dB
+  done 11be 80M x8  MCS0 impaired: SNR@0.01 = -0.84 dB
+  done 11be 80M x8  MCS0 no PA: SNR@0.01 = -0.85 dB
+  done 11be 80M x8  MCS4 ideal: SNR@0.01 = 11.09 dB
+  done 11be 80M x8  MCS4 impaired: SNR@0.01 = 13.91 dB
+  done 11be 80M x8  MCS4 no PA: SNR@0.01 = 12.14 dB
+  done 11be 80M x8  MCS7 ideal: SNR@0.01 = 18.10 dB
   done 11be 80M x8  MCS7 impaired: SNR@0.01 = never
   done 11be 80M x8  MCS7 no PA: SNR@0.01 = never
 
 curve                               SNR @ PER 1e-2      SNR:PER points
-11be 80M x4  MCS0 ideal            SNR@1e-2   0.89 dB   -2:1 -1:1 0:0.312 1:0.00667 2:0
-11be 80M x4  MCS0 impaired         SNR@1e-2   0.13 dB   -2:1 -1:1 0:0.312 1:0
-11be 80M x4  MCS0 no PA            SNR@1e-2   0.13 dB   -2:1 -1:1 0:0.303 1:0
-11be 80M x4  MCS4 ideal            SNR@1e-2  12.04 dB   10:1 11:1 12:0.0267 13:0
-11be 80M x4  MCS4 impaired         SNR@1e-2  13.88 dB   10:1 11:1 12:1 13:0.175 14:0.00667 15:0
-11be 80M x4  MCS4 no PA            SNR@1e-2  13.01 dB   10:1 11:1 12:0.182 13:0.0133 14:0
-11be 80M x4  MCS7 ideal            SNR@1e-2  19.04 dB   18:1 19:0.0267 20:0
+11be 80M x4  MCS0 ideal            SNR@1e-2  -0.91 dB   -2:1 -1:0.102 0:0
+11be 80M x4  MCS0 impaired         SNR@1e-2  -0.85 dB   -2:1 -1:0.667 0:0
+11be 80M x4  MCS0 no PA            SNR@1e-2  -0.88 dB   -2:1 -1:0.213 0:0
+11be 80M x4  MCS4 ideal            SNR@1e-2  11.09 dB   10:1 11:0.11 12:0
+11be 80M x4  MCS4 impaired         SNR@1e-2  12.14 dB   10:1 11:1 12:0.476 13:0
+11be 80M x4  MCS4 no PA            SNR@1e-2  11.16 dB   10:1 11:0.909 12:0
+11be 80M x4  MCS7 ideal            SNR@1e-2  18.10 dB   18:0.116 19:0
 11be 80M x4  MCS7 impaired         SNR@1e-2     never   18:1 19:1 20:1 21:1 22:1 23:1 24:1 25:1 26:1 27:1 28:1
-11be 80M x4  MCS7 no PA            SNR@1e-2  22.84 dB   18:1 19:1 20:0.909 21:0.526 22:0.0781 23:0.00667 24:0
-11be 80M x8  MCS0 ideal            SNR@1e-2   0.89 dB   -2:1 -1:1 0:0.312 1:0.00667 2:0
-11be 80M x8  MCS0 impaired         SNR@1e-2   1.04 dB   -2:1 -1:1 0:0.556 1:0.0267 2:0
-11be 80M x8  MCS0 no PA            SNR@1e-2   0.90 dB   -2:1 -1:1 0:0.385 1:0.00667 2:0
-11be 80M x8  MCS4 ideal            SNR@1e-2  12.04 dB   10:1 11:1 12:0.0267 13:0
-11be 80M x8  MCS4 impaired         SNR@1e-2  15.05 dB   10:1 11:1 12:1 13:1 14:0.526 15:0.0333 16:0
-11be 80M x8  MCS4 no PA            SNR@1e-2  13.13 dB   10:1 11:1 12:1 13:0.27 14:0
-11be 80M x8  MCS7 ideal            SNR@1e-2  19.04 dB   18:1 19:0.0267 20:0
+11be 80M x4  MCS7 no PA            SNR@1e-2  21.08 dB   18:1 19:1 20:0.769 21:0.0763 22:0
+11be 80M x8  MCS0 ideal            SNR@1e-2  -0.91 dB   -2:1 -1:0.102 0:0
+11be 80M x8  MCS0 impaired         SNR@1e-2  -0.84 dB   -2:1 -1:0.833 0:0
+11be 80M x8  MCS0 no PA            SNR@1e-2  -0.85 dB   -2:1 -1:0.588 0:0
+11be 80M x8  MCS4 ideal            SNR@1e-2  11.09 dB   10:1 11:0.11 12:0
+11be 80M x8  MCS4 impaired         SNR@1e-2  13.91 dB   10:1 11:1 12:1 13:0.526 14:0.00667 15:0
+11be 80M x8  MCS4 no PA            SNR@1e-2  12.14 dB   10:1 11:1 12:0.37 13:0
+11be 80M x8  MCS7 ideal            SNR@1e-2  18.10 dB   18:0.116 19:0
 11be 80M x8  MCS7 impaired         SNR@1e-2     never   18:1 19:1 20:1 21:1 22:1 23:1 24:1 25:1 26:1 27:1 28:1
 11be 80M x8  MCS7 no PA            SNR@1e-2     never   18:1 19:1 20:1 21:1 22:1 23:1 24:1 25:1 26:1 27:1 28:1
 
 == SNR at PER 1e-2 [dB]: ideal / impaired / no PA; the example-04 cap (floor 3 dB under the TX-EVM limit) and the floor-as-noise prediction (effective SNR = 1 / (1/SNR + 10^(floor/10)) must reach the ideal threshold) ==
 K   MCS      ideal   impaired      no PA   cap(imp) cap(noPA)  cap verdict          floor-as-noise: impaired  no PA
-4   0          0.89       0.13       0.13   MCS2     MCS3     reachable / reached       1.01       0.93   (agree)
-4   4         12.04      13.88      13.01   MCS2     MCS3     beyond cap / reached     13.92      12.51   (cap DISAGREES)
-4   7         19.04      never      22.84   MCS2     MCS3     beyond cap / never       never      22.12   (agree)
-8   0          0.89       1.04       0.90   MCS1     MCS2     reachable / reached       1.07       0.98   (agree)
-8   4         12.04      15.05      13.13   MCS1     MCS2     beyond cap / reached     15.16      13.36   (cap DISAGREES)
-8   7         19.04      never      never   MCS1     MCS2     beyond cap / never       never      never   (agree)
+4   0         -0.91      -0.85      -0.88   MCS2     MCS3     reachable / reached      -0.83      -0.89   (agree)
+4   4         11.09      12.14      11.16   MCS2     MCS3     beyond cap / reached     12.54      11.46   (cap DISAGREES)
+4   7         18.10      never      21.08   MCS2     MCS3     beyond cap / never       never      20.38   (agree)
+8   0         -0.91      -0.84      -0.85   MCS1     MCS2     reachable / reached      -0.79      -0.85   (agree)
+8   4         11.09      13.91      12.14   MCS1     MCS2     beyond cap / reached     13.40      12.12   (cap DISAGREES)
+8   7         18.10      never      never   MCS1     MCS2     beyond cap / never       never      never   (agree)
 The floor-as-noise prediction is the one to compare with the impaired / no-PA columns: the TX-EVM-limit cap is a conformance figure, not the decoder's tolerance (cairn/comparison-table.md §6).
 
 == the decoder cap (frontend/grid.py::decoder_cap, thresholds from data/spec/per_thresholds.yaml), checked: impaired PER at the cap MCS and one MCS above it ==
 K   BW[MHz]  floor   cap    T[dB]  SNR needed (predicted)  measured @ PER 1e-2   one MCS above: predicted  measured
-4       320  -16.6   MCS4   12.02       13.89                 13.92              MCS5:    24.13      22.13
-8       640  -14.9   MCS3    8.51        9.63                  9.69              MCS4:    15.11      15.12
-16     1280  -11.2   MCS2    6.50        8.29                  8.32              MCS3:    11.84      11.90
-32     2560   -5.6   MCS0    0.52        2.15                  5.16              MCS1:     8.83      10.58
-'never' above the cap means the floor is over that MCS's ideal threshold (or the sweep's 4 dB over the prediction was not enough); the analytic floor is optimistic by 1-2 dB once it is above -8 dB (example 04 section 2).
+4       320  -16.6   MCS4   11.40       12.97                 12.12              MCS5:    20.21      19.24
+8       640  -14.9   MCS4   11.40       13.93                 13.83              MCS5:    never      never
+16     1280  -10.9   MCS3    7.51       10.13                 10.19              MCS4:    never      never
+32     2560   -4.7   MCS0   -0.96        0.43                  0.60              MCS1:     5.49       6.39
+floor = the worse of the analytic floor and the time-domain EVM of the cell (frontend/grid.py::decoder_floor_db); 'never' above the cap means the floor is over that MCS's ideal threshold or the sweep's 4 dB over the prediction was not enough.
 
 wrote examples/output/05_sweeps.json  [~s]

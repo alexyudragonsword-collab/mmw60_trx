@@ -12,7 +12,7 @@
 ```bash
 pip install -e ".[test,jit]"          # numba 可选；MMW60_NO_JIT=1 走纯 numpy，结果逐位相同
 pytest -q -m "not slow"               # 约 5 分钟
-python examples/00_liu2025_per_vs_snr.py --quick     # 冒烟；去掉 --quick 全量约 1 小时（4 核）
+python examples/00_liu2025_per_vs_snr.py --quick     # 冒烟；去掉 --quick 全量约 80 分钟（4 核）
 python tools/external_check.py        # 与 Liu 2025 Fig. 4 读图值对表
 python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_cal
 ```
@@ -48,8 +48,14 @@ python tools/budget_report.py --base 11be:80e6 --k 4,8,16,32 --sensitivity -o ta
 ## 解码器上限（示例 02 的 dec 列、示例 04 §4b）
 
 网格和同台表里的“MCS 上限”有两个口径并排：**合规口径**（EVM 底板比规范的 TX EVM 要求低 3 dB——发射机过不过认证）和**解码器口径**
-（底板当一层噪声，对着本库接收机实测的 ideal 门限 `data/spec/per_thresholds.yaml`——链路带不带得动）。后者高 1–2 档，示例 05 逐格用 PER 复核。
+（底板当一层噪声，对着本库接收机实测的 ideal 门限 `data/spec/per_thresholds.yaml`——链路带不带得动）。后者高 1–3 档，示例 05 逐格用 PER 复核。未校准的解码器上限从解析底板与该格时域 EVM 中较差的一个起算。
 改了接收机要重量门限：`python tools/measure_thresholds.py --jobs 4`（约 16 分钟），`--check` 只比对不写。
+
+## 接收机两档与 PER 的置信区间（C1–C3）
+
+`RxConfig` 有两档接收机。里程碑 0 的一档（逐符号导频 CPE、固定 3 音平滑）留给 `liu2025_table2` 预设，对外校验和数值指纹都钉在它上面。
+`zero_if_60ghz` 预设用改进的一档（`config.improved_rx`）：导频公共相位跨符号 MMSE 合并（`cpe_window_symbols`），信道估计平滑跨度逐包按估计自己的音间自相关选（`ce_smooth_auto`），实现在 `rx/tracking.py`。
+`per_sweep(refine_errors=…)` 把夹住 PER 1e-2 的两个点续跑到指定错包数，`snr_at_per_ci` 给 bootstrap 95 % 区间；`tools/external_check.py` 的判决有三态（within / OUTSIDE / 这个精度下分不出）。
 
 ## 里程碑 1 · A2：11be 编码 PER（示例 05）
 
@@ -58,7 +64,7 @@ python tools/budget_report.py --base 11be:80e6 --k 4,8,16,32 --sensitivity -o ta
 接收机多了一步 DC 去除（`RxConfig.dc_removal`，在突发前的静默段上量）：没有它，−25 dBc 的 RX DC 在低 SNR 下把 L-STF 的 CFO 估计偏掉一个子载波。
 
 ```bash
-python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 40 分钟（4 核）；--quick 冒烟
+python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 5 分钟（4 核）；--quick 冒烟
 ```
 
 ## 读什么

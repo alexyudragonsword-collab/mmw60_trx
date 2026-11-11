@@ -5,7 +5,7 @@ summary: "规范 / 文献数字的来源制度：四种标签、Liu 2025 两个 
 tags: [mmw60, spec, provenance, liu2025]
 contains: [reference, decision, open_question]
 created: "2026-11-06"
-updated: "2026-11-06"
+updated: "2026-11-11"
 related: [external-validation.md, upclocking.md]
 authoring_mode: ai_generated
 ---
@@ -42,13 +42,13 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 
 ## 本库自己定的（assumed；每条在示例 00 有灵敏度行或在 LOG 有数字）
 
-基准带宽 20 MHz；SNR = 每有效子载波 Es/N0；相噪 TX/RX 各一份；CR 信道 = 指数 PDP 7 ns rms + LOS/散射 10 dB；OBO 参考 Psat（另给 P1dB）；信道估计平滑 3 音；genie 定时；只建 L-STF / L-LTF / Data；扰码种子 93。
+基准带宽 20 MHz；SNR = 每有效子载波 Es/N0；相噪 TX/RX 各一份；CR 信道 = 指数 PDP 7 ns rms + LOS/散射 10 dB；OBO 参考 Psat（另给 P1dB）；信道估计平滑 3 音（里程碑 0 的接收机；`zero_if_60ghz` 预设逐包自动选，上限 9 音 `assumed.ce_smooth_max_tones`）；跨符号 CPE 合并窗 17 个符号（`assumed.cpe_window_symbols`，示例 00 有 5 / 33 的灵敏度行）；genie 定时；只建 L-STF / L-LTF / Data；扰码种子 93。
 
 A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 峰值 PAE 20 %（B 类回退规律）、60 GHz / sub-7 频综 40 / 20 mW、数字字宽 16 bit、理想 ×N 的 20·log10 搬移；每条在示例 04 §6 的灵敏度表里有两端的数（`cairn/comparison-table.md` §5）。
 
 ## 本库自己量的（derived）
 
-- `data/spec/per_thresholds.yaml`：各 MCS 的 ideal PER 门限（`tools/measure_thresholds.py`）。不是规范数，是这份代码的接收机的性质；`tests/test_thresholds.py` 复量一个点守着它不与代码漂开。
+- `data/spec/per_thresholds.yaml`：各 MCS 的 ideal PER 门限（`tools/measure_thresholds.py`）。不是规范数，是这份代码的接收机的性质（C1–C3 后是改进的那一档，比里程碑 0 的接收机低 0.1–2.8 dB）；`tests/test_thresholds.py` 复量一个点守着它不与代码漂开。
 - `derived.irr_after_cal_measured_db`：示例 03 实测的校准后 IRR。
 
 ## 要原文才能关掉的问题

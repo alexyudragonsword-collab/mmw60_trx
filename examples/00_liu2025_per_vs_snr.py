@@ -11,10 +11,10 @@ sentence is tested as the *literal* diagnostic row below).
 
 The three original sets keep the milestone-0 receiver (per-symbol pilot CPE,
 3-tone channel smoothing) — they are the external validation.  Two more
-sets, "rx+", run the same links with the improved receiver of ROADMAP C1 /
+sets, "rx+", run the same links with the improved receiver of findings C1 /
 C2 (pilot common phase combined across symbols, smoothing span chosen per
 packet) to show how far the curves move.  Every SNR at PER 1e-2 comes with
-the 95 % bootstrap interval of its own counting statistics (ROADMAP C3).
+the 95 % bootstrap interval of its own counting statistics (finding C3).
 
     python examples/00_liu2025_per_vs_snr.py [--quick] [--jobs N]
 
@@ -54,7 +54,7 @@ def flat(cfg):
     return dc.replace(cfg, channel=ChannelConfig(model="flat"))
 
 
-#: ROADMAP C3: the two points bracketing PER 1e-2 are run on to this many
+#: finding C3: the two points bracketing PER 1e-2 are run on to this many
 #: packet errors (or the packet cap) before the crossing is interpolated
 REFINE_ERRORS, REFINE_MAX_PACKETS = 60, 3000
 #: the improved receiver's curves start lower (its MCS0 threshold is ~2 dB down)
@@ -64,7 +64,7 @@ GRIDS_RX = {0: [-1 + x * 0.5 for x in range(0, 17)],    # −1 .. 7 dB
 
 
 def better_rx(cfg):
-    """ROADMAP C1 / C2 on (``config.improved_rx``): pilot common phase combined
+    """milestone-0 findings C1 / C2 on (``config.improved_rx``): pilot common phase combined
     across symbols, channel-estimate smoothing span chosen per packet."""
     return dc.replace(cfg, rx=improved_rx(cfg.rx), label=(cfg.label + " rx+").strip())
 

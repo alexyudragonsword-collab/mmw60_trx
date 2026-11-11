@@ -53,7 +53,7 @@ def compare(results: list[dict], which: str = "impaired") -> int:
             if r["tags"].get("set") == which}
     label = {"impaired": "Table II read literally (LOS/diffuse channel, OBO from Psat)",
              "flat": "same impairments on a flat channel",
-             "flat_rx": "flat channel, improved receiver (ROADMAP C1 / C2)",
+             "flat_rx": "flat channel, improved receiver (milestone-0 findings C1 / C2)",
              "impaired_rx": "Table II read literally, improved receiver"}.get(which, which)
     print(f"\n== Liu 2025 Fig. 4 (arXiv v1) vs example 00 set '{which}': {label}; SNR at PER {target:g} ==")
     print(f"reference: {ref['cite']}")

@@ -261,7 +261,7 @@ def per_sweep(cfg: Mmw60Config, snr_db: list[float], max_packets: int = 400,
     errors or ``max_packets``; the sweep stops once a point's PER is below
     ``stop_below`` with zero errors (the curve is past the target).
 
-    ``refine_errors`` > 0 (ROADMAP C3): after the sweep, the two points that
+    ``refine_errors`` > 0 (finding C3): after the sweep, the two points that
     bracket ``target`` are run on — same random stream, so the result is
     still deterministic — until each has that many packet errors or
     ``refine_max_packets`` packets; the bracket is re-read once, since
@@ -354,7 +354,7 @@ def snr_at_per(sweep: dict, target: float = 1e-2) -> float | None:
 def snr_at_per_ci(sweep: dict, target: float = 1e-2, n_boot: int = 2000, level: float = 0.95,
                   seed: int = 0) -> dict:
     """Confidence interval of ``snr_at_per`` from the sweep's own counts
-    (ROADMAP C3).  Parametric bootstrap: every point's PER is redrawn from
+    (finding C3).  Parametric bootstrap: every point's PER is redrawn from
     its Jeffreys posterior Beta(errors + ½, packets − errors + ½) and the
     crossing re-interpolated; the interval is the central ``level`` of the
     replicates that cross.  ``never_fraction`` is the share that do not

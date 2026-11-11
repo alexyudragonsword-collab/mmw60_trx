@@ -1,4 +1,4 @@
-"""ROADMAP C1–C3: the cross-symbol CPE combiner, the automatic channel-estimate
+"""Milestone-0 findings C1–C3 (cairn/LOG.md 2026-11-11): the cross-symbol CPE combiner, the automatic channel-estimate
 smoothing span, and the PER-threshold refinement and confidence interval."""
 import dataclasses as dc
 
@@ -81,7 +81,7 @@ def test_high_snr_the_combiner_keeps_each_symbols_own_phase():
 
 
 def test_improved_receiver_moves_the_mcs0_threshold_left():
-    """ROADMAP C1's own measure: Liu K = 8 MCS0 on a flat channel.  At 3 dB
+    """Finding C1's own measure: Liu K = 8 MCS0 on a flat channel.  At 3 dB
     the milestone-0 receiver still loses most packets, the improved one
     hardly any."""
     base = dc.replace(liu2025_table2(k=8, mcs=0), channel=FLAT)
@@ -134,7 +134,7 @@ def test_span_is_the_ceiling_on_a_flat_channel_and_one_on_a_selective_one():
 
 
 def test_auto_span_matches_the_better_fixed_span_on_the_roadmap_case():
-    """ROADMAP C2's reproduction: K = 16, 15 ns rms Rayleigh.  A fixed 3-tone
+    """Finding C2's reproduction: K = 16, 15 ns rms Rayleigh.  A fixed 3-tone
     boxcar wrecks the estimate (EVM −4 dB against −14 dB unsmoothed); the
     automatic span follows the unsmoothed one.  On the flat impaired chain
     it takes the ceiling and reads the fixed-3 EVM or better."""
@@ -192,7 +192,7 @@ def test_refinement_adds_errors_at_the_bracket_only_and_stays_deterministic():
 
 
 def test_external_check_verdict_has_three_states(capsys):
-    """ROADMAP C3: a difference is OUTSIDE only if its whole interval (our
+    """finding C3: a difference is OUTSIDE only if its whole interval (our
     bootstrap interval widened by the figure's reading precision) is; an
     interval straddling the tolerance is reported as undecided, not as a miss."""
     import sys

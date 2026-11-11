@@ -5,7 +5,7 @@ summary: "拓扑 B（IMMW upclocking）在 60 GHz 零中频前端上的结论：
 tags: [mmw60, topology-b, upclocking, zero-if, calibration, grid]
 contains: [comparison-table, finding, decision, pitfall]
 created: "2026-11-07"
-updated: "2026-11-07"
+updated: "2026-11-11"
 related: [upclocking.md, external-validation.md, architecture-invariants.md, engineering-pitfalls.md]
 authoring_mode: ai_generated
 ---
@@ -21,7 +21,7 @@ LPF 角频 = wifitrx `recommended_lpf_corner_hz(BW × K)`；IQ 失配按绝对 p
 PA = 11ad EM Rapp 的 dBm 版 `ScaledRappPA`（Psat 15 dBm、增益 20 dB，都是 `assumed`），工作点由模拟 VGA 调到 Psat − OBO，数字驱动固定 −16.5 dBFS（DAC 不削顶）。
 `Frontend60` 是两拓扑共用的实例（`LinkSim(cfg, frontend=fe)`，`tests/test_frontend.py::test_law2_*`）；A 会话拿同一个对象做 60 GHz 级。
 
-锚：前端全关时 K = 1 与 K = 8 的链路 EVM 相同（−39.9 dB，差 < 0.1 dB）——链路里剩下的是 LPF 群时延与 3 音平滑的偏差，K 只改时间尺度。
+锚：前端全关时 K = 1 与 K = 8 的链路 EVM 相同（−39.9 dB，差 < 0.1 dB）——链路里剩下的是 LPF 群时延与信道估计平滑的偏差，K 只改时间尺度。
 里程碑 0 的 behavioural 路径逐位不变（指纹 68 个值相同）。
 
 ## 2. 网格：基准带宽 × K（示例 02，`examples/expected/02_upclock_grid.txt`）
@@ -32,15 +32,15 @@ PA = 11ad EM Rapp 的 dBm 版 `ScaledRappPA`（Psat 15 dBm、增益 20 dB，都�
 
 | 带宽 | 哪些格 | 解析 / 时域 EVM | 结论 |
 |---|---|---|---|
-| ≤ 0.32 GHz | 11ac 20×4/8/16、40×4/8、80×4；11be 20×4/8/16、40×4/8、80×4 | −17 / −17 dB | PA 限 MCS2（去 PA：MCS4–5）；IQ −21…−31，相噪 −25…−30 |
-| 0.64 GHz | 11ac 20×32、40×16、80×8、160×4；11be 20×32、40×16、80×8、160×4 | −15 / −15 dB | 仍 PA 限；未校准 IQ 已到 −15 dB，去 PA 后 IQ 限 MCS2 |
-| 1.28 GHz | 11ac 40×32、80×16、160×8；11be 40×32、80×16、160×8、320×4 | −11.5 / −10.4 dB | IQ 限 MCS0（镜像 −8 dB）；校准后回到 PA 限 |
+| ≤ 0.32 GHz | 11ac 20×4/8/16、40×4/8、80×4；11be 20×4/8/16、40×4/8、80×4 | −17 / −17…−18 dB | PA 限 MCS2（去 PA：MCS4–5）；IQ −21…−31，相噪 −25…−30 |
+| 0.64 GHz | 11ac 20×32、40×16、80×8、160×4；11be 20×32、40×16、80×8、160×4 | −15 / −15…−16 dB | 仍 PA 限；未校准 IQ 已到 −15 dB，去 PA 后 IQ 限 MCS2 |
+| 1.28 GHz | 11ac 40×32、80×16、160×8；11be 40×32、80×16、160×8、320×4 | −11.5 / −11…−12 dB | IQ 限 MCS0（镜像 −8 dB）；校准后回到 PA 限 |
 | 2.56 GHz | 11ac 80×32、160×16；11be 80×32、160×16、320×8 | −5.6 / −3.2…−4.5 dB | **不能**：未校准 IQ 镜像 −1 dB；校准后 MCS2 |
 | 5.12 GHz | 11ac 160×32；11be 160×32、320×16 | +3 / +4…+13 dB | 不能：IQ；转换器 8.3 bit 仍只 −34 dB |
 | 10.24 GHz | 11be 320×32 | — | 不能：超出 57–71 GHz 单信道，IQ |
 
-- 表里的“结论”是发射机合规口径。解码器口径（示例 02 的 dec / dec-cal 列，`comparison-table.md` §2b）高 1–2 档：≤ 0.32 GHz 的 11be 格 MCS4、11ac 20 MHz 格 MCS3；1.28 GHz 的 11be 格 MCS2–3（合规 MCS0）；2.56 GHz 的 11be 格 MCS0（合规“不能”）；5.12 GHz 及以上仍不能；校准后 11be 全部 MCS4。
-- 解析与时域在 ≤ 1.28 GHz 内差 ≤ 1.2 dB；更宽时 IQ 镜像接近信号功率，线性叠加失效（时域更差），无妨结论。A2 之后 11be 格的时域列来自编码的 MCS0 数据域（不再是随机 16-QAM 载荷），并且前导多了 DC 测量用的静默段，单包的时域读数随之动了 ≤ 0.3 dB；结论列一格没动。
+- 表里的“结论”是发射机合规口径。解码器口径（示例 02 的 dec / dec-cal 列，`comparison-table.md` §2b）高 1–3 档：≤ 0.64 GHz 的 11be 格 MCS4、11ac 20 MHz 格 MCS3；1.28 GHz 的 11be 格 MCS3（合规 MCS0）；2.56 GHz 的 11be 格 MCS0（合规“不能”）；5.12 GHz 及以上仍不能；校准后 11be 全部 MCS4。C1–C3 之前（逐符号 CPE、固定 3 音平滑的接收机）0.64 GHz 是 MCS3、1.28 GHz 是 MCS2–3。
+- 解析与时域在 ≤ 1.28 GHz 内差 −1.1 … +0.5 dB；更宽时 IQ 镜像接近信号功率，线性叠加失效（时域更差，2.56 GHz 差 0.3–1.2 dB），解码器上限取两者中较差的一个（`decoder_floor_db`）。时域列是接收机看到的 EVM，所以跟着接收机走：C1–C3 的自动平滑跨度把 ≤ 2.56 GHz 的格的时域读数压低了 0.1–1.2 dB（信道估计里的失真被多平均了几个音），解析列与结论列一格没动。A2 之后 11be 格的时域列来自编码的 MCS0 数据域（不再是随机 16-QAM 载荷），并且前导多了 DC 测量用的静默段。
 - **用户预期的"80 MHz × 32 或 160 MHz × 16 + CFO 估计"**：CFO 捕获在 60.48 GHz 上 K ≥ 4 都成立（2.42 MHz < ±2.5 MHz），它们的瓶颈不是 CFO 而是 2.56 GHz 上未校准的频率相关 IQ 不平衡（150 ps 群时延失配在 ±1.28 GHz 边缘是 1.2 rad）；校准后（示例 03 实测 2.56 GHz 上 irr_min 38–42 dB）回到 PA 限的 MCS2。
 - 相噪项随 K 变好（T_FFT 变短，CPE 份额变大）：11ac 20 MHz 基准 −26.7（K=4）→ −31.6 dB（K=32）；11be 同带宽下比 11ac 差 1–2 dB（T_FFT 长 4 倍）。
 - GI 外 ISI：7 ns 散射尾在 K=32 的 25 ns GI 外是 −25.9 dB，开始与 IQ 同量级。

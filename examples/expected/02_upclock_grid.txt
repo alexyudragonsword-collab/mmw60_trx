@@ -1,45 +1,45 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
 mmw60 0.1.0; full; front end: PA rapp_11ad Psat 15 dBm OBO 8 dB from psat -> Pout 7 dBm; LO IPN -31.1 dBc (10 kHz–100 MHz); TX leak -30 dBc; RX DC -25 dBc; IQ 150 ps / 1.5 deg / 0.25 dB; converters ENOB 10 @ 1 GS/s, -0.5 bit/octave; crystal 20+20 ppm at 60.48 GHz = 2.419 MHz; channel tdl_exp 7 ns / LOS 10 dB
 PA isolated EVM at this OBO (K-independent, memoryless): -18.1 dB
-verdict: 能 = CFO captured, plan fits, MCS0 reachable with the floor 3 dB under the MCS TX-EVM limit; maxMCS = uncorrected IQ; IQcal = IQ image at the calibrated residual (assumed.irr_after_cal_db); no-PA = the front end without the PA term (the back-off is the designer's knob per MCS, the rest is not); dec / dec-cal = the decoder's cap (the floor as a noise term against the measured ideal PER thresholds, data/spec/per_thresholds.yaml, 3 dB margin), uncalibrated / IQ calibrated; n/a = base without a coded data field. maxMCS and the verdict are the transmitter-conformance reading (floor against the TX-EVM limit)
+verdict: 能 = CFO captured, plan fits, MCS0 reachable with the floor 3 dB under the MCS TX-EVM limit; maxMCS = uncorrected IQ; IQcal = IQ image at the calibrated residual (assumed.irr_after_cal_db); no-PA = the front end without the PA term (the back-off is the designer's knob per MCS, the rest is not); dec / dec-cal = the decoder's cap (the floor as a noise term against the measured ideal PER thresholds, data/spec/per_thresholds.yaml, 3 dB margin), uncalibrated / IQ calibrated; the uncalibrated one from the worse of the analytic floor and the TD EVM of the cell; n/a = base without a coded data field. maxMCS and the verdict are the transmitter-conformance reading (floor against the TX-EVM limit)
 
 std    base   K    BW[GHz] SCS[MHz] floor   TD-EVM  maxMCS IQcal  no-PA   maxMCS    dec dec-cal verdict reason                 isolated TD EVM [dB]
-11ac     20 x4     0.08   1.25   -17.3  -17.2   MCS2   MCS2   -25.4   MCS5   MCS3   MCS3 能    PA 限 MCS               pn:-25 iq:-26 conv:-39 pa:-19 cfo:-40
-11ac     20 x8     0.16   2.50   -17.4  -17.3   MCS2   MCS2   -26.0   MCS5   MCS3   MCS3 能    PA 限 MCS               pn:-26 iq:-25 conv:-39 pa:-19 cfo:-40
-11ac     20 x16    0.32   5.00   -17.1  -16.9   MCS2   MCS2   -24.1   MCS4   MCS3   MCS3 能    PA 限 MCS               pn:-27 iq:-21 conv:-39 pa:-19 cfo:-40
-11ac     20 x32    0.64  10.00   -15.2  -15.3   MCS1   MCS2   -18.3   MCS2   MCS2   MCS3 能    PA 限 MCS               pn:-29 iq:-15 conv:-39 pa:-19 cfo:-40
-11ac     40 x4     0.16   1.25   -17.3  -17.9   MCS2   MCS2   -25.1   MCS5   n/a    n/a  能    PA 限 MCS               pn:-27 iq:-26 conv:-40 pa:-19 cfo:-40
-11ac     40 x8     0.32   2.50   -17.0  -17.3   MCS2   MCS2   -23.5   MCS4   n/a    n/a  能    PA 限 MCS               pn:-28 iq:-21 conv:-39 pa:-19 cfo:-40
-11ac     40 x16    0.64   5.00   -15.5  -15.4   MCS1   MCS2   -18.9   MCS2   n/a    n/a  能    PA 限 MCS               pn:-29 iq:-15 conv:-39 pa:-19 cfo:-40
-11ac     40 x32    1.28  10.00   -11.7  -11.6   MCS0   MCS2   -12.8   MCS0   n/a    n/a  能    IQ 不平衡 限 MCS           pn:-31 iq:-9 conv:-37 pa:-19 cfo:-40
-11ac     80 x4     0.32   1.25   -16.8  -17.1   MCS2   MCS2   -22.7   MCS4   n/a    n/a  能    PA 限 MCS               pn:-26 iq:-21 conv:-41 pa:-19 cfo:-43
-11ac     80 x8     0.64   2.50   -15.2  -14.9   MCS1   MCS2   -18.4   MCS2   n/a    n/a  能    PA 限 MCS               pn:-27 iq:-15 conv:-41 pa:-19 cfo:-43
-11ac     80 x16    1.28   5.00   -11.5  -10.2   MCS0   MCS2   -12.5   MCS0   n/a    n/a  能    IQ 不平衡 限 MCS           pn:-29 iq:-8 conv:-38 pa:-19 cfo:-43
-11ac     80 x32    2.56  10.00    -5.8   -5.3    —     MCS2    -6.0    —     n/a    n/a  不能   IQ 不平衡                 pn:-30 iq:-1 conv:-38 pa:-19 cfo:-43
-11ac    160 x4     0.64   1.25   -15.1  -14.7   MCS1   MCS2   -18.2   MCS2   n/a    n/a  能    PA 限 MCS               pn:-27 iq:-15 conv:-44 pa:-19 cfo:-48
-11ac    160 x8     1.28   2.50   -11.5  -10.3   MCS0   MCS2   -12.5   MCS0   n/a    n/a  能    IQ 不平衡 限 MCS           pn:-28 iq:-8 conv:-39 pa:-19 cfo:-48
-11ac    160 x16    2.56   5.00    -5.8   -4.3    —     MCS2    -6.1    —     n/a    n/a  不能   IQ 不平衡                 pn:-29 iq:-1 conv:-39 pa:-19 cfo:-48
-11ac    160 x32    5.12  10.00     2.6    4.1    —     MCS2     2.6    —     n/a    n/a  不能   IQ 不平衡                 pn:-29 iq:5 conv:-34 pa:-19 cfo:-48
-11be     20 x4     0.08   0.31   -17.2  -17.5   MCS2   MCS2   -24.4   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-26 conv:-45 pa:-19 cfo:-46
-11be     20 x8     0.16   0.62   -17.2  -17.5   MCS2   MCS2   -24.5   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-25 conv:-45 pa:-19 cfo:-46
-11be     20 x16    0.32   1.25   -16.8  -16.9   MCS2   MCS2   -22.6   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-26 iq:-21 conv:-43 pa:-19 cfo:-46
-11be     20 x32    0.64   2.50   -14.8  -14.8   MCS1   MCS2   -17.7   MCS2   MCS3   MCS4 能    PA 限 MCS               pn:-27 iq:-15 conv:-43 pa:-19 cfo:-46
-11be     40 x4     0.16   0.31   -17.1  -17.4   MCS2   MCS2   -24.2   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-26 conv:-47 pa:-19 cfo:-48
-11be     40 x8     0.32   0.62   -16.7  -16.7   MCS2   MCS2   -22.3   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-26 iq:-21 conv:-44 pa:-19 cfo:-48
-11be     40 x16    0.64   1.25   -15.1  -14.7   MCS1   MCS2   -18.2   MCS2   MCS3   MCS4 能    PA 限 MCS               pn:-26 iq:-15 conv:-44 pa:-19 cfo:-48
-11be     40 x32    1.28   2.50   -11.3  -10.4   MCS0   MCS2   -12.3   MCS0   MCS2   MCS4 能    IQ 不平衡 限 MCS           pn:-28 iq:-8 conv:-39 pa:-19 cfo:-48
-11be     80 x4     0.32   0.31   -16.6  -16.6   MCS2   MCS2   -22.0   MCS3   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-20 conv:-44 pa:-19 cfo:-50
-11be     80 x8     0.64   0.62   -14.9  -14.5   MCS1   MCS2   -17.9   MCS2   MCS3   MCS4 能    PA 限 MCS               pn:-25 iq:-14 conv:-44 pa:-19 cfo:-50
-11be     80 x16    1.28   1.25   -11.2  -10.2   MCS0   MCS2   -12.2   MCS0   MCS2   MCS4 能    IQ 不平衡 限 MCS           pn:-26 iq:-8 conv:-40 pa:-19 cfo:-50
-11be     80 x32    2.56   2.50    -5.5   -3.8    —     MCS2    -5.8    —     MCS0   MCS4 不能   IQ 不平衡                 pn:-27 iq:-1 conv:-40 pa:-19 cfo:-50
-11be    160 x4     0.64   0.31   -14.9  -14.8   MCS1   MCS2   -17.8   MCS2   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-14 conv:-45 pa:-19 cfo:-53
-11be    160 x8     1.28   0.62   -11.2  -10.4   MCS0   MCS2   -12.2   MCS0   MCS3   MCS4 能    IQ 不平衡 限 MCS           pn:-25 iq:-8 conv:-40 pa:-19 cfo:-53
-11be    160 x16    2.56   1.25    -5.6   -3.2    —     MCS2    -5.8    —     MCS0   MCS4 不能   IQ 不平衡                 pn:-26 iq:-1 conv:-40 pa:-19 cfo:-53
-11be    160 x32    5.12   2.50     3.1   12.7    —     MCS2     3.0    —      —     MCS4 不能   IQ 不平衡                 pn:-26 iq:5 conv:-34 pa:-19 cfo:-53
-11be    320 x4     1.28   0.31   -11.2  -10.6   MCS0   MCS2   -12.2   MCS0   MCS3   MCS4 能    IQ 不平衡 限 MCS           pn:-25 iq:-8 conv:-40 pa:-18 cfo:-57
-11be    320 x8     2.56   0.62    -5.5   -4.5    —     MCS2    -5.8    —     MCS0   MCS4 不能   IQ 不平衡                 pn:-25 iq:-1 conv:-40 pa:-18 cfo:-57
-11be    320 x16    5.12   1.25     3.1   15.2    —     MCS2     3.0    —      —     MCS4 不能   IQ 不平衡                 pn:-25 iq:4 conv:-34 pa:-18 cfo:-57
-11be    320 x32   10.24   2.50    22.6   16.7    —     MCS2    22.6    —      —     MCS4 不能   频率规划, IQ 不平衡           pn:-25 iq:4 conv:-34 pa:-18 cfo:-57
+11ac     20 x4     0.08   1.25   -17.3  -17.4   MCS2   MCS2   -25.4   MCS5   MCS3   MCS3 能    PA 限 MCS               pn:-25 iq:-26 conv:-39 pa:-19 cfo:-40
+11ac     20 x8     0.16   2.50   -17.4  -17.4   MCS2   MCS2   -26.0   MCS5   MCS3   MCS4 能    PA 限 MCS               pn:-26 iq:-26 conv:-39 pa:-19 cfo:-40
+11ac     20 x16    0.32   5.00   -17.1  -17.2   MCS2   MCS2   -24.1   MCS4   MCS3   MCS4 能    PA 限 MCS               pn:-27 iq:-21 conv:-39 pa:-19 cfo:-40
+11ac     20 x32    0.64  10.00   -15.2  -15.4   MCS1   MCS2   -18.3   MCS2   MCS3   MCS3 能    PA 限 MCS               pn:-29 iq:-15 conv:-39 pa:-19 cfo:-40
+11ac     40 x4     0.16   1.25   -17.3  -18.4   MCS2   MCS2   -25.1   MCS5   n/a    n/a  能    PA 限 MCS               pn:-27 iq:-26 conv:-40 pa:-19 cfo:-40
+11ac     40 x8     0.32   2.50   -17.0  -17.8   MCS2   MCS2   -23.5   MCS4   n/a    n/a  能    PA 限 MCS               pn:-28 iq:-22 conv:-39 pa:-19 cfo:-40
+11ac     40 x16    0.64   5.00   -15.5  -16.0   MCS1   MCS2   -18.9   MCS2   n/a    n/a  能    PA 限 MCS               pn:-30 iq:-16 conv:-39 pa:-19 cfo:-40
+11ac     40 x32    1.28  10.00   -11.7  -12.0   MCS0   MCS2   -12.8   MCS0   n/a    n/a  能    IQ 不平衡 限 MCS           pn:-31 iq:-10 conv:-37 pa:-19 cfo:-40
+11ac     80 x4     0.32   1.25   -16.8  -17.7   MCS2   MCS2   -22.7   MCS4   n/a    n/a  能    PA 限 MCS               pn:-26 iq:-21 conv:-41 pa:-20 cfo:-43
+11ac     80 x8     0.64   2.50   -15.2  -15.6   MCS1   MCS2   -18.4   MCS2   n/a    n/a  能    PA 限 MCS               pn:-28 iq:-15 conv:-41 pa:-20 cfo:-43
+11ac     80 x16    1.28   5.00   -11.5  -11.0   MCS0   MCS2   -12.5   MCS0   n/a    n/a  能    IQ 不平衡 限 MCS           pn:-29 iq:-9 conv:-38 pa:-20 cfo:-43
+11ac     80 x32    2.56  10.00    -5.8   -5.5    —     MCS2    -6.0    —     n/a    n/a  不能   IQ 不平衡                 pn:-30 iq:-1 conv:-38 pa:-20 cfo:-43
+11ac    160 x4     0.64   1.25   -15.1  -15.5   MCS1   MCS2   -18.2   MCS2   n/a    n/a  能    PA 限 MCS               pn:-27 iq:-15 conv:-45 pa:-19 cfo:-49
+11ac    160 x8     1.28   2.50   -11.5  -11.1   MCS0   MCS2   -12.5   MCS0   n/a    n/a  能    IQ 不平衡 限 MCS           pn:-28 iq:-9 conv:-40 pa:-19 cfo:-49
+11ac    160 x16    2.56   5.00    -5.8   -5.0    —     MCS2    -6.1    —     n/a    n/a  不能   IQ 不平衡                 pn:-29 iq:-1 conv:-40 pa:-19 cfo:-49
+11ac    160 x32    5.12  10.00     2.6    5.0    —     MCS2     2.6    —     n/a    n/a  不能   IQ 不平衡                 pn:-30 iq:11 conv:-35 pa:-19 cfo:-49
+11be     20 x4     0.08   0.31   -17.2  -18.1   MCS2   MCS2   -24.4   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-27 conv:-45 pa:-19 cfo:-46
+11be     20 x8     0.16   0.62   -17.2  -18.0   MCS2   MCS2   -24.5   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-27 conv:-45 pa:-19 cfo:-46
+11be     20 x16    0.32   1.25   -16.8  -17.4   MCS2   MCS2   -22.6   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-26 iq:-21 conv:-43 pa:-19 cfo:-46
+11be     20 x32    0.64   2.50   -14.8  -15.4   MCS1   MCS2   -17.7   MCS2   MCS4   MCS4 能    PA 限 MCS               pn:-27 iq:-15 conv:-43 pa:-19 cfo:-46
+11be     40 x4     0.16   0.31   -17.1  -18.0   MCS2   MCS2   -24.2   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-27 conv:-48 pa:-19 cfo:-49
+11be     40 x8     0.32   0.62   -16.7  -17.4   MCS2   MCS2   -22.3   MCS4   MCS4   MCS4 能    PA 限 MCS               pn:-26 iq:-21 conv:-45 pa:-19 cfo:-49
+11be     40 x16    0.64   1.25   -15.1  -15.4   MCS1   MCS2   -18.2   MCS2   MCS4   MCS4 能    PA 限 MCS               pn:-27 iq:-15 conv:-45 pa:-19 cfo:-50
+11be     40 x32    1.28   2.50   -11.3  -11.2   MCS0   MCS2   -12.3   MCS0   MCS3   MCS4 能    IQ 不平衡 限 MCS           pn:-28 iq:-9 conv:-40 pa:-19 cfo:-50
+11be     80 x4     0.32   0.31   -16.6  -17.3   MCS2   MCS2   -22.0   MCS3   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-21 conv:-45 pa:-19 cfo:-51
+11be     80 x8     0.64   0.62   -14.9  -15.2   MCS1   MCS2   -17.9   MCS2   MCS4   MCS4 能    PA 限 MCS               pn:-26 iq:-15 conv:-45 pa:-19 cfo:-51
+11be     80 x16    1.28   1.25   -11.2  -10.9   MCS0   MCS2   -12.2   MCS0   MCS3   MCS4 能    IQ 不平衡 限 MCS           pn:-26 iq:-9 conv:-40 pa:-19 cfo:-51
+11be     80 x32    2.56   2.50    -5.5   -4.7    —     MCS2    -5.8    —     MCS0   MCS4 不能   IQ 不平衡                 pn:-27 iq:-0 conv:-40 pa:-19 cfo:-51
+11be    160 x4     0.64   0.31   -14.9  -15.3   MCS1   MCS2   -17.8   MCS2   MCS4   MCS4 能    PA 限 MCS               pn:-25 iq:-15 conv:-46 pa:-19 cfo:-54
+11be    160 x8     1.28   0.62   -11.2  -11.0   MCS0   MCS2   -12.2   MCS0   MCS3   MCS4 能    IQ 不平衡 限 MCS           pn:-26 iq:-9 conv:-41 pa:-19 cfo:-54
+11be    160 x16    2.56   1.25    -5.6   -4.4    —     MCS2    -5.8    —     MCS0   MCS4 不能   IQ 不平衡                 pn:-26 iq:-0 conv:-41 pa:-19 cfo:-54
+11be    160 x32    5.12   2.50     3.1    4.5    —     MCS2     3.0    —      —     MCS4 不能   IQ 不平衡                 pn:-27 iq:8 conv:-35 pa:-19 cfo:-54
+11be    320 x4     1.28   0.31   -11.2  -11.1   MCS0   MCS2   -12.2   MCS0   MCS3   MCS4 能    IQ 不平衡 限 MCS           pn:-25 iq:-9 conv:-41 pa:-19 cfo:-57
+11be    320 x8     2.56   0.62    -5.5   -4.9    —     MCS2    -5.8    —     MCS0   MCS4 不能   IQ 不平衡                 pn:-25 iq:-0 conv:-41 pa:-19 cfo:-57
+11be    320 x16    5.12   1.25     3.1   11.8    —     MCS2     3.0    —      —     MCS4 不能   IQ 不平衡                 pn:-26 iq:9 conv:-35 pa:-19 cfo:-57
+11be    320 x32   10.24   2.50    22.6    8.1    —     MCS2    22.6    —      —     MCS4 不能   频率规划, IQ 不平衡           pn:-26 iq:7 conv:-35 pa:-19 cfo:-57
 
 == analytic terms per cell [dB] ==
 std    base   K   pn     iq    conv   pa     isi   | plan in band  channels  fs_eff[GS/s]  ENOB
