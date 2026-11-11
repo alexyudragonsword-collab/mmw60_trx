@@ -72,7 +72,7 @@ def main(argv=None) -> int:
     print("EVM columns in dB: 'dpd step' is the DPD step's own PA-output reading, 'TX EVM' and 'loopback' are the last "
           "step's, as a standard receiver reads them; OBO is the back-off that check landed on")
     print("the Rapp rows: this PA's P1dB is 9.5 dB under Psat, so at this back-off the average sits above P1dB and "
-          "wifitrx's DPD step (2 ILA iterations) has nothing to gain")
+          "wifitrx's DPD step (2 ILA iterations) has little headroom: compare its off / x1 rows")
 
     summary = []
     for k in ((8,) if quick else (4, 8, 32)):
