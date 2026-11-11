@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### 重新 pin wifitrx@7b8d08e（0.7.40）：DPD 步留观测最好的一轮，`ScaledPA` 稳态定标（2026-11-11）
+- `src/mmw60/vendor/wifitrx/` 重新同步到 `7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02`（106 个文件 verbatim，3 个正文有变化：`cal/dpd_cal.py`、`pa/scaled.py`、`__init__.py`）。两处都是本库在 wifi_trx_cal#5 验收时报告、对方修掉的（B40、B41）。里程碑 0 指纹逐位不变。
+- `pamemory.memory_pa`：去掉“在逐样本的 PA 上取定标再换模型”的绕法。
+- `ifext.IfExtender.train_dpd_mmw`：不再循环 `n_iter` = 1 … N；调一次 `calibrate_dpd`（它自己留最好的一轮），再把它留下的与芯片上原有的预失真器在同一输出功率下比。**`dpd_mmw` 的键变了**：`observed_by_pass_db`、`kept_pass`、`evm_fitted_db` 取代 `evm_by_iterations_db`。
+- **numbers-move**（示例 03、04、06、07；00 / 01 / 02 / 05 不变）：凡是旧版“开了 DPD 反而更差”的格都回到不差于不开的水平。示例 03 的 640 MHz 列最终 EVM −19.3 → −22.8 dB；示例 06 整套序列搬到 60 GHz 观测上的 DPD −14.1 → −21.7 dB；示例 04 只有拓扑 A 三行小动，MCS 不变。
+- **结论更正（示例 07）**：上一条写的“记忆按秒固定时预设回退点上 DPD 基本失效，匹配间隔只在回退 ≥ 10.5 dB 的 K = 32 上赢”有一半是旧版 DPD 步写入发散的第 2 轮造成的。现在：K = 4 / 8 / 32 的代价 4.1 / 5.8 / 0.6 dB（原 7.3 / 6.0 / 3.2）；K = 32 上匹配间隔在预设回退上就追得上（−25.2 对 −25.8 dB）。代价由 PA 的抽头隔多少个样本决定，8–16 个样本最糟。
+
 ### 重新 pin wifitrx@da37888（DPD 抽头间隔透传）；PA 的电记忆研究 —— ROADMAP D3（2026-11-11）
 - `src/mmw60/vendor/wifitrx/` 重新同步到 `da37888ab16f6a5f34d1d0f3d329a4b857b5f37b`（0.7.38；106 个文件 verbatim，9 个正文有变化：PA 模型更新到 PA_DPD@02ca433，`calibrate_dpd` / `run_full_cal` / `dpd_tracking` 可传抽头间隔）。pin 四处一起改。里程碑 0 指纹逐位不变，已有示例的输出不变。
 - `src/mmw60/pamemory.py`（新）：带电记忆的参考 PA 进拓扑 B 的链路。`memory_pa`（按前端的增益 / Psat 定标；`fir_fs` 给定时抽头按秒固定，不给时随信号缩放）、`run_row` / `study` / `cost_rows`（wifitrx 的校准序列在该 PA 上真跑，DPD 关 / 各抽头间隔）、`candidate_spacings`、`best_spacing`。

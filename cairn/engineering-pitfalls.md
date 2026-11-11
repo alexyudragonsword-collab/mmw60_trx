@@ -23,8 +23,10 @@ authoring_mode: ai_generated
 - **更正（2026-11-11，wifitrx@96078aa）**：上面两条“导频表只认标准带宽”“`run_full_cal` 在 K ≠ 1 直接失败”对带导频的显式音计划已不成立：`TonePlan(..., pilots=)` / `contiguous(n, pilots=…)` 的导频跟着音计划走，
   `pilot_positions` 不再查表，任何 SCS 都能生成评分波形。本库的用法是 `calcheck.upclocked_scoring_config`（基准的音与导频 × K）。不带导频的音计划在非标准 SCS 上仍然 ValueError。
 - **校准采集按符号数给，样本数随基准 FFT 点数变**：8 个符号在 11ac 20 MHz 基准上只有 1280 个样本，K = 32 时 GMP 拟合不够，DPD 之后比不开还差 3.5 dB（`topology-b.md` §3，`assumed.cal_capture_symbols`）。换基准或换 K 后先看采集了多少样本。
-- **wifitrx `ScaledPA` 在幅度斜坡上找小信号增益**：`ReferencePA(fs=, fir_fs=)` 的抽头隔 ≥ 2 个样本时它只读到主抽头（g0 = 1.0000，逐样本时 1.2295），同一颗 PA 的小信号增益被定高 1.80 dB；Psat 的锚不受影响。
-  比较两种记忆规律时在逐样本的那颗上取定标再换 `pa_model`（`pamemory.memory_pa`）。已告知对方（wifi_trx_cal#5）。
+- **wifitrx ≤ 0.7.39 的 `ScaledPA` 在幅度斜坡上找小信号增益**：`ReferencePA(fs=, fir_fs=)` 的抽头隔 ≥ 2 个样本时它只读到主抽头（g0 = 1.0000，逐样本时 1.2295），同一颗 PA 的小信号增益被定高 1.80 dB；Psat 的锚不受影响。
+  本库报告后对方在 0.7.40 修掉（B41：带记忆的模型逐电平读稳态，四种抽头间隔的 g0 都是 1.2301），`pamemory.memory_pa` 里的绕法已去掉。留着这条是因为它说明了一件事：两个模型的静态曲线相同不等于它们过同一个定标器得到同一个结果，要量。
+- **wifitrx ≤ 0.7.38 的 DPD 步无条件写入最后一轮**：软压缩的 PA、采集太短、PA 记忆够不着时第 2 轮会比第 1 轮甚至比不加还差，旧版照写。0.7.39 起留观测通路上最好的一轮（B40）。
+  旧数字里凡是“开了 DPD 反而更差”的格（示例 03 的 640 MHz 列、示例 06 的 60 GHz 观测整套序列、示例 07 的若干格）都是这个行为，不是器件的结论；本库据此下过一个错的推广（`topology-b.md` 被推翻的判断 7）。
 - **wifitrx 默认驱动（`final_drive_scale` 0.12）在本库前端上落在回退 10.4–10.7 dB，不是预设的 8 dB**；不同的 PA 模型在同一驱动下还差约 1 dB。要在指定回退上读 DPD / 最终 EVM 用 `run_cal_at(obo_db=…)`（整套序列重跑到落点对上）。
 - **DPD 抽头间隔不能直接取 fs_eff / fir_fs**：预失真器与 PA 之间的发射基带低通有逐样本的记忆（`topology-b.md` §3b）。`run_cal_at` 记下的 `dpd_tap_spacing` 是 DPD 步自己写进 `estimated` 的值，不是传进去的值。
 - **`TDLChannel.k_db` 只让第一个 tap 变 Rician**，尾部功率不变；要 LOS 占优（抑制 GI 之外的 ISI）用本库 `channel.ExponentialTdl(los_k_db=…)`。

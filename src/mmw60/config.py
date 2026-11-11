@@ -119,8 +119,8 @@ class IfExtConfig:
     #: where the DPD observes: the chip's own coupler (it linearises the chip PA
     #: only) or a 60 GHz coupler after the second PA, down-converted with the same LO
     dpd_observation: str = "chip"
-    #: with the 60 GHz observation: the indirect-learning fit is run for 1 … this many
-    #: iterations and the best on the observation path stays (data/spec: assumed.ifext_dpd_max_iterations)
+    #: with the 60 GHz observation: how many indirect-learning passes wifitrx's DPD step may try;
+    #: it keeps the best one its observation path reads (data/spec: assumed.ifext_dpd_max_iterations)
     dpd_max_iterations: int = 2
     filter_enabled: bool = True
     filter_bw_hz: float = 1.2e9
