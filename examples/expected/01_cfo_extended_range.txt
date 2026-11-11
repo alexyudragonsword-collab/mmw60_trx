@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.0.1; full size
+mmw60 0.1.0; full size
 
 == CFO estimate at K=4, one packet each, SNR 20 dB ==
   stf_ltf  true 2.938 MHz  estimate -2.062 MHz (stf -2.057, ltf -0.005, integer +0 tones)  EVM 22.7 dB  bit errors 16379

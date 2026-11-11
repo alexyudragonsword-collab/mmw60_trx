@@ -122,9 +122,11 @@ def main(argv=None) -> int:
         g = lambda v, fmt: "    —" if v is None else fmt.format(v)  # noqa: E731
         thr = None if r["dec_mcs"] is None else r["dec_required_snr_db"] - r["dec_penalty_db"]
         pjd = "      —" if not r["power_dec"] else f"{r['power_dec']['pj_per_bit']:7.0f}"
-        print(f"{r['label']:<44} {r['floor_db']:6.1f} {g(r['max_mcs'], 'MCS{}'):>5} {g(r['dec_mcs'], 'MCS{}'):>5} "
+        print(f"{r['label']:<44} {g(r['dec_floor_db'], '{:6.1f}'):>6} {g(r['max_mcs'], 'MCS{}'):>5} {g(r['dec_mcs'], 'MCS{}'):>5} "
               f"{g(thr, '{:6.2f}'):>6} {g(r['dec_required_snr_db'], '{:6.2f}'):>6} {g(r['dec_penalty_db'], '{:6.2f}'):>6} "
               f"{g(r['dec_mcs_cal'], 'MCS{}'):>7} {g(r['dec_rate_mbps'], '{:6.0f}'):>6} {pjd}")
+    print("floor = the worse of the analytic floor and the time-domain EVM of table 1 (the analytic sum is optimistic once the "
+          "IQ image is no small perturbation; dec-cal has only the analytic floor at the calibrated IRR)")
     print("conf = the transmitter-conformance cap of table 1 (floor 3 dB under the standard's TX-EVM limit); dec = what the "
           "decoder carries; the rate and pJ/bit here are at the decoder cap (table 1 and 4 stay at the conformance cap)")
 
@@ -145,6 +147,8 @@ def main(argv=None) -> int:
         print("\n== 6. sensitivity: which guesses decide the verdict (analytic side at every coefficient's range ends) ==")
         rep["sensitivity"] = compare.sensitivity(schemes, fe)
         print("base pJ/bit ranking (best first): " + " < ".join(rep["sensitivity"]["base"]["ranking"]))
+        print("the decoder caps here start from the analytic floor alone (no time-domain run per knob): a row whose 4b cap "
+              "came from the time-domain floor starts one MCS higher in this section")
         for e in rep["sensitivity"]["knobs"]:
             ratio = "—" if e["pj_ratio_min"] is None else f"x{e['pj_ratio_min']:.2f} … x{e['pj_ratio_max']:.2f}"
             print(f"  {e['knob']:<26} at {str(e['value']):<9} conformance cap moved on {len(e['mcs_moved']):>2} row(s), "

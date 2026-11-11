@@ -30,6 +30,7 @@ from ..vendor.wifitrx.waveform.ofdm import demodulate_ofdm
 from ..vendor.wifitrx.waveform.preamble import (Frame, channel_estimate,
                                                 smooth_channel_estimate)
 from . import cfo as cfo_est
+from .tracking import auto_smooth_span, smoothed_cpe
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,7 @@ class RxResult:
     cfo_ltf_hz: float
     cfo_integer_tones: int
     eq_symbols: np.ndarray | None = None
+    ce_span: int = 0              # channel-estimate smoothing span used (0 = genie CSI)
 
 
 def receive(y: np.ndarray, frame: Frame, ref, phy: UpclockedPhy,
@@ -60,6 +62,7 @@ def receive(y: np.ndarray, frame: Frame, ref, phy: UpclockedPhy,
     y = np.asarray(y, dtype=complex)
     f_stf = f_ltf = 0.0
     m_int = 0
+    ce_span = 0
     mode = rxc.cfo_estimation
     if mode == "stf_ltf":
         f_stf = cfo_est.stf_coarse_cfo(y, phy.stf_period_samples, frame.stf_len // phy.stf_period_samples,
@@ -80,13 +83,20 @@ def receive(y: np.ndarray, frame: Frame, ref, phy: UpclockedPhy,
         h = np.asarray(true_h, dtype=complex)
     else:
         h = channel_estimate(y, frame)
-        if rxc.ce_smooth_tones > 1:
-            h = smooth_channel_estimate(h, rxc.ce_smooth_tones,
-                                        frame.config.plan().segments())
+        segments = frame.config.plan().segments()
+        if rxc.ce_smooth_auto:
+            ce_span = auto_smooth_span(h, segments, rxc.ce_smooth_max_tones)
+        else:
+            ce_span = int(rxc.ce_smooth_tones)
+        if ce_span > 1:
+            h = smooth_channel_estimate(h, ce_span, segments)
     raw = demodulate_ofdm(y[frame.preamble_len:], frame.data)
     eq = raw / h[None, :]
     if rxc.cpe_tracking:
-        eq = correct_cpe_pilots(eq, ref.pilot_cols, ref.pilots)
+        if rxc.cpe_window_symbols > 1:
+            eq = smoothed_cpe(eq, ref.pilot_cols, ref.pilots, rxc.cpe_window_symbols)
+        else:
+            eq = correct_cpe_pilots(eq, ref.pilot_cols, ref.pilots)
     tx = ref.symbols[:, ref.data_cols]
     rx_d = eq[:, ref.data_cols]
     evm_db = float(10 * np.log10(np.mean(np.abs(rx_d - tx) ** 2) / np.mean(np.abs(tx) ** 2)))
@@ -101,4 +111,4 @@ def receive(y: np.ndarray, frame: Frame, ref, phy: UpclockedPhy,
     return RxResult(bit_errors=errors, packet_error=None if errors is None else errors > 0,
                     evm_db=evm_db, cfo_hat_hz=float(cfo_hat), cfo_stf_hz=float(f_stf),
                     cfo_ltf_hz=float(f_ltf), cfo_integer_tones=int(m_int),
-                    eq_symbols=eq if keep_symbols else None)
+                    eq_symbols=eq if keep_symbols else None, ce_span=int(ce_span))

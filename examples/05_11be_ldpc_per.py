@@ -36,10 +36,11 @@ sys.path.insert(0, str(HERE.parent / "src"))
 from mmw60 import ENGINE_BANNER, __version__, spec                             # noqa: E402
 from mmw60.config import ChannelConfig, zero_if_60ghz                          # noqa: E402
 from mmw60.frontend import Frontend60                                          # noqa: E402
-from mmw60.frontend.grid import analytic_floors, decoder_cap, max_mcs_for_floor, pa_isolated_evm_db  # noqa: E402
+from mmw60.frontend.grid import (analytic_floors, decoder_cap, decoder_floor_db, max_mcs_for_floor,  # noqa: E402
+                                 pa_isolated_evm_db)
 from mmw60.phy.ldpc import active_kernel                                       # noqa: E402
 from mmw60.sim.curves import CurveSpec, run_curves, save_results, sweep_line   # noqa: E402
-from mmw60.sim.link import LinkSim                                             # noqa: E402
+from mmw60.sim.link import LinkSim, evm_at                                     # noqa: E402
 
 OUT = HERE / "output"
 TARGET = 1e-2
@@ -153,7 +154,8 @@ def main(argv=None) -> int:
     mp, me = (6, 2) if quick else (150, 10)
     for k in ((8,) if quick else CAP_KS):
         cfg = dc.replace(zero_if_60ghz(k=k, standard="11be", bandwidth_hz=BASE_BW), channel=FLAT)
-        floor = analytic_floors(cfg, fe, pa_evm)["floor_db"]
+        td = evm_at(cfg, None, n_packets=1, frontend=fe)["evm_db"]
+        floor = decoder_floor_db(analytic_floors(cfg, fe, pa_evm)["floor_db"], td)
         d = decoder_cap(floor, "11be", BASE_BW)
         if d["mcs"] is None:
             cap_rows.append((k, floor, None, None, None, None))
@@ -176,8 +178,9 @@ def main(argv=None) -> int:
             continue
         print(f"{k:<3} {bw:7.0f}  {floor:5.1f}   MCS{d['mcs']:<2}  {d['threshold_db']:5.2f}  {d['required_snr_db']:10.2f}"
               f"              {fmt(got.get((k, d['mcs']))):>8}              MCS{above}: {fmt(pred_above):>8}   {fmt(got.get((k, above))):>8}")
-    print("'never' above the cap means the floor is over that MCS's ideal threshold (or the sweep's 4 dB over the prediction "
-          "was not enough); the analytic floor is optimistic by 1-2 dB once it is above -8 dB (example 04 section 2).")
+    print("floor = the worse of the analytic floor and the time-domain EVM of the cell (frontend/grid.py::decoder_floor_db); "
+          "'never' above the cap means the floor is over that MCS's ideal threshold or the sweep's 4 dB over the prediction "
+          "was not enough.")
     results = results + cap_res
     OUT.mkdir(exist_ok=True)
     save_results(results, OUT / "05_sweeps.json")

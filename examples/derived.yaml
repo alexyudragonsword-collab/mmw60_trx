@@ -6,15 +6,15 @@
 
 - name: ex00 K=8 MCS0, literal vs flat channel at PER 1e-2 (what the channel assumption costs)
   values:
-    lit: {example: "00", after: "SNR at PER 1e-2", line: "8 0 {} {*} {*}"}
-    flat: {example: "00", after: "SNR at PER 1e-2", line: "8 0 {*} {*} {}"}
+    lit: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 0 {} {*} {*}"}
+    flat: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 0 {*} {*} {}"}
   quotes:
     - {doc: cairn/external-validation.md, text: "K = 8 MCS0 字面 {lit} dB、flat {flat} dB，信道假设值 {lit - flat} dB"}
 
 - name: ex00 K=8 MCS1, literal vs flat channel at PER 1e-2
   values:
-    lit1: {example: "00", after: "SNR at PER 1e-2", line: "8 1 {} {*} {*}"}
-    flat1: {example: "00", after: "SNR at PER 1e-2", line: "8 1 {*} {*} {}"}
+    lit1: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 1 {} {*} {*}"}
+    flat1: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 1 {*} {*} {}"}
   quotes:
     - {doc: cairn/external-validation.md, text: "K = 8 MCS1 字面 {lit1} dB、flat {flat1} dB"}
 
@@ -54,8 +54,28 @@
   values:
     p4: {example: "05", after: "== the decoder cap", line: "4 320 {*} MCS4 {*} {} {*} MCS5: {*} {*}"}
     m4: {example: "05", after: "== the decoder cap", line: "4 320 {*} MCS4 {*} {*} {} MCS5: {*} {*}"}
-    p8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS3 {*} {} {*} MCS4: {*} {*}"}
-    m8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS3 {*} {*} {} MCS4: {*} {*}"}
+    p8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS4 {*} {} {*} MCS5: never never"}
+    m8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS4 {*} {*} {} MCS5: never never"}
+    p32: {example: "05", after: "== the decoder cap", line: "32 2560 {*} MCS0 {*} {} {*} MCS1: {*} {*}"}
+    m32: {example: "05", after: "== the decoder cap", line: "32 2560 {*} MCS0 {*} {*} {} MCS1: {*} {*}"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "| 4 | MCS4：{p4} / {m4} |"}
-    - {doc: cairn/comparison-table.md, text: "| 8 | MCS3：{p8} / {m8} |"}
+    - {doc: cairn/comparison-table.md, text: "| 8 | MCS4：{p8} / {m8} |"}
+    - {doc: cairn/comparison-table.md, text: "| 32 | MCS0：{p32} / {m32} |"}
+
+- name: ex04 the improved receiver moves the best decoder-cap row to 11be 80 MHz x 8
+  values:
+    rate8: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} MCS{*} {} {*}"}
+    pj8: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} MCS{*} {*} {}"}
+  quotes:
+    - {doc: cairn/comparison-table.md, text: "640 MHz 的格从 MCS3 升到 MCS4（{rate8} Mb/s、{pj8} pJ/bit）"}
+
+- name: ex00 the improved receiver against the milestone-0 one, K = 8 MCS0 (flat and literal channel)
+  values:
+    f0: {example: "00", after: "== the improved receiver (rx+)", line: "8 0 {} [ {*}, {*}] {*} [ {*}, {*}] {*} {*} [ {*}, {*}] {*} [ {*}, {*}] {*}"}
+    f0rx: {example: "00", after: "== the improved receiver (rx+)", line: "8 0 {*} [ {*}, {*}] {} [ {*}, {*}] {*} {*} [ {*}, {*}] {*} [ {*}, {*}] {*}"}
+    i0rx: {example: "00", after: "== the improved receiver (rx+)", line: "8 0 {*} [ {*}, {*}] {*} [ {*}, {*}] {*} {*} [ {*}, {*}] {} [ {*}, {*}] {*}"}
+  quotes:
+    - {doc: cairn/external-validation.md, text: "flat MCS0 到 {f0rx} dB，比原文好 {4.2 - f0rx} dB"}
+    - {doc: cairn/external-validation.md, text: "| 8 | 0 | 4.2 | {f0rx} [2.43, 2.62] | −1.66 | {i0rx} [2.99, 3.22] |"}
+

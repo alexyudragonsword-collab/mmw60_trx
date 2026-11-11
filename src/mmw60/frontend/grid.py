@@ -146,6 +146,18 @@ def decoder_cap(floor_db: float, standard: str, bandwidth_hz: float, margin_db: 
     return best
 
 
+def decoder_floor_db(analytic_floor_db: float, td_evm_db: float | None, cfo_captured: bool = True) -> float:
+    """The EVM floor the decoder cap is computed from: the analytic floor, or
+    the time-domain EVM of the same cell when that was run and reads worse.
+    The analytic power sum is optimistic once the IQ image stops being a
+    small perturbation (+1 dB at 1.28 GHz, +1.7 dB at 2.56 GHz); example 05
+    shows the decoder following the time-domain number.  With the CFO not
+    captured the time-domain reading is no floor at all and is ignored."""
+    if td_evm_db is None or not cfo_captured:
+        return float(analytic_floor_db)
+    return float(max(analytic_floor_db, td_evm_db))
+
+
 def data_rate_bps(standard: str, bandwidth_hz: float, mcs_index: int, t_symbol_s: float) -> float:
     table = spec.value("survey.n_sd_11ac" if standard == "11ac" else "survey.n_sd_11be")
     n_sd = int(table[float(bandwidth_hz)])
@@ -190,6 +202,7 @@ class Cell:
     dec_required_snr_db: float | None = None
     dec_rate_mbps: float | None = None
     dec_coded: bool = True
+    dec_floor_db: float | None = None       # the floor the cap was computed from (analytic or time-domain)
 
     def row(self) -> str:
         iso = "" if not self.td_isolated_db else " ".join(
@@ -234,13 +247,6 @@ def evaluate_cell(cfg: Mmw60Config, fe: Frontend60, time_domain: bool = True,
                 floor_cal_db=a_cal["floor_db"], max_mcs_cal=mcs_cal,
                 floor_no_pa_db=a["floor_no_pa_db"], max_mcs_no_pa=mcs_no_pa, plan_ok=a["plan"]["ok"])
     cell.dec_coded = cfg.coded
-    if cfg.coded:
-        d = decoder_cap(a["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz)
-        cell.dec_mcs, cell.dec_required_snr_db = d["mcs"], d["required_snr_db"]
-        cell.dec_mcs_cal = decoder_cap(a_cal["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz)["mcs"]
-        if d["mcs"] is not None:
-            cell.dec_rate_mbps = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d["mcs"],
-                                               phy.t_symbol_eff) / 1e6
     if mcs is not None:
         rate = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, mcs, phy.t_symbol_eff)
         cell.data_rate_mbps = rate / 1e6
@@ -266,6 +272,14 @@ def evaluate_cell(cfg: Mmw60Config, fe: Frontend60, time_domain: bool = True,
                 if on:
                     iso[name] = evm_at(v, None, n_packets=1)["evm_db"]
             cell.td_isolated_db = iso
+    if cfg.coded:
+        cell.dec_floor_db = decoder_floor_db(a["floor_db"], cell.td_evm_db, a["cfo_captured"])
+        d = decoder_cap(cell.dec_floor_db, cfg.phy.standard, cfg.phy.bandwidth_hz)
+        cell.dec_mcs, cell.dec_required_snr_db = d["mcs"], d["required_snr_db"]
+        cell.dec_mcs_cal = decoder_cap(a_cal["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz)["mcs"]
+        if d["mcs"] is not None:
+            cell.dec_rate_mbps = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d["mcs"],
+                                               phy.t_symbol_eff) / 1e6
     return cell
 
 

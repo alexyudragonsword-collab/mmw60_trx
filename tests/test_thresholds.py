@@ -7,7 +7,7 @@ import pytest
 from mmw60 import spec
 from mmw60.config import ChannelConfig, zero_if_60ghz
 from mmw60.frontend import Frontend60
-from mmw60.frontend.grid import decoder_cap, evaluate_cell, max_mcs_for_floor
+from mmw60.frontend.grid import decoder_cap, decoder_floor_db, evaluate_cell, max_mcs_for_floor
 from mmw60.sim.link import per_sweep
 
 BE_BWS = (20e6, 40e6, 80e6, 160e6, 320e6)
@@ -32,13 +32,15 @@ def test_threshold_file_is_tagged_complete_and_monotonic():
         # a higher MCS never needs less SNR (0.3 dB of measurement scatter allowed)
         assert all(b > a - 0.3 for a, b in zip(got, got[1:])), (bw, vals)
         assert -2 < vals[0] < 3 and 25 < vals[11] < 40
-    # same code, same receiver: the bandwidths agree within ~2 dB, and the wide
-    # ones are the better ones (8 pilots at 20 MHz, 64 at 320 MHz: the per-symbol
-    # pilot CPE estimate — ROADMAP C1 — is less noisy with more pilots)
+    # same code, same receiver: the bandwidths agree.  With the milestone-0
+    # receiver the wide ones were up to 2 dB better (8 pilots at 20 MHz, 64 at
+    # 320 MHz: the per-symbol pilot CPE estimate was less noisy with more
+    # pilots); the cross-symbol CPE combining of C1 took that difference away,
+    # and what is left is within the 0.5 dB grid of the measurement
     for i in (0, 4, 7):
         spread = [t["11be"][bw][i] for bw in BE_BWS]
-        assert max(spread) - min(spread) < 2.5, (i, spread)
-        assert spread[-1] < spread[0], (i, spread)
+        assert max(spread) - min(spread) < 1.5, (i, spread)
+        assert spread[-1] < spread[0] + 0.5, (i, spread)
     assert spec.per_threshold_db("11ac", 40e6, 0) is None and spec.per_threshold_db("11be", 80e6, 14) is None
 
 
@@ -85,3 +87,19 @@ def test_decoder_cap_sits_above_the_conformance_cap_where_example_05_measured_it
     assert c4.max_mcs == 2 and c4.dec_mcs >= 4
     wide = evaluate_cell(zero_if_60ghz(k=8, standard="11ac", bandwidth_hz=80e6), fe, time_domain=False)
     assert not wide.dec_coded and wide.dec_mcs is None and " n/a " in wide.row()
+
+
+def test_decoder_cap_takes_the_worse_of_the_analytic_and_the_time_domain_floor():
+    """The analytic power sum is optimistic once the IQ image is no small
+    perturbation; where the cell's time-domain EVM was run and reads worse,
+    the cap is computed from it (example 05: the decoder follows it)."""
+    assert decoder_floor_db(-11.2, None) == -11.2
+    assert decoder_floor_db(-11.2, -10.2) == -10.2 and decoder_floor_db(-11.2, -12.0) == -11.2
+    assert decoder_floor_db(-11.2, +3.0, cfo_captured=False) == -11.2     # an uncaptured CFO's EVM is no floor
+    fe = Frontend60.from_config(zero_if_60ghz(k=8))
+    cfg = zero_if_60ghz(k=16, standard="11be", bandwidth_hz=80e6)
+    quick = evaluate_cell(cfg, fe, time_domain=False)
+    full = evaluate_cell(cfg, fe, time_domain=True, isolate=False)
+    assert quick.dec_floor_db == quick.floor_db
+    assert full.dec_floor_db == max(full.floor_db, full.td_evm_db)
+    assert full.dec_mcs <= quick.dec_mcs and full.dec_mcs_cal == quick.dec_mcs_cal

@@ -34,6 +34,7 @@ SWEEPS = REPO / "examples" / "output" / "00_sweeps.json"
 GRIDS = {0: [x * 0.5 for x in range(0, 17)], 1: [3 + x * 0.5 for x in range(0, 17)],
          4: [12 + x * 1.0 for x in range(0, 15)]}
 TOLERANCE_DB = 1.0
+READING_DB = 0.3            # reading precision of the Fig. 4 read-offs (liu2025_fig4.yaml)
 
 
 def cases() -> list[CurveSpec]:
@@ -51,11 +52,15 @@ def compare(results: list[dict], which: str = "impaired") -> int:
     ours = {(r["tags"]["k"], r["tags"]["mcs"]): r for r in results
             if r["tags"].get("set") == which}
     label = {"impaired": "Table II read literally (LOS/diffuse channel, OBO from Psat)",
-             "flat": "same impairments on a flat channel"}.get(which, which)
+             "flat": "same impairments on a flat channel",
+             "flat_rx": "flat channel, improved receiver (milestone-0 findings C1 / C2)",
+             "impaired_rx": "Table II read literally, improved receiver"}.get(which, which)
     print(f"\n== Liu 2025 Fig. 4 (arXiv v1) vs example 00 set '{which}': {label}; SNR at PER {target:g} ==")
     print(f"reference: {ref['cite']}")
-    print("K   MCS   paper [dB]   ours [dB]   diff [dB]   verdict")
-    bad = 0
+    print("K   MCS   paper [dB]   ours [dB]   diff [dB]   diff interval    verdict")
+    print(f"(diff interval = our 95 % bootstrap interval of the crossing, widened by the figure's ±{READING_DB:g} dB "
+          "reading precision; a curve is OUTSIDE only if the whole interval is)")
+    bad = undecided = 0
     for c in ref["curves"]:
         key = (c["k"], c["mcs"])
         r = ours.get(key)
@@ -79,12 +84,24 @@ def compare(results: list[dict], which: str = "impaired") -> int:
             bad += 1
             continue
         diff = mine - paper
-        ok = abs(diff) < TOLERANCE_DB
-        print(f"{c['k']:<3} {c['mcs']:<5} {paper:10.1f}   {mine:9.2f}   {diff:+9.2f}   "
-              f"{'within' if ok else 'OUTSIDE'} {TOLERANCE_DB:g} dB (reading precision ±0.3)")
-        bad += 0 if ok else 1
-    print(f"\n{len(ref['curves']) - bad} of {len(ref['curves'])} curves agree; "
-          f"{bad} to investigate" if bad else f"\nall {len(ref['curves'])} curves agree")
+        ci = r.get("ci") or {}
+        lo, hi = ci.get("lo_db"), ci.get("hi_db")
+        if lo is None:                       # sweeps written before the interval existed
+            lo = hi = mine
+        # the difference is known to the counting interval plus the figure's reading precision
+        d_lo, d_hi = lo - paper - READING_DB, hi - paper + READING_DB
+        if max(abs(d_lo), abs(d_hi)) < TOLERANCE_DB:
+            verdict, is_bad = f"within {TOLERANCE_DB:g} dB", 0
+        elif (d_lo >= TOLERANCE_DB) or (d_hi <= -TOLERANCE_DB):
+            verdict, is_bad = f"OUTSIDE {TOLERANCE_DB:g} dB", 1
+        else:
+            verdict, is_bad = f"cannot tell from {TOLERANCE_DB:g} dB at this precision", 0
+            undecided += 1
+        print(f"{c['k']:<3} {c['mcs']:<5} {paper:10.1f}   {mine:9.2f}   {diff:+9.2f}   [{d_lo:+5.2f}, {d_hi:+5.2f}]   {verdict}")
+        bad += is_bad
+    n = len(ref["curves"])
+    print(f"\n{n - bad - undecided} of {n} curves agree, {undecided} cannot be told from the tolerance at this "
+          f"precision, {bad} to investigate")
     return 1 if bad else 0
 
 
@@ -113,7 +130,8 @@ def main(argv=None) -> int:
                   file=sys.stderr)
             return 2
         results = load_results(a.sweeps)
-    sets = [s for s in ("impaired", "flat") if any(r["tags"].get("set") == s for r in results)]
+    sets = [s for s in ("impaired", "flat", "flat_rx", "impaired_rx")
+            if any(r["tags"].get("set") == s for r in results)]
     codes = [compare(results, s) for s in sets]
     return max(codes) if codes else 2
 

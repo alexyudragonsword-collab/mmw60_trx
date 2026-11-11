@@ -255,10 +255,18 @@ class LinkSim:
 # ------------------------------------------------------------------ sweep
 def per_sweep(cfg: Mmw60Config, snr_db: list[float], max_packets: int = 400,
               min_errors: int = 20, stop_below: float = 1e-3, seed: int | None = None,
-              progress=None) -> dict:
+              progress=None, refine_errors: int = 0, refine_max_packets: int = 0,
+              target: float = 1e-2) -> dict:
     """PER at each SNR (ascending).  Each point stops at ``min_errors`` packet
     errors or ``max_packets``; the sweep stops once a point's PER is below
-    ``stop_below`` with zero errors (the curve is past the target)."""
+    ``stop_below`` with zero errors (the curve is past the target).
+
+    ``refine_errors`` > 0 (finding C3): after the sweep, the two points that
+    bracket ``target`` are run on — same random stream, so the result is
+    still deterministic — until each has that many packet errors or
+    ``refine_max_packets`` packets; the bracket is re-read once, since
+    better statistics can move it by a grid step.  The crossing then rests
+    on tens of errors per point instead of a handful."""
     sim = LinkSim(cfg)
     if not sim.coded:
         raise ValueError("per_sweep needs the coded VHT 20 MHz base; use evm_at for other bases")
@@ -284,7 +292,31 @@ def per_sweep(cfg: Mmw60Config, snr_db: list[float], max_packets: int = 400,
             break
         if err == 0 and n >= max_packets:
             break
+    if refine_errors > 0:
+        cap = int(refine_max_packets) if refine_max_packets else 10 * max_packets
+        for _ in range(2):
+            idx = _bracket(out["per"], target)
+            todo = [i for i in idx if out["n_errors"][i] < refine_errors and out["n_packets"][i] < cap]
+            if not todo:
+                break
+            for i in todo:
+                n, err = out["n_packets"][i], out["n_errors"][i]
+                while n < cap and err < refine_errors:
+                    r = sim.packet(out["snr_db"][i], rng)
+                    n += 1
+                    err += int(r.rx.packet_error)
+                out["n_packets"][i], out["n_errors"][i], out["per"][i] = n, err, err / n
+                if progress:
+                    progress(out["snr_db"][i], err / n, n, err)
     return out
+
+
+def _bracket(per: list[float], target: float) -> list[int]:
+    """Indices of the two sweep points around the first crossing of ``target``."""
+    for i in range(1, len(per)):
+        if per[i - 1] > target >= per[i]:
+            return [i - 1, i]
+    return []
 
 
 def evm_at(cfg: Mmw60Config, snr_db: float | None, n_packets: int = 3, seed: int | None = None,
@@ -317,3 +349,45 @@ def snr_at_per(sweep: dict, target: float = 1e-2) -> float | None:
     if p[0] <= target:
         return float(s[0])
     return None
+
+
+def snr_at_per_ci(sweep: dict, target: float = 1e-2, n_boot: int = 2000, level: float = 0.95,
+                  seed: int = 0) -> dict:
+    """Confidence interval of ``snr_at_per`` from the sweep's own counts
+    (finding C3).  Parametric bootstrap: every point's PER is redrawn from
+    its Jeffreys posterior Beta(errors + ½, packets − errors + ½) and the
+    crossing re-interpolated; the interval is the central ``level`` of the
+    replicates that cross.  ``never_fraction`` is the share that do not
+    reach the target at all inside the swept range — when it is not small
+    the sweep stopped too early for the interval to mean much.
+
+    The interval covers the counting statistics only, not the 0.5 or 1 dB
+    grid the log-linear interpolation runs on."""
+    n = np.asarray(sweep["n_packets"], dtype=float)
+    e = np.asarray(sweep["n_errors"], dtype=float)
+    point = snr_at_per(sweep, target)
+    out = {"snr_db": point, "lo_db": None, "hi_db": None, "never_fraction": 1.0, "level": level,
+           "errors_at_bracket": None}
+    if n.size == 0:
+        return out
+    idx = _bracket(list(sweep["per"]), target)
+    if idx:
+        out["errors_at_bracket"] = [int(e[i]) for i in idx]
+    rng = np.random.default_rng(seed)
+    draws = rng.beta(e + 0.5, n - e + 0.5, size=(int(n_boot), n.size))
+    xs = []
+    for row in draws:
+        v = snr_at_per({"snr_db": sweep["snr_db"], "per": row.tolist()}, target)
+        if v is not None:
+            xs.append(v)
+    out["never_fraction"] = 1.0 - len(xs) / float(n_boot)
+    if xs:
+        a = (1.0 - level) / 2.0
+        lo, hi = (float(v) for v in np.quantile(xs, [a, 1.0 - a]))
+        if point is not None:
+            # the point estimate reads a zero-error point as PER → 0, the replicates as "at most
+            # about 1 / packets": when the lower bracket point has no errors the point sits at the
+            # optimistic edge, and the interval is widened to say so rather than exclude it
+            lo, hi = min(lo, point), max(hi, point)
+        out["lo_db"], out["hi_db"] = lo, hi
+    return out

@@ -164,6 +164,16 @@ class RxConfig:
     ce_smooth_tones: int = 3          # data/spec: assumed.ce_smooth_tones
     timing: str = "genie"
     cpe_tracking: bool = True
+    #: symbols the pilot common-phase estimate is combined over (rx/tracking.py):
+    #: 1 = wifitrx's per-symbol estimator (the milestone-0 receiver); > 1 = the
+    #: MMSE combination of each symbol's pilots with a window of neighbours
+    #: (data/spec: assumed.cpe_window_symbols)
+    cpe_window_symbols: int = 1
+    #: choose the channel-estimate smoothing span per packet from the estimate's
+    #: own tone autocorrelation, up to ``ce_smooth_max_tones`` (rx/tracking.py);
+    #: False = the fixed ``ce_smooth_tones``
+    ce_smooth_auto: bool = False
+    ce_smooth_max_tones: int = 9      # data/spec: assumed.ce_smooth_max_tones
     #: diagnostic only: equalise with the true channel (flat channel: ones)
     #: instead of the L-LTF estimate, to separate decoder loss from CSI loss
     genie_csi: bool = False
@@ -363,6 +373,17 @@ def liu2025_table2(k: int = 8, mcs: int = 0, **top) -> Mmw60Config:
     return dataclasses.replace(cfg, **top) if top else cfg
 
 
+def improved_rx(rx: RxConfig | None = None) -> RxConfig:
+    """The receiver with milestone-0 findings C1 / C2 on: pilot common phase combined across
+    ``assumed.cpe_window_symbols`` symbols and the channel-estimate smoothing
+    span chosen per packet up to ``assumed.ce_smooth_max_tones``.  The Liu
+    2025 preset keeps the milestone-0 receiver (its numbers are the external
+    validation); the zero-IF presets take this one."""
+    s = spec.value
+    return dataclasses.replace(rx or RxConfig(), cpe_window_symbols=int(s("assumed.cpe_window_symbols")),
+                               ce_smooth_auto=True, ce_smooth_max_tones=int(s("assumed.ce_smooth_max_tones")))
+
+
 def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz: float = 20e6,
                   carrier_hz: float = 60.48e9, **top) -> Mmw60Config:
     """Topology B on the wifitrx zero-IF chain at fs_eff with the 60 GHz front
@@ -384,7 +405,7 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
     cfg = dataclasses.replace(base, carrier_hz=float(carrier_hz), frontend=fe,
                               phy=dataclasses.replace(base.phy, standard=standard,
                                                       bandwidth_hz=float(bandwidth_hz)),
-                              rx=dataclasses.replace(base.rx, dc_removal=True),
+                              rx=improved_rx(dataclasses.replace(base.rx, dc_removal=True)),
                               label=f"zero-IF 60 GHz {standard} {bandwidth_hz / 1e6:g} MHz x{k} MCS{mcs}")
     return dataclasses.replace(cfg, **top) if top else cfg
 

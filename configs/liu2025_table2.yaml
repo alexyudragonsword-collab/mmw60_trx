@@ -66,6 +66,12 @@ rx:
   ce_smooth_tones: 3
   timing: genie
   cpe_tracking: true
+  cpe_window_symbols: 1
+  ce_smooth_auto: false
+  ce_smooth_max_tones: 9
   genie_csi: false
+  ldpc_max_iterations: 30
+  ldpc_minsum_scale: 0.8
+  dc_removal: false
 seed: 0
 label: Liu2025 K=8 MCS0
