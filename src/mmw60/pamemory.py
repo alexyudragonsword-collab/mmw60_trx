@@ -27,6 +27,7 @@ adds sample-level memory a sparse basis cannot represent (wifi_trx_cal#5).
 """
 from __future__ import annotations
 
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 
 from . import spec
@@ -124,38 +125,141 @@ def candidate_spacings(stride: int) -> tuple[int, ...]:
     return tuple(sorted({1, int(stride), *(v for v in listed if v < stride)}))
 
 
-def study(fe: Frontend60, k: int, base_bw_hz: float, standard: str, fir_fs_hz: float | None = None,
-          oversampling: int = 2, with_rapp: bool = True, obo_db: float | None = None) -> list[MemoryRow]:
-    """The rows of one K: the preset Rapp (DPD off / on), the reference PA
-    at the scales-with-the-signal end (DPD off / on), and at ``fir_fs_hz``
-    (default assumed.pa_memory_fir_fs_hz) with the DPD off and at every
-    candidate tap spacing.  ``obo_db`` puts every row's final check at the
-    same output back-off (default: wherever wifitrx's drive lands, which
-    differs by about 1 dB between the two memory laws)."""
+# ---------------------------------------------------------------- many rows
+def row_key(k: int, base_bw_hz: float, standard: str, pa: str = "reference", fir_fs_hz: float | None = None,
+            tap_spacing: int | None = 1, oversampling: int = 2, obo_db: float | None = None) -> tuple:
+    """The arguments of ``run_row`` after the front end, as a hashable key
+    (two requests for the same row are run once)."""
+    return (int(k), float(base_bw_hz), str(standard), str(pa), None if fir_fs_hz is None else float(fir_fs_hz),
+            None if tap_spacing is None else int(tap_spacing), int(oversampling),
+            None if obo_db is None else float(obo_db))
+
+
+def _run_key(args: tuple) -> MemoryRow:
+    fe, key = args
+    return run_row(fe, *key)
+
+
+def run_many(fe: Frontend60, keys: list[tuple], jobs: int = 1) -> dict[tuple, MemoryRow]:
+    """``run_row`` for every distinct key, in worker processes when
+    ``jobs`` > 1.  Each row builds its own chains from the front end and
+    draws nothing from a shared generator, so the numbers do not depend on
+    ``jobs`` or on the order."""
+    todo = list(dict.fromkeys(keys))
+    if jobs > 1 and len(todo) > 1:
+        with ProcessPoolExecutor(max_workers=jobs) as pool:
+            rows = list(pool.map(_run_key, [(fe, key) for key in todo]))
+    else:
+        rows = [_run_key((fe, key)) for key in todo]
+    return dict(zip(todo, rows))
+
+
+def study_keys(k: int, base_bw_hz: float, standard: str, fir_fs_hz: float | None = None, oversampling: int = 2,
+               with_rapp: bool = True, obo_db: float | None = None) -> list[tuple]:
+    """The rows of one K, in table order: the preset Rapp (DPD off / on),
+    the reference PA at the scales-with-the-signal end (DPD off / on), and
+    at ``fir_fs_hz`` (default assumed.pa_memory_fir_fs_hz) with the DPD off
+    and at every candidate tap spacing."""
     fir = default_fir_fs_hz() if fir_fs_hz is None else float(fir_fs_hz)
     kw = dict(oversampling=oversampling, obo_db=obo_db)
-    rows = [run_row(fe, k, base_bw_hz, standard, "rapp", tap_spacing=ts, **kw) for ts in (None, 1)] if with_rapp else []
-    rows += [run_row(fe, k, base_bw_hz, standard, tap_spacing=ts, **kw) for ts in (None, 1)]
+    keys = [row_key(k, base_bw_hz, standard, "rapp", tap_spacing=ts, **kw) for ts in (None, 1)] if with_rapp else []
+    keys += [row_key(k, base_bw_hz, standard, tap_spacing=ts, **kw) for ts in (None, 1)]
     stride = memory_stride(base_bw_hz * k * oversampling, fir)
-    rows += [run_row(fe, k, base_bw_hz, standard, fir_fs_hz=fir, tap_spacing=ts, **kw)
+    keys += [row_key(k, base_bw_hz, standard, fir_fs_hz=fir, tap_spacing=ts, **kw)
              for ts in (None, *candidate_spacings(stride))]
-    return rows
+    return keys
 
 
-def cost_rows(fe: Frontend60, k: int, base_bw_hz: float, standard: str, obo_db: float,
-              fir_fs_hz: float | None = None, oversampling: int = 2) -> tuple[MemoryRow, MemoryRow, MemoryRow]:
+def study(fe: Frontend60, k: int, base_bw_hz: float, standard: str, fir_fs_hz: float | None = None,
+          oversampling: int = 2, with_rapp: bool = True, obo_db: float | None = None, jobs: int = 1) -> list[MemoryRow]:
+    """``study_keys`` run: ``obo_db`` puts every row's final check at the
+    same output back-off (default: wherever wifitrx's drive lands, which
+    differs by about 1 dB between the two memory laws)."""
+    keys = study_keys(k, base_bw_hz, standard, fir_fs_hz, oversampling, with_rapp, obo_db)
+    done = run_many(fe, keys, jobs)
+    return [done[key] for key in keys]
+
+
+def cost_keys(k: int, base_bw_hz: float, standard: str, obo_db: float, fir_fs_hz: float | None = None,
+              oversampling: int = 2) -> tuple[tuple, tuple, tuple]:
     """(scales, fixed with the sample-spaced basis, fixed with the matched
     spacing), all with DPD at the same back-off: the three readings the
     cost of the memory law is read from."""
     fir = default_fir_fs_hz() if fir_fs_hz is None else float(fir_fs_hz)
     kw = dict(oversampling=oversampling, obo_db=obo_db)
     stride = memory_stride(base_bw_hz * k * oversampling, fir)
-    return (run_row(fe, k, base_bw_hz, standard, tap_spacing=1, **kw),
-            run_row(fe, k, base_bw_hz, standard, fir_fs_hz=fir, tap_spacing=1, **kw),
-            run_row(fe, k, base_bw_hz, standard, fir_fs_hz=fir, tap_spacing=stride, **kw))
+    return (row_key(k, base_bw_hz, standard, tap_spacing=1, **kw),
+            row_key(k, base_bw_hz, standard, fir_fs_hz=fir, tap_spacing=1, **kw),
+            row_key(k, base_bw_hz, standard, fir_fs_hz=fir, tap_spacing=stride, **kw))
+
+
+def cost_rows(fe: Frontend60, k: int, base_bw_hz: float, standard: str, obo_db: float,
+              fir_fs_hz: float | None = None, oversampling: int = 2, jobs: int = 1
+              ) -> tuple[MemoryRow, MemoryRow, MemoryRow]:
+    keys = cost_keys(k, base_bw_hz, standard, obo_db, fir_fs_hz, oversampling)
+    done = run_many(fe, list(keys), jobs)
+    return tuple(done[key] for key in keys)
 
 
 def best_spacing(rows: list[MemoryRow]) -> MemoryRow:
     """The fixed-memory row with the best final TX EVM among those with DPD."""
     cand = [r for r in rows if r.law == FIXED and r.tap_spacing is not None]
     return min(cand, key=lambda r: r.tx_evm_db)
+
+
+# ---------------------------------------------------------------- the cost in back-off
+def backoff_for_evm(obo_db: list[float], evm_db: list[float], target_db: float) -> tuple[float | None, bool]:
+    """(the smallest back-off at which the EVM reaches ``target_db``, whether
+    that is a crossing inside the sweep).  The crossing is the first one
+    going from little back-off to much, linear between the two grid points
+    around it.  (None, False) when the sweep never reaches the target;
+    (the first grid point, False) when it is already there at the first
+    point, so the true value is at most that."""
+    pts = sorted(zip(obo_db, evm_db))
+    if pts[0][1] <= target_db:
+        return float(pts[0][0]), False
+    for (o0, e0), (o1, e1) in zip(pts, pts[1:]):
+        if e1 <= target_db < e0:
+            return float(o0 + (o1 - o0) * (e0 - target_db) / (e0 - e1)), True
+    return None, False
+
+
+@dataclass
+class SweepPoint:
+    obo_db: float
+    scales: MemoryRow
+    fixed_x1: MemoryRow
+    fixed_matched: MemoryRow
+
+    @property
+    def fixed_best_evm_db(self) -> float:
+        """The fixed-memory PA with whichever of the two spacings reads better here."""
+        return min(self.fixed_x1.tx_evm_db, self.fixed_matched.tx_evm_db)
+
+
+def sweep_keys(k: int, base_bw_hz: float, standard: str, obos, fir_fs_hz: float | None = None,
+               oversampling: int = 2) -> list[tuple]:
+    return [key for o in obos for key in cost_keys(k, base_bw_hz, standard, float(o), fir_fs_hz, oversampling)]
+
+
+def sweep_points(done: dict, k: int, base_bw_hz: float, standard: str, obos, fir_fs_hz: float | None = None,
+                 oversampling: int = 2) -> list[SweepPoint]:
+    return [SweepPoint(float(o), *(done[key] for key in cost_keys(k, base_bw_hz, standard, float(o), fir_fs_hz,
+                                                                  oversampling))) for o in obos]
+
+
+def backoff_penalty(points: list[SweepPoint], target_db: float) -> dict:
+    """What memory fixed in seconds costs in output power at equal EVM: the
+    back-off the scales-with-the-signal PA needs for ``target_db``
+    (``scales``), the back-off the fixed-memory PA needs with its better
+    spacing (``fixed``), and the difference (``cost``; None unless both are
+    crossings inside the sweep; ``*_exact`` say which are).
+
+    A single back-off cannot show this: the predistorter's gain falls off a
+    cliff as the PA nears saturation, the two PAs' cliffs sit 1–2 dB apart,
+    and an EVM difference read on the cliff is mostly the cliff."""
+    obos = [p.obo_db for p in points]
+    a, a_exact = backoff_for_evm(obos, [p.scales.tx_evm_db for p in points], target_db)
+    b, b_exact = backoff_for_evm(obos, [p.fixed_best_evm_db for p in points], target_db)
+    return {"target_db": float(target_db), "scales": a, "scales_exact": a_exact, "fixed": b, "fixed_exact": b_exact,
+            "cost": b - a if a_exact and b_exact else None}
