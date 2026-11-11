@@ -102,3 +102,10 @@
   quotes:
     - {doc: cairn/topology-a.md, text: "MCS4 预测 {pred} dB、实测 {meas} dB"}
 
+- name: ex06 the 60 GHz-observed DPD at the preset 8 dB back-off (chip-only vs the programmed one)
+  values:
+    chip8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {} {*} / {*} / {*} 1 iteration(s) {*} {*}"}
+    prog8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {*} {*} / {*} / {*} 1 iteration(s) {} {*}"}
+  quotes:
+    - {doc: cairn/topology-a.md, text: "带上它在 8 dB 回退上 TX EVM 从 {chip8} 到 {prog8} dB"}
+

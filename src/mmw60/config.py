@@ -119,6 +119,9 @@ class IfExtConfig:
     #: where the DPD observes: the chip's own coupler (it linearises the chip PA
     #: only) or a 60 GHz coupler after the second PA, down-converted with the same LO
     dpd_observation: str = "chip"
+    #: with the 60 GHz observation: the indirect-learning fit is run for 1 … this many
+    #: iterations and the best on the observation path stays (data/spec: assumed.ifext_dpd_max_iterations)
+    dpd_max_iterations: int = 2
     filter_enabled: bool = True
     filter_bw_hz: float = 1.2e9
     filter_order: int = 5
@@ -276,6 +279,8 @@ class Mmw60Config:
             raise ValueError(f"ifext.chip must be one of {IFEXT_CHIPS}")
         if self.ifext.dpd_observation not in DPD_OBSERVATIONS:
             raise ValueError(f"ifext.dpd_observation must be one of {DPD_OBSERVATIONS}")
+        if int(self.ifext.dpd_max_iterations) < 1:
+            raise ValueError("ifext.dpd_max_iterations must be >= 1")
 
     # --- derived ---------------------------------------------------------
     @property
@@ -502,6 +507,7 @@ def if_extender_60ghz(mcs: int = 0, standard: str = "11be", bandwidth_hz: float 
         phy=dataclasses.replace(b.phy, oversampling=int(s("assumed.ifext_chip_oversampling"))),
         lo=dataclasses.replace(b.lo, scheme=str(s("assumed.ifext_lo_scheme")), if_hz=float(s("assumed.ifext_if_hz"))),
         ifext=IfExtConfig(chip="wifitrx", chip_seed=int(s("assumed.ifext_chip_seed")),
+                          dpd_max_iterations=int(s("assumed.ifext_dpd_max_iterations")),
                           filter_bw_hz=float(flt["bandwidth_hz"]), filter_order=int(flt["order"]),
                           filter_ripple_db=float(flt["ripple_db"]), filter_center_hz=float(flt["center_hz"]),
                           image_rejection_db=float(s("assumed.ifext_image_rejection_db")),

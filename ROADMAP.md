@@ -7,13 +7,10 @@
 ### A1. 拓扑 A 的剩余项（主体已落地：`src/mmw60/ifext.py`、示例 06、`cairn/topology-a.md`）
 - **芯片的 PA 当驱动级太贵**：芯片 PA 在 13.3 dBm 耗 294 mW（10.1 dBm 时 202 mW），而它的输出要先衰减 24 dB 才到 60 GHz PA 的驱动电平；同样 320 MHz、865 Mb/s，拓扑 A 1127 对拓扑 B 628 pJ/bit，其中芯片 PA 占 339。
   复现：`python examples/06_topology_a_if_extender.py` §5、`examples/04_comparison_table.py` §4。待做：芯片 PA 旁路（IF 从 PA 前取）的一档，wifitrx 的 `TxParams.pa_enabled = False` 加上它的 DPD / tx_power 两步怎么处理。
-- **60 GHz 观测回环在预设回退上没用**：OBO 8 dB 处 wifitrx 的 ILA 经 60 GHz 观测发散（−14.1 dB），保留芯片上的 DPD；回退 12 / 14 / 16 dB 才值 +5.8 / +8.2 / +7.1 dB（示例 06 §3）。
-  **更正（2026-11-11，验收 PA_DPD#4 时查出）**：上面的数是 wifitrx `calibrate_dpd` 默认迭代 2 次的结果，发散来自迭代本身。同一条链、同一观测，只迭代 1 次：
-  回退 6 / 8 / 10 / 12 / 14 dB 处 60 GHz PA 输出的 TX EVM 是 −15.6 / −21.1 / −29.0 / −35.4 / −38.7 dB（芯片上的 DPD −16.9 / −19.8 / −22.8 / −25.9 / −29.0），
-  即观测回环值 0 / +1.3 / +6.2 / +9.5 / +9.7 dB；迭代 2 次是 −1.1 / −15.0 / −23.0 / −31.6 / −37.1，3 次更差（+12.4 / +3.2 / −17.5 / −28.0 / −35.6）。
-  PA_DPD 自己的 `ILAPredistorter` 在裸的这颗 Rapp 上同样：OBO 8 dB 处 1 / 2 / 4 次迭代 −37.4 / −18.0 / +6.2 dB。`n_iter` 是 vendored 函数的参数，本库不改 vendor 就能传。
-  待做：`IfExtender.train_dpd_mmw` 在同一观测通路上比较 1 次与 2 次迭代、留最好的一个（提前停止），配置里给出迭代上限并标 `assumed`；重跑示例 06 §3 与相关文档（numbers-move）。
-  整套序列搬到 60 GHz 观测上更糟：IQ 校准的 IRR 从 55.7 掉到 37.8 dB，最终 EVM −14.9 dB（§2）。待做：对这颗软压缩的 Rapp 换直接学习或降阶的 DPD（要 PA_DPD 侧支持，见 D3），或在观测通路里先把第二级 PA 的失真建模扣掉再做 IQ 校准。
+- **间接学习在软压缩 PA 上越迭代越差，靠近饱和时 1 次迭代也不够**：60 GHz 观测回环的 DPD 在回退 6 dB 上比不过芯片上的（−14.6 对 −16.9 dB），8 dB 上只值 +1.3 dB（示例 06 §3）；
+  整套序列搬到 60 GHz 观测上更糟，IQ 校准的 IRR 从 55.7 掉到 37.8 dB（§2）。本库已改成 1 … N 次迭代里留最好的（`train_dpd_mmw`）。
+  待做：这类 PA 上换直接学习，或目标增益按可达的峰值输出折算（PA_DPD 有 `dpd/direct.py`，针对样条预失真器；已在 PA_DPD#4 上问对方要不要单开 issue）；
+  或在观测通路里先把第二级 PA 的失真建模扣掉再做 IQ 校准。
 - **pllsim 剖面 × N 那一行在拓扑 A 上也还是占位**：固定 LO 54.0 GHz 对 wu19 的 6.253 GHz 是 ×8.64，不是整数；拓扑 A 要的是 18.0 GHz（×3）或 13.5 GHz（×4）上的剖面（D2）。现在的 LO 扫描用 1 极 1 零剖面直接给在 LO 输出端。
 - 没建的：60 GHz 级自己的 LNA 噪声系数（SNR 轴仍按芯片 LNA 的 NF 定义，与拓扑 B 同口径）、混频器的非线性、IF 滤波器的温漂、采样钟偏差（两条拓扑都没建）；MLO 的 sub-7 链路只有 AWGN（没有它自己的相噪和多径）。
 - 11ac 20 MHz 的拓扑 A 行 pJ/bit 是 29291：20 Mb/s 的分母，不是硬件差（与 `comparison-table.md` §6 ① 同理）。

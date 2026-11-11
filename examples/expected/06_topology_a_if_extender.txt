@@ -63,14 +63,14 @@ TX EVM [dB] (wifitrx tx_evm, fixed-LO phase noise left out)    60 GHz PA out bef
   calibrated on the 60 GHz observation                 -18.25             -9.60           -14.69           -18.4 / -15.4
 
 == 3. the predistorter against the 60 GHz PA's back-off: TX EVM at the 60 GHz PA output [dB] ==
-OBO2[dB]  Pout[dBm]   no DPD   chip-only DPD   60 GHz-observed DPD   gain of the observation   programmed
-      6       9.00   -16.23          -16.94                 -0.73                    +0.00   chip-only (the 60 GHz fit did worse)
-      8       7.00   -18.66          -19.79                -14.11                    +0.00   chip-only (the 60 GHz fit did worse)
-     10       4.99   -21.07          -22.79                -22.24                    +0.22   60 GHz-observed
-     12       2.98   -23.36          -25.87                -32.07                    +5.83   60 GHz-observed
-     14       0.99   -25.41          -28.97                -36.91                    +8.19   60 GHz-observed
-     16      -1.00   -27.11          -32.00                -38.96                    +7.11   60 GHz-observed
-no DPD / chip-only / programmed: wifitrx tx_evm on the 64-QAM scoring frame; '60 GHz-observed' is the fit's own before/after metric (calibrate_dpd, 256-QAM stimulus). The device keeps whichever predistorter reads better on the observation path.
+OBO2[dB]  Pout[dBm]   no DPD   chip-only DPD   60 GHz-observed, 1 / 2 / 3 ILA iterations   programmed        TX EVM programmed   gain of the observation
+      6       9.00   -16.23          -16.94         -14.60 /   -0.81 /   14.17             chip-only                    -16.94                    +0.00
+      8       7.00   -18.66          -19.79         -20.66 /  -14.10 /    3.63             1 iteration(s)               -21.06                    +1.27
+     10       4.99   -21.07          -22.79         -28.86 /  -22.24 /  -17.37             1 iteration(s)               -29.03                    +6.24
+     12       2.98   -23.36          -25.87         -35.15 /  -32.07 /  -28.49             1 iteration(s)               -35.34                    +9.46
+     14       0.99   -25.41          -28.97         -38.85 /  -36.92 /  -35.49             1 iteration(s)               -38.70                    +9.73
+     16      -1.00   -27.11          -32.00         -40.99 /  -38.96 /  -37.47             1 iteration(s)               -40.76                    +8.77
+no DPD / chip-only / TX EVM programmed: wifitrx tx_evm on the 64-QAM scoring frame. The three iteration columns are what the selection reads: EVM at the 60 GHz PA output on the fit's own 256-QAM stimulus, every candidate back at the same output power, the LO's phase noise cancelled as in the observation loopback. The best candidate stays programmed (the preset tries 1 and 2: assumed.ifext_dpd_max_iterations; wifitrx's calibrate_dpd alone always does 2).
 
 == 4. MCS cap against the fixed LO's phase noise at 1 MHz (one-pole / one-zero profile, TX and RX LO) ==
 L(1MHz)   IPN 10k-100M   ICI analytic   EvmBudget PN   TD, LO only   budget-TD   floor   TD all   conf cap   dec cap   Mb/s@dec
