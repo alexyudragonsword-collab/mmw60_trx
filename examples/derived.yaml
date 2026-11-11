@@ -104,8 +104,8 @@
 
 - name: ex06 the 60 GHz-observed DPD at the preset 8 dB back-off (chip-only vs the programmed one)
   values:
-    chip8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {} {*} / {*} / {*} 1 iteration(s) {*} {*}"}
-    prog8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {*} {*} / {*} / {*} 1 iteration(s) {} {*}"}
+    chip8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {} {*} / {*} / {*} / {*} pass {*} {*} vs {*} pass {*} {*} {*}"}
+    prog8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {*} {*} / {*} / {*} / {*} pass {*} {*} vs {*} pass {*} {} {*}"}
   quotes:
     - {doc: cairn/topology-a.md, text: "带上它在 8 dB 回退上 TX EVM 从 {chip8} 到 {prog8} dB"}
 
@@ -116,7 +116,7 @@
     s32: {example: "03", after: "== sensitivity: capture length", line: "32 5120 {*} {*} {} {*}"}
     nodpd: {example: "03", after: "== sensitivity: capture length", line: "8 1280 off {*} {} {*}"}
   quotes:
-    - {doc: cairn/topology-b.md, text: "DPD 之后仅发 EVM {s8} dB，比不开 DPD 的 {nodpd} dB 还差 {s8 - nodpd} dB；采 32 个符号（5120 样本）是 {s32} dB"}
+    - {doc: cairn/topology-b.md, text: "仅发 EVM {s8} dB，与不开 DPD 的 {nodpd} dB 相同；采 32 个符号（5120 样本）是 {s32} dB"}
 
 - name: ex04 the pllsim x10 LO profile against the 11ad pole-zero one (IPN, K = 8 phase-noise ICI)
   values:
@@ -136,13 +136,14 @@
     sc32: {example: "07", after: "== what the memory law costs after DPD", line: "K=32 {} {*} {*} {*} {*} {*} x{*} {*}"}
     fx32: {example: "07", after: "== what the memory law costs after DPD", line: "K=32 {*} {*} {*} {*} {*} {} x{*} {*}"}
   quotes:
-    - {doc: ROADMAP.md, text: "最好只有 {fx4} / {fx8} / {fx32} dB"}
+    - {doc: ROADMAP.md, text: "最好 {fx4} / {fx8} / {fx32} dB"}
     - {doc: ROADMAP.md, text: "是 {sc4} / {sc8} / {sc32} dB，差 {fx4 - sc4} / {fx8 - sc8} / {fx32 - sc32} dB"}
-    - {doc: cairn/topology-b.md, text: "对随信号缩放的同一颗 PA 损失 {fx32 - sc32}–{fx4 - sc4} dB"}
 
-- name: ex07 K = 32 — the matched tap spacing wins only once backed off (10.5 dB)
+- name: ex07 K = 32 — the sample-spaced basis does not reach taps 64 samples away (preset back-off and 13 dB)
   values:
-    m105: {example: "07", after: "== sensitivity: the back-off", line: "K=32 10.5 {*} {*} {} {*} {*}"}
-    s105: {example: "07", after: "== sensitivity: the back-off", line: "K=32 10.5 {*} {} {*} {*} {*}"}
+    x1_8: {example: "07", after: "== sensitivity: the back-off", line: "K=32 8.0 {*} {} {*} {*} {*}"}
+    m_8: {example: "07", after: "== sensitivity: the back-off", line: "K=32 8.0 {*} {*} {} {*} {*}"}
+    x1_13: {example: "07", after: "== sensitivity: the back-off", line: "K=32 13.0 {*} {} {*} {*} {*}"}
+    m_13: {example: "07", after: "== sensitivity: the back-off", line: "K=32 13.0 {*} {*} {} {*} {*}"}
   quotes:
-    - {doc: ROADMAP.md, text: "只在回退 ≥ 10.5 dB 且 K = 32 时赢（{m105} 对逐样本 {s105} dB）"}
+    - {doc: ROADMAP.md, text: "逐样本基函数比匹配间隔差 {x1_8 - m_8} dB（回退 8 dB）到 {x1_13 - m_13} dB（13 dB）"}

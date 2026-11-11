@@ -407,16 +407,19 @@ class IfExtender:
         """Retrain the predistorter on the cascade through a 60 GHz observation
         loopback (coupler after the second PA, the same fixed LO converting
         down, the chip's receiver) with wifitrx's ``calibrate_dpd``, unchanged
-        — and stop where it stops helping.
+        — and keep it only if it beats the one the chip already has.
 
-        wifitrx's indirect-learning fit iterates (``n_iter``, default 2).  On a
-        soft-compressing PA near saturation every further iteration undoes the
-        one before it (this Rapp at 8 dB back-off: −21 dB after one iteration,
-        −15 dB after two, +3 dB after three — cairn/topology-a.md §4).  So the
-        fit is run for 1 … ``max_iterations`` iterations, each candidate is put
-        back at the same output power and read on the same observation path as
-        the predistorter already programmed, and the best of them stays —
-        which may be the chip-only one."""
+        wifitrx's indirect-learning fit iterates.  On a soft-compressing PA
+        near saturation every further pass undoes the one before it (this
+        Rapp at 8 dB back-off: −21 dB after one pass, −15 dB after two, +3 dB
+        after three — cairn/topology-a.md §4).  Since wifi_trx_cal 0.7.39 the
+        step handles that itself: it reads "no predistorter" and each of its
+        ``max_iterations`` passes on the observation path and programs the
+        best, or none.  What it cannot know is that this chip already carries
+        a predistorter fitted on its own coupler, nor that a predistorter
+        changes the cascade's output power: so its pick is put back at the
+        target output power and read against the chip-only one there, on the
+        same observation path, and the better of the two stays."""
         from dataclasses import replace
 
         from .vendor.wifitrx.cal.dpd_cal import calibrate_dpd
@@ -435,27 +438,29 @@ class IfExtender:
             def read() -> float:
                 """EVM at the 60 GHz PA output with the candidate programmed, at the target output power."""
                 self.set_interstage(x, target_pout_dbm)
-                return _pa_out_evm_db(tx, wf, x)
+                e = _pa_out_evm_db(tx, wf, x)
+                return float(e) if np.isfinite(e) else float("inf")
 
-            candidates = [("chip", chip_dpd, read(), gain0)]
-            atten = None
-            for n_iter in range(1, int(max_iterations) + 1):
-                st.interstage_gain_db = gain0
-                tx.dpd = None
-                # the DPD observes at the cold coupler point (≥ 40 dB on the chip, wifitrx's dpd step)
-                path = mmw_observation_path(tx, bandwidth_hz, x, min_atten_db=40.0)
-                atten = path.atten_db
-                calibrate_dpd(tx, rx, wf, path, n_iter=n_iter, drive_scale=drive_scale)
-                e = read()
-                candidates.append((n_iter, tx.dpd, e if np.isfinite(e) else np.inf, st.interstage_gain_db))
+            evm_chip = read()
+            st.interstage_gain_db = gain0
+            tx.dpd = None
+            # the DPD observes at the cold coupler point (≥ 40 dB on the chip, wifitrx's dpd step)
+            path = mmw_observation_path(tx, bandwidth_hz, x, min_atten_db=40.0)
+            res = calibrate_dpd(tx, rx, wf, path, n_iter=int(max_iterations), drive_scale=drive_scale)
+            kept = int(res.estimated["kept_iteration"])
+            evm_fitted = read()
+            fitted = (kept, tx.dpd, evm_fitted, st.interstage_gain_db)
         finally:
             st.lo_shared_loopback = rx.stage.lo_shared_loopback = False
-        best = min(candidates, key=lambda c: c[2])
+        best = min((("chip", chip_dpd, evm_chip, gain0), fitted), key=lambda c: c[2])
         tx.dpd, st.interstage_gain_db = best[1], best[3]
-        self.dpd_mmw = {"evm_chip_dpd_db": float(candidates[0][2]),
-                        "evm_by_iterations_db": {int(c[0]): float(c[2]) for c in candidates[1:]},
+        self.dpd_mmw = {"evm_chip_dpd_db": evm_chip,
+                        # wifitrx's own readings on the observation path at the training drive:
+                        # index 0 is no predistorter, k the predistorter after k passes
+                        "observed_by_pass_db": [float(v) for v in res.estimated["observed_evm_db"]],
+                        "kept_pass": kept, "evm_fitted_db": evm_fitted,
                         "programmed": best[0], "evm_programmed_db": float(best[2]),
-                        "chip_dpd_kept": best[0] == "chip", "coupler_atten_db": float(atten),
+                        "chip_dpd_kept": best[0] == "chip", "coupler_atten_db": float(path.atten_db),
                         "max_iterations": int(max_iterations)}
         return self.dpd_mmw
 

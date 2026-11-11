@@ -5,10 +5,10 @@
 ## A. 里程碑 1 —— 两条拓扑同台（主体都已落地；下面是剩余项）
 
 ### A1. 拓扑 A 的剩余项（主体已落地：`src/mmw60/ifext.py`、示例 06、`cairn/topology-a.md`）
-- **芯片的 PA 当驱动级太贵**：芯片 PA 在 13.3 dBm 耗 294 mW（10.1 dBm 时 202 mW），而它的输出要先衰减 24 dB 才到 60 GHz PA 的驱动电平；同样 320 MHz、865 Mb/s，拓扑 A 1127 对拓扑 B 628 pJ/bit，其中芯片 PA 占 339。
+- **芯片的 PA 当驱动级太贵**：芯片 PA 在 13.3 dBm 耗 294 mW（10.1 dBm 时 202 mW），而它的输出要先衰减 24 dB 才到 60 GHz PA 的驱动电平；同样 320 MHz、865 Mb/s，拓扑 A 1128 对拓扑 B 628 pJ/bit，其中芯片 PA 占 339。
   复现：`python examples/06_topology_a_if_extender.py` §5、`examples/04_comparison_table.py` §4。待做：芯片 PA 旁路（IF 从 PA 前取）的一档，wifitrx 的 `TxParams.pa_enabled = False` 加上它的 DPD / tx_power 两步怎么处理。
-- **间接学习在软压缩 PA 上越迭代越差，靠近饱和时 1 次迭代也不够**：60 GHz 观测回环的 DPD 在回退 6 dB 上比不过芯片上的（−14.6 对 −16.9 dB），8 dB 上只值 +1.3 dB（示例 06 §3）；
-  整套序列搬到 60 GHz 观测上更糟，IQ 校准的 IRR 从 55.7 掉到 37.8 dB（§2）。本库已改成 1 … N 次迭代里留最好的（`train_dpd_mmw`）。
+- **间接学习在软压缩 PA 上越迭代越差，靠近饱和时 1 轮也不够**：60 GHz 观测回环的 DPD 在回退 6 dB 上每一轮都不如不加（观测读数 不加 −16.0、第 1 轮 −14.6 dB），留芯片上的；8 dB 上只值 +1.2 dB（示例 06 §3）。
+  整套序列搬到 60 GHz 观测上，IQ 校准的 IRR 从 55.7 掉到 37.9 dB，芯片自己输出端的 TX EVM 掉到 −11.9 dB（§2）。挑哪一轮现在由 wifitrx 的 DPD 步自己做（0.7.39），本库只再和芯片上原有的比（`train_dpd_mmw`）。
   待做：这类 PA 上换直接学习，或目标增益按可达的峰值输出折算（PA_DPD 有 `dpd/direct.py`，针对样条预失真器；已在 PA_DPD#4 上问对方要不要单开 issue）；
   或在观测通路里先把第二级 PA 的失真建模扣掉再做 IQ 校准。
 - **拓扑 A 没有 pllsim 推出来的 LO 行**：pll_simulator 的模型只覆盖到 12 GHz，拓扑 A 的 18.0 GHz（×3）/ 13.5 GHz（×4）它不出（pll_simulator#71 的答复）；可行的是 6.0 GHz × 9 = 54.0 GHz（对方 CLI 能出，IPN −33.99 dBc）。现在的 LO 扫描用 1 极 1 零剖面直接给在 LO 输出端。待做：`LO_SCHEMES` 加 ×9 一档并生成该剖面；`make_profile` 现在对两条拓扑都传载频（60.48 GHz），拓扑 A 要改成传 LO 频率（54.0 GHz）才接得上，复现：`Frontend60.from_config(dc.replace(if_extender_60ghz(mcs=4), lo=LoConfig(phase_noise=PhaseNoiseConfig(model='profile', profile_path='pllsim_wu19_x10_60p48g_floor150.yaml'))))` 不报错，用的是 60.48 GHz 的剖面，比 54.0 GHz 的高 20·log10(60.48/54) = 1.0 dB。
@@ -60,27 +60,28 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
   同样条件 11be 80 MHz（996 音）全部取 9 音。56 个音上“多于 3 音”那一步的偏差估计，自己的散布 W₃·√(2/N) 与要省的噪声同量级。待做：信道准静态时跨包平均自相关，或改 DFT 域去噪。
 
 ### C7. 重新 pin wifitrx@96078aa、接入 pllsim ×10 剖面时发现的（见 `cairn/LOG.md` 2026-11-11）
-- **校准采集 8 个符号在窄基准 × 大 K 上不够**：`python examples/03_calibration_at_k.py` 的 K = 32、11ac 20 MHz 基准（640 MHz，52 音，1280 样本）一列，DPD 之后仅发 EVM −19.3 dB，不开 DPD −22.8 dB，采 32 个符号 −27.8 dB（同一示例的灵敏度节）；
-  同样 640 MHz 用 11be 20 MHz 基准（242 音，4352 样本）−27.2 dB。默认值没改（`assumed.cal_capture_symbols` = 8，每列同一个符号数）。待做：采集长度按样本数而不是符号数给（或按 GMP 系数个数的倍数），K = 1 为什么够、K = 32 为什么不够要单独验证（候选是观测 ADC 的 ENOB 随 fs 下降）。
+- **校准采集 8 个符号在窄基准 × 大 K 上不够**：`python examples/03_calibration_at_k.py` 的 K = 32、11ac 20 MHz 基准（640 MHz，52 音，1280 样本）一列，DPD 步每一轮都不如不加、一轮都没写入，仅发 EVM −22.8 dB（与不开 DPD 相同），采 32 个符号 −29.0 dB（同一示例的灵敏度节）。
+  默认值没改（`assumed.cal_capture_symbols` = 8，每列同一个符号数）。待做：采集长度按样本数而不是符号数给（或按 GMP 系数个数的倍数），K = 1 为什么够、K = 32 为什么不够要单独验证（候选是观测 ADC 的 ENOB 随 fs 下降）。
 - **2.56 GHz 列的退化项没有被最终 EVM 惩罚**：RX 角频偏 8.7 %、LO 泄漏环检 −39.8 dBc、IRR 37.9 / 42.1 dB，而 modem 口径的最终 EVM 是 −26.0 dB（与 320 MHz 的 −26.1 持平），genie 口径的回环 EVM 只有 −12.9 dB。
   两个口径差 11 dB 的部分是接收机的信道估计与导频跟踪吸收掉的线性项；哪些项在真实链路（多径、每包重估）里仍然吸收得掉没有验证。
 - **倍频器底噪在这张表上看不见**：示例 04 §5，底噪 −160 / −150 / −140 / −130 dBc/Hz 四档，IPN 都是 −33.0 dBc、底板与 MCS 上限一格不动；只有 K = 32 的相噪 ICI 项从 −36.1 到 −33.0 dB。在 OBO 8 dB 处 LO 不是瓶颈，底噪的取值（`assumed.lo_multiplier_floor_dbchz`，没有出处）目前不影响任何结论；PA 回退加大或换线性 PA 之后要重看。
 - 剖面文件里的杂散表（4 MHz 小数杂散 ×10 后 −43.7 dBc、谐波抑制 40 dB）引擎不消费（铁律 6）；要看杂散得上逐周期引擎。
 
 ### C8. PA 记忆研究（示例 07）发现的（见 `cairn/LOG.md` 2026-11-11、`cairn/topology-b.md` §3b）
-- **记忆按秒固定时，预设回退点上 DPD 基本失效，换抽头间隔救不回来**：`python examples/07_pa_memory_dpd.py`，参考 PA、抽头 12.5 ns、回退 8 dB，DPD 后 TX EVM 在 K = 4 / 8 / 32 最好只有 −18.6 / −21.5 / −22.7 dB，
-  记忆随信号缩放的同一颗 PA 是 −25.9 / −27.5 / −25.9 dB，差 7.3 / 6.0 / 3.2 dB；K = 4 上四个抽头间隔全都比不开 DPD（−20.6 dB）差。匹配间隔（fs_eff / fir_fs）只在回退 ≥ 10.5 dB 且 K = 32 时赢（−27.9 对逐样本 −24.2 dB）。
-  原因（对方在 wifi_trx_cal#5 拆出来的）：预失真器与 PA 之间的发射基带低通有逐样本的记忆，PA 的记忆隔几十个样本，等间隔的 GMP 两头只能顾一头。待做：混合间隔的基函数（PA_DPD 的设计问题，对方没提；要的话另开 issue），或把观测 / 预失真放到低通之后。
-- **`fir_fs` 是整件事的未知数**：12.5 ns 是 sub-7 GHz WiFi PA 的时间常数原样搬过来，偏悲观；K = 32、回退 8 dB 上抽头 3.125 / 0.78 ns 时 DPD 后 −21.3 / −25.8 dB，随信号缩放 −25.9 dB。没有 60 GHz PA 记忆时间常数的出处，查到之前这张表只能读趋势。
-- **预设的 Rapp 在回退 8 dB 上过 wifitrx 的 DPD 步没有收益**：K = 4 / 8 上开关 DPD 都是 −18.6 / −19.0 dB（K = 32 −19.0 到 −22.4）。这颗 PA 的 P1dB 在 Psat 下 9.5 dB，回退 8 dB 时平均功率已在 P1dB 之上；再叠加对方默认迭代 2 次（B40）。
-  同台表的 DPD 代价列因此是“付了钱没拿到线性度”的记账，与 A1 第二条是同一件事。
+- **记忆按秒固定时，代价由 PA 的抽头隔多少个样本决定，隔 8–16 个样本最糟**：`python examples/07_pa_memory_dpd.py`，参考 PA、回退 8 dB，DPD 后 TX EVM 在 K = 4 / 8 / 32（抽头 12.5 ns = 8 / 16 / 64 个样本）最好 −22.4 / −21.7 / −25.2 dB，
+  记忆随信号缩放的同一颗 PA 是 −26.5 / −27.5 / −25.8 dB，差 4.1 / 5.8 / 0.6 dB。K = 32 上把抽头改成 3.125 ns（16 个样本）又掉到 −21.3 dB，0.78 ns（4 个样本）是 −25.9 dB。
+  **原因未知**。原先的方向（发射基带低通的逐样本记忆）被对方在 wifi_trx_cal#5 上的实测否定：在他们的链路里低通造成的峰在 2–4 个样本处、不到 1 dB（2 倍过采样时约 2 个样本、+0.2–0.3 dB），本库的峰在 8–16 个样本、4–6 dB。
+  待做（隔离实验，每行几秒）：在示例 07 的 K = 4 / 8 上逐项关掉本库前端的频率相关 IQ 失配、转换器量化、LO 泄漏，换回退（8 / 10.5 / 13 dB）与过采样（2 / 4 倍），并比“同一驱动”与“同一输出功率”两种对齐，看峰跟着谁走。查到之前不向 PA_DPD 提混合间隔基函数的需求。
+- **抽头间隔必须量着选**：K = 32 上逐样本基函数比匹配间隔差 2.5 dB（回退 8 dB）到 3.6 dB（13 dB）；K = 4 / 8 上匹配间隔又不是最好的（×4 更好）。`pamemory.candidate_spacings` 只量 1 / 2 / 4 / 匹配四个，没有扫全。
+- **`fir_fs` 是整件事的未知数**：12.5 ns 是 sub-7 GHz WiFi PA 的时间常数原样搬过来。没有 60 GHz PA 记忆时间常数的出处，查到之前这张表只能读趋势。
+- **预设的 Rapp 在回退 8 dB 上过 wifitrx 的 DPD 步几乎没有收益**：K = 4 / 8 上关 / 开是 −18.6 / −18.9、−18.9 / −18.9 dB（K = 32 −19.0 到 −22.4）。这颗 PA 的 P1dB 在 Psat 下 9.5 dB，回退 8 dB 时平均功率已在 P1dB 之上。
+  同台表计了 DPD 的功耗、底板用的是未预失真的 Rapp，所以是“付了钱没拿到线性度”的记账，与 A1 第二条是同一件事。
 - **示例 03 的校准表不在预设回退点上**：wifitrx 默认驱动在本库前端上落在回退 10.4–10.7 dB，不是预设的 8 dB。示例 07 已按预设回退重跑整套序列（`run_cal_at(obo_db=…)`）；示例 03 没改（改了全表都动），读它的 DPD / 最终 EVM 两行时要知道回退多了 2.5 dB。
-- **wifitrx 的 `ScaledPA` 对抽头被拉开的 PA 定标偏 1.80 dB**：它在幅度斜坡上找小信号增益，抽头隔 ≥ 2 个样本时只读到主抽头。本库在逐样本的同一颗 PA 上取定标再换模型（`pamemory.memory_pa`）；已在 wifi_trx_cal#5 的验收里告知对方。
 
 ## D. 报回上游
 本库不动这三个库；需求各开一个 issue 交给对方，对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
 D1（wifi_trx_cal#4，非标准带宽的评分波形）、D2（pll_simulator#71，倍频器模型）、D3（PA_DPD#4 的 `fs` / `fir_fs` 与 `tap_spacing`，经 wifi_trx_cal#5 透传）都已落地并 pin 完（2026-11-11，`cairn/LOG.md`），条目已删。现在没有等上游的事。
-对方自己还开着的两件，与本库有关但不由本库推动：wifi_trx_cal 的 B40（`calibrate_dpd` 默认迭代 2 次、`run_full_cal` 不透传 `n_iter`）与 B38（非标准音计划下 TX 视图 replay 的 gap）。
+本库在验收时报告的两件对方已经修掉并 pin 进来（wifitrx@7b8d08e）：B40（DPD 步留观测通路上最好的一轮，都不如不加就不写入）与 B41（`ScaledPA` 对带记忆的 PA 逐电平读稳态）。对方自己还开着、与本库有关但不由本库推动的：B38（非标准音计划下 TX 视图 replay 的 gap）；`run_full_cal` 仍不透传 `n_iter`。
 
 ### D4 ← fmcw_radar：雷达消费清单（收件）
 - fmcw_radar 会报一份"它能从本库 `Frontend60` 用什么、缺什么"的清单：能用 PA（`ScaledRappPA`）、LO 泄漏（`Lo60.tx_leak_dbc`）、LO 剖面形状（`PoleZeroPhase`）；缺天线增益、LNA NF、TX–RX 隔离、倍频器底噪。

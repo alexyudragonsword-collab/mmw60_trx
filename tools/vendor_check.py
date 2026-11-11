@@ -294,7 +294,7 @@ def build_manifest(siblings: Siblings) -> dict:
                   "sanctioned local changes (extended/extracted) are pinned "
                   "here by body_sha256; verbatim/adapted files are verified "
                   "directly against pinned upstream."),
-        "pins": {"wifi_trx_cal": "da37888ab16f6a5f34d1d0f3d329a4b857b5f37b"},
+        "pins": {"wifi_trx_cal": "7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02"},
         "files": files,
     }
 

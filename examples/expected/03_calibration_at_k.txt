@@ -75,11 +75,11 @@ mmw60 0.1.0; full; profile poweron; front end rapp_11ad Pout 7 dBm, TX leak -30 
   K=32  group_delay            ok        error_ps -8.60
   K=32  rx_iq                  degraded  irr_min_db 46.51
   K=32  tx_power               ok
-  K=32  dpd                    degraded  evm_db -19.68
+  K=32  dpd                    degraded  evm_db -23.13
   K=32  agc_sweep              ok        worst_landing_err_db 0.08
-  K=32  final_loopback_evm     ok        tx_evm_modem_db -19.32 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
-  scoring waveform: 11ac 20 MHz x32 upclocked (52 tones at 10 MHz, the base's 4 pilots); loopback EVM before/after: -15.9 / -22.2 dB  [~s]
-  final EVM as a standard receiver reads it: loopback -19.4, TX alone -19.3, RX alone -29.6 dB; RX NF 16.8 dB
+  K=32  final_loopback_evm     ok        tx_evm_modem_db -22.82 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  scoring waveform: 11ac 20 MHz x32 upclocked (52 tones at 10 MHz, the base's 4 pilots); loopback EVM before/after: -15.9 / -23.2 dB  [~s]
+  final EVM as a standard receiver reads it: loopback -21.6, TX alone -22.8, RX alone -29.6 dB; RX NF 16.9 dB
 
 == K = 32, base 80 MHz -> 2560 MHz at 5.12 GS/s ==
   K=32  tx_lpf_corner          ok        fc_err_pct 0.00
@@ -99,8 +99,8 @@ mmw60 0.1.0; full; profile poweron; front end rapp_11ad Pout 7 dBm, TX leak -30 
 
 == sensitivity: capture length at K = 32, base 20 MHz (assumed.cal_capture_symbols) ==
  symbols  samples     dpd  loopback  TX alone  RX alone   (EVM dB; the first row is the column above)
-       8     1280   -19.7     -19.4     -19.3     -29.6
-      32     5120   -24.9     -25.2     -27.8     -30.6
+       8     1280   -23.1     -21.6     -22.8     -29.6
+      32     5120   -25.2     -26.3     -29.0     -30.6
        8     1280     off     -21.6     -22.8     -29.6
 
 == step × K (status, metric) ==
@@ -114,9 +114,9 @@ tx_iq                             ok 55.3           ok 55.8     degraded 50.4   
 group_delay                       ok -6.1          ok -27.6          ok -40.8          ok -17.9           ok -8.6            ok 8.1
 rx_iq                             ok 56.3           ok 55.2     degraded 50.6     degraded 52.3     degraded 46.5     degraded 42.1
 tx_power                               ok                ok                ok                ok                ok                ok
-dpd                              ok -27.3    degraded -25.0          ok -26.5          ok -26.4    degraded -19.7          ok -25.2
+dpd                              ok -27.3    degraded -25.0          ok -26.5          ok -26.4    degraded -23.1          ok -25.2
 agc_sweep                          ok 0.3            ok 0.1            ok 0.3            ok 0.0            ok 0.1            ok 0.1
-final_loopback_evm               ok -25.5          ok -25.1          ok -26.7          ok -26.1    degraded -19.3          ok -26.0
+final_loopback_evm               ok -25.5          ok -25.1          ok -26.7          ok -26.1          ok -22.8          ok -26.0
 
 == mechanisms ==
 - tx_lpf_corner: 角频搜索相对 BW（recommended_lpf_corner_hz × BW），随 K 缩放；n = 2^14 样本的扫频分辨率随 fs 变粗

@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@da37888ab16f6a5f34d1d0f3d329a4b857b5f37b: src/wifitrx/cal/dpd_tracking.py
+# Vendored from wifi_trx_cal@7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02: src/wifitrx/cal/dpd_tracking.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Background DPD tracking against a drifting PA (temperature/aging).
 

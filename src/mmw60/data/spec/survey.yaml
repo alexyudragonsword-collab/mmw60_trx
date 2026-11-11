@@ -581,7 +581,7 @@ entries:
     unit: OFDM symbols
     source: assumed
     cite: "本库 calcheck.py；wifitrx 校准序列每次采集的长度，按符号数给"
-    note: "示例 03 / 06 的每一列都用 8 个符号，所以采集的样本数随基准 FFT 点数变：11ac 20 MHz 基准（64 点）只有 1280 个样本，11be 80 MHz 基准（1024 点）有 17408 个。K = 32 的 640 MHz 列（52 音、10 MHz 音距）上 8 个符号不够 GMP 拟合：仅发 EVM −19.3 dB，比不开 DPD 的 −22.8 dB 还差；32 个符号 −27.8 dB。示例 03 有 32 符号的灵敏度行。"
+    note: "示例 03 / 06 的每一列都用 8 个符号，所以采集的样本数随基准 FFT 点数变：11ac 20 MHz 基准（64 点）只有 1280 个样本，11be 80 MHz 基准（1024 点）有 17408 个。K = 32 的 640 MHz 列（52 音、10 MHz 音距）上 8 个符号不够 GMP 拟合：DPD 步一轮都没写入，仅发 EVM −22.8 dB，与不开 DPD 相同；32 个符号 −29.0 dB。示例 03 有 32 符号的灵敏度行。"
 
   assumed.pa_memory_model:
     value: "wifitrx_reference_pa"
@@ -717,7 +717,7 @@ entries:
     unit: iterations
     source: assumed
     cite: "本库；wifitrx cal/dpd_cal.py::calibrate_dpd 的默认 n_iter = 2"
-    note: "60 GHz 观测回环上重训 DPD 时间接学习的迭代上限。本库在 1 … 上限里各训一次，放回同一输出功率、在同一观测通路上读 EVM，留最好的一个（也可能是芯片上原有的）。迭代越多在软压缩 PA 靠近饱和时越差：回退 8 dB 处 1 / 2 / 3 次是 −21.1 / −15.0 / +3.2 dB（示例 06 §3）。"
+    note: "60 GHz 观测回环上重训 DPD 时交给 wifitrx 的 DPD 步试的轮数。wifitrx 0.7.39 起该步自己在观测通路上读“不加预失真”和每一轮、写入最好的；本库再把它留下的放回同一输出功率，和芯片上原有的预失真器比，留好的。轮数越多在软压缩 PA 靠近饱和时越差：回退 8 dB 处观测读数 不加 / 第 1 / 2 / 3 轮是 −18.4 / −20.6 / −14.1 / +1.4 dB（示例 06 §3 用上限 3 展示）。"
 
   assumed.mlo_sub7:
     value: {carrier_hz: 5.5e+9, snr_db: 20.0}

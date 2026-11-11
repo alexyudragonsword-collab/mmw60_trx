@@ -94,7 +94,7 @@ jobs:
         continue-on-error: true
         with:
           repository: alexyudragonsword-collab/wifi_trx_cal
-          ref: da37888ab16f6a5f34d1d0f3d329a4b857b5f37b
+          ref: 7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02
           token: ${{ secrets.SIBLING_READ_TOKEN || github.token }}
           path: _siblings/wifi_trx_cal
       - uses: actions/setup-python@v5

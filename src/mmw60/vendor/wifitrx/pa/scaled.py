@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@da37888ab16f6a5f34d1d0f3d329a4b857b5f37b: src/wifitrx/pa/scaled.py
+# Vendored from wifi_trx_cal@7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02: src/wifitrx/pa/scaled.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """dBm-scaled PA wrapper around the unit-power-normalized padpd PA models.
 
@@ -22,6 +22,48 @@ from ..units import dbm_to_mw, mw_to_dbm, db_to_amp
 from .base import PAModel
 
 
+def _is_memoryless(model, r: np.ndarray, a_out: np.ndarray) -> bool:
+    """Whether ``model`` treats every sample on its own: the ramp sent
+    backwards must come back as the same numbers, reversed.  Elementwise
+    models (Saleh, a LUT without filters) do so exactly; anything with a
+    filter in it does not."""
+    back = np.abs(model(r[::-1].astype(complex)))[::-1]
+    # elementwise ==, not array_equal: the Android call-surface allow-list
+    # holds names verified against numpy 1.19.5
+    return bool(back.shape == a_out.shape and np.all(back == a_out))
+
+
+def _steady_response(model, r: np.ndarray, block: int = 64,
+                     max_block: int = 1 << 16) -> np.ndarray:
+    """|output| of ``model`` for a constant-amplitude input at each level
+    of ``r``, read once the model's memory has settled.
+
+    Each level is held for ``block`` samples (a staircase, one call) and
+    read at the block's middle, so that neither a causal filter's start-up
+    nor a centred (non-causal) filter's look-ahead into the next level
+    reaches it.  The block doubles until the read stops changing: equality
+    of two samples inside one block is not enough, because taps spaced
+    exactly one block apart see the same neighbouring levels at both.
+    """
+    prev = None
+    while True:
+        # each level held for `block` samples (np.tile, not np.repeat:
+        # see the allow-list note above)
+        stair = np.tile(r[:, None], (1, block)).ravel()
+        y = np.abs(model(stair.astype(complex)))
+        read = y.reshape(r.size, block)[:, block // 2]
+        if prev is not None and np.all(
+                np.abs(read - prev) <= 1e-9 * np.maximum(read, 1e-300)):
+            return read
+        prev = read
+        block *= 2
+        if block > max_block:
+            raise ValueError(
+                f"the PA model has not settled within {max_block} samples "
+                "at a constant input; its memory is too long to calibrate "
+                "a gain and saturation point from")
+
+
 class ScaledPA:
     def __init__(self, pa_model: PAModel, gain_db: float = 30.0,
                  psat_dbm: float = 28.0, pae_max: float = 0.35):
@@ -38,6 +80,19 @@ class ScaledPA:
         # not at the sweep bottom, which may be outside a LUT's table).
         r = np.logspace(-3, 3, 6000)
         a_out = np.abs(self.pa_model(r.astype(complex)))
+        # The sweep is one signal.  A model with memory reads it through
+        # its own start-up transient: the first samples see only the
+        # filters' leading taps, the gain is flat there, and the plateau
+        # search below takes it -- a ReferencePA whose taps are spread
+        # (fs / fir_fs >= 2) got its small-signal gain 1.80 dB high (B41,
+        # reported by mmw60_trx in issue #5; sample-spaced taps escaped
+        # with 0.004 dB).  Such a model is read level by level in steady
+        # state instead; an elementwise one keeps the sweep, so its
+        # scaling is bit-identical to what it always was.
+        self._memoryless = _is_memoryless(self.pa_model, r, a_out)
+        if not self._memoryless:
+            r = np.logspace(-3, 3, 600)
+            a_out = _steady_response(self.pa_model, r)
         i_sat = int(np.argmax(a_out))
         self._r_sat = float(r[i_sat])
         self._a_sat = float(a_out[i_sat])
@@ -62,9 +117,15 @@ class ScaledPA:
 
     # ------------------------------------------------------------ metrics
     def am_am(self, p_in_dbm: np.ndarray) -> np.ndarray:
-        """Output power (dBm) vs input power (dBm) for a CW tone."""
+        """Output power (dBm) vs input power (dBm) for a CW tone (in steady
+        state: a model with memory is read level by level, not as one
+        swept signal)."""
         a_in = np.sqrt(dbm_to_mw(np.asarray(p_in_dbm, dtype=float)))
-        a_out = np.abs(self(a_in.astype(complex)))
+        if getattr(self, "_memoryless", True):
+            a_out = np.abs(self(a_in.astype(complex)))
+        else:
+            a_out = self._k_out * _steady_response(self.pa_model,
+                                                   self._k_in * a_in)
         return mw_to_dbm(a_out ** 2)
 
     @property

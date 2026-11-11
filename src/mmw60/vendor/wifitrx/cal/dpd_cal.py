@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@da37888ab16f6a5f34d1d0f3d329a4b857b5f37b: src/wifitrx/cal/dpd_cal.py
+# Vendored from wifi_trx_cal@7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02: src/wifitrx/cal/dpd_cal.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """DPD calibration through the TX -> loopback -> RX observation path.
 
@@ -10,6 +10,20 @@ the adjacent-channel regrowth must be visible to the identification).
 
 Flow per iteration: transmit reference -> capture -> delay-align ->
 gain-normalize -> single-shot ILA fit on the measured pair -> apply.
+
+The step then programs the BEST candidate as the observation path reads
+it, not the last one (B40).  Each iteration's capture is the previous
+candidate seen through the loopback, so candidate k -- no predistorter
+for k = 0, the k-th fit otherwise -- is scored on capture k at no extra
+cost, and one capture after the loop scores the last.  Iterating is not
+monotone: on this library's own PA the second ILA pass reads 0.6-0.9 dB
+worse than the first at 80 / 160 / 320 MHz, and past saturation later
+passes diverge (80 MHz at drive 0.3: -34.7 dB after one pass, -19.8
+after three); a soft-compression PA (mmw60_trx, issue #5) loses the
+first pass's gain in the second.  The observation picks the same pass
+as the PA output in 10 of 12 parts measured, and where it does not the
+two passes differ by <= 0.12 dB.  Keeping candidate 0 is allowed: a
+predistorter the observation reads worse than none is not programmed.
 """
 from __future__ import annotations
 
@@ -79,6 +93,13 @@ def calibrate_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
             ac_worst = float("nan")  # adjacent channel outside Nyquist
         return {"evm_db": res.db, "aclr_worst_dbc": ac_worst}
 
+    def observed_evm_db(cap: np.ndarray) -> float:
+        # the same per-tone isolation EVM, read through the observation
+        # receiver instead of at the PA output (a part cannot do that)
+        g = np.vdot(x, cap) / np.vdot(x, x)
+        return float(evm(demodulate_ofdm(cap / g, wf), wf.tx_symbols,
+                         equalize="per_tone").db)
+
     before = pa_out_metrics()
     trace = [before["aclr_worst_dbc"]]
 
@@ -89,9 +110,12 @@ def calibrate_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
     dpd_model = None
     g0 = None
     x_max = float(np.max(np.abs(x)))
+    candidates: list = [None]        # k-th: the predistorter after k passes
+    observed: list[float] = []       # k-th: candidate k through the loopback
     for it in range(n_iter):
         u = x if dpd_model is None else dpd_model(x)
         cap = _capture(tx, rx, path, x)
+        observed.append(observed_evm_db(cap))
         if g0 is None:
             g0 = np.vdot(x, cap) / np.vdot(x, x)
         model = GMPModel(order=order, memory_depth=memory_depth,
@@ -103,16 +127,26 @@ def calibrate_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
         # holds its edge value (see dpd/bounded.py for the -3.8 dB
         # symbol that motivated this)
         tx.dpd = BoundedDPD(dpd_model, x_max)
+        candidates.append(tx.dpd)
         trace.append(pa_out_metrics()["aclr_worst_dbc"])
+    observed.append(observed_evm_db(_capture(tx, rx, path, x)))
+    kept = int(np.argmin(observed))
+    tx.dpd = candidates[kept]
 
     after = pa_out_metrics()
     rx.params.lpf.enabled = lpf_was_enabled
     return CalResult(
         name="dpd",
         estimated={"order": order, "memory_depth": memory_depth,
-                   "tap_spacing": int(tap_spacing), "x_max": x_max},
-        corrections={"dpd": "GMP ILA predistorter programmed on TxChain, "
-                            "envelope-bounded at the training peak"},
+                   "tap_spacing": int(tap_spacing), "x_max": x_max,
+                   "kept_iteration": kept,
+                   "observed_evm_db": [round(v, 3) for v in observed]},
+        corrections={"dpd": (
+            f"GMP ILA predistorter after pass {kept} of {n_iter} (the best "
+            "the observation path read) programmed on TxChain, "
+            "envelope-bounded at the training peak" if kept else
+            "none programmed: the observation path read every fitted pass "
+            "worse than no predistorter")},
         trace=trace,
         metrics_before=before,
         metrics_after=after,
@@ -130,5 +164,6 @@ def calibrate_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
                 and not (after["aclr_worst_dbc"]
                          > before["aclr_worst_dbc"] + 1.0
                          and after["aclr_worst_dbc"] > -45.0)),
-        cost={"captures": n_iter, "samples": n_iter * (x.size + 512)},
+        cost={"captures": n_iter + 1,
+              "samples": (n_iter + 1) * (x.size + 512)},
     )
