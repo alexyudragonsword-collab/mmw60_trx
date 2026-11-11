@@ -28,7 +28,7 @@ authoring_mode: ai_generated
 - **wifitrx ≤ 0.7.38 的 DPD 步无条件写入最后一轮**：软压缩的 PA、采集太短、PA 记忆够不着时第 2 轮会比第 1 轮甚至比不加还差，旧版照写。0.7.39 起留观测通路上最好的一轮（B40）。
   旧数字里凡是“开了 DPD 反而更差”的格（示例 03 的 640 MHz 列、示例 06 的 60 GHz 观测整套序列、示例 07 的若干格）都是这个行为，不是器件的结论；本库据此下过一个错的推广（`topology-b.md` 被推翻的判断 7）。
 - **wifitrx 默认驱动（`final_drive_scale` 0.12）在本库前端上落在回退 10.4–10.7 dB，不是预设的 8 dB**；不同的 PA 模型在同一驱动下还差约 1 dB。要在指定回退上读 DPD / 最终 EVM 用 `run_cal_at(obo_db=…)`（整套序列重跑到落点对上）。
-- **DPD 抽头间隔不能直接取 fs_eff / fir_fs**：预失真器与 PA 之间的发射基带低通有逐样本的记忆（`topology-b.md` §3b）。`run_cal_at` 记下的 `dpd_tap_spacing` 是 DPD 步自己写进 `estimated` 的值，不是传进去的值。
+- **DPD 抽头间隔不能直接取 fs_eff / fir_fs，也不能默认 1**：要在自己的链路上量（`pamemory.candidate_spacings`，`topology-b.md` §3b）。对方在 wifi_trx_cal#5 给的经验法则：PA 抽头间距远大于发射基带低通的记忆时取匹配间隔，两者相当时间隔 1 可能更好。本库链上隔 8–16 个样本时两种都救不回来，原因未知（不是低通）。`run_cal_at` 记下的 `dpd_tap_spacing` 是 DPD 步自己写进 `estimated` 的值，不是传进去的值。
 - **`TDLChannel.k_db` 只让第一个 tap 变 Rician**，尾部功率不变；要 LOS 占优（抑制 GI 之外的 ISI）用本库 `channel.ExponentialTdl(los_k_db=…)`。
 - `EvmBudget` 默认 `t_fft_s = 12.8e-6`：用时必须传 `1/SCS_eff`。
 
