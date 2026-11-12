@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.1.0; full; topology B, K = 8 on the 11ac 20 MHz base (160 MHz), carrier 60.48 GHz, PA output 7 dBm
+mmw60 0.1.0; full; topology B, K = 8 on the 11ac 20 MHz base (160 MHz), carrier 60.48 GHz, PA output 6.6 dBm
 [spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; [assumed] = this library's choice
 
 == 1. the faces: preset against config.surveyed_frontend ==
@@ -21,17 +21,17 @@ the surveyed IIP3 happens to equal the WiFi 7 ladder's top state's: the compress
 sensitivity = the receiver input for the measured PER 1e-2 threshold of this receiver (MCS 0: 2.01 dB, MCS 4: 14.5 dB per active tone; no implementation loss added)
 link EVM = time-domain, flat channel, SNR 10 dB per active tone; calibration = wifitrx's sequence, profile poweron
 receive front end                        NF  sens MCS0  sens MCS4  link EVM  cal RX NF  loopback  TX alone  RX alone   figure from
-WiFi 7 chip ladder (the presets)        3.5      -87.0      -74.5     -9.24       10.8     -29.0     -26.7     -27.5   wifitrx DEFAULT_LNA_STATES
-60 GHz comm. transceiver, 65 nm         6.1      -84.4      -71.9     -9.24        9.6     -27.9     -26.6     -27.4   rx60.comm_asada2011 [spec]
-60 GHz comm. receiver, 90 nm            7.1      -83.4      -70.9     -9.24       10.5     -27.4     -26.6     -27.3   survey.rx60_comm_iscas2015 [survey, unverified]
-802.11ad sensitivity-table receiver    10.0      -80.5      -68.0     -9.24       13.2     -24.9     -25.6     -27.3   survey.dmg_sensitivity_assumptions [survey, unverified]
-60 GHz radar chip                      12.0      -78.5      -66.0     -9.24       15.1     -23.5     -25.1     -27.2   rx60.radar_iwr6843 [spec]
+WiFi 7 chip ladder (the presets)        3.5      -87.0      -74.5     -9.31       11.2     -21.0     -20.4     -27.5   wifitrx DEFAULT_LNA_STATES
+60 GHz comm. transceiver, 65 nm         6.1      -84.4      -71.9     -9.31       13.5     -20.9     -20.4     -27.4   rx60.comm_asada2011 [spec]
+60 GHz comm. receiver, 90 nm            7.1      -83.4      -70.9     -9.31       14.4     -20.9     -20.4     -27.4   survey.rx60_comm_iscas2015 [survey, unverified]
+802.11ad sensitivity-table receiver    10.0      -80.5      -68.0     -9.31       17.1     -20.7     -20.4     -27.4   survey.dmg_sensitivity_assumptions [survey, unverified]
+60 GHz radar chip                      12.0      -78.5      -66.0     -9.31       19.0     -20.4     -20.4     -27.3   rx60.radar_iwr6843 [spec]
 (dBm, dBm, dB, dB, dB, dB, dB)  [~s]
 sensitivity against noise figure, first to last row: 1.00 dB per dB
 link EVM on the SNR axis, spread over the rows: 0.00 dB (the axis is SNR, so the noise figure sets the input level, not the EVM)
 the calibration readings move because the sequence observes through the receiver at the loopback level: 'cal RX NF' is the state the AGC sits in there, not the maximum-gain state.  The hand-over levels move with the noise figure (wifitrx's balance-point rule), so a row can sit one state higher than the row above it
 
-== 3. the transmitter's leakage at the receiver input (PA output 7 dBm) ==
+== 3. the transmitter's leakage at the receiver input (PA output 6.6 dBm) ==
 a TDD link never sees it (the receiver is off while the transmitter is on); a radar and a full-duplex link do
 a receiver has two input compression points and the leakage meets one of them: a full-duplex link's leakage sits at the carrier, in band; an FMCW radar's beats to below the baseband high-pass and meets only the stages before it (out of band)
 receive front end, maximum gain             in band    out of band   figure from
@@ -40,18 +40,18 @@ surveyed (60 GHz comm. transceiver)           -29.6  not specified   rx60.comm_a
 (dBm.  The radar chip's in-band figure moves with its gain: -24 dBm at 30 dB; the surveyed receiver's -29.6 dBm is at 27 dB, so at like gains the two in-band figures are 5.6 dB apart; the radar chip's own two figures are 12 to 30 dB apart)
 
 margin = level − leak                               dB    leak |  comm in       comm out |  radar in  radar out |  max input   AGC state that takes it in band
-pick: without the isolation structure, low end      20   -13.0 |    -16.6  not specified |     -29.0        1.0 |      -20.0   state 6: gain -9 dB, NF 32.6 dB
-without the isolation structure, high end           25   -18.0 |    -11.6  not specified |     -24.0        6.0 |      -15.0   state 5: gain -3 dB, NF 28.6 dB
-with the isolation structure                        40   -33.0 |      3.4  not specified |      -9.0       21.0 |        0.0   state 2: gain 15 dB, NF 12.6 dB
+pick: without the isolation structure, low end      20   -13.4 |    -16.2  not specified |     -28.6        1.4 |      -19.6   state 6: gain -9 dB, NF 32.6 dB
+without the isolation structure, high end           25   -18.4 |    -11.2  not specified |     -23.6        6.4 |      -14.6   state 5: gain -3 dB, NF 28.6 dB
+with the isolation structure                        40   -33.4 |      3.8  not specified |      -8.6       21.4 |        0.4   state 2: gain 15 dB, NF 12.6 dB
 (dB, dBm, then margins in dB; negative = the leak is above the level.  comm = the surveyed front end, radar = the radar chip; in / out = in band / out of band; max input -33 dBm is dmg.rx_max_input_dbm [spec])
 for a radar the column to read is 'out': the surveyed communication front end does not state that figure, so this table cannot say whether it takes the leakage; its 'in' column answers the full-duplex question only
 the isolation figures are isolation.tx_rx_tue2018 [spec]: one abstract; the 20 and 25 dB rows are a subtraction of its numbers, not a figure it gives
 
 == 4. antenna gains (the same on both ends): EIRP limit and the path loss the link takes at MCS 0 ==
  gain  EIRP avg  margin avg  margin peak  path loss   figure from
-  0.0       7.0        33.0         26.0       91.4   the presets (not specified)
-  2.0       9.0        31.0         24.0       95.4   rx60.comm_asada2011 [spec], the pick
-  6.0      13.0        27.0         20.0      103.4   survey.antenna60_okada2013_dbi [survey, unverified]
+  0.0       6.6        33.4         26.4       91.0   the presets (not specified)
+  2.0       8.6        31.4         24.4       95.0   rx60.comm_asada2011 [spec], the pick
+  6.0      12.6        27.4         20.4      103.0   survey.antenna60_okada2013_dbi [survey, unverified]
 (dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.4 dBm, the surveyed receive front end; one element each end, no array gain — milestone 2)
 
 == 5. where the receive face is not consumed ==

@@ -75,8 +75,9 @@ def test_decoder_cap_arithmetic_and_margin():
 
 def test_decoder_cap_sits_above_the_conformance_cap_where_example_05_measured_it():
     """Example 05's finding as a guard: on 11be 80 MHz × 4 the transmitter-
-    conformance cap is MCS2 while the decoder reaches PER 1e-2 at MCS4; the
-    decoder cap must say MCS4 or better there and never be below conformance."""
+    conformance cap is MCS3 (MCS2 with the 11ad EM PA the presets had until
+    2026-11-12) while the decoder reaches PER 1e-2 at MCS4; the decoder cap
+    must say MCS4 or better there and never be below conformance."""
     fe = Frontend60.from_config(zero_if_60ghz(k=8))
     for std, bw, k in (("11be", 80e6, 4), ("11be", 80e6, 8), ("11be", 20e6, 16), ("11ac", 20e6, 8)):
         c = evaluate_cell(zero_if_60ghz(k=k, standard=std, bandwidth_hz=bw), fe, time_domain=False)
@@ -84,7 +85,7 @@ def test_decoder_cap_sits_above_the_conformance_cap_where_example_05_measured_it
         assert c.dec_coded and c.dec_mcs is not None and c.dec_mcs >= conf, (std, bw, k, conf, c.dec_mcs)
         assert c.dec_mcs_cal >= c.dec_mcs and c.dec_rate_mbps > 0
     c4 = evaluate_cell(zero_if_60ghz(k=4, standard="11be", bandwidth_hz=80e6), fe, time_domain=False)
-    assert c4.max_mcs == 2 and c4.dec_mcs >= 4
+    assert c4.max_mcs == 3 and c4.dec_mcs >= 4
     wide = evaluate_cell(zero_if_60ghz(k=8, standard="11ac", bandwidth_hz=80e6), fe, time_domain=False)
     assert not wide.dec_coded and wide.dec_mcs is None and " n/a " in wide.row()
 

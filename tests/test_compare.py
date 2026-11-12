@@ -118,7 +118,8 @@ def test_rows_cross_check_and_the_uncaught_cfo_row_is_flagged():
     assert k8["evm_budget"]["pn_budget_db"] < k8["evm_budget"]["pn_ici_db"]
     assert 0 < k8["evm_budget"]["cpe_tracked_fraction"] < 1
     # IQcal uses example 03's measured residual at the row's bandwidth
-    assert k8["irr_cal_db"] == 50.4 and k8["irr_cal_measured_at_hz"] == 160e6
+    table = {float(k): float(v) for k, v in spec.value("derived.irr_after_cal_measured_db").items()}
+    assert k8["irr_cal_db"] == table[160e6] and k8["irr_cal_measured_at_hz"] == 160e6
     k32 = by["be_upclocked 11ac 20M K=32 @60.48 GHz"]
     assert k32["max_mcs_cal"] >= k32["max_mcs"]
     # the decoder's cap: never below the conformance cap, priced at its own rate
