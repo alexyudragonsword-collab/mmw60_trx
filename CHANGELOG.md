@@ -4,6 +4,15 @@
 
 ## 未发布
 
+### 接收压缩点分成两个面；删掉被撤回的天线条目 —— D4 的更正（2026-11-12）
+- 起因：fmcw_radar 在 mmw60_trx#14 上读了原文后更正（AN600 里没有天线增益；TI 手册把接收压缩点分成带内 / 带外两个量），并请本库把压缩点给成两个字段。
+- **公开签名变化**（上一条刚加的面，还没有下游消费）：`RxFront60.p1db_in_dbm` 改名 `p1db_inband_dbm`；新增 `RxFront60.p1db_oob_dbm`（基带高通之前的输入压缩点，None = 未指定）、`RxFront60.p1db_inband_by_gain()`；`describe()` / `faces()` 的键 `rx_p1db_in_dbm` 改成 `rx_p1db_inband_dbm`，新增 `rx_p1db_oob_dbm`。**配置 schema 增加字段** `frontend.rx_front.p1db_oob_dbm`（链路不消费）。
+- `Frontend60.leakage_budget()`：`margin_to_p1db_db` 拆成 `margin_to_p1db_inband_db`（全双工的读法）与 `margin_to_p1db_oob_db`（雷达的读法；前端没给带外压缩点时是 None，不拿带内的数顶替）。
+- 规范条目：新增 `rx60.radar_iwr6843_fig7_2`（spec，读图：NF 与带内 P1dB 随增益）；删除 `survey.antenna60_bgt60_an600_dbi`（提供方撤回）；`isolation.tx_rx_tue2018` 的备注里转述对方读正文的结果。未核实条目 52 → 51。
+- 示例 08：§3 改成两个压缩点各自的余量，通信前端的带外一列写“未指定”；§4 去掉三行。
+- **结论更正**：上一条里“雷达芯片的压缩点比通信前端高 17.6 dB，是两类前端的差别”不成立，那是带内对带外。同一种量法（带内）下只差 5.6 dB。
+- `tests/test_frontend_faces.py`：+3（两个压缩点互不顶替、带内压缩点随档位、被撤回的条目不在表里）。预设不动，指纹不变，示例 00–07 的输出不变。
+
 ### 前端的三个面：接收前端、收发隔离、发 / 收天线增益 —— ROADMAP D4（2026-11-12）
 - 起因：fmcw_radar 的消费清单（mmw60_trx#14）。三样都加在共享的 `Frontend60` 上，不为雷达改接口形状；倍频器底噪不进（雷达读剖面文件）。
 - `config.RxFrontConfig`（`frontend.rx_front`：`wifi7_ladder` | `anchored`，`nf_db` / `iip3_dbm` / `gain_db`）、`FrontendConfig.antenna_gain_rx_dbi`（None = 与发射同一副天线）、`FrontendConfig.tx_rx_isolation_db`（None = 未指定）、`config.surveyed_frontend(cfg)`（把三个面换成查到的一档）。**配置 schema 增加了字段**，默认值就是原来的行为。

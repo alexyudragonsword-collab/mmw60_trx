@@ -635,6 +635,8 @@ entries:
   # ------------------------------------------------------------ ROADMAP D4：前端的三个面（接收前端、收发隔离、发 / 收天线增益）
   # 2026-11-12 第二轮：放行站点后对着原文核过四条（改成 source: spec，带 quote 与 section）；
   # 其余四条仍只读到搜索摘要（IEEE Xplore 与 Mouser 对脚本访问有校验，没有去绕）。
+  # 2026-11-12 第三轮：删掉 survey.antenna60_bgt60_an600_dbi。提供这组数的 fmcw_radar 读了 AN600 原文后撤回：
+  # 那份应用笔记里没有天线增益（只有归一化方向图），2 / 3.5 / 5 dBi 是搜索摘要张冠李戴。
   rx60.comm_asada2011:
     value: {nf_db: 6.1, iip3_dbm: -20.0, gain_high_db: 27.0, gain_low_db: 17.0, antenna_gain_dbi: 2.0}
     unit: "dB, dBm, dB, dB, dBi"
@@ -676,6 +678,15 @@ entries:
     quote: "Receiver: Noise figure, 60 to 64 GHz, TYP 12 dB; 1-dB compression point (Out Of Band)(1), TYP –12 dBm; Maximum gain 48 dB; Gain range 18 dB; Gain step size 2 dB. Transmitter: Output power 12 dBm; Power backoff range 26 dB. (1) 1-dB Compression Point (Out Of Band) is measured by feed a Continuous wave Tone (10 kHz) well below the lowest HPF cut-off frequency."
     note: "雷达芯片的数，全部是典型值。P1dB 是带外的（脚注 1）；带内 P1dB 随增益变，在手册 Figure 7-2 里，是图不是表，没有读数。只作对照档，通信前端的基准不取它。同一张表：1 MHz 处相噪 −93 dBc/Hz。fmcw_radar 在 mmw60_trx#14 上先查到。"
 
+  rx60.radar_iwr6843_fig7_2:
+    value: {gain_db: [30.0, 36.0, 40.0, 44.0, 48.0], nf_db: [15.6, 12.2, 11.0, 10.5, 10.3], p1db_inband_dbm: [-24.0, -30.0, -34.0, -38.0, -42.0]}
+    unit: "dB, dB, dBm"
+    source: spec
+    cite: "TI IWR6843 / IWR6443 数据手册 SWRS219F（OCTOBER 2018 – REVISED APRIL 2025），第 32 页的图；2026-11-12 把这一页渲染出来读图"
+    section: "7.9 RF Specification, Figure 7-2. Noise Figure, In-band P1dB vs Receiver Gain"
+    quote: "Figure 7-2 shows variations of noise figure and in-band P1dB parameters with respect to receiver gain programmed."
+    note: "读图值，不是表：NF ±0.3 dB；带内 P1dB 是一条直线，两端落在网格线上（30 dB 增益 −24 dBm，48 dB 增益 −42 dBm，每 dB 增益降 1 dB）。fmcw_radar 在 mmw60_trx#14 上先读出这组数，本库对着图核过，一致。和同一节表里的带外 P1dB（−12 dBm）是两个量：带外的是基带高通之前那几级，雷达的发射泄漏碰到的是它；带内的是目标回波与基带 / ADC 碰到的。同一颗芯片上两者差 12–30 dB。图上最高增益处 NF 10.3 dB，表里的典型值写 12 dB，原文没有解释这个差。"
+
   isolation.tx_rx_tue2018:
     value: {with_ebg_db: 40.0, improvement_min_db: 15.0, improvement_max_db: 20.0}
     unit: dB
@@ -683,7 +694,7 @@ entries:
     cite: "B. B. Adela, M. C. van Beurden, P. T. van Zeijl, A. B. Smolders, 'High-isolation array antenna integration for single-chip millimeter-wave FMCW radar', IEEE Trans. Antennas Propag., vol. 66, pp. 5214–5223, Oct. 2018, doi 10.1109/TAP.2018.2854286；TU/e 研究门户上的摘要，2026-11-12 读原文"
     section: "Abstract（只读了摘要，正文没有读）"
     quote: "Measurement results in the 57-64 GHz band show the TX-RX isolation of 40 dB, which is 15-20 dB better than the isolation between TX and RX arrays without EBG structures."
-    note: "57–64 GHz 单芯片 FMCW 雷达的收发微带阵，键合线互连。不加 EBG 的 20–25 dB 是用摘要里的两个数减出来的，不是原文给的数；正文里有没有直接给，没有读到。没有查到任何数据手册直接给收发隔离度。"
+    note: "57–64 GHz 单芯片 FMCW 雷达的收发微带阵，键合线互连。不加 EBG 的 20–25 dB 是用摘要里的两个数减出来的，不是原文给的数；正文里有没有直接给，没有读到。没有查到任何数据手册直接给收发隔离度。fmcw_radar 读了正文（mmw60_trx#14，2026-11-12；本库没有读到，以下是转述，图上的数对方目读 ±2 dB）：整机（收发各一个 8 元板上阵、间距 15 mm）加 EBG 实测 40–50 dB，不加 EBG 的整机没有样机，21–27 dB 是仿真；天线级不加 EBG 实测 21–28 dB、加 EBG 30–48 dB；8 元板上阵增益约 12 dBi。"
 
   survey.antenna60_okada2013_dbi:
     value: 6.0
@@ -691,13 +702,6 @@ entries:
     source: survey
     cite: "Okada et al., 'Full Four-Channel 6.3-Gb/s 60-GHz CMOS Transceiver With Low-Power Analog and Digital Baseband Circuitry', IEEE JSSC vol. 48 no. 1, pp. 46–65, 2013，摘要（'a 6-dBi antenna built in an organic package'）"
     note: "未核实（只读到搜索摘要；IEEE Xplore 对脚本访问有校验，原文没有读到）。通信收发机用的封装内天线，作灵敏度档；基准档取的是读过原文的 rx60.comm_asada2011 的 2 dBi。阵列增益是里程碑 2 的事，不在这里。"
-
-  survey.antenna60_bgt60_an600_dbi:
-    value: {min: 2.0, typ: 3.5, max: 5.0}
-    unit: dBi
-    source: survey
-    cite: "Infineon AN600（BGT60TR13C shield）；转引自 fmcw_radar 在 mmw60_trx#14 上的检索"
-    note: "未核实（本库没有搜到这份文档的摘要，数字是对方贴的，对方也只读到搜索摘要）。雷达封装内天线的单个 TX 天线增益，作灵敏度档。"
 
   assumed.rx60_ladder_shape:
     value: "wifitrx_ladder_shifted"
@@ -711,7 +715,7 @@ entries:
     unit: dB
     source: assumed
     cite: "本库；三阶非线性的经验关系 IIP3 − P1dB ≈ 9.6 dB"
-    note: "把 IIP3 折成输入 1 dB 压缩点时用（泄漏预算里比的是压缩点）。真实前端的差值随级数与偏置变，常见 8–12 dB。"
+    note: "把 IIP3 折成**带内**输入 1 dB 压缩点时用。带外的压缩点（基带高通之前，雷达的泄漏碰到的那个）不能这样折出来，是另一个字段（frontend.rx_front.p1db_oob_dbm），没有出处就留空。真实前端的差值随级数与偏置变，常见 8–12 dB。"
 
   assumed.frontend_faces_pick:
     value: {rx_nf_db: 6.1, rx_iip3_dbm: -20.0, rx_gain_db: 27.0, tx_rx_isolation_db: 20.0, antenna_gain_tx_dbi: 2.0, antenna_gain_rx_dbi: 2.0}

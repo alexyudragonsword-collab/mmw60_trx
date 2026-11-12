@@ -170,17 +170,27 @@ class Frontend60:
         return p - float(self.tx_rx_isolation_db)
 
     def leakage_budget(self, pout_dbm: float | None = None) -> dict | None:
-        """TX leakage at the receiver input against the receive front end's
-        input compression point (maximum gain) and the level an 802.11ad
-        receiver must take (data/spec: dmg.rx_max_input_dbm)."""
+        """TX leakage at the receiver input against the receive front end's two
+        input compression points (maximum gain) and the level an 802.11ad
+        receiver must take (data/spec: dmg.rx_max_input_dbm).
+
+        Which compression point applies depends on the use.  A full-duplex
+        link's leakage sits at the carrier, in band: ``margin_to_p1db_inband_db``.
+        An FMCW radar's leakage beats to below the baseband high-pass and meets
+        only the stages before it: ``margin_to_p1db_oob_db``, None when the
+        front end does not state that figure — the in-band one does not stand
+        in for it."""
         leak = self.tx_leak_at_rx_dbm(pout_dbm)
         if leak is None:
             return None
         from .. import spec
         max_in = float(spec.value("dmg.rx_max_input_dbm"))
+        oob = self.rx_front.p1db_oob_dbm
         return {"pout_dbm": self.target_pout_dbm() if pout_dbm is None else float(pout_dbm),
                 "isolation_db": float(self.tx_rx_isolation_db), "leak_at_rx_dbm": leak,
-                "rx_p1db_in_dbm": self.rx_front.p1db_in_dbm, "margin_to_p1db_db": self.rx_front.p1db_in_dbm - leak,
+                "rx_p1db_inband_dbm": self.rx_front.p1db_inband_dbm,
+                "margin_to_p1db_inband_db": self.rx_front.p1db_inband_dbm - leak,
+                "rx_p1db_oob_dbm": oob, "margin_to_p1db_oob_db": None if oob is None else oob - leak,
                 "dmg_max_input_dbm": max_in, "margin_to_dmg_max_input_db": max_in - leak}
 
     # ------------------------------------------------------------ operating point

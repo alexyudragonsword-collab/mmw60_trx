@@ -107,11 +107,11 @@ def test_input_p1db_is_where_the_chains_own_nonlinearity_compresses_1_db():
     fe = Frontend60.from_config(cfg)
     rx = LinkSim(cfg, frontend=fe).rx
     nl = rx.params.nonlin_for_state(0)
-    x = np.full(64, np.sqrt(dbm_to_mw(fe.rx_front.p1db_in_dbm)), dtype=complex)
-    small = np.full(64, np.sqrt(dbm_to_mw(fe.rx_front.p1db_in_dbm - 60.0)), dtype=complex)
+    x = np.full(64, np.sqrt(dbm_to_mw(fe.rx_front.p1db_inband_dbm)), dtype=complex)
+    small = np.full(64, np.sqrt(dbm_to_mw(fe.rx_front.p1db_inband_dbm - 60.0)), dtype=complex)
     gain = lambda v: 20 * np.log10(np.abs(nl.apply(v)[0]) / np.abs(v[0]))            # noqa: E731
     assert gain(small) - gain(x) == pytest.approx(1.0, abs=0.05)
-    assert fe.rx_front.p1db_in_dbm == fe.rx_front.iip3_dbm - spec.value("assumed.rx60_p1db_from_iip3_db")
+    assert fe.rx_front.p1db_inband_dbm == fe.rx_front.iip3_dbm - spec.value("assumed.rx60_p1db_from_iip3_db")
 
 
 # ------------------------------------------------------------------ what the noise figure moves
@@ -131,12 +131,52 @@ def test_leakage_budget_arithmetic():
     b = fe.leakage_budget()
     assert b["pout_dbm"] == fe.target_pout_dbm() and b["isolation_db"] == cfg.frontend.tx_rx_isolation_db
     assert b["leak_at_rx_dbm"] == b["pout_dbm"] - b["isolation_db"] == fe.tx_leak_at_rx_dbm()
-    assert b["margin_to_p1db_db"] == fe.rx_front.p1db_in_dbm - b["leak_at_rx_dbm"]
+    assert b["margin_to_p1db_inband_db"] == fe.rx_front.p1db_inband_dbm - b["leak_at_rx_dbm"]
     assert b["dmg_max_input_dbm"] == spec.value("dmg.rx_max_input_dbm")
     assert b["margin_to_dmg_max_input_db"] == b["dmg_max_input_dbm"] - b["leak_at_rx_dbm"]
     assert fe.leakage_budget(pout_dbm=0.0)["leak_at_rx_dbm"] == -cfg.frontend.tx_rx_isolation_db
     more = dc.replace(fe, tx_rx_isolation_db=fe.tx_rx_isolation_db + 10.0).leakage_budget()
-    assert more["margin_to_p1db_db"] == pytest.approx(b["margin_to_p1db_db"] + 10.0)
+    assert more["margin_to_p1db_inband_db"] == pytest.approx(b["margin_to_p1db_inband_db"] + 10.0)
+
+
+def test_the_two_compression_points_are_separate_faces_and_one_never_stands_in_for_the_other():
+    """A radar's leakage meets the stages before the baseband high-pass; a
+    front end that does not state that figure has no margin to report for it —
+    the in-band figure (from the IIP3) is a different number."""
+    cfg = surveyed_frontend(zero_if_60ghz(k=8))
+    fe = Frontend60.from_config(cfg)
+    assert cfg.frontend.rx_front.p1db_oob_dbm is None and fe.rx_front.p1db_oob_dbm is None
+    b = fe.leakage_budget()
+    assert b["rx_p1db_oob_dbm"] is None and b["margin_to_p1db_oob_db"] is None
+    assert b["margin_to_p1db_inband_db"] is not None
+    assert fe.faces()["rx_p1db_oob_dbm"] is None and fe.faces()["rx_p1db_inband_dbm"] == fe.rx_front.p1db_inband_dbm
+    # given, it is carried as given and does not touch the chain or the in-band figure
+    radar = spec.value("rx60.radar_iwr6843")
+    given = dc.replace(cfg, frontend=dc.replace(cfg.frontend, rx_front=dc.replace(
+        cfg.frontend.rx_front, p1db_oob_dbm=radar["p1db_in_oob_dbm"])))
+    fe2 = Frontend60.from_config(given)
+    b2 = fe2.leakage_budget()
+    assert b2["rx_p1db_oob_dbm"] == radar["p1db_in_oob_dbm"]
+    assert b2["margin_to_p1db_oob_db"] == radar["p1db_in_oob_dbm"] - b2["leak_at_rx_dbm"]
+    assert b2["margin_to_p1db_inband_db"] == b["margin_to_p1db_inband_db"]
+    assert fe2.rx_front.states == fe.rx_front.states and "p1db_oob_dbm" in fe2.rx_front.anchored_fields
+    assert Mmw60Config.from_dict(given.to_dict()) == given
+
+
+def test_in_band_compression_moves_with_the_gain_state():
+    fe = Frontend60.from_config(surveyed_frontend(zero_if_60ghz(k=8)))
+    table = fe.rx_front.p1db_inband_by_gain()
+    assert len(table) == len(fe.rx_front.states) and table[0] == (fe.rx_front.gain_db, fe.rx_front.p1db_inband_dbm)
+    off = spec.value("assumed.rx60_p1db_from_iip3_db")
+    assert [p for _, p in table] == [st.iip3_dbm - off for st in fe.rx_front.states]
+    # lower gain, higher compression point: the direction the radar chip's datasheet figure shows
+    assert [g for g, _ in table] == sorted((g for g, _ in table), reverse=True)
+    assert [p for _, p in table] == sorted(p for _, p in table)
+    fig = spec.value("rx60.radar_iwr6843_fig7_2")
+    assert fig["gain_db"] == sorted(fig["gain_db"])
+    assert fig["p1db_inband_dbm"] == sorted(fig["p1db_inband_dbm"], reverse=True)
+    # the same chip's out-of-band figure is far above every in-band one
+    assert spec.value("rx60.radar_iwr6843")["p1db_in_oob_dbm"] > max(fig["p1db_inband_dbm"]) + 10.0
 
 
 def test_receive_antenna_is_the_transmit_antenna_until_it_is_given():
@@ -189,9 +229,12 @@ def test_law1_no_front_end_figure_is_typed_outside_the_spec_file():
 
 
 def test_law5_d4_figures_read_in_the_original_carry_the_quote_and_the_rest_say_unverified():
-    read = ("rx60.comm_asada2011", "rx60.radar_iwr6843", "isolation.tx_rx_tue2018", "dmg.rx_max_input_dbm")
+    read = ("rx60.comm_asada2011", "rx60.radar_iwr6843", "rx60.radar_iwr6843_fig7_2", "isolation.tx_rx_tue2018",
+            "dmg.rx_max_input_dbm")
     snippet_only = ("survey.rx60_comm_iscas2015", "survey.dmg_sensitivity_assumptions",
-                    "survey.antenna60_okada2013_dbi", "survey.antenna60_bgt60_an600_dbi")
+                    "survey.antenna60_okada2013_dbi")
+    # withdrawn by the party that supplied it: the application note it cited holds no antenna gain
+    assert "survey.antenna60_bgt60_an600_dbi" not in spec.all_entries()
     for k in read:
         e = spec.survey(k)
         assert e.source == "spec" and e.quote and e.section, k
@@ -212,6 +255,7 @@ def test_law5_d4_figures_read_in_the_original_carry_the_quote_and_the_rest_say_u
     (RxFrontConfig(model="measured"), "rx_front.model"),
     (RxFrontConfig(nf_db=6.0), "anchored"),
     (RxFrontConfig(model="wifi7_ladder", iip3_dbm=-20.0), "anchored"),
+    (RxFrontConfig(p1db_oob_dbm=-12.0), "anchored"),
 ])
 def test_config_refuses_an_inconsistent_receive_front_end(front, message):
     base = zero_if_60ghz(k=8)
