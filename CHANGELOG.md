@@ -9,7 +9,7 @@
 - 新增 `config.tgad_em_pa(cfg)`：把换之前的 PA（11ad 形状、假设的 15 dBm / 20 dB / 20 %）放回去，作灵敏度行；示例 09 改成“11ad EM 对预设”。
 - `derived.irr_after_cal_measured_db` 按新的示例 03 重新导出（56.3 / 56.8 / 52.9 / 50.9 / 47.6 / 38.5 dB）。
 - 示例 07 里描述预设 PA 的那句改成按前端实际的 P1dB 打印；`pamemory` 的模块说明同步。
-- 测试里写死旧 PA 数字的几处改成读规范条目或新值（`test_compare`、`test_frontend`、`test_thresholds`、`test_pa60`），守的东西不变。
+- 测试里写死旧 PA 数字的几处改成读规范条目或新值（`test_compare`、`test_frontend`、`test_thresholds`、`test_pa60`），守的东西不变。`test_pamemory` 里 K = 32 那条慢测试原来在 wifitrx 的默认驱动上比两种记忆规律（落在不同回退上），改成在预设回退上比，与示例 07 一致；读数就是示例 07 回退 8 dB 那一行（−25.3 / −22.8 / −25.2 dB）。
 - **动了什么**（详见 `cairn/LOG.md`）：同台表 ≤ 320 MHz 的行从 PA 限 MCS2 变成 PA 限 MCS3，640 MHz 的行改由 IQ 镜像限；解码器上限 K = 4 MCS4 → 5、拓扑 A（320 MHz）MCS4 → 6，K ≥ 8 不动。示例 03 / 08 的校准读数变差，原因是它们跑在 wifitrx 的默认驱动上，换 PA 后那个驱动离压缩近了 3.8 dB（ROADMAP C8）。
 
 ### 60 GHz PA 对照原文：`config.surveyed_pa`、示例 09（2026-11-12）
