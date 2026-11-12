@@ -93,7 +93,7 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 D1（wifi_trx_cal#4，非标准带宽的评分波形）、D2（pll_simulator#71，倍频器模型）、D3（PA_DPD#4 的 `fs` / `fir_fs` 与 `tap_spacing`，经 wifi_trx_cal#5 透传）都已落地并 pin 完（2026-11-11，`cairn/LOG.md`），条目已删。现在没有等上游的事。
 本库在验收时报告的两件对方已经修掉并 pin 进来（wifitrx@7b8d08e）：B40（DPD 步留观测通路上最好的一轮，都不如不加就不写入）与 B41（`ScaledPA` 对带记忆的 PA 逐电平读稳态）。对方自己还开着、与本库有关但不由本库推动的：B38（非标准音计划下 TX 视图 replay 的 gap）；`run_full_cal` 仍不透传 `n_iter`。
 
-D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）也已落地（2026-11-12，示例 08、`cairn/topology-b.md` §5）：接收前端、收发隔离、发 / 收天线增益三个面在 `Frontend60` 上，条目已删；过程中发现的在 C9。倍频器底噪不进 `Frontend60`（雷达直接读剖面文件）。
+D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）已落地并由对方关闭（2026-11-12，示例 08、`cairn/topology-b.md` §5）：接收前端、收发隔离、发 / 收天线增益三个面在 `Frontend60` 上，条目已删；过程中发现的在 C9。倍频器底噪不进 `Frontend60`（雷达直接读剖面文件）。对方最后读的是来源表而不是对象：它 vendor 了 `spec.py` 与 `survey.yaml`，按条目读三条 `spec`，哪几条、改之前要做什么见 `cairn/spec-sources.md` 的“被下游消费的条目”。
 
 ## E. 明确不做
 MAC / MLO 调度、多用户、信道模型本身（用 11ad CR 现成表）、D-band、雷达（另开 fmcw_radar）；EIRP / 谱模板只做趋势比较，不替代认证测试；不把 vendor 变成 fork。
