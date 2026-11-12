@@ -1,0 +1,55 @@
+engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
+mmw60 0.1.0; full; topology B, K = 8 on the 11ac 20 MHz base (160 MHz), carrier 60.48 GHz, PA output 7 dBm
+every literature figure below is a survey entry read from a search snippet only (originals not opened)
+
+== 1. the faces: preset against config.surveyed_frontend ==
+face                   preset                     surveyed                   surveyed figure from
+receive front end      wifi7_ladder               anchored                   assumed.rx60_ladder_shape
+  a 60 GHz figure?     no                         yes: nf_db, iip3_dbm       assumed.frontend_faces_pick
+  gain, max state      37.0 dB                    37.0 dB                    wifitrx ladder (not given)
+  noise figure         3.5 dB                     6.1 dB                     survey.rx60_comm_asada2011
+  IIP3                 -20.0 dBm                  -20.0 dBm                  survey.rx60_comm_asada2011
+  input P1dB           -29.6 dBm                  -29.6 dBm                  assumed.rx60_p1db_from_iip3_db
+  gain states          8 (down to -5 dB)          8 (down to -5 dB)          wifitrx ladder
+TX antenna gain        0.0 dBi                    6.0 dBi                    survey.antenna60_okada2013_dbi
+RX antenna gain        0.0 dBi (the TX antenna)   6.0 dBi                    survey.antenna60_okada2013_dbi
+TX-RX isolation        not specified              20.0 dB                    survey.tx_rx_isolation_tue2018
+the surveyed IIP3 happens to equal the WiFi 7 ladder's top state's: the compression rows are the same for both, by coincidence of the two figures
+
+== 2. what the receive noise figure moves (IIP3 kept at -20 dBm) ==
+sensitivity = the receiver input for the measured PER 1e-2 threshold of this receiver (MCS 0: 2.01 dB, MCS 4: 14.5 dB per active tone; no implementation loss added)
+link EVM = time-domain, flat channel, SNR 10 dB per active tone; calibration = wifitrx's sequence, profile poweron
+receive front end                        NF  sens MCS0  sens MCS4  link EVM  cal RX NF  loopback  TX alone  RX alone   figure from
+WiFi 7 chip ladder (the presets)        3.5      -87.0      -74.5     -9.24       10.8     -29.0     -26.7     -27.5   wifitrx DEFAULT_LNA_STATES
+60 GHz comm. transceiver, 65 nm         6.1      -84.4      -71.9     -9.24       13.2     -27.9     -26.6     -27.4   survey.rx60_comm_asada2011
+60 GHz comm. receiver, 90 nm            7.1      -83.4      -70.9     -9.24       14.2     -27.3     -26.5     -27.4   survey.rx60_comm_iscas2015
+802.11ad sensitivity-table receiver    10.0      -80.5      -68.0     -9.24       17.0     -24.9     -25.6     -27.3   survey.dmg_sensitivity_assumptions
+60 GHz radar chip                      12.0      -78.5      -66.0     -9.24       19.0     -23.6     -25.2     -27.1   survey.rx60_radar_iwr6843
+(dBm, dBm, dB, dB, dB, dB, dB)  [~s]
+sensitivity against noise figure, first to last row: 1.00 dB per dB
+link EVM on the SNR axis, spread over the rows: 0.00 dB (the axis is SNR, so the noise figure sets the input level, not the EVM)
+the calibration readings move because the sequence observes through the receiver at the loopback level: 'cal RX NF' is the state the AGC sits in there, not the maximum-gain state
+
+== 3. the transmitter's leakage at the receiver input (PA output 7 dBm) ==
+a TDD link never sees it (the receiver is off while the transmitter is on); a radar and a full-duplex link do
+isolation                                           dB    leak  to RX P1dB  to max input  to radar P1dB   AGC state that takes it
+pick: without the isolation structure, low end      20   -13.0       -16.6         -20.0            1.0   state 6: gain 1 dB, NF 32.6 dB
+without the isolation structure, high end           25   -18.0       -11.6         -15.0            6.0   state 5: gain 7 dB, NF 28.6 dB
+with the isolation structure                        40   -33.0         3.4           0.0           21.0   state 2: gain 25 dB, NF 12.6 dB
+(dB, dBm, dB, dB, dB; margins are level − leak, negative = the leak is above it.  RX P1dB -29.6 dBm is the surveyed front end's at maximum gain; max input -33 dBm is survey.dmg_rx_max_input_dbm; radar P1dB -12 dBm is survey.rx60_radar_iwr6843, out of band)
+the isolation figures are survey.tx_rx_isolation_tue2018: one abstract; the 20 and 25 dB rows are a subtraction of its numbers, not a figure it gives
+
+== 4. antenna gains (the same on both ends): EIRP limit and the path loss the link takes at MCS 0 ==
+ gain  EIRP avg  margin avg  margin peak  path loss   figure from
+  0.0       7.0        33.0         26.0       91.4   the presets (not specified)
+  2.0       9.0        31.0         24.0       95.4   survey.antenna60_bgt60_an600_dbi min
+  3.5      10.5        29.5         22.5       98.4   survey.antenna60_bgt60_an600_dbi typ
+  5.0      12.0        28.0         21.0      101.4   survey.antenna60_bgt60_an600_dbi max
+  6.0      13.0        27.0         20.0      103.4   survey.antenna60_okada2013_dbi (the pick)
+(dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.4 dBm, the surveyed receive front end; one element each end, no array gain — milestone 2)
+
+== 5. where the receive face is not consumed ==
+topology A (11be 80 MHz): sensitivity at MCS 0, preset -92.5 dBm, surveyed front end -92.5 dBm, difference 0.00 dB
+its 60 GHz receive stage is unit gain and adds no noise of its own (the image band's folding aside): the noise figure on its SNR axis is the WiFi 7 chip's ladder, which is what the chip is.  A 60 GHz LNA / mixer in front of it is not modelled (ROADMAP)
+
+[~s]
