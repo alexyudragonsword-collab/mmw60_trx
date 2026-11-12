@@ -94,7 +94,7 @@ class Frontend60:
             EirpLimit.fcc_15_255(), avg_dbm=float(fe.eirp_limit_dbm))
         return cls(lo=lo, converters=conv, converters_enabled=fe.converters.enabled,
                    tx_iq=iq, rx_iq=iq, eirp=eirp,
-                   pa_model=ModifiedRappPA(ampm=fe.pa.ampm) if fe.pa.enabled else None,
+                   pa_model=ModifiedRappPA(ampm=fe.pa.ampm, p=fe.pa.rapp_p) if fe.pa.enabled else None,
                    pa_enabled=fe.pa.enabled, pa_gain_db=fe.pa_gain_db, psat_dbm=fe.psat_dbm,
                    obo_db=fe.pa.obo_db, obo_reference=fe.pa.obo_reference,
                    pa_pae_max=fe.pa_pae_max,

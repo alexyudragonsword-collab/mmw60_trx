@@ -139,7 +139,8 @@ class LinkSim:
                                             self.phy.bandwidth_eff, self.base.oversampling, DIGITAL_DRIVE_RMS)
             self.occupied_bw_hz = self.n_active * self.phy.scs_eff
         elif self.model == "behavioural":
-            self.pa = ModifiedRappPA(ampm=cfg.frontend.pa.ampm) if cfg.frontend.pa.enabled else None
+            self.pa = (ModifiedRappPA(ampm=cfg.frontend.pa.ampm, p=cfg.frontend.pa.rapp_p)
+                       if cfg.frontend.pa.enabled else None)
         else:
             from ..frontend import Frontend60
             self.frontend = frontend if frontend is not None else Frontend60.from_config(cfg)
