@@ -74,3 +74,22 @@ def test_ldpc_base_matrix_file_is_a_tagged_survey_document():
     doc = spec.ldpc_document()
     assert doc["source"] == "survey" and "未核实" in doc["note"] and doc["cite"]
     assert sum(len(v) for v in spec.ldpc_base_matrices().values()) == 12
+
+
+def test_entries_a_downstream_library_reads_keep_their_keys_fields_and_values():
+    """fmcw_radar vendors ``spec.py`` and ``data/spec/survey.yaml`` and reads these
+    entries by key and field, checking the values against its own table when it
+    loads (mmw60_trx#14; cairn/spec-sources.md).  A rename, a restructuring or a
+    changed figure here breaks its next re-pin, so it is a change to announce:
+    update this test in the same commit and say so in CHANGELOG.md."""
+    radar = spec.survey("rx60.radar_iwr6843")
+    assert radar.source == "spec"
+    assert (radar.value["tx_power_dbm"], radar.value["nf_db"], radar.value["p1db_in_oob_dbm"]) == (12.0, 12.0, -12.0)
+    fig = spec.value("rx60.radar_iwr6843_fig7_2")
+    assert len(fig["gain_db"]) == len(fig["nf_db"]) == len(fig["p1db_inband_dbm"])
+    assert dict(zip(fig["gain_db"], fig["p1db_inband_dbm"]))[40.0] == -34.0
+    iso = spec.value("isolation.tx_rx_tue2018")
+    assert iso["with_ebg_db"] - iso["improvement_max_db"] == 20.0
+    # the loader they vendor: its public names
+    for name in ("survey", "value", "all_entries", "unverified", "by_source", "SOURCES", "SpecNumber"):
+        assert hasattr(spec, name), name

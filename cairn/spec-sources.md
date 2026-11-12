@@ -41,6 +41,22 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - `isolation.tx_rx_tue2018`：Adela et al., IEEE TAP vol. 66, 2018，TU/e 研究门户上的**摘要**（正文没有读）：57–64 GHz 收发隔离 40 dB，比不加 EBG 好 15–20 dB。正文由 fmcw_radar 读过，本库转述在条目备注里：不加 EBG 的整机 21–27 dB 是仿真，天线级 21–28 dB 是实测。
 - `dmg.rx_max_input_dbm`：ITU-R M.2003 (03/2012) Annex 1 §2.4.6：“at least −33 dBm”。**现行版 M.2003-2 (01/2018) 同一节改成了接收天线处 10 µW/cm²**；60.48 GHz 下折合 −37.1 dBm（0 dBi）/ −31.1 dBm（6 dBi）。
 
+## 被下游消费的条目（改之前先看这里）
+
+fmcw_radar 从 0.2.8 起（它的 main@`7685bb3`，fmcw_radar#11）vendor 本库的两个文件：`src/mmw60/spec.py` 与 `src/mmw60/data/spec/survey.yaml`，pin 在本库 `ef0f00c`，逐字节校验。它没有 vendor `Frontend60`（依赖整条 wifitrx 收发链，对只读几个数的雷达太重），所以读的是来源表，不是对象。以上是对方在 mmw60_trx#14 上的说明（评论 6823377875），本库没有读对方的仓库。
+
+| 它读的量 | 本库的条目与字段 | 值 |
+|---|---|---|
+| 发射功率 | `rx60.radar_iwr6843` 的 `tx_power_dbm` | 12 dBm |
+| NF | `rx60.radar_iwr6843` 的 `nf_db` | 12 dB |
+| 带外压缩点 | `rx60.radar_iwr6843` 的 `p1db_in_oob_dbm` | −12 dBm |
+| 带内压缩点 | `rx60.radar_iwr6843_fig7_2` 里增益 40 dB 那一点 | −34 dBm |
+| 收发隔离 | `isolation.tx_rx_tue2018` 的 `with_ebg_db − improvement_max_db` | 20 dB |
+
+对方加载时核对这五个数与它自己的表相等：本库改数、改键名或改字段结构，它下次重新 pin 时直接加载失败。所以动这三条或 `spec.py` 的公开名字之前，要在 CHANGELOG 里写明，并同步改 `tests/test_spec_sources.py::test_entries_a_downstream_library_reads_keep_their_keys_fields_and_values`（这条测试就是为了让改动不被悄悄带过去）。
+
+`Frontend60` 上的三个面（`rx_front`、`tx_rx_isolation_db`、两个天线增益）目前没有下游在读，消费者是本库自己的示例 08 与链路预算。对方没有读天线增益与接收增益档，理由是天线增益是设计选择：本库读到的封装内 2 dBi 与它读到的板上 8 元阵约 12 dBi 都不是 MIMO 的单个阵元。
+
 ## 原文没给、从别处拿的（survey，未核实）
 
 - Rapp 参数：IEEE 802.11-09/0296r16（TGad EM）CMOS PA，g = 4.65、Asat = 0.58、p = 0.81、α = 2560、β = 0.114、q1 = 2.4、q2 = 2.3——来自搜索命中的文档摘录，.doc 原文未读（r09 版是 5 / 0.6 / 0.71）。公式形状按记忆。

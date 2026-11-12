@@ -4,6 +4,11 @@
 
 ## 未发布
 
+### 规范表有了下游：记下被 fmcw_radar 消费的条目，并加一条守卫（2026-11-12）
+- fmcw_radar（0.2.8）vendor 了 `spec.py` 与 `data/spec/survey.yaml`，按条目读 `rx60.radar_iwr6843`、`rx60.radar_iwr6843_fig7_2`、`isolation.tx_rx_tue2018`，加载时核对数值相等。`cairn/spec-sources.md` 新增“被下游消费的条目”一节。
+- `tests/test_spec_sources.py`：+1，守着这三条的键、字段、数值与 `spec.py` 的公开名字。**以后动它们要在这里写明并同步改这条测试。**
+- 只有文档与一条测试；代码、数字、指纹都不动。
+
 ### 接收压缩点分成两个面；删掉被撤回的天线条目 —— D4 的更正（2026-11-12）
 - 起因：fmcw_radar 在 mmw60_trx#14 上读了原文后更正（AN600 里没有天线增益；TI 手册把接收压缩点分成带内 / 带外两个量），并请本库把压缩点给成两个字段。
 - **公开签名变化**（上一条刚加的面，还没有下游消费）：`RxFront60.p1db_in_dbm` 改名 `p1db_inband_dbm`；新增 `RxFront60.p1db_oob_dbm`（基带高通之前的输入压缩点，None = 未指定）、`RxFront60.p1db_inband_by_gain()`；`describe()` / `faces()` 的键 `rx_p1db_in_dbm` 改成 `rx_p1db_inband_dbm`，新增 `rx_p1db_oob_dbm`。**配置 schema 增加字段** `frontend.rx_front.p1db_oob_dbm`（链路不消费）。
