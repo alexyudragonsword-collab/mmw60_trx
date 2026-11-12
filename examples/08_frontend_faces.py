@@ -22,7 +22,9 @@ What the tables answer:
 2. what the receive noise figure moves: the sensitivity (dB for dB), not the
    link EVM on an SNR axis, and the calibration sequence's own readings;
 3. the transmitter's leakage at the receiver input against the receive front
-   end's compression — a TDD link never sees it, a radar does;
+   end's two compression points (in band, and before the baseband high-pass)
+   — a TDD link never sees it, a full-duplex link and a radar do, and they
+   read different columns;
 4. the antenna gains against the EIRP limit and the path loss the link takes;
 5. where the receive face is not consumed (topology A).
 
@@ -84,8 +86,10 @@ def faces_table(preset, surveyed):
             ("  gain, max state", fmt(a["rx_gain_db"], " dB"), fmt(b["rx_gain_db"], " dB"), comm),
             ("  noise figure", fmt(a["rx_nf_db"], " dB"), fmt(b["rx_nf_db"], " dB"), comm),
             ("  IIP3", fmt(a["rx_iip3_dbm"], " dBm"), fmt(b["rx_iip3_dbm"], " dBm"), comm),
-            ("  input P1dB", fmt(a["rx_p1db_in_dbm"], " dBm"), fmt(b["rx_p1db_in_dbm"], " dBm"),
+            ("  input P1dB, in band", fmt(a["rx_p1db_inband_dbm"], " dBm"), fmt(b["rx_p1db_inband_dbm"], " dBm"),
              tag("assumed.rx60_p1db_from_iip3_db")),
+            ("  input P1dB, out of band", fmt(a["rx_p1db_oob_dbm"], " dBm"), fmt(b["rx_p1db_oob_dbm"], " dBm"),
+             "no communication paper read gives it"),
             ("  gain states", f"{a['rx_gain_states']} (down to {a['rx_gain_min_db']:g} dB)",
              f"{b['rx_gain_states']} (down to {b['rx_gain_min_db']:g} dB)", tag("assumed.rx60_ladder_shape")),
             ("TX antenna gain", fmt(a["antenna_gain_tx_dbi"], " dBi"), fmt(b["antenna_gain_tx_dbi"], " dBi"),
@@ -95,9 +99,9 @@ def faces_table(preset, surveyed):
              comm),
             ("TX-RX isolation", fmt(a["tx_rx_isolation_db"], " dB"), fmt(b["tx_rx_isolation_db"], " dB"),
              tag("isolation.tx_rx_tue2018")))
-    print(f"{'face':<22} {'preset':<26} {'surveyed':<31} surveyed figure from")
+    print(f"{'face':<26} {'preset':<26} {'surveyed':<31} surveyed figure from")
     for name, x, y, src in rows:
-        print(f"{name:<22} {x:<26} {y:<31} {src}")
+        print(f"{name:<26} {x:<26} {y:<31} {src}")
 
 
 def main(argv=None) -> int:
@@ -160,34 +164,50 @@ def main(argv=None) -> int:
     # ---------------------------------------------------------------- 3
     iso = spec.value("isolation.tx_rx_tue2018")
     radar = spec.value("rx60.radar_iwr6843")
+    fig = spec.value("rx60.radar_iwr6843_fig7_2")
+    radar_inband = dict(zip(fig["gain_db"], fig["p1db_inband_dbm"]))
+    g_hi, g_lo = max(radar_inband), min(radar_inband)
     iso_rows = (("pick: without the isolation structure, low end", iso["with_ebg_db"] - iso["improvement_max_db"]),
                 ("without the isolation structure, high end", iso["with_ebg_db"] - iso["improvement_min_db"]),
                 ("with the isolation structure", iso["with_ebg_db"]))
+    b = fe_s.leakage_budget()
     print(f"\n== 3. the transmitter's leakage at the receiver input (PA output {pout:g} dBm) ==")
     print("a TDD link never sees it (the receiver is off while the transmitter is on); a radar and a full-duplex link do")
-    print(f"{'isolation':<48} {'dB':>5} {'leak':>7} {'to RX P1dB':>11} {'to max input':>13} {'to radar P1dB':>14}   "
-          f"{'AGC state that takes it':<24}")
+    print("a receiver has two input compression points and the leakage meets one of them: a full-duplex link's leakage "
+          "sits at the carrier, in band; an FMCW radar's beats to below the baseband high-pass and meets only the stages "
+          "before it (out of band)")
+    print(f"{'receive front end, maximum gain':<41} {'in band':>9} {'out of band':>14}   figure from")
+    print(f"{'surveyed (60 GHz comm. transceiver)':<41} {b['rx_p1db_inband_dbm']:9.1f} "
+          f"{fmt(b['rx_p1db_oob_dbm']):>14}   {tag('rx60.comm_asada2011')} IIP3, {tag('assumed.rx60_p1db_from_iip3_db')}")
+    print(f"{'60 GHz radar chip':<41} {radar_inband[g_hi]:9.1f} {radar['p1db_in_oob_dbm']:14.1f}   "
+          f"{tag('rx60.radar_iwr6843_fig7_2')} at {g_hi:g} dB gain, {tag('rx60.radar_iwr6843')}")
+    print(f"(dBm.  The radar chip's in-band figure moves with its gain: {radar_inband[g_lo]:g} dBm at {g_lo:g} dB; the "
+          f"surveyed receiver's {b['rx_p1db_inband_dbm']:.1f} dBm is at {fe_s.rx_front.gain_db:g} dB, so at like gains "
+          f"the two in-band figures are {radar_inband[g_lo] - b['rx_p1db_inband_dbm']:.1f} dB apart; the radar chip's own "
+          f"two figures are {radar['p1db_in_oob_dbm'] - radar_inband[g_lo]:g} to "
+          f"{radar['p1db_in_oob_dbm'] - radar_inband[g_hi]:g} dB apart)")
+    print(f"\n{'margin = level − leak':<48} {'dB':>5} {'leak':>7} | {'comm in':>8} {'comm out':>14} | "
+          f"{'radar in':>9} {'radar out':>10} | {'max input':>10}   AGC state that takes it in band")
     for label, iso_db in iso_rows:
         fe = dc.replace(fe_s, tx_rx_isolation_db=float(iso_db))
         b = fe.leakage_budget()
-        idx, st = fe.rx_front.state_for(b["leak_at_rx_dbm"])
-        print(f"{label:<48} {iso_db:5.0f} {b['leak_at_rx_dbm']:7.1f} {b['margin_to_p1db_db']:11.1f} "
-              f"{b['margin_to_dmg_max_input_db']:13.1f} {radar['p1db_in_oob_dbm'] - b['leak_at_rx_dbm']:14.1f}   "
+        leak = b["leak_at_rx_dbm"]
+        idx, st = fe.rx_front.state_for(leak)
+        print(f"{label:<48} {iso_db:5.0f} {leak:7.1f} | {b['margin_to_p1db_inband_db']:8.1f} "
+              f"{fmt(b['margin_to_p1db_oob_db']):>14} | {radar_inband[g_hi] - leak:9.1f} "
+              f"{radar['p1db_in_oob_dbm'] - leak:10.1f} | {b['margin_to_dmg_max_input_db']:10.1f}   "
               f"state {idx}: gain {st.gain_db:g} dB, NF {st.nf_db:.1f} dB")
-    b = fe_s.leakage_budget()
-    print(f"(dB, dBm, dB, dB, dB; margins are level − leak, negative = the leak is above it.  RX P1dB "
-          f"{b['rx_p1db_in_dbm']:.1f} dBm is the surveyed front end's at maximum gain; max input {b['dmg_max_input_dbm']:g} dBm "
-          f"is {tag('dmg.rx_max_input_dbm')}; radar P1dB {radar['p1db_in_oob_dbm']:g} dBm is {tag('rx60.radar_iwr6843')}, "
-          f"out of band)")
+    print(f"(dB, dBm, then margins in dB; negative = the leak is above the level.  comm = the surveyed front end, "
+          f"radar = the radar chip; in / out = in band / out of band; max input {b['dmg_max_input_dbm']:g} dBm is "
+          f"{tag('dmg.rx_max_input_dbm')})")
+    print("for a radar the column to read is 'out': the surveyed communication front end does not state that figure, so "
+          "this table cannot say whether it takes the leakage; its 'in' column answers the full-duplex question only")
     print(f"the isolation figures are {tag('isolation.tx_rx_tue2018')}: one abstract; the {iso_rows[0][1]:g} and "
           f"{iso_rows[1][1]:g} dB rows are a subtraction of its numbers, not a figure it gives")
 
     # ---------------------------------------------------------------- 4
-    ant = spec.value("survey.antenna60_bgt60_an600_dbi")
-    radar_ant = tag("survey.antenna60_bgt60_an600_dbi")
     gains = ((0.0, "the presets (not specified)"),
              (spec.value("rx60.comm_asada2011")["antenna_gain_dbi"], tag("rx60.comm_asada2011") + ", the pick"),
-             (ant["min"], radar_ant + " min"), (ant["typ"], radar_ant + " typ"), (ant["max"], radar_ant + " max"),
              (spec.value("survey.antenna60_okada2013_dbi"), tag("survey.antenna60_okada2013_dbi")))
     sim = LinkSim(dc.replace(surveyed, channel=FLAT), frontend=fe_s)
     s0 = sim.rx_input_dbm_for_snr(thr[MCS_ROWS[0]])

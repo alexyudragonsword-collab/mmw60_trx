@@ -45,14 +45,14 @@ python examples/07_pa_memory_dpd.py                       # 全量约 5 分钟�
 
 ## 前端的三个面：接收前端、收发隔离、天线增益（示例 08）
 
-链路预算和雷达（fmcw_radar，mmw60_trx#14）要从共享的 `Frontend60` 读三样东西：60 GHz 接收前端在最高增益档的增益 / NF / 输入压缩点（`fe.rx_front`）、收发隔离（`fe.tx_rx_isolation_db`、`fe.leakage_budget()`）、发 / 收天线增益（两个字段）。
+链路预算和雷达（fmcw_radar，mmw60_trx#14）要从共享的 `Frontend60` 读三样东西：60 GHz 接收前端在最高增益档的增益 / NF / 输入压缩点（`fe.rx_front`；压缩点分带内 `p1db_inband_dbm` 与带外 `p1db_oob_dbm` 两个量）、收发隔离（`fe.tx_rx_isolation_db`、`fe.leakage_budget()`）、发 / 收天线增益（两个字段）。
 预设不动：接收机仍是 wifitrx 的 WiFi 7 梯子（`fe.rx_front.sourced` 为 False，不要当成 60 GHz 前端的数读），天线 0 dBi，隔离未指定。`config.surveyed_frontend(cfg)` 换成查到的一档（增益 27 dB、NF 6.1 dB、IIP3 −20 dBm、天线 2 dBi、隔离 20 dB）。
 
 ```bash
 python examples/08_frontend_faces.py                      # 全量约 15 秒；--quick 冒烟
 ```
 
-**出处**：基准档的接收机与天线取同一颗 60 GHz 通信收发机，读过论文原文；隔离取自一篇论文的摘要。另有四条只读到搜索摘要，示例里逐行标着 `[survey, unverified]`，只作灵敏度档。结论见 `cairn/topology-b.md` §5：接收 NF 动的是灵敏度（1 dB 对 1 dB）和校准表，不动 SNR 轴上的链路 EVM；隔离 20 dB 时发射泄漏比通信接收前端的压缩点高 16.6 dB（时分双工链路看不到，雷达看得到）。
+**出处**：基准档的接收机与天线取同一颗 60 GHz 通信收发机，读过论文原文；隔离取自一篇论文的摘要。另有三条只读到搜索摘要，示例里逐行标着 `[survey, unverified]`，只作灵敏度档。结论见 `cairn/topology-b.md` §5：接收 NF 动的是灵敏度（1 dB 对 1 dB）和校准表，不动 SNR 轴上的链路 EVM；隔离 20 dB 时发射泄漏比通信接收前端的**带内**压缩点高 16.6 dB（全双工的读法；时分双工链路看不到）。雷达的泄漏碰到的是带外压缩点，通信文献没有给，这一格是“未指定”。
 
 ## 里程碑 1 · A1：拓扑 A，IF 延伸（示例 06）
 

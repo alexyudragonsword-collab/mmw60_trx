@@ -37,7 +37,8 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 
 - `rx60.comm_asada2011`：Asada et al., A-SSCC 2011，作者实验室站点上的论文 PDF。§V 与 Table III：接收变频增益 27 dB（高增益）/ 17 dB（低增益），“The entire noise figure is less than 6.1 dB, and the measured IIP3 is −20 dBm”，封装内天线 2 dBi。同一张表还有发射 P1dB 5.4 dBm、Psat 6.5 dBm、相噪 −94.2 dBc/Hz @ 1 MHz（60.48 GHz）。没说 IIP3 是哪一档增益下量的。
 - `rx60.radar_iwr6843`：TI SWRS219F（2025-04 修订）§7.9 RF Specification：NF 12 dB、带外 P1dB −12 dBm（脚注：10 kHz 连续波）、最大增益 48 dB、范围 18 dB、发射 12 dBm，全部是典型值。带内 P1dB 在 Figure 7-2 里，是图。
-- `isolation.tx_rx_tue2018`：Adela et al., IEEE TAP vol. 66, 2018，TU/e 研究门户上的**摘要**（正文没有读）：57–64 GHz 收发隔离 40 dB，比不加 EBG 好 15–20 dB。
+- `rx60.radar_iwr6843_fig7_2`：同一份手册第 32 页的图 7-2（把页面渲染出来读图）：增益 30 / 36 / 40 / 44 / 48 dB 上 NF 15.6 / 12.2 / 11.0 / 10.5 / 10.3 dB，带内 P1dB −24 / −30 / −34 / −38 / −42 dBm。fmcw_radar 先读出，本库对着图核过。带内与带外（−12 dBm）是两个量。
+- `isolation.tx_rx_tue2018`：Adela et al., IEEE TAP vol. 66, 2018，TU/e 研究门户上的**摘要**（正文没有读）：57–64 GHz 收发隔离 40 dB，比不加 EBG 好 15–20 dB。正文由 fmcw_radar 读过，本库转述在条目备注里：不加 EBG 的整机 21–27 dB 是仿真，天线级 21–28 dB 是实测。
 - `dmg.rx_max_input_dbm`：ITU-R M.2003 (03/2012) Annex 1 §2.4.6：“at least −33 dBm”。**现行版 M.2003-2 (01/2018) 同一节改成了接收天线处 10 µW/cm²**；60.48 GHz 下折合 −37.1 dBm（0 dBi）/ −31.1 dBm（6 dBi）。
 
 ## 原文没给、从别处拿的（survey，未核实）
@@ -50,7 +51,7 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - 同台表 pJ/bit 列（A3）：Walden FoM 70 fJ（38.4–120.2）与 45 → 7 nm 能量比 0.175 经 Halo 的 `PowerCoefficients` 转引 Murmann / DeepScaleTool；pllsim wu19 时钟剖面是 Halo 随库数据（模型输出，不是实测）。
 - PA 记忆研究（示例 07，2026-11-11）：`assumed.pa_memory_model`（wifitrx / PA_DPD 的参考 PA，sub-7 GHz WiFi PA 的模型，不是 60 GHz 器件）、`assumed.pa_memory_fir_fs_hz`（80 MS/s，即 12.5 ns 一个抽头）及其灵敏度档、回退扫描的格点（细 / 粗）、目标 EVM（−25 / −27 dB）、DPD 抽头间隔候选，全部是本库的 assumed；60 GHz PA 的记忆时间常数没有查到出处。
 - pllsim ×10 剖面（`survey.clock_profile_wu19_x10`，2026-11-11）：pll_simulator@d67043e 的 CLI 在本地生成（命令在条目的 cite 里），wu19 预设重调到 6.048 GHz 再过对方的 ×10 倍频器模型；同样是模型输出，不是实测。倍频器底噪 −150 dBc/Hz 与谐波抑制 40 dB 是本库的 assumed，没有出处。
-- 前端的三个面（示例 08，2026-11-12，ROADMAP D4）里还没读到原文的四条：`survey.rx60_comm_iscas2015`（ISCAS 2015，NF 7.1 dB；64 dB 是含基带的整机增益，不用）、`survey.antenna60_okada2013_dbi`（JSSC 2013，6 dBi）——这两条在 IEEE Xplore，对脚本访问返回空页，没有去绕；`survey.antenna60_bgt60_an600_dbi`（Infineon AN600，2 / 3.5 / 5 dBi，fmcw_radar 在 mmw60_trx#14 上贴的；Mouser 断开连接）；`survey.dmg_sensitivity_assumptions`（802.11ad 灵敏度表的前提 NF 10 dB / 实现损耗 5 dB，二手转引；ITU-R M.2003 里没有这两个数）。四条都只作灵敏度档。没有查到任何数据手册直接给收发隔离度。
+- 前端的三个面（示例 08，2026-11-12，ROADMAP D4）里还没读到原文的三条：`survey.rx60_comm_iscas2015`（ISCAS 2015，NF 7.1 dB；64 dB 是含基带的整机增益，不用）、`survey.antenna60_okada2013_dbi`（JSSC 2013，6 dBi）——这两条在 IEEE Xplore，对脚本访问返回空页，没有去绕；`survey.dmg_sensitivity_assumptions`（802.11ad 灵敏度表的前提 NF 10 dB / 实现损耗 5 dB，二手转引；ITU-R M.2003 里没有这两个数）。三条都只作灵敏度档。没有查到任何数据手册直接给收发隔离度。**已删的一条**：`survey.antenna60_bgt60_an600_dbi`（2 / 3.5 / 5 dBi）。这组数是 fmcw_radar 在 mmw60_trx#14 上贴的搜索摘要，对方读了 AN600 原文（Rev. 2.40）后撤回：文件里没有天线增益，只有归一化方向图。教训：转引别人的搜索摘要，等于未核实再套一层。
 
 ## 本库自己定的（assumed；每条在示例 00 有灵敏度行或在 LOG 有数字）
 
@@ -72,4 +73,4 @@ A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 峰�
 1. Liu 2025 的 Rapp 参数与 OBO 定义（刊出版或作者）。
 2. 11ad CR 信道的 tap 表（Maltsev 11-09/0334；拿到后 `TapTableChannel` 直接接，`cairn/Reference/` 放原文）。
 3. IEEE 802.11-09/0296r16 原文：把 `tgad_em.*` 从 survey 改成 spec。
-4. 前端三个面还剩四条 survey（上面“前端的三个面”一条）：ISCAS 2015 与 Okada 2013 要 IEEE Xplore 的访问权或 PDF；Infineon AN600 要一份能下到的 PDF；802.11ad 灵敏度表的前提与最大输入电平要标准条文。另外两处读了原文仍没有答案：Asada 2011 的 IIP3 对应哪一档增益；TU/e 2018 正文里不加隔离结构时的隔离度到底给没给（只读了摘要）；IWR6843 的带内 P1dB 在图里。
+4. 前端三个面还剩三条 survey（上面“前端的三个面”一条）：ISCAS 2015 与 Okada 2013 要 IEEE Xplore 的访问权或 PDF；802.11ad 灵敏度表的前提与最大输入电平要标准条文。另外两处读了原文仍没有答案：Asada 2011 的 IIP3 对应哪一档增益；TU/e 2018 正文里不加隔离结构时的隔离度到底给没给（只读了摘要）；通信接收前端的带外压缩点（基带高通之前）没有任何出处。

@@ -191,11 +191,21 @@ class RxFrontConfig:
     state's NF, IIP3 and gain move by the same number of dB, the gain steps
     stay, and the hand-over levels follow wifitrx's own balance-point rule
     (data/spec: assumed.rx60_ladder_shape).  A field left None keeps
-    wifitrx's value."""
+    wifitrx's value.
+
+    The receiver has two input compression points and they are not the same
+    number.  The in-band one comes from ``iip3_dbm`` (it is what a wanted
+    signal, or a full-duplex link's leakage at the same carrier, meets).
+    ``p1db_oob_dbm`` is the other: the stages before the baseband high-pass,
+    measured with a tone below its corner — what an FMCW radar's transmit
+    leakage meets, because its beat frequency falls there.  The chain does
+    not consume it; None = not specified (no communication paper read so far
+    gives it)."""
     model: str = "wifi7_ladder"
     nf_db: float | None = None
     iip3_dbm: float | None = None
     gain_db: float | None = None
+    p1db_oob_dbm: float | None = None
 
 
 @dataclass(frozen=True)
@@ -314,8 +324,9 @@ class Mmw60Config:
         rxf = self.frontend.rx_front
         if rxf.model not in RX_FRONT_MODELS:
             raise ValueError(f"frontend.rx_front.model must be one of {RX_FRONT_MODELS}")
-        if rxf.model == "wifi7_ladder" and (rxf.nf_db, rxf.iip3_dbm, rxf.gain_db) != (None, None, None):
-            raise ValueError("frontend.rx_front: nf_db / iip3_dbm / gain_db only apply to model 'anchored'")
+        if rxf.model == "wifi7_ladder" and (rxf.nf_db, rxf.iip3_dbm, rxf.gain_db, rxf.p1db_oob_dbm) != (None,) * 4:
+            raise ValueError("frontend.rx_front: nf_db / iip3_dbm / gain_db / p1db_oob_dbm only apply to "
+                             "model 'anchored'")
         if self.frontend.tx_rx_isolation_db is not None and float(self.frontend.tx_rx_isolation_db) < 0:
             raise ValueError("frontend.tx_rx_isolation_db is an isolation in dB (positive)")
 

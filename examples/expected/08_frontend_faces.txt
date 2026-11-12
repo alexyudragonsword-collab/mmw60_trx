@@ -3,17 +3,18 @@ mmw60 0.1.0; full; topology B, K = 8 on the 11ac 20 MHz base (160 MHz), carrier 
 [spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; [assumed] = this library's choice
 
 == 1. the faces: preset against config.surveyed_frontend ==
-face                   preset                     surveyed                        surveyed figure from
-receive front end      wifi7_ladder               anchored                        assumed.rx60_ladder_shape [assumed]
-  a 60 GHz figure?     no                         yes: nf_db, iip3_dbm, gain_db   assumed.frontend_faces_pick [assumed]
-  gain, max state      37.0 dB                    27.0 dB                         rx60.comm_asada2011 [spec]
-  noise figure         3.5 dB                     6.1 dB                          rx60.comm_asada2011 [spec]
-  IIP3                 -20.0 dBm                  -20.0 dBm                       rx60.comm_asada2011 [spec]
-  input P1dB           -29.6 dBm                  -29.6 dBm                       assumed.rx60_p1db_from_iip3_db [assumed]
-  gain states          8 (down to -5 dB)          8 (down to -15 dB)              assumed.rx60_ladder_shape [assumed]
-TX antenna gain        0.0 dBi                    2.0 dBi                         rx60.comm_asada2011 [spec]
-RX antenna gain        0.0 dBi (the TX antenna)   2.0 dBi                         rx60.comm_asada2011 [spec]
-TX-RX isolation        not specified              20.0 dB                         isolation.tx_rx_tue2018 [spec]
+face                       preset                     surveyed                        surveyed figure from
+receive front end          wifi7_ladder               anchored                        assumed.rx60_ladder_shape [assumed]
+  a 60 GHz figure?         no                         yes: nf_db, iip3_dbm, gain_db   assumed.frontend_faces_pick [assumed]
+  gain, max state          37.0 dB                    27.0 dB                         rx60.comm_asada2011 [spec]
+  noise figure             3.5 dB                     6.1 dB                          rx60.comm_asada2011 [spec]
+  IIP3                     -20.0 dBm                  -20.0 dBm                       rx60.comm_asada2011 [spec]
+  input P1dB, in band      -29.6 dBm                  -29.6 dBm                       assumed.rx60_p1db_from_iip3_db [assumed]
+  input P1dB, out of band  not specified              not specified                   no communication paper read gives it
+  gain states              8 (down to -5 dB)          8 (down to -15 dB)              assumed.rx60_ladder_shape [assumed]
+TX antenna gain            0.0 dBi                    2.0 dBi                         rx60.comm_asada2011 [spec]
+RX antenna gain            0.0 dBi (the TX antenna)   2.0 dBi                         rx60.comm_asada2011 [spec]
+TX-RX isolation            not specified              20.0 dB                         isolation.tx_rx_tue2018 [spec]
 the surveyed IIP3 happens to equal the WiFi 7 ladder's top state's: the compression rows are the same for both, by coincidence of the two figures
 
 == 2. what the receive noise figure moves (IIP3 kept at -20 dBm) ==
@@ -32,20 +33,24 @@ the calibration readings move because the sequence observes through the receiver
 
 == 3. the transmitter's leakage at the receiver input (PA output 7 dBm) ==
 a TDD link never sees it (the receiver is off while the transmitter is on); a radar and a full-duplex link do
-isolation                                           dB    leak  to RX P1dB  to max input  to radar P1dB   AGC state that takes it
-pick: without the isolation structure, low end      20   -13.0       -16.6         -20.0            1.0   state 6: gain -9 dB, NF 32.6 dB
-without the isolation structure, high end           25   -18.0       -11.6         -15.0            6.0   state 5: gain -3 dB, NF 28.6 dB
-with the isolation structure                        40   -33.0         3.4           0.0           21.0   state 2: gain 15 dB, NF 12.6 dB
-(dB, dBm, dB, dB, dB; margins are level − leak, negative = the leak is above it.  RX P1dB -29.6 dBm is the surveyed front end's at maximum gain; max input -33 dBm is dmg.rx_max_input_dbm [spec]; radar P1dB -12 dBm is rx60.radar_iwr6843 [spec], out of band)
+a receiver has two input compression points and the leakage meets one of them: a full-duplex link's leakage sits at the carrier, in band; an FMCW radar's beats to below the baseband high-pass and meets only the stages before it (out of band)
+receive front end, maximum gain             in band    out of band   figure from
+surveyed (60 GHz comm. transceiver)           -29.6  not specified   rx60.comm_asada2011 [spec] IIP3, assumed.rx60_p1db_from_iip3_db [assumed]
+60 GHz radar chip                             -42.0          -12.0   rx60.radar_iwr6843_fig7_2 [spec] at 48 dB gain, rx60.radar_iwr6843 [spec]
+(dBm.  The radar chip's in-band figure moves with its gain: -24 dBm at 30 dB; the surveyed receiver's -29.6 dBm is at 27 dB, so at like gains the two in-band figures are 5.6 dB apart; the radar chip's own two figures are 12 to 30 dB apart)
+
+margin = level − leak                               dB    leak |  comm in       comm out |  radar in  radar out |  max input   AGC state that takes it in band
+pick: without the isolation structure, low end      20   -13.0 |    -16.6  not specified |     -29.0        1.0 |      -20.0   state 6: gain -9 dB, NF 32.6 dB
+without the isolation structure, high end           25   -18.0 |    -11.6  not specified |     -24.0        6.0 |      -15.0   state 5: gain -3 dB, NF 28.6 dB
+with the isolation structure                        40   -33.0 |      3.4  not specified |      -9.0       21.0 |        0.0   state 2: gain 15 dB, NF 12.6 dB
+(dB, dBm, then margins in dB; negative = the leak is above the level.  comm = the surveyed front end, radar = the radar chip; in / out = in band / out of band; max input -33 dBm is dmg.rx_max_input_dbm [spec])
+for a radar the column to read is 'out': the surveyed communication front end does not state that figure, so this table cannot say whether it takes the leakage; its 'in' column answers the full-duplex question only
 the isolation figures are isolation.tx_rx_tue2018 [spec]: one abstract; the 20 and 25 dB rows are a subtraction of its numbers, not a figure it gives
 
 == 4. antenna gains (the same on both ends): EIRP limit and the path loss the link takes at MCS 0 ==
  gain  EIRP avg  margin avg  margin peak  path loss   figure from
   0.0       7.0        33.0         26.0       91.4   the presets (not specified)
   2.0       9.0        31.0         24.0       95.4   rx60.comm_asada2011 [spec], the pick
-  2.0       9.0        31.0         24.0       95.4   survey.antenna60_bgt60_an600_dbi [survey, unverified] min
-  3.5      10.5        29.5         22.5       98.4   survey.antenna60_bgt60_an600_dbi [survey, unverified] typ
-  5.0      12.0        28.0         21.0      101.4   survey.antenna60_bgt60_an600_dbi [survey, unverified] max
   6.0      13.0        27.0         20.0      103.4   survey.antenna60_okada2013_dbi [survey, unverified]
 (dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.4 dBm, the surveyed receive front end; one element each end, no array gain — milestone 2)
 
