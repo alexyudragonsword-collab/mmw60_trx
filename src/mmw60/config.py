@@ -176,6 +176,27 @@ class IqConfig:
     enabled: bool = False
 
 
+RX_FRONT_MODELS = ("wifi7_ladder", "anchored")
+
+
+@dataclass(frozen=True)
+class RxFrontConfig:
+    """The 60 GHz receive front end (LNA + mixer) in front of the baseband.
+
+    ``wifi7_ladder`` (the default, and what every number up to ROADMAP D4 was
+    produced with) is wifitrx's own eight-state gain ladder: a sub-7 GHz
+    WiFi 7 chip's table, top state 37 dB / NF 3.5 dB / IIP3 −20 dBm.
+    ``anchored`` keeps that ladder's shape and moves it so its top
+    (maximum-gain) state reads ``nf_db`` / ``iip3_dbm`` / ``gain_db``: every
+    state's NF goes up by the same number of dB, IIP3 and the hand-over
+    levels move together, the gain steps stay (data/spec:
+    assumed.rx60_ladder_shape).  A field left None keeps wifitrx's value."""
+    model: str = "wifi7_ladder"
+    nf_db: float | None = None
+    iip3_dbm: float | None = None
+    gain_db: float | None = None
+
+
 @dataclass(frozen=True)
 class FrontendConfig:
     #: behavioural = milestone-0 chain (PA → PN → channel → CFO → PN → AWGN);
@@ -189,7 +210,15 @@ class FrontendConfig:
     lo_leak_dbc: float | None = None   # data/spec: assumed.lo_leak_dbc
     rx_dc_dbc: float | None = None     # data/spec: assumed.rx_dc_dbc
     pa_pae_max: float = 0.20           # data/spec: assumed.pa60_pae_max (the power column only)
+    #: transmit antenna gain; 0 is "not specified", not a statement about a part
     antenna_gain_dbi: float = 0.0
+    #: receive antenna gain; None = the same antenna as the transmitter (a TDD link).
+    #: A radar transmits and receives at once, on two antennas: it reads both.
+    antenna_gain_rx_dbi: float | None = None
+    #: TX-to-RX isolation in the same package (dB, positive); None = not specified.
+    #: Nothing in a TDD link consumes it; the leakage budget and a radar do.
+    tx_rx_isolation_db: float | None = None
+    rx_front: RxFrontConfig = field(default_factory=RxFrontConfig)
     eirp_limit_dbm: float | None = None
     array: ArrayConfig = field(default_factory=ArrayConfig)
 
@@ -281,6 +310,13 @@ class Mmw60Config:
             raise ValueError(f"ifext.dpd_observation must be one of {DPD_OBSERVATIONS}")
         if int(self.ifext.dpd_max_iterations) < 1:
             raise ValueError("ifext.dpd_max_iterations must be >= 1")
+        rxf = self.frontend.rx_front
+        if rxf.model not in RX_FRONT_MODELS:
+            raise ValueError(f"frontend.rx_front.model must be one of {RX_FRONT_MODELS}")
+        if rxf.model == "wifi7_ladder" and (rxf.nf_db, rxf.iip3_dbm, rxf.gain_db) != (None, None, None):
+            raise ValueError("frontend.rx_front: nf_db / iip3_dbm / gain_db only apply to model 'anchored'")
+        if self.frontend.tx_rx_isolation_db is not None and float(self.frontend.tx_rx_isolation_db) < 0:
+            raise ValueError("frontend.tx_rx_isolation_db is an isolation in dB (positive)")
 
     # --- derived ---------------------------------------------------------
     @property
@@ -394,6 +430,7 @@ _NESTED = {
     (LoConfig, "phase_noise"): PhaseNoiseConfig,
     (FrontendConfig, "pa"): PaConfig, (FrontendConfig, "array"): ArrayConfig,
     (FrontendConfig, "converters"): ConverterConfig, (FrontendConfig, "iq"): IqConfig,
+    (FrontendConfig, "rx_front"): RxFrontConfig,
 }
 
 
@@ -467,6 +504,24 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
                               rx=improved_rx(dataclasses.replace(base.rx, dc_removal=True)),
                               label=f"zero-IF 60 GHz {standard} {bandwidth_hz / 1e6:g} MHz x{k} MCS{mcs}")
     return dataclasses.replace(cfg, **top) if top else cfg
+
+
+def surveyed_frontend(cfg: Mmw60Config) -> Mmw60Config:
+    """``cfg`` with the three faces of ROADMAP D4 filled from the surveyed
+    figures (data/spec: assumed.frontend_faces_pick and the survey entries it
+    names): a receive front end anchored at a 60 GHz communication
+    transceiver's noise figure / IIP3, the TX-RX isolation, and a transmit
+    and a receive antenna gain.  The presets do not call this: their numbers
+    are the ones produced with wifitrx's ladder, a 0 dBi antenna and no
+    isolation figure.  Every figure here was read from a search abstract
+    only; none is verified against its original."""
+    pick = spec.value("assumed.frontend_faces_pick")
+    fe = dataclasses.replace(
+        cfg.frontend,
+        rx_front=RxFrontConfig(model="anchored", nf_db=float(pick["rx_nf_db"]), iip3_dbm=float(pick["rx_iip3_dbm"])),
+        tx_rx_isolation_db=float(pick["tx_rx_isolation_db"]),
+        antenna_gain_dbi=float(pick["antenna_gain_tx_dbi"]), antenna_gain_rx_dbi=float(pick["antenna_gain_rx_dbi"]))
+    return dataclasses.replace(cfg, frontend=fe, label=(cfg.label + " surveyed front end").strip())
 
 
 def wifi7_chain_k1(mcs: int = 0, standard: str = "11ac", bandwidth_hz: float = 20e6,
