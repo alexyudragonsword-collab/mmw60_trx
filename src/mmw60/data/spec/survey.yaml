@@ -638,12 +638,12 @@ entries:
   # 2026-11-12 第三轮：删掉 survey.antenna60_bgt60_an600_dbi。提供这组数的 fmcw_radar 读了 AN600 原文后撤回：
   # 那份应用笔记里没有天线增益（只有归一化方向图），2 / 3.5 / 5 dBi 是搜索摘要张冠李戴。
   rx60.comm_asada2011:
-    value: {nf_db: 6.1, iip3_dbm: -20.0, gain_high_db: 27.0, gain_low_db: 17.0, antenna_gain_dbi: 2.0}
-    unit: "dB, dBm, dB, dB, dBi"
+    value: {nf_db: 6.1, iip3_dbm: -20.0, gain_high_db: 27.0, gain_low_db: 17.0, antenna_gain_dbi: 2.0, tx_gain_db: 16.0, tx_p1db_dbm: 5.4, tx_psat_dbm: 6.5}
+    unit: "dB, dBm, dB, dB, dBi, dB, dBm, dBm"
     source: spec
     cite: "Asada et al., 'A 60 GHz 16 Gb/s 16QAM Low-Power Direct-Conversion Transceiver Using Capacitive Cross-Coupling Neutralization in 65 nm CMOS', IEEE A-SSCC 2011, pp. 373–376（Tokyo Institute of Technology）；作者实验室站点上的论文 PDF（asdh_ASSCC2011_paper_v2.pdf），2026-11-12 读原文"
     section: "V. Experimental Results；Table III Performance Summary"
-    quote: "Fig. 10 shows the conversion gain of RX. The LNA realizes a gain control, and the conversion gain is 27 dB in high-gain mode and 17 dB in low-gain mode. [...] Fig. 11 shows the noise figure. The entire noise figure is less than 6.1 dB, and the measured IIP3 is −20 dBm. [...] The antenna in the BGA package has a 2dBi gain."
+    quote: "Fig. 10 shows the conversion gain of RX. The LNA realizes a gain control, and the conversion gain is 27 dB in high-gain mode and 17 dB in low-gain mode. [...] Fig. 11 shows the noise figure. The entire noise figure is less than 6.1 dB, and the measured IIP3 is −20 dBm. [...] The antenna in the BGA package has a 2dBi gain. [...] Fig. 8 shows the conversion gain of TX, which is 16 dB. [...] Fig. 9 shows the measured output power, which is 5.4 dBm at 1-dB compression. [Table III: Tx CG 16 dB, P1dB 5.4 dBm, Psat 6.5 dBm]"
     note: "通信收发机的数，'anchored' 接收前端的基准档取它（NF、IIP3、高增益档增益、封装内天线）。6.1 dB 是原文给的上界（'less than'，Fig. 11 全频段）。原文没说 IIP3 是在哪一档增益下量的。接收机 = 4 级 LNA + I/Q 无源混频 + 基带 LNA，27 / 17 dB 是整条链的变频增益。同一张表的发射侧：变频增益 16 dB、P1dB 5.4 dBm、Psat 6.5 dBm（本库假设的 Psat 是 15 dBm，见 ROADMAP C9）；相噪 −94.2 dBc/Hz @ 1 MHz（60.48 GHz）。"
 
   survey.rx60_comm_iscas2015:
