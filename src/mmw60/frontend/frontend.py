@@ -172,12 +172,12 @@ class Frontend60:
     def leakage_budget(self, pout_dbm: float | None = None) -> dict | None:
         """TX leakage at the receiver input against the receive front end's
         input compression point (maximum gain) and the level an 802.11ad
-        receiver must take (data/spec: survey.dmg_rx_max_input_dbm)."""
+        receiver must take (data/spec: dmg.rx_max_input_dbm)."""
         leak = self.tx_leak_at_rx_dbm(pout_dbm)
         if leak is None:
             return None
         from .. import spec
-        max_in = float(spec.value("survey.dmg_rx_max_input_dbm"))
+        max_in = float(spec.value("dmg.rx_max_input_dbm"))
         return {"pout_dbm": self.target_pout_dbm() if pout_dbm is None else float(pout_dbm),
                 "isolation_db": float(self.tx_rx_isolation_db), "leak_at_rx_dbm": leak,
                 "rx_p1db_in_dbm": self.rx_front.p1db_in_dbm, "margin_to_p1db_db": self.rx_front.p1db_in_dbm - leak,

@@ -40,17 +40,24 @@ class RxFront60:
     def anchored(cls, nf_db: float | None = None, iip3_dbm: float | None = None,
                  gain_db: float | None = None) -> "RxFront60":
         """wifitrx's ladder moved so its top state reads the given figures;
-        None keeps wifitrx's.  The hand-over levels move with the IIP3 (the
-        state is left when the input nears its compression) and against the
-        gain (a higher-gain front end hands over at a lower input)."""
+        None keeps wifitrx's.  The hand-over levels follow wifitrx's own rule
+        for them (``chain/agc``: the noise-against-IM3 balance point
+        t_i = (2·IIP3_i + NF_{i+1} + const) / 3): a uniform shift of the
+        ladder moves every one by (2·ΔIIP3 + ΔNF) / 3, and the gain does not
+        enter.  The official table's levels are kept as the base, so nothing
+        given is wifitrx's ladder exactly."""
         top = DEFAULT_LNA_STATES[0]
         d_nf = 0.0 if nf_db is None else float(nf_db) - top.nf_db
         d_ip3 = 0.0 if iip3_dbm is None else float(iip3_dbm) - top.iip3_dbm
         d_g = 0.0 if gain_db is None else float(gain_db) - top.gain_db
         if top.nf_db + d_nf < 0.0:
             raise ValueError("frontend.rx_front.nf_db must be >= 0 dB")
+        d_t = (2.0 * d_ip3 + d_nf) / 3.0
+        last = len(DEFAULT_LNA_STATES) - 1
         states = tuple(replace(st, gain_db=st.gain_db + d_g, nf_db=st.nf_db + d_nf, iip3_dbm=st.iip3_dbm + d_ip3,
-                               max_input_dbm=st.max_input_dbm + d_ip3 - d_g) for st in DEFAULT_LNA_STATES)
+                               # the last state's ceiling is kept, as wifitrx's rebalance_thresholds keeps it
+                               max_input_dbm=st.max_input_dbm + (0.0 if i == last else d_t))
+                       for i, st in enumerate(DEFAULT_LNA_STATES))
         given = tuple(name for name, v in (("nf_db", nf_db), ("iip3_dbm", iip3_dbm), ("gain_db", gain_db))
                       if v is not None)
         return cls(model="anchored", states=states, anchored_fields=given)

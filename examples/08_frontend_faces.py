@@ -11,8 +11,10 @@ A link budget and a radar (fmcw_radar, mmw60_trx#14) read three things off
 * the transmit and receive antenna gains.
 
 The presets do not use any of it (their numbers are the ones they always
-were).  Every literature figure here is a ``survey`` entry read from a
-search snippet only — the originals were not opened (data/spec/survey.yaml).
+were).  The literature figures are of two kinds (data/spec/survey.yaml):
+``spec`` entries were read in the original and carry the quoted text,
+``survey`` entries were read from a search snippet only.  Every table names
+the entry behind each figure and which kind it is.
 
 What the tables answer:
 
@@ -51,10 +53,10 @@ MCS_ROWS = (0, 4)
 
 #: the receive noise figures looked at: (label, spec key or None for wifitrx's own ladder)
 NF_ROWS = (("WiFi 7 chip ladder (the presets)", None),
-           ("60 GHz comm. transceiver, 65 nm", "survey.rx60_comm_asada2011"),
+           ("60 GHz comm. transceiver, 65 nm", "rx60.comm_asada2011"),
            ("60 GHz comm. receiver, 90 nm", "survey.rx60_comm_iscas2015"),
            ("802.11ad sensitivity-table receiver", "survey.dmg_sensitivity_assumptions"),
-           ("60 GHz radar chip", "survey.rx60_radar_iwr6843"))
+           ("60 GHz radar chip", "rx60.radar_iwr6843"))
 
 
 def with_rx_nf(cfg, nf_db):
@@ -63,33 +65,39 @@ def with_rx_nf(cfg, nf_db):
     return dc.replace(cfg, frontend=dc.replace(cfg.frontend, rx_front=front))
 
 
+def tag(key):
+    """``key [spec]`` or ``key [survey, unverified]``: how the entry was read."""
+    src = spec.survey(key).source
+    return f"{key} [{'survey, unverified' if src == 'survey' else src}]"
+
+
 def fmt(v, unit="", nd=1):
     return "not specified" if v is None else f"{v:.{nd}f}{unit}"
 
 
 def faces_table(preset, surveyed):
-    pick = "assumed.frontend_faces_pick"
+    pick, comm = tag("assumed.frontend_faces_pick"), tag("rx60.comm_asada2011")
     a, b = Frontend60.from_config(preset).faces(), Frontend60.from_config(surveyed).faces()
-    rows = (("receive front end", a["rx_front"], b["rx_front"], "assumed.rx60_ladder_shape"),
+    rows = (("receive front end", a["rx_front"], b["rx_front"], tag("assumed.rx60_ladder_shape")),
             ("  a 60 GHz figure?", "no" if not a["rx_front_sourced"] else "yes",
              "yes: " + ", ".join(b["rx_front_given"]), pick),
-            ("  gain, max state", fmt(a["rx_gain_db"], " dB"), fmt(b["rx_gain_db"], " dB"), "wifitrx ladder (not given)"),
-            ("  noise figure", fmt(a["rx_nf_db"], " dB"), fmt(b["rx_nf_db"], " dB"), "survey.rx60_comm_asada2011"),
-            ("  IIP3", fmt(a["rx_iip3_dbm"], " dBm"), fmt(b["rx_iip3_dbm"], " dBm"), "survey.rx60_comm_asada2011"),
+            ("  gain, max state", fmt(a["rx_gain_db"], " dB"), fmt(b["rx_gain_db"], " dB"), comm),
+            ("  noise figure", fmt(a["rx_nf_db"], " dB"), fmt(b["rx_nf_db"], " dB"), comm),
+            ("  IIP3", fmt(a["rx_iip3_dbm"], " dBm"), fmt(b["rx_iip3_dbm"], " dBm"), comm),
             ("  input P1dB", fmt(a["rx_p1db_in_dbm"], " dBm"), fmt(b["rx_p1db_in_dbm"], " dBm"),
-             "assumed.rx60_p1db_from_iip3_db"),
+             tag("assumed.rx60_p1db_from_iip3_db")),
             ("  gain states", f"{a['rx_gain_states']} (down to {a['rx_gain_min_db']:g} dB)",
-             f"{b['rx_gain_states']} (down to {b['rx_gain_min_db']:g} dB)", "wifitrx ladder"),
+             f"{b['rx_gain_states']} (down to {b['rx_gain_min_db']:g} dB)", tag("assumed.rx60_ladder_shape")),
             ("TX antenna gain", fmt(a["antenna_gain_tx_dbi"], " dBi"), fmt(b["antenna_gain_tx_dbi"], " dBi"),
-             "survey.antenna60_okada2013_dbi"),
+             comm),
             ("RX antenna gain", fmt(a["antenna_gain_rx_dbi"], " dBi") + (" (the TX antenna)" if a["shared_antenna"] else ""),
              fmt(b["antenna_gain_rx_dbi"], " dBi") + (" (the TX antenna)" if b["shared_antenna"] else ""),
-             "survey.antenna60_okada2013_dbi"),
+             comm),
             ("TX-RX isolation", fmt(a["tx_rx_isolation_db"], " dB"), fmt(b["tx_rx_isolation_db"], " dB"),
-             "survey.tx_rx_isolation_tue2018"))
-    print(f"{'face':<22} {'preset':<26} {'surveyed':<26} surveyed figure from")
+             tag("isolation.tx_rx_tue2018")))
+    print(f"{'face':<22} {'preset':<26} {'surveyed':<31} surveyed figure from")
     for name, x, y, src in rows:
-        print(f"{name:<22} {x:<26} {y:<26} {src}")
+        print(f"{name:<22} {x:<26} {y:<31} {src}")
 
 
 def main(argv=None) -> int:
@@ -106,7 +114,8 @@ def main(argv=None) -> int:
     pout = fe_s.target_pout_dbm()
     print(f"mmw60 {__version__}; {'QUICK' if quick else 'full'}; topology B, K = {K} on the {STD} {BASE_BW / 1e6:g} MHz base "
           f"({BASE_BW * K / 1e6:g} MHz), carrier {preset.carrier_hz / 1e9:g} GHz, PA output {pout:g} dBm")
-    print("every literature figure below is a survey entry read from a search snippet only (originals not opened)")
+    print("[spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; "
+          "[assumed] = this library's choice")
 
     print("\n== 1. the faces: preset against config.surveyed_frontend ==")
     faces_table(preset, surveyed)
@@ -135,7 +144,7 @@ def main(argv=None) -> int:
         v = run.final_views
         print(f"{label:<37} {fe.rx_front.nf_db:5.1f} {s[MCS_ROWS[0]]:10.1f} {s[MCS_ROWS[1]]:10.1f} {e:9.2f} "
               f"{v['rx_nf_db']:10.1f} {v['evm_modem_db']:9.1f} {v['tx_evm_modem_db']:9.1f} {v['rx_evm_modem_db']:9.1f}   "
-              f"{'wifitrx DEFAULT_LNA_STATES' if key is None else key}", flush=True)
+              f"{'wifitrx DEFAULT_LNA_STATES' if key is None else tag(key)}", flush=True)
         sens0.append(s[MCS_ROWS[0]])
         evms.append(e)
         nfs.append(fe.rx_front.nf_db)
@@ -145,11 +154,12 @@ def main(argv=None) -> int:
     print(f"link EVM on the SNR axis, spread over the rows: {max(evms) - min(evms):.2f} dB (the axis is SNR, so the noise "
           f"figure sets the input level, not the EVM)")
     print("the calibration readings move because the sequence observes through the receiver at the loopback level: "
-          "'cal RX NF' is the state the AGC sits in there, not the maximum-gain state")
+          "'cal RX NF' is the state the AGC sits in there, not the maximum-gain state.  The hand-over levels move with "
+          "the noise figure (wifitrx's balance-point rule), so a row can sit one state higher than the row above it")
 
     # ---------------------------------------------------------------- 3
-    iso = spec.value("survey.tx_rx_isolation_tue2018")
-    radar = spec.value("survey.rx60_radar_iwr6843")
+    iso = spec.value("isolation.tx_rx_tue2018")
+    radar = spec.value("rx60.radar_iwr6843")
     iso_rows = (("pick: without the isolation structure, low end", iso["with_ebg_db"] - iso["improvement_max_db"]),
                 ("without the isolation structure, high end", iso["with_ebg_db"] - iso["improvement_min_db"]),
                 ("with the isolation structure", iso["with_ebg_db"]))
@@ -167,16 +177,18 @@ def main(argv=None) -> int:
     b = fe_s.leakage_budget()
     print(f"(dB, dBm, dB, dB, dB; margins are level − leak, negative = the leak is above it.  RX P1dB "
           f"{b['rx_p1db_in_dbm']:.1f} dBm is the surveyed front end's at maximum gain; max input {b['dmg_max_input_dbm']:g} dBm "
-          f"is survey.dmg_rx_max_input_dbm; radar P1dB {radar['p1db_in_oob_dbm']:g} dBm is survey.rx60_radar_iwr6843, "
+          f"is {tag('dmg.rx_max_input_dbm')}; radar P1dB {radar['p1db_in_oob_dbm']:g} dBm is {tag('rx60.radar_iwr6843')}, "
           f"out of band)")
-    print(f"the isolation figures are survey.tx_rx_isolation_tue2018: one abstract; the {iso_rows[0][1]:g} and "
+    print(f"the isolation figures are {tag('isolation.tx_rx_tue2018')}: one abstract; the {iso_rows[0][1]:g} and "
           f"{iso_rows[1][1]:g} dB rows are a subtraction of its numbers, not a figure it gives")
 
     # ---------------------------------------------------------------- 4
     ant = spec.value("survey.antenna60_bgt60_an600_dbi")
-    gains = ((0.0, "the presets (not specified)"), (ant["min"], "survey.antenna60_bgt60_an600_dbi min"),
-             (ant["typ"], "survey.antenna60_bgt60_an600_dbi typ"), (ant["max"], "survey.antenna60_bgt60_an600_dbi max"),
-             (spec.value("survey.antenna60_okada2013_dbi"), "survey.antenna60_okada2013_dbi (the pick)"))
+    radar_ant = tag("survey.antenna60_bgt60_an600_dbi")
+    gains = ((0.0, "the presets (not specified)"),
+             (spec.value("rx60.comm_asada2011")["antenna_gain_dbi"], tag("rx60.comm_asada2011") + ", the pick"),
+             (ant["min"], radar_ant + " min"), (ant["typ"], radar_ant + " typ"), (ant["max"], radar_ant + " max"),
+             (spec.value("survey.antenna60_okada2013_dbi"), tag("survey.antenna60_okada2013_dbi")))
     sim = LinkSim(dc.replace(surveyed, channel=FLAT), frontend=fe_s)
     s0 = sim.rx_input_dbm_for_snr(thr[MCS_ROWS[0]])
     print(f"\n== 4. antenna gains (the same on both ends): EIRP limit and the path loss the link takes at MCS {MCS_ROWS[0]} ==")

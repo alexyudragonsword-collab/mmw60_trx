@@ -15,7 +15,7 @@ from mmw60.config import ChannelConfig, Mmw60Config, RxFrontConfig, surveyed_fro
 from mmw60.frontend import Frontend60
 from mmw60.frontend.rxfront import RxFront60
 from mmw60.sim.link import LinkSim, evm_at
-from mmw60.vendor.wifitrx.chain.agc import DEFAULT_LNA_STATES, select_lna_state
+from mmw60.vendor.wifitrx.chain.agc import DEFAULT_LNA_STATES, rebalance_thresholds, select_lna_state
 from mmw60.vendor.wifitrx.units import dbm_to_mw
 
 FLAT = ChannelConfig(model="flat")
@@ -62,10 +62,27 @@ def test_anchored_ladder_is_the_wifitrx_ladder_moved_as_a_whole():
     for a, b in zip(DEFAULT_LNA_STATES, f.states):
         assert b.nf_db == pytest.approx(a.nf_db + 2.5) and b.iip3_dbm == pytest.approx(a.iip3_dbm + 4.0)
         assert b.gain_db == pytest.approx(a.gain_db - 3.0)
-        # hand-over: with the compression (IIP3), against the gain
-        assert b.max_input_dbm == pytest.approx(a.max_input_dbm + 4.0 + 3.0)
     # the hand-over levels stay in order, so wifitrx's AGC walks the ladder as before
     assert [s.max_input_dbm for s in f.states] == sorted(s.max_input_dbm for s in f.states)
+
+
+def test_anchored_hand_over_levels_follow_wifitrx_balance_point_rule():
+    """wifitrx re-solves the hand-over levels with ``rebalance_thresholds`` after
+    a NF / IIP3 what-if; the anchored ladder's levels must move by what that
+    rule moves them (its own rounding to 0.1 dB aside), and not with the gain."""
+    top = DEFAULT_LNA_STATES[0]
+    d_nf, d_ip3 = 2.5, 4.0
+    f = RxFront60.anchored(nf_db=top.nf_db + d_nf, iip3_dbm=top.iip3_dbm + d_ip3)
+    theirs_before = rebalance_thresholds(DEFAULT_LNA_STATES)
+    theirs_after = rebalance_thresholds(f.states)
+    for a, b, t0, t1 in zip(DEFAULT_LNA_STATES[:-1], f.states[:-1], theirs_before, theirs_after):
+        assert b.max_input_dbm - a.max_input_dbm == pytest.approx((2 * d_ip3 + d_nf) / 3)
+        assert b.max_input_dbm - a.max_input_dbm == pytest.approx(t1.max_input_dbm - t0.max_input_dbm, abs=0.11)
+    # the last state's ceiling is kept, as theirs is
+    assert f.states[-1].max_input_dbm == DEFAULT_LNA_STATES[-1].max_input_dbm == theirs_after[-1].max_input_dbm
+    # the gain does not enter
+    g = RxFront60.anchored(nf_db=top.nf_db + d_nf, iip3_dbm=top.iip3_dbm + d_ip3, gain_db=top.gain_db - 10.0)
+    assert [s.max_input_dbm for s in g.states] == [s.max_input_dbm for s in f.states]
 
 
 def test_anchored_with_nothing_given_is_wifitrx_and_says_so():
@@ -115,7 +132,7 @@ def test_leakage_budget_arithmetic():
     assert b["pout_dbm"] == fe.target_pout_dbm() and b["isolation_db"] == cfg.frontend.tx_rx_isolation_db
     assert b["leak_at_rx_dbm"] == b["pout_dbm"] - b["isolation_db"] == fe.tx_leak_at_rx_dbm()
     assert b["margin_to_p1db_db"] == fe.rx_front.p1db_in_dbm - b["leak_at_rx_dbm"]
-    assert b["dmg_max_input_dbm"] == spec.value("survey.dmg_rx_max_input_dbm")
+    assert b["dmg_max_input_dbm"] == spec.value("dmg.rx_max_input_dbm")
     assert b["margin_to_dmg_max_input_db"] == b["dmg_max_input_dbm"] - b["leak_at_rx_dbm"]
     assert fe.leakage_budget(pout_dbm=0.0)["leak_at_rx_dbm"] == -cfg.frontend.tx_rx_isolation_db
     more = dc.replace(fe, tx_rx_isolation_db=fe.tx_rx_isolation_db + 10.0).leakage_budget()
@@ -139,15 +156,18 @@ def test_law1_surveyed_front_end_is_built_from_spec_entries_only():
     cfg = surveyed_frontend(zero_if_60ghz(k=8))
     fe = cfg.frontend
     assert (fe.rx_front.model, fe.rx_front.nf_db, fe.rx_front.iip3_dbm, fe.rx_front.gain_db) == \
-        ("anchored", pick["rx_nf_db"], pick["rx_iip3_dbm"], None)
+        ("anchored", pick["rx_nf_db"], pick["rx_iip3_dbm"], pick["rx_gain_db"])
     assert (fe.tx_rx_isolation_db, fe.antenna_gain_dbi, fe.antenna_gain_rx_dbi) == \
         (pick["tx_rx_isolation_db"], pick["antenna_gain_tx_dbi"], pick["antenna_gain_rx_dbi"])
-    # the pick is made of the surveyed figures it names, not of new ones
-    comm = spec.value("survey.rx60_comm_asada2011")
-    iso = spec.value("survey.tx_rx_isolation_tue2018")
-    assert (pick["rx_nf_db"], pick["rx_iip3_dbm"]) == (comm["nf_db"], comm["iip3_dbm"])
+    # the pick is made of the figures it names, not of new ones: one communication
+    # transceiver's receiver and antenna, read in the original
+    comm = spec.survey("rx60.comm_asada2011")
+    assert comm.source == "spec"
+    assert (pick["rx_nf_db"], pick["rx_iip3_dbm"], pick["rx_gain_db"]) == \
+        (comm.value["nf_db"], comm.value["iip3_dbm"], comm.value["gain_high_db"])
+    assert pick["antenna_gain_tx_dbi"] == pick["antenna_gain_rx_dbi"] == comm.value["antenna_gain_dbi"]
+    iso = spec.value("isolation.tx_rx_tue2018")
     assert pick["tx_rx_isolation_db"] == iso["with_ebg_db"] - iso["improvement_max_db"]
-    assert pick["antenna_gain_tx_dbi"] == pick["antenna_gain_rx_dbi"] == spec.value("survey.antenna60_okada2013_dbi")
     # everything else is the preset's
     assert dc.replace(cfg, frontend=zero_if_60ghz(k=8).frontend, label="") == dc.replace(zero_if_60ghz(k=8), label="")
     assert Mmw60Config.from_dict(cfg.to_dict()) == cfg
@@ -155,7 +175,8 @@ def test_law1_surveyed_front_end_is_built_from_spec_entries_only():
 
 def test_law1_no_front_end_figure_is_typed_outside_the_spec_file():
     figures = ("6.1", "7.1", "-33", "9.6", "-12")
-    whole = ("40", "20", "25")              # the isolation figures; frontend.py has an older "-20 / 20" of its own
+    # the isolation and gain figures; frontend.py has an older "-20 / 20" of its own
+    whole = ("40", "20", "25", "27", "17")
     for rel, forbidden_here in (("examples/08_frontend_faces.py", figures + whole),
                                 ("src/mmw60/frontend/rxfront.py", figures + whole),
                                 ("src/mmw60/frontend/frontend.py", figures)):
@@ -167,11 +188,20 @@ def test_law1_no_front_end_figure_is_typed_outside_the_spec_file():
             assert hit is None, f"{rel} types a literature number: {forbidden}"
 
 
-def test_law5_every_d4_literature_figure_is_marked_unverified():
-    keys = ("survey.rx60_comm_asada2011", "survey.rx60_comm_iscas2015", "survey.dmg_sensitivity_assumptions",
-            "survey.dmg_rx_max_input_dbm", "survey.rx60_radar_iwr6843", "survey.tx_rx_isolation_tue2018",
-            "survey.antenna60_okada2013_dbi", "survey.antenna60_bgt60_an600_dbi")
-    for k in keys:
+def test_law5_d4_figures_read_in_the_original_carry_the_quote_and_the_rest_say_unverified():
+    read = ("rx60.comm_asada2011", "rx60.radar_iwr6843", "isolation.tx_rx_tue2018", "dmg.rx_max_input_dbm")
+    snippet_only = ("survey.rx60_comm_iscas2015", "survey.dmg_sensitivity_assumptions",
+                    "survey.antenna60_okada2013_dbi", "survey.antenna60_bgt60_an600_dbi")
+    for k in read:
+        e = spec.survey(k)
+        assert e.source == "spec" and e.quote and e.section, k
+    # the quoted text holds the figures the entry carries
+    comm = spec.survey("rx60.comm_asada2011").quote
+    assert "6.1 dB" in comm and "27 dB" in comm and "2dBi" in comm
+    assert "−33 dBm" in spec.survey("dmg.rx_max_input_dbm").quote
+    assert "40 dB" in spec.survey("isolation.tx_rx_tue2018").quote
+    assert "12 dB" in spec.survey("rx60.radar_iwr6843").quote
+    for k in snippet_only:
         e = spec.survey(k)
         assert e.source == "survey" and "未核实" in e.note, k
     for k in ("assumed.rx60_ladder_shape", "assumed.rx60_p1db_from_iip3_db", "assumed.frontend_faces_pick"):

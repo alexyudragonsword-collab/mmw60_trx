@@ -188,9 +188,10 @@ class RxFrontConfig:
     WiFi 7 chip's table, top state 37 dB / NF 3.5 dB / IIP3 −20 dBm.
     ``anchored`` keeps that ladder's shape and moves it so its top
     (maximum-gain) state reads ``nf_db`` / ``iip3_dbm`` / ``gain_db``: every
-    state's NF goes up by the same number of dB, IIP3 and the hand-over
-    levels move together, the gain steps stay (data/spec:
-    assumed.rx60_ladder_shape).  A field left None keeps wifitrx's value."""
+    state's NF, IIP3 and gain move by the same number of dB, the gain steps
+    stay, and the hand-over levels follow wifitrx's own balance-point rule
+    (data/spec: assumed.rx60_ladder_shape).  A field left None keeps
+    wifitrx's value."""
     model: str = "wifi7_ladder"
     nf_db: float | None = None
     iip3_dbm: float | None = None
@@ -513,12 +514,15 @@ def surveyed_frontend(cfg: Mmw60Config) -> Mmw60Config:
     transceiver's noise figure / IIP3, the TX-RX isolation, and a transmit
     and a receive antenna gain.  The presets do not call this: their numbers
     are the ones produced with wifitrx's ladder, a 0 dBi antenna and no
-    isolation figure.  Every figure here was read from a search abstract
-    only; none is verified against its original."""
+    isolation figure.  The receiver and antenna figures are one 60 GHz
+    communication transceiver's, read from its paper; the isolation is a
+    subtraction of two numbers in one abstract (data/spec says which
+    entries were read in the original and which only as a search snippet)."""
     pick = spec.value("assumed.frontend_faces_pick")
     fe = dataclasses.replace(
         cfg.frontend,
-        rx_front=RxFrontConfig(model="anchored", nf_db=float(pick["rx_nf_db"]), iip3_dbm=float(pick["rx_iip3_dbm"])),
+        rx_front=RxFrontConfig(model="anchored", nf_db=float(pick["rx_nf_db"]), iip3_dbm=float(pick["rx_iip3_dbm"]),
+                               gain_db=float(pick["rx_gain_db"])),
         tx_rx_isolation_db=float(pick["tx_rx_isolation_db"]),
         antenna_gain_dbi=float(pick["antenna_gain_tx_dbi"]), antenna_gain_rx_dbi=float(pick["antenna_gain_rx_dbi"]))
     return dataclasses.replace(cfg, frontend=fe, label=(cfg.label + " surveyed front end").strip())

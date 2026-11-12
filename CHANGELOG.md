@@ -7,13 +7,13 @@
 ### 前端的三个面：接收前端、收发隔离、发 / 收天线增益 —— ROADMAP D4（2026-11-12）
 - 起因：fmcw_radar 的消费清单（mmw60_trx#14）。三样都加在共享的 `Frontend60` 上，不为雷达改接口形状；倍频器底噪不进（雷达读剖面文件）。
 - `config.RxFrontConfig`（`frontend.rx_front`：`wifi7_ladder` | `anchored`，`nf_db` / `iip3_dbm` / `gain_db`）、`FrontendConfig.antenna_gain_rx_dbi`（None = 与发射同一副天线）、`FrontendConfig.tx_rx_isolation_db`（None = 未指定）、`config.surveyed_frontend(cfg)`（把三个面换成查到的一档）。**配置 schema 增加了字段**，默认值就是原来的行为。
-- `frontend/rxfront.py`（新）：`RxFront60`。`wifi7_ladder` 是 wifitrx 的 `DEFAULT_LNA_STATES` 原样（`sourced = False`）；`anchored` 把这张梯子整体平移，使最高增益档读到给定的 NF / IIP3 / 增益。面：`gain_db`、`nf_db`、`iip3_dbm`、`p1db_in_dbm`、`state_for(p_in)`。
+- `frontend/rxfront.py`（新）：`RxFront60`。`wifi7_ladder` 是 wifitrx 的 `DEFAULT_LNA_STATES` 原样（`sourced = False`）；`anchored` 把这张梯子整体平移，使最高增益档读到给定的 NF / IIP3 / 增益，换档电平按 wifitrx 自己的平衡点规则移动。面：`gain_db`、`nf_db`、`iip3_dbm`、`p1db_in_dbm`、`state_for(p_in)`。
 - `Frontend60`：`rx_front`、`antenna_gain_tx_dbi`、`antenna_gain_rx_resolved_dbi`、`shared_antenna`、`tx_rx_isolation_db`、`tx_leak_at_rx_dbm()`、`leakage_budget()`、`faces()`。`describe()` 的形状不变。预设下接收链不传梯子（仍是 wifitrx 自己的默认），数字逐位不变。
-- 规范条目 +11：八条 survey（两篇 60 GHz 通信接收机、802.11ad 灵敏度表的前提与最大输入电平、一颗雷达芯片、一篇隔离结构的摘要、两个封装内天线）与三条 assumed（梯子形状、IIP3 到 P1dB 的 9.6 dB、基准档取哪几个数）。**八条 survey 全部只读到搜索摘要，原文未打开。** 接收 NF / IIP3 的基准档取通信收发机，雷达芯片只作对照。
-- 示例 08（新）：三个面预设对查到的一档；接收 NF 五档的灵敏度 / SNR 轴上的链路 EVM / 校准读数；泄漏预算（隔离 20 / 25 / 40 dB）；天线增益对 EIRP 限值与可承受的路径损耗；拓扑 A 不消费接收面。
-- `tests/test_frontend_faces.py`：+16（预设不动、梯子平移、P1dB 与链路里的三次项一致、NF 对灵敏度与 EVM、泄漏预算、两个天线字段、基准档只由规范条目组成、配置校验）。
+- 规范条目 +11。**本库第一批 `source: spec` 条目（4 条，读过原文、带引文）**：`rx60.comm_asada2011`（A-SSCC 2011 论文）、`rx60.radar_iwr6843`（TI 数据手册 §7.9）、`isolation.tx_rx_tue2018`（IEEE TAP 2018 的摘要）、`dmg.rx_max_input_dbm`（ITU-R M.2003 2012 年版 §2.4.6）。另有 4 条 survey 只读到搜索摘要（未核实，只作灵敏度档），3 条 assumed（梯子形状、IIP3 到 P1dB 的 9.6 dB、基准档取哪几个数）。
+- 基准档：接收增益 27 dB、NF 6.1 dB、IIP3 −20 dBm、发 / 收天线各 2 dBi（同一颗通信收发机，按“通信文献为主”），隔离 20 dB。雷达芯片只作对照。
+- 示例 08（新）：三个面预设对查到的一档；接收 NF 五档的灵敏度 / SNR 轴上的链路 EVM / 校准读数；泄漏预算（隔离 20 / 25 / 40 dB）；天线增益对 EIRP 限值与可承受的路径损耗；拓扑 A 不消费接收面。每个数字后面标着条目名与 `[spec]` / `[survey, unverified]` / `[assumed]`。
+- `tests/test_frontend_faces.py`：+17（预设不动、梯子平移、换档电平对着 wifitrx 的 `rebalance_thresholds` 核、P1dB 与链路里的三次项一致、NF 对灵敏度与 EVM、泄漏预算、两个天线字段、基准档只由规范条目组成、读过原文的条目带引文、配置校验）。
 - 指纹不变，示例 00–07 的输出不变。
-
 
 ### PA 记忆的代价按回退读：示例 07 改以回退扫描为主表（2026-11-11）
 - `pamemory`：`run_many`（同一行只跑一次，可多进程，数字与进程数无关）、`row_key` / `study_keys` / `cost_keys` / `sweep_keys` / `sweep_points`、`backoff_for_evm`（EVM 达到目标所需的最小回退，格点间线性插值）、`backoff_penalty`（两种记忆规律在同一 EVM 上各要退多少、差多少）。`study` / `cost_rows` 多一个 `jobs` 参数。

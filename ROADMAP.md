@@ -77,12 +77,15 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
   同台表计了 DPD 的功耗、底板用的是未预失真的 Rapp，所以是“付了钱没拿到线性度”的记账，与 A1 第二条是同一件事。
 - **示例 03 的校准表不在预设回退点上**：wifitrx 默认驱动在本库前端上落在回退 10.4–10.7 dB，不是预设的 8 dB。示例 07 已按预设回退重跑整套序列（`run_cal_at(obo_db=…)`）；示例 03 没改（改了全表都动），读它的 DPD / 最终 EVM 两行时要知道回退多了 2.5 dB。
 
-### C9. 前端三个面（示例 08）发现的（见 `cairn/LOG.md` 2026-11-12、`cairn/topology-b.md` §5）
-- **八条文献数字一条原文都没打开**：`python -c "from mmw60 import spec; print(len(spec.unverified()))"` 从 48 变 56，新增的八条（`survey.rx60_*`、`survey.dmg_*`、`survey.tx_rx_isolation_tue2018`、`survey.antenna60_*`）全部只读到搜索摘要。本会话的网络策略不放行这些站点（试过 `www.ssc.p.isct.ac.jp`、`scdn.rohde-schwarz.com`、`dspace.networks.imdea.org`，都是域名解析失败）。要有人对着原文核一遍才能往上提；核不上的数要换。
-- **拓扑 A 不消费接收前端这个面**：`python examples/08_frontend_faces.py` §5，拓扑 A（11be 80 MHz、MCS 0）的灵敏度预设 −92.5 dBm、换上查到的前端仍是 −92.5 dBm（差 0.00 dB）；拓扑 B 同一换法从 −87.0 变 −84.4 dBm（差 2.6 dB）。原因：`ifext.MmwRxStage` 是单位增益、自己不加噪声，SNR 轴上的 NF 是芯片的 WiFi 7 梯子。用预设时两拓扑都是 3.5 dB，同台表不受影响；一旦用查到的前端，两拓扑的接收噪声就不是同一个口径（铁律 2）。补法是在芯片前面加一级 60 GHz LNA / 混频器（增益、NF），级联 NF 由它定；这一级的增益没有出处。
-- **预设还在用 WiFi 7 的梯子**：换成查到的前端后，SNR 轴上的链路 EVM 不动（示例 08 §2，五档 NF 的散布 0.00 dB），动的是灵敏度（dB 对 dB）和校准表：K = 8 的回环 EVM −29.0 → −27.9 dB，NF 取 12 dB 时 −23.6 dB。也就是示例 03 的最终 EVM 是带着 3.5 dB 的接收机读的。要不要把预设换过去（示例 03 / 06 / 07 的数字会动）等原文核过再定。
-- **梯子的形状是假设**：文献只给最高增益附近一个点（NF、IIP3），其余七档是 wifitrx 梯子整体平移（`assumed.rx60_ladder_shape`）。增益本身没有锚（查到的 64 dB 是含基带的整机增益）。wifitrx 梯子的调节范围 42 dB（37 → −5 dB），查到的通信接收机 28 dB、雷达芯片 18 dB。查到的 IIP3（−20 dBm）与 wifitrx 顶档恰好相同，所以压缩这个面眼下和预设没有差别。
-- **泄漏预算是给雷达的，没有链路消费它**：PA 输出 7 dBm、隔离 20 dB 时泄漏 −13 dBm，比接收前端最高增益档的输入 P1dB（−29.6 dBm）高 16.6 dB，AGC 要退到第 6 档（NF 32.6 dB）才接得住；隔离 40 dB 时余量 +3.4 dB。20 / 25 dB 是用一篇摘要里的两个数减出来的。时分双工链路收发不同时，本库的链路仿真不注入泄漏。
+### C9. 前端三个面（示例 08）发现的（见 `cairn/LOG.md` 2026-11-12 两条、`cairn/topology-b.md` §5）
+- **还有四条文献数字没读到原文**：`python -c "from mmw60 import spec; print(len(spec.unverified()))"` 是 52（D4 前 48）。读过原文、已改成 `spec` 的四条：`rx60.comm_asada2011`、`rx60.radar_iwr6843`、`isolation.tx_rx_tue2018`（只读了摘要）、`dmg.rx_max_input_dbm`。没读到的四条：`survey.rx60_comm_iscas2015`、`survey.antenna60_okada2013_dbi`（都在 IEEE Xplore，对脚本访问返回空页，没有去绕）、`survey.antenna60_bgt60_an600_dbi`（Mouser 断开连接）、`survey.dmg_sensitivity_assumptions`（802.11 条文）。这四条都只作灵敏度档，基准档不用它们。
+- **最大输入电平 −33 dBm 是 2012 年版的写法**：ITU-R M.2003 (03/2012) §2.4.6 是 −33 dBm；现行版 M.2003-2 (01/2018) 同一节改成接收天线处 10 µW/cm²。按 60.48 GHz 换算是 −37.1 dBm（0 dBi）/ −35.1 dBm（2 dBi）/ −31.1 dBm（6 dBi）。示例 08 §3 那一列还按 −33 dBm 画；要不要改成按天线增益换算的功率密度线，待定。
+- **Asada 2011 的发射机比本库假设的小很多**：同一张表给发射 Psat 6.5 dBm、P1dB 5.4 dBm、变频增益 16 dB；本库的 60 GHz PA 是 Psat 15 dBm、增益 20 dB（`assumed.pa60_psat_dbm` / `assumed.pa60_gain_db`，没有出处）。本库回退 8 dB 后的 7 dBm 平均输出，已经高于这颗收发机的饱和功率。这一轮没有动 PA；要不要给 PA 也加一档“查到的”，待定。
+- **拓扑 A 不消费接收前端这个面**：`python examples/08_frontend_faces.py` §5，拓扑 A（11be 80 MHz、MCS 0）的灵敏度预设 −92.5 dBm、换上查到的前端仍是 −92.5 dBm（差 0.00 dB）；拓扑 B 同一换法从 −87.0 变 −84.4 dBm（差 2.6 dB）。原因：`ifext.MmwRxStage` 是单位增益、自己不加噪声，SNR 轴上的 NF 是芯片的 WiFi 7 梯子。用预设时两拓扑都是 3.5 dB，同台表不受影响；一旦用查到的前端，两拓扑的接收噪声就不是同一个口径（铁律 2）。补法是在芯片前面加一级 60 GHz LNA / 混频器（增益、NF），级联 NF 由它定。
+- **预设还在用 WiFi 7 的梯子**：换成查到的前端后，SNR 轴上的链路 EVM 不动（示例 08 §2，五档 NF 的散布 0.00 dB），动的是灵敏度（dB 对 dB）和校准表：K = 8 的回环 EVM −29.0 → −27.9 dB，NF 取 12 dB 时 −23.5 dB。也就是示例 03 的最终 EVM 是带着 3.5 dB 的接收机读的。要不要把预设换过去（示例 03 / 06 / 07 的数字会动），待定。
+- **梯子的形状是假设**：原文只给高 / 低两档（变频增益 27 / 17 dB）和一个 NF 上界、一个 IIP3（没说哪一档），其余档位是 wifitrx 梯子整体平移（`assumed.rx60_ladder_shape`）。wifitrx 梯子的调节范围 42 dB，Asada 的接收机 10 dB、雷达芯片 18 dB。增益取 27 dB 后，灵敏度电平上基带 VGA 顶在 40 dB 的上限（ADC 输入比目标低约 7.5 dB），SNR 2 / 10 / 30 dB 上的链路 EVM 与 37 dB 时相同；增益再低到 17 dB，SNR 30 dB 上差 0.18 dB。查到的 IIP3（−20 dBm）与 wifitrx 顶档恰好相同，所以压缩这个面眼下和预设没有差别。
+- **“校准读到的 RX NF”对换档电平很敏感**：回环电平正好落在第 1、2 档的换档点附近。换档电平按 wifitrx 的平衡点规则随 NF 移动 ΔNF / 3，所以 NF 6.1 dB 的那一行落在第 1 档、读 9.6 dB，比预设（第 2 档、10.8 dB）还低。读这一列时要连着档位读。
+- **泄漏预算是给雷达的，没有链路消费它**：PA 输出 7 dBm、隔离 20 dB 时泄漏 −13 dBm，比接收前端最高增益档的输入 P1dB（−29.6 dBm）高 16.6 dB，AGC 要退到 state 6（NF 32.6 dB）才接得住；隔离 40 dB 时余量 +3.4 dB。20 / 25 dB 是用一篇摘要里的两个数减出来的，正文没有读。时分双工链路收发不同时，本库的链路仿真不注入泄漏。
 - **查到的前端不在数值指纹里**：`tools/fingerprint.py` 只跑 `configs/*.yaml`。加一份配置会改指纹文件，要用一次逃生口；现在由 `tests/test_frontend_faces.py` 守着。
 
 ## D. 报回上游
