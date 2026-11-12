@@ -2,7 +2,7 @@ engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cy
 mmw60 0.1.0; full; base 11be 80 MHz, 2x oversampling; PA gain 23.2 dB, Psat 14.6 dBm; memory PA: wifitrx_reference_pa (assumed), taps defined at 80 MS/s = 12.5 ns apart (assumed)
 every row's last EVM check sits at the back-off from Psat the table names (the drive is trimmed and the sequence rerun until it does)
 EVM columns in dB: 'dpd step' is the DPD step's own PA-output reading, 'TX EVM' and 'loopback' are the last step's, as a standard receiver reads them; OBO is the back-off that check landed on
-the Rapp rows: this PA's P1dB is 9.5 dB under Psat, so at the preset back-off the average sits above P1dB and wifitrx's DPD step has little headroom: compare its off / x1 rows
+the Rapp rows: the preset PA (a measured 60 GHz CMOS PA's scale and compression, data/spec assumed.pa60_surveyed_pick) has its P1dB 4.6 dB under Psat, so at the preset back-off the average sits 3.4 dB under P1dB: compare its off / x1 rows
 83 runs of the calibration sequence  [~s]
 
 == K = 4 at the preset back-off 8 dB: 320 MHz at 0.64 GS/s; a 12.5 ns tap is 8 samples ==

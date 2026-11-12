@@ -1,7 +1,8 @@
 """What electrical memory in the 60 GHz PA costs the predistorter at K > 1.
 
-The preset PA is the memoryless modified Rapp of the 11ad evaluation
-methodology.  A real PA has electrical memory, and upclocking raises a
+The preset PA is a memoryless modified Rapp at a measured 60 GHz CMOS PA's
+scale and compression (since 2026-11-12; the 11ad evaluation methodology's
+shape before, ``config.tgad_em_pa``).  A real PA has electrical memory, and upclocking raises a
 question the standard-rate chain never meets: when the clock goes ×K, does
 the PA's memory go with it?
 

@@ -18,20 +18,23 @@
   quotes:
     - {doc: cairn/external-validation.md, text: "K = 8 MCS1 字面 {lit1} dB、flat {flat1} dB"}
 
-- name: ex04 11be 80 MHz x 4 is the best row (rate and pJ/bit at the cap)
+- name: ex04 the best row at the conformance cap (11be 80 MHz x 8 since the measured PA; x 4 second)
   values:
-    rate: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
-    pj: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
+    rate: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=8 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
+    pj: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
+    rate4: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
+    pj4: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
   quotes:
-    - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 4（320 MHz）以 {rate} Mb/s、{pj} pJ/bit 居首"}
+    - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 8（640 MHz）以 {rate} Mb/s、{pj} pJ/bit 居首"}
+    - {doc: cairn/comparison-table.md, text: "× 4（320 MHz）以 {rate4} Mb/s、{pj4} pJ/bit 第二"}
 
-- name: ex04 20 MHz base, K = 16 vs K = 32 pJ/bit (K = 32 is worse per bit)
+- name: ex04 20 MHz base, K = 16 vs K = 32 pJ/bit at the conformance cap (K = 32 is cheaper since the measured PA)
   values:
     k16: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=16 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
     k32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
     k1: {example: "04", after: "== 4. power blocks per bit", line: "be 11ac 20M K=1 @6 GHz (WiFi 7 chain) {*} {*} {*} {*} {*} {*} {*} {}"}
   quotes:
-    - {doc: cairn/comparison-table.md, text: "K = 16 的 {k16} pJ/bit 到 K = 32 升到 {k32}"}
+    - {doc: cairn/comparison-table.md, text: "K = 16 的 {k16} pJ/bit 到 K = 32 降到 {k32}"}
     - {doc: cairn/comparison-table.md, text: "是 {k1} pJ/bit，是 K = 16 的 {k1 / k16} 倍"}
 
 - name: ex05 11be 80 MHz MCS4 — the TX-EVM cap says beyond, the decoder reaches PER 1e-2 (what the cap criterion is worth)
@@ -47,19 +50,20 @@
     rate_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} MCS{*} {} {*}"}
     pj_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} MCS{*} {*} {}"}
     pj_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
+    rate_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
   quotes:
-    - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 4 从 432 Mb/s / {pj_conf} 到 {rate_dec} Mb/s / {pj_dec}"}
+    - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 4 从 {rate_conf} Mb/s / {pj_conf} 到 {rate_dec} Mb/s / {pj_dec}"}
 
 - name: ex05 decoder-cap prediction vs measured PER threshold in the linear region
   values:
-    p4: {example: "05", after: "== the decoder cap", line: "4 320 {*} MCS4 {*} {} {*} MCS5: {*} {*}"}
-    m4: {example: "05", after: "== the decoder cap", line: "4 320 {*} MCS4 {*} {*} {} MCS5: {*} {*}"}
-    p8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS4 {*} {} {*} MCS5: never never"}
-    m8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS4 {*} {*} {} MCS5: never never"}
+    p4: {example: "05", after: "== the decoder cap", line: "4 320 {*} MCS5 {*} {} {*} MCS6: {*} {*}"}
+    m4: {example: "05", after: "== the decoder cap", line: "4 320 {*} MCS5 {*} {*} {} MCS6: {*} {*}"}
+    p8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS4 {*} {} {*} MCS5: {*} {*}"}
+    m8: {example: "05", after: "== the decoder cap", line: "8 640 {*} MCS4 {*} {*} {} MCS5: {*} {*}"}
     p32: {example: "05", after: "== the decoder cap", line: "32 2560 {*} MCS0 {*} {} {*} MCS1: {*} {*}"}
     m32: {example: "05", after: "== the decoder cap", line: "32 2560 {*} MCS0 {*} {*} {} MCS1: {*} {*}"}
   quotes:
-    - {doc: cairn/comparison-table.md, text: "| 4 | MCS4：{p4} / {m4} |"}
+    - {doc: cairn/comparison-table.md, text: "| 4 | MCS5：{p4} / {m4} |"}
     - {doc: cairn/comparison-table.md, text: "| 8 | MCS4：{p8} / {m8} |"}
     - {doc: cairn/comparison-table.md, text: "| 32 | MCS0：{p32} / {m32} |"}
 
@@ -81,8 +85,8 @@
 
 - name: ex04 topology A against topology B on the same 320 MHz (decoder cap, pJ/bit)
   values:
-    a_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be 11be 320M IF extender @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} MCS{*} {*} {}"}
-    b_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} MCS{*} {*} {}"}
+    a_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be 11be 320M IF extender @60.48 GHz {*} MCS{*} MCS6 {*} {*} {*} MCS{*} {*} {}"}
+    b_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} MCS{*} {*} {}"}
   quotes:
     - {doc: cairn/topology-a.md, text: "拓扑 A（11be 320 MHz，K = 1）{a_pj} pJ/bit，拓扑 B（80 MHz × 4）{b_pj} pJ/bit"}
     - {doc: cairn/topology-a.md, text: "A 每比特贵 {a_pj / b_pj} 倍"}
@@ -97,10 +101,10 @@
 
 - name: ex06 the decoder cap of topology A checked with PER
   values:
-    pred: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS4 {*} {} {*} MCS5: {*} {*}"}
-    meas: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS4 {*} {*} {} MCS5: {*} {*}"}
+    pred: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS6 {*} {} {*} MCS7: {*} {*}"}
+    meas: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS6 {*} {*} {} MCS7: {*} {*}"}
   quotes:
-    - {doc: cairn/topology-a.md, text: "MCS4 预测 {pred} dB、实测 {meas} dB"}
+    - {doc: cairn/topology-a.md, text: "MCS6 预测 {pred} dB、实测 {meas} dB"}
 
 - name: ex06 the 60 GHz-observed DPD at the preset 8 dB back-off (chip-only vs the programmed one)
   values:
@@ -123,9 +127,11 @@
     ipn_x10: {example: "04", after: "== 5. the LO models", line: "pllsim wu19 x10, floor -150 dBc/Hz (assumed) 8 {} {*} {*} {*} MCS{*}"}
     ici_x10: {example: "04", after: "== 5. the LO models", line: "pllsim wu19 x10, floor -150 dBc/Hz (assumed) 8 {*} {} {*} {*} MCS{*}"}
     ipn_pz: {example: "04", after: "== 5. the LO models", line: "pole_zero (11ad EM shape, Liu numbers) 8 {} {*} {*} {*} MCS{*}"}
+    fl_x10: {example: "04", after: "== 5. the LO models", line: "pllsim wu19 x10, floor -150 dBc/Hz (assumed) 8 {*} {*} {} {*} MCS{*}"}
+    td_x10: {example: "04", after: "== 5. the LO models", line: "pllsim wu19 x10, floor -150 dBc/Hz (assumed) 8 {*} {*} {*} {} MCS{*}"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "pllsim 剖面与 Liu 的 pole-zero 同量级（IPN 差 {ipn_pz - ipn_x10} dB）"}
-    - {doc: cairn/comparison-table.md, text: "| {ipn_x10} dBc | {ici_x10} / −17.7 / −17.8 |"}
+    - {doc: cairn/comparison-table.md, text: "（`survey.clock_profile_wu19_x10`） | {ipn_x10} dBc | {ici_x10} / {fl_x10} / {td_x10} |"}
 
 - name: ex07 what memory fixed in seconds costs in back-off at equal TX EVM after DPD (K = 8 and K = 32)
   values:
@@ -157,7 +163,7 @@
     tx_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (the presets) {*} {*} {*} {*} {*} {*} {} {*}"}
     tx_radar: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz radar chip {*} {*} {*} {*} {*} {*} {} {*}"}
   quotes:
-    - {doc: cairn/topology-b.md, text: "NF 从 3.5 到 6.1 dB，最终回环 EVM 差 {lb_comm - lb_w7} dB；到 12 dB 差 {lb_radar - lb_w7} dB，其中 TX 单独的读数也差 {tx_radar - tx_w7} dB"}
+    - {doc: cairn/topology-b.md, text: "NF 从 3.5 到 6.1 dB，最终回环 EVM 差 {lb_comm - lb_w7} dB；到 12 dB 差 {lb_radar - lb_w7} dB，TX 单独的读数差 {tx_radar - tx_w7} dB"}
     - {doc: ROADMAP.md, text: "K = 8 的回环 EVM {lb_w7} → {lb_comm} dB，NF 取 12 dB 时 {lb_radar} dB"}
 
 - name: ex08 sensitivity at MCS 0, topology B, preset ladder vs the surveyed pick
@@ -168,20 +174,20 @@
     - {doc: ROADMAP.md, text: "拓扑 B 同一换法从 {s_w7} 变 {s_comm} dBm（差 {s_comm - s_w7} dB）"}
     - {doc: cairn/topology-b.md, text: "拓扑 A 的灵敏度不动（−92.5 dBm，差 0.00 dB），拓扑 B 动 {s_comm - s_w7} dB"}
 
-- name: ex09 the 11be 80 MHz K = 4 row with the preset and the surveyed PA (decoder cap rate and pJ/bit)
+- name: ex09 the 11be 80 MHz K = 4 row with the 11ad EM PA (the presets' until 2026-11-12) and the measured one (decoder cap rate and pJ/bit)
   values:
-    r_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=4 @60.48 GHz presets {*} {*} {} {*} {*} pa"}
-    pj_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=4 @60.48 GHz presets {*} {*} {*} {} {*} pa"}
-    pj8_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=8 @60.48 GHz presets {*} {*} {*} {} {*} pa"}
+    r_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=4 @60.48 GHz 11ad EM {*} {*} {} {*} {*} pa"}
+    pj_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=4 @60.48 GHz 11ad EM {*} {*} {*} {} {*} pa"}
+    pj8_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=8 @60.48 GHz 11ad EM {*} {*} {*} {} {*} pa"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "K = 4 从 {pj_p} 降到 483，和 K = 8 的差从 {pj_p - pj8_p} 缩到 11 pJ/bit"}
     - {doc: cairn/LOG.md, text: "K = 4 4 → 5、{r_p} → 1153、{pj_p} → 483"}
 
 - name: ex09 what wifitrx's DPD step buys at 8 dB of back-off on each PA (K = 8)
   values:
-    p0: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {} {*} {*} {*}"}
-    p1: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {*} {} {*} {*}"}
-    s0: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "surveyed 8 {*} {} {*} {*} {*}"}
-    s1: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "surveyed 8 {*} {*} {} {*} {*}"}
+    p0: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "11ad EM 8 {*} {} {*} {*} {*}"}
+    p1: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "11ad EM 8 {*} {*} {} {*} {*}"}
+    s0: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {} {*} {*} {*}"}
+    s1: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {*} {} {*} {*}"}
   quotes:
-    - {doc: ROADMAP.md, text: "拿回 {p0 - p1} dB（{p0} → {p1}），对测量形状拿回 {s0 - s1} dB（{s0} → {s1}）"}
+    - {doc: ROADMAP.md, text: "拿回 {p0 - p1} dB（{p0} → {p1}），对测量形状（现在的预设）拿回 {s0 - s1} dB（{s0} → {s1}）"}

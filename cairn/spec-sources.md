@@ -49,6 +49,9 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - `rx60.comm_asada2011` 补了发射侧（变频增益 16 dB、P1dB 5.4、Psat 6.5 dBm）：那是收发机的发射输出，没有单独 PA 级。
 - `derived.pa60_rapp_p_asada_eumc2011` = 1.286：使 Rapp 的 Psat − P1dB 等于 4.6 dB 的平滑度，`tests/test_pa60.py` 复算。`assumed.pa60_surveyed_pick` 说基准档取哪一篇。
 - 没出处的：AM/PM（三篇都不给，仍用 11ad 的）。`assumed.pa60_psat_dbm` / `assumed.pa60_pae_max` 的备注里加了与测量值的对照。
+- 2026-11-12 起拓扑 A / B 的预设（`zero_if_60ghz`，以及建在它上面的 `if_extender_60ghz` / `wifi7_chain_k1`）取 `assumed.pa60_surveyed_pick`：Psat 14.6 dBm、增益 23.2 dB、峰值 PAE 16.3 %、p = 1.286，回退仍从 Psat 8 dB（Pout 6.6 dBm）。
+  `assumed.pa60_psat_dbm` / `assumed.pa60_gain_db` / `assumed.pa60_pae_max` 现在只由 `config.tgad_em_pa` 读（旧的 11ad EM PA，作灵敏度行）。Liu 的预设 `liu2025_table2` 不变，仍是 11ad EM 的 Rapp。
+  （之前预设用的就是这三条 assumed 加 `tgad_em.pa_rapp_p` 的 0.81。）
 
 ## 被下游消费的条目（改之前先看这里）
 
@@ -84,14 +87,14 @@ fmcw_radar 从 0.2.8 起（它的 main@`7685bb3`，fmcw_radar#11）vendor 本库
 
 拓扑 A（A1）的一组：IF 6.48 GHz、固定 LO ×3、IF 带通（Chebyshev-I 5 阶 0.5 dB、通带 1.2 GHz）、镜像抑制 30 dB、芯片 seed 5 与 4 倍过采样、MLO 的 sub-7 链路 5.5 GHz / 20 dB、同源晶振；每条在示例 06 §7 有灵敏度行（`cairn/topology-a.md` §9）。
 
-A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 峰值 PAE 20 %（B 类回退规律）、60 GHz / sub-7 频综 40 / 20 mW、数字字宽 16 bit、理想 ×N 的 20·log10 搬移；每条在示例 04 §6 的灵敏度表里有两端的数（`cairn/comparison-table.md` §5）。
+A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 的 B 类回退规律（峰值 PAE 2026-11-12 起取测量的 16.3 %，经 `assumed.pa60_surveyed_pick`；之前是 `assumed.pa60_pae_max` 的 20 %，现在只由 `config.tgad_em_pa` 读）、60 GHz / sub-7 频综 40 / 20 mW、数字字宽 16 bit、理想 ×N 的 20·log10 搬移；每条在示例 04 §6 的灵敏度表里有两端的数（`cairn/comparison-table.md` §5）。
 
 前端三个面的一组（示例 08）：`assumed.rx60_ladder_shape`（原文只给高 / 低两档增益与一个 NF、一个 IIP3，八档梯子是 wifitrx 的整体平移，换档电平按 wifitrx 的平衡点规则）、`assumed.rx60_p1db_from_iip3_db`（9.6 dB）、`assumed.frontend_faces_pick`（基准档各取哪个数：接收机与天线取同一颗通信收发机，隔离取减出来的下端 20 dB）。预设不用这一档；示例 08 每张表都是灵敏度行。
 
 ## 本库自己量的（derived）
 
 - `data/spec/per_thresholds.yaml`：各 MCS 的 ideal PER 门限（`tools/measure_thresholds.py`）。不是规范数，是这份代码的接收机的性质（C1–C3 后是改进的那一档，比里程碑 0 的接收机低 0.1–2.8 dB）；`tests/test_thresholds.py` 复量一个点守着它不与代码漂开。
-- `derived.irr_after_cal_measured_db`：示例 03 实测的校准后 IRR。
+- `derived.irr_after_cal_measured_db`：示例 03 实测的校准后 IRR，同台表的 IQcal 列读它。2026-11-12 按换成测量的 PA 后的示例 03 重导：20 / 80 / 160 / 320 / 640 / 2560 MHz 为 56.3 / 56.8 / 52.9 / 50.9 / 47.6 / 38.5 dB（之前 55.3 / 55.2 / 50.4 / 51.1 / 46.5 / 37.9）。
 
 ## 要原文才能关掉的问题
 

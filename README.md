@@ -41,7 +41,7 @@ PA 的记忆是随信号缩放还是按秒固定，代价差多少；DPD 基函�
 python examples/07_pa_memory_dpd.py                       # 全量约 5 分钟（默认最多 4 个进程，--jobs 可改）；--quick 冒烟
 ```
 
-结论见 `cairn/topology-b.md` §3b：代价按回退读。达到同样的 DPD 后 EVM，记忆按秒固定（12.5 ns）的 PA 要多退 0.5–2.3 dB；预设的 8 dB 回退正好在 DPD 的崖上，在这一个点上读到的 EVM 差（最多 6 dB）不是代价。
+结论见 `cairn/topology-b.md` §3b：代价按回退读。达到同样的 DPD 后 EVM，记忆按秒固定（12.5 ns）的 PA 要多退 0.2–2.3 dB；预设的 8 dB 回退正好在 DPD 的崖上，在这一个点上读到的 EVM 差（最多 6 dB）不是代价。
 
 ## 前端的三个面：接收前端、收发隔离、天线增益（示例 08）
 
@@ -52,17 +52,19 @@ python examples/07_pa_memory_dpd.py                       # 全量约 5 分钟�
 python examples/08_frontend_faces.py                      # 全量约 15 秒；--quick 冒烟
 ```
 
-**出处**：基准档的接收机与天线取同一颗 60 GHz 通信收发机，读过论文原文；隔离取自一篇论文的摘要。另有三条只读到搜索摘要，示例里逐行标着 `[survey, unverified]`，只作灵敏度档。结论见 `cairn/topology-b.md` §5：接收 NF 动的是灵敏度（1 dB 对 1 dB）和校准表，不动 SNR 轴上的链路 EVM；隔离 20 dB 时发射泄漏比通信接收前端的**带内**压缩点高 16.6 dB（全双工的读法；时分双工链路看不到）。雷达的泄漏碰到的是带外压缩点，通信文献没有给，这一格是“未指定”。
+**出处**：基准档的接收机与天线取同一颗 60 GHz 通信收发机，读过论文原文；隔离取自一篇论文的摘要。另有三条只读到搜索摘要，示例里逐行标着 `[survey, unverified]`，只作灵敏度档。结论见 `cairn/topology-b.md` §5：接收 NF 动的是灵敏度（1 dB 对 1 dB）和校准表，不动 SNR 轴上的链路 EVM；隔离 20 dB 时发射泄漏比通信接收前端的**带内**压缩点高 16.2 dB（全双工的读法；时分双工链路看不到）。雷达的泄漏碰到的是带外压缩点，通信文献没有给，这一格是“未指定”。
 
-## 60 GHz PA 对照原文（示例 09）
+## 60 GHz PA：预设用测量的 PA（示例 09）
 
-预设的 PA 是 11ad 评估方法学的 Rapp（Liu 2025 用的），按假设的 Psat 15 dBm 定标，从 Psat 回退 8 dB。示例 09 把它放在三篇读过原文的 60 GHz CMOS PA 旁边：Psat 在测量范围里，形状不在（P1dB 在 Psat 下 9.5 dB，测量中位 3.3 dB）。`config.surveyed_pa(cfg)` 换成其中一颗（Psat 14.6 dBm、增益 23.2 dB、P1dB 10.0 dBm、峰值 PAE 16.3 %）；预设不动。
+拓扑 A / B 的预设（`zero_if_60ghz` 及建在它上面的）从 2026-11-12 起用一颗读过原文的 60 GHz CMOS PA：Psat 14.6 dBm、增益 23.2 dB、P1dB 10.0 dBm、峰值 PAE 16.3 %，Rapp 的平滑度由它的 Psat − P1dB（4.6 dB）算出。回退仍是 Liu 的从 Psat 8 dB；AM/PM 仍是 11ad 的（三篇原文都没给）。Liu 的预设 `liu2025_table2`（示例 00 / 01）不变。`config.tgad_em_pa(cfg)` 把换之前的 PA（11ad 评估方法学的形状，假设的 Psat 15 dBm、增益 20 dB）放回去。
+
+换的理由在示例 09：旧 PA 的 Psat 在测量范围里，形状不在（P1dB 在 Psat 下 9.5 dB，测量中位 3.3 dB），回退 8 dB 时已在 P1dB 之上。
 
 ```bash
-python examples/09_pa_against_the_literature.py           # 全量约 30 秒；--quick 冒烟
+python examples/09_pa_against_the_literature.py           # 全量约 2 分钟；--quick 冒烟
 ```
 
-结论见 `cairn/comparison-table.md` §8：换成测量的 PA，同台表里 K ≤ 4 与拓扑 A 的行升一到两档 MCS，K ≥ 8 的行不动（受 IQ 镜像限）；预设回退上 DPD 拿不回东西是 11ad 形状的缘故。
+结论见 `cairn/comparison-table.md` §8：同台表里 K ≤ 4 与拓扑 A 的行升一到两档 MCS，K ≥ 8 的行不动（受 IQ 镜像限）；DPD 在预设回退上拿回 1–3 dB（旧 PA 几乎拿不回）。示例 03 / 08 的校准跑在 wifitrx 的默认驱动上，换 PA 后那个驱动离压缩近了 3.8 dB，所以它们的校准读数变差，不是 PA 变差（ROADMAP C8）。回退该从哪里算、取多少还没定（ROADMAP C10）。
 
 ## 里程碑 1 · A1：拓扑 A，IF 延伸（示例 06）
 

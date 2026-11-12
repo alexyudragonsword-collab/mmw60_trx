@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### 拓扑 A / B 的预设换成测量的 60 GHz PA（2026-11-12）—— **numbers-move**（示例 02–09）
+- `zero_if_60ghz`（以及建在它上面的 `if_extender_60ghz`、`wifi7_chain_k1`）的 PA 换成 `assumed.pa60_surveyed_pick`：Psat 14.6 dBm、增益 23.2 dB、峰值 PAE 16.3 %、Rapp 平滑度 1.286（P1dB 在 Psat 下 4.6 dB）。回退不变（Liu 的从 Psat 8 dB，平均输出 6.6 dBm）；AM/PM 仍是 11ad 的。`liu2025_table2`（示例 00 / 01、数值指纹的两份配置）不换，**指纹逐位不变**。
+- 新增 `config.tgad_em_pa(cfg)`：把换之前的 PA（11ad 形状、假设的 15 dBm / 20 dB / 20 %）放回去，作灵敏度行；示例 09 改成“11ad EM 对预设”。
+- `derived.irr_after_cal_measured_db` 按新的示例 03 重新导出（56.3 / 56.8 / 52.9 / 50.9 / 47.6 / 38.5 dB）。
+- 示例 07 里描述预设 PA 的那句改成按前端实际的 P1dB 打印；`pamemory` 的模块说明同步。
+- 测试里写死旧 PA 数字的几处改成读规范条目或新值（`test_compare`、`test_frontend`、`test_thresholds`、`test_pa60`），守的东西不变。
+- **动了什么**（详见 `cairn/LOG.md`）：同台表 ≤ 320 MHz 的行从 PA 限 MCS2 变成 PA 限 MCS3，640 MHz 的行改由 IQ 镜像限；解码器上限 K = 4 MCS4 → 5、拓扑 A（320 MHz）MCS4 → 6，K ≥ 8 不动。示例 03 / 08 的校准读数变差，原因是它们跑在 wifitrx 的默认驱动上，换 PA 后那个驱动离压缩近了 3.8 dB（ROADMAP C8）。
+
 ### 60 GHz PA 对照原文：`config.surveyed_pa`、示例 09（2026-11-12）
 - 读了三篇 60 GHz CMOS PA 的原文（东工大 65 nm，作者实验室站点）。规范条目 +6：`pa60.asada_eumc2011`、`pa60.wu_asscc2012`、`pa60.ning_elex2011`、`pa60.eumc2011_table1`（spec，带引文）、`derived.pa60_rapp_p_asada_eumc2011`、`assumed.pa60_surveyed_pick`；`rx60.comm_asada2011` 补了发射侧三个数。未核实条目数不变（51）。
 - **配置 schema 增加字段** `frontend.pa.rapp_p`（Rapp 平滑度，None = 11ad 的 0.81）。`Frontend60` 与 behavioural 路径都读它。`config.surveyed_pa(cfg)`：Psat / 增益 / 峰值 PAE 取一颗测量的 PA，平滑度由它的 Psat − P1dB 算出；回退与参考点不动。
