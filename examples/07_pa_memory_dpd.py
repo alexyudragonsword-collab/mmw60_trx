@@ -102,8 +102,11 @@ def main(argv=None) -> int:
           "sequence rerun until it does)")
     print("EVM columns in dB: 'dpd step' is the DPD step's own PA-output reading, 'TX EVM' and 'loopback' are the last "
           "step's, as a standard receiver reads them; OBO is the back-off that check landed on")
-    print("the Rapp rows: this PA's P1dB is 9.5 dB under Psat, so at the preset back-off the average sits above P1dB and "
-          "wifitrx's DPD step has little headroom: compare its off / x1 rows")
+    rapp = fe.scaled_pa()
+    print(f"the Rapp rows: the preset PA (a measured 60 GHz CMOS PA's scale and compression, data/spec "
+          f"assumed.pa60_surveyed_pick) has its P1dB {rapp.psat_dbm - rapp.p1db_out_dbm:.1f} dB under Psat, so at the "
+          f"preset back-off the average sits {rapp.p1db_out_dbm - fe.target_pout_dbm():.1f} dB under P1dB: compare its "
+          "off / x1 rows")
     print(f"{len(set(keys))} runs of the calibration sequence  [{time.time() - t0:.0f}s]")
 
     summary = []

@@ -1,14 +1,17 @@
 """Example 09 — the 60 GHz PA against measured 60 GHz CMOS PAs.
 
-The presets' PA is the 11ad evaluation methodology's modified Rapp (Liu 2025
-used it) scaled to an assumed 15 dBm Psat and 20 dB gain, backed off 8 dB
-from Psat.  None of those three numbers had a source.  Three 60 GHz CMOS PA
-papers were read in the original (data/spec: pa60.*); ``config.surveyed_pa``
-puts one of them in the presets' place.  The presets do not change.
+Until 2026-11-12 the topology A / B presets' PA was the 11ad evaluation
+methodology's modified Rapp (Liu 2025 used it) scaled to an assumed 15 dBm
+Psat and 20 dB gain, backed off 8 dB from Psat; none of those numbers had a
+source.  Three 60 GHz CMOS PA papers were read in the original (data/spec:
+pa60.*) and the presets now carry one of them (``config.surveyed_pa``); the
+back-off is still Liu's, from Psat.  ``config.tgad_em_pa`` puts the old PA
+back: this example is the side-by-side that motivated the switch.  Liu's
+own preset (examples 00 / 01) keeps the 11ad shape.
 
 What the tables answer:
 
-1. the measured PAs, and where the presets' PA sits among them — its Psat is
+1. the measured PAs, and where the 11ad EM PA sits among them — its Psat is
    in range, its shape is not: P1dB 9.5 dB below Psat against a measured
    median of 3.3 dB;
 2. what the shape does to the PA alone against the back-off, read from Psat
@@ -39,7 +42,7 @@ sys.path.insert(0, str(HERE.parent / "src"))
 from mmw60 import ENGINE_BANNER, __version__, compare, spec                   # noqa: E402
 from mmw60.calcheck import run_cal_at                                         # noqa: E402
 from mmw60.compare import Scheme                                              # noqa: E402
-from mmw60.config import surveyed_pa, zero_if_60ghz                           # noqa: E402
+from mmw60.config import tgad_em_pa, zero_if_60ghz                           # noqa: E402
 from mmw60.frontend import Frontend60                                         # noqa: E402
 from mmw60.frontend.grid import pa_isolated_evm_db                            # noqa: E402
 from mmw60.pa.rapp import ModifiedRappPA                                       # noqa: E402
@@ -78,8 +81,8 @@ def measured_rows():
 def dpd_cell(args):
     which, obo, dpd = args
     cfg = zero_if_60ghz(k=K_DPD)
-    if which == "surveyed":
-        cfg = surveyed_pa(cfg)
+    if which == "11ad EM":
+        cfg = tgad_em_pa(cfg)
     r = run_cal_at(Frontend60.from_config(cfg), K_DPD, BASE_DPD, standard="11ac", with_dpd=dpd, obo_db=obo)
     return which, obo, dpd, r.pout_dbm, r.final_views["tx_evm_modem_db"], r.final_views["evm_modem_db"]
 
@@ -101,8 +104,8 @@ def main(argv=None) -> int:
     quick = a.quick or os.environ.get("MMW60_SMOKE") == "1"
     t0 = time.time()
     preset = zero_if_60ghz(k=K_DPD)
-    fe_p = Frontend60.from_config(preset)
-    fe_s = Frontend60.from_config(surveyed_pa(preset))
+    fe_p = Frontend60.from_config(tgad_em_pa(preset))
+    fe_s = Frontend60.from_config(preset)
     pa_p, pa_s = fe_p.scaled_pa(), fe_s.scaled_pa()
     print(f"mmw60 {__version__}; {'QUICK' if quick else 'full'}; back-off {fe_p.obo_db:g} dB from "
           f"{fe_p.obo_reference} (the config's, both PAs)")
@@ -110,7 +113,7 @@ def main(argv=None) -> int:
           "only; [assumed] = this library's choice; [derived] = computed from entries")
 
     # ---------------------------------------------------------------- 1
-    print("\n== 1. measured 60 GHz CMOS PAs, and the presets' PA among them ==")
+    print("\n== 1. measured 60 GHz CMOS PAs, and the 11ad EM PA (the presets' until 2026-11-12) among them ==")
     print(f"{'PA':<40} {'Psat':>6} {'P1dB':>6} {'gap':>5} {'gain':>6} {'PAE pk':>7}   figure from")
     for name, psat, p1, g, pae, src in measured_rows():
         print(f"{name:<40} {psat:6.1f} {p1:6.1f} {gap_db(psat, p1):5.1f} {'—' if g is None else f'{g:.1f}':>6} "
@@ -122,13 +125,13 @@ def main(argv=None) -> int:
         vals = np.array([r["psat_dbm"] - r["p1db_dbm"] if key is None else r[key] for r in rows], dtype=float)
         print(f"{'  ' + str(len(rows)) + ' PAs compiled, ' + name:<40} min {vals.min():5.1f}  median "
               f"{np.median(vals):5.1f}  max {vals.max():5.1f}   {tag('pa60.eumc2011_table1')} (secondary)")
-    print(f"{'presets: 11ad EM Rapp, assumed scale':<40} {pa_p.psat_dbm:6.1f} {pa_p.p1db_out_dbm:6.1f} "
+    print(f"{'11ad EM Rapp, assumed scale':<40} {pa_p.psat_dbm:6.1f} {pa_p.p1db_out_dbm:6.1f} "
           f"{gap_db(pa_p.psat_dbm, pa_p.p1db_out_dbm):5.1f} {pa_p.gain_db:6.1f} {100 * pa_p.pae_max:7.1f}   "
           f"{tag('tgad_em.pa_rapp_p')}, {tag('assumed.pa60_psat_dbm')}")
-    print(f"{'surveyed: config.surveyed_pa':<40} {pa_s.psat_dbm:6.1f} {pa_s.p1db_out_dbm:6.1f} "
+    print(f"{'presets (measured PA)':<40} {pa_s.psat_dbm:6.1f} {pa_s.p1db_out_dbm:6.1f} "
           f"{gap_db(pa_s.psat_dbm, pa_s.p1db_out_dbm):5.1f} {pa_s.gain_db:6.1f} {100 * pa_s.pae_max:7.1f}   "
           f"{tag('assumed.pa60_surveyed_pick')}, Rapp p {fe_s.pa_model.p:g} = {tag('derived.pa60_rapp_p_asada_eumc2011')}")
-    print("(dBm, dBm, dB = Psat − P1dB, dB, %.  The presets' Psat is inside the measured range; their P1dB is "
+    print("(dBm, dBm, dB = Psat − P1dB, dB, %.  The 11ad EM PA's Psat is inside the measured range; its P1dB is "
           f"{gap_db(pa_p.psat_dbm, pa_p.p1db_out_dbm):.1f} dB below it, against a measured median of "
           f"{np.median([r['psat_dbm'] - r['p1db_dbm'] for r in rows]):.1f} dB: the 11ad EM shape compresses far more "
           "gradually than these PAs.  The AM/PM is the 11ad EM one in both rows: none of the papers gives it)")
@@ -137,8 +140,8 @@ def main(argv=None) -> int:
     print("\n== 2. the PA alone against the back-off (EVM after the equaliser's complex gain, dB) ==")
     med_gap = float(np.median([r["psat_dbm"] - r["p1db_dbm"] for r in rows]))
     p_median = brentq(lambda p: 10 * np.log10(ModifiedRappPA(p=p).p_sat / ModifiedRappPA(p=p).p1db) - med_gap, 0.3, 20)
-    shapes = (("presets (p %.2f)" % fe_p.pa_model.p, fe_p.pa_model),
-              ("surveyed (p %.3f)" % fe_s.pa_model.p, fe_s.pa_model),
+    shapes = (("11ad EM (p %.2f)" % fe_p.pa_model.p, fe_p.pa_model),
+              ("presets (p %.3f)" % fe_s.pa_model.p, fe_s.pa_model),
               ("compiled median gap (p %.2f)" % p_median, ModifiedRappPA(p=p_median)))
     print(f"{'back-off from Psat':<30}" + "".join(f"{o:>7.0f}" for o in BACKOFFS) + "   (dB)")
     for name, m in shapes:
@@ -146,8 +149,8 @@ def main(argv=None) -> int:
     print(f"{'back-off from P1dB':<30}" + "".join(f"{o:>7.0f}" for o in BACKOFFS))
     for name, m in shapes:
         print(f"{name:<30}" + "".join(f"{pa_isolated_evm_db(m, o, 'p1db'):7.1f}" for o in BACKOFFS))
-    print(f"(at the presets' back-off, {fe_p.obo_db:g} dB from Psat, the presets' PA runs "
-          f"{pa_p.p1db_out_dbm - fe_p.target_pout_dbm():+.1f} dB from its P1dB, the surveyed one "
+    print(f"(at the presets' back-off, {fe_p.obo_db:g} dB from Psat, the 11ad EM PA runs "
+          f"{pa_p.p1db_out_dbm - fe_p.target_pout_dbm():+.1f} dB from its P1dB, the presets' "
           f"{pa_s.p1db_out_dbm - fe_s.target_pout_dbm():+.1f} dB; the medium-gap row is a sensitivity only)")
 
     # ---------------------------------------------------------------- 3
@@ -168,11 +171,11 @@ def main(argv=None) -> int:
     print(f"\n== 4. wifitrx's DPD step on each PA (K = {K_DPD}, 11ac {BASE_DPD / 1e6:g} MHz base; the calibration "
           "sequence run at each back-off from Psat) ==")
     obos = DPD_BACKOFFS[1:2] if quick else DPD_BACKOFFS
-    jobs = [(w, o, d) for w in ("presets", "surveyed") for o in obos for d in (False, True)]
+    jobs = [(w, o, d) for w in ("11ad EM", "presets") for o in obos for d in (False, True)]
     with ProcessPoolExecutor(max(1, a.jobs)) as ex:
         res = {(w, o, d): (p, tx, lb) for w, o, d, p, tx, lb in ex.map(dpd_cell, jobs)}
     print(f"{'PA':<10} {'back-off':>9} {'Pout':>6} {'TX no DPD':>10} {'TX DPD':>8} {'gain':>6} {'loopback':>9}")
-    for w in ("presets", "surveyed"):
+    for w in ("11ad EM", "presets"):
         for o in obos:
             p, tx0, _ = res[(w, o, False)]
             _, tx1, lb1 = res[(w, o, True)]
@@ -182,21 +185,21 @@ def main(argv=None) -> int:
 
     # ---------------------------------------------------------------- 5
     print("\n== 5. the comparison table's 11be 80 MHz rows with each PA (decoder cap, uncalibrated IQ) ==")
-    reps = {"presets": table_rows(lambda c: c, quick), "surveyed": table_rows(surveyed_pa, quick)}
+    reps = {"11ad EM": table_rows(tgad_em_pa, quick), "presets": table_rows(lambda c: c, quick)}
     print(f"{'row':<46} {'PA':<9} {'floor':>6} {'MCS':>4} {'rate':>7} {'pJ/bit':>7} {'EIRP':>6}   limited by")
-    labels = [r.label for r in reps["presets"]["_rows"]]
+    labels = [r.label for r in reps["11ad EM"]["_rows"]]
     for i, lab in enumerate(labels):
-        for w in ("presets", "surveyed"):
+        for w in ("11ad EM", "presets"):
             r = reps[w]["_rows"][i]
             pj = (r.power_dec or {}).get("pj_per_bit")
             eirp = None if r.eirp is None else r.eirp["margin_avg_db"]
-            print(f"{lab if w == 'presets' else '':<46} {w:<9} {r.dec_floor_db if r.dec_floor_db is not None else r.floor_db:6.1f} "
+            print(f"{lab if w == '11ad EM' else '':<46} {w:<9} {r.dec_floor_db if r.dec_floor_db is not None else r.floor_db:6.1f} "
                   f"{'—' if r.dec_mcs is None else r.dec_mcs:>4} "
                   f"{'—' if r.dec_rate_mbps is None else f'{r.dec_rate_mbps:.0f}':>7} "
                   f"{'—' if pj is None else f'{pj:.0f}':>7} {'—' if eirp is None else f'{eirp:.1f}':>6}   {r.dominant}")
     print("(floor dB (the decoder's: analytic, or the time-domain EVM when that reads worse), MCS at the decoder cap, "
           "Mb/s, pJ/bit at that rate, average EIRP margin dB.  The PA-isolated EVM at the presets' back-off: "
-          f"presets {reps['presets']['pa_isolated_evm_db']:.1f} dB, surveyed {reps['surveyed']['pa_isolated_evm_db']:.1f} dB)")
+          f"11ad EM {reps['11ad EM']['pa_isolated_evm_db']:.1f} dB, presets {reps['presets']['pa_isolated_evm_db']:.1f} dB)")
     print(f"\n[{time.time() - t0:.0f}s]")
     return 0
 

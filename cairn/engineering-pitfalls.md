@@ -5,7 +5,7 @@ summary: "开工前先读：vendored wifitrx 在 K ≠ 1 下会断在哪里、�
 tags: [mmw60, pitfalls, wifitrx, receiver]
 contains: [pitfall, lesson, finding]
 created: "2026-11-06"
-updated: "2026-11-11"
+updated: "2026-11-12"
 related: [architecture-invariants.md, upclocking.md, external-validation.md]
 authoring_mode: ai_generated
 ---
@@ -22,14 +22,16 @@ authoring_mode: ai_generated
 - **`run_full_cal` 在 K ≠ 1 直接失败**（第一步 `generate_ofdm_with_pilots`），另有绝对频偏探针（4.8 / 5.1 MHz、11 / 17 / 23 MHz）、固定样本窗（`max_lag = 32`）、320 MHz 调的阈值。里程碑 1 的校准表要逐项记这些。
 - **更正（2026-11-11，wifitrx@96078aa）**：上面两条“导频表只认标准带宽”“`run_full_cal` 在 K ≠ 1 直接失败”对带导频的显式音计划已不成立：`TonePlan(..., pilots=)` / `contiguous(n, pilots=…)` 的导频跟着音计划走，
   `pilot_positions` 不再查表，任何 SCS 都能生成评分波形。本库的用法是 `calcheck.upclocked_scoring_config`（基准的音与导频 × K）。不带导频的音计划在非标准 SCS 上仍然 ValueError。
-- **校准采集按符号数给，样本数随基准 FFT 点数变**：8 个符号在 11ac 20 MHz 基准上只有 1280 个样本，K = 32 时 GMP 拟合不够，DPD 之后比不开还差 3.5 dB（`topology-b.md` §3，`assumed.cal_capture_symbols`）。换基准或换 K 后先看采集了多少样本。
+- **校准采集按符号数给，样本数随基准 FFT 点数变**：8 个符号在 11ac 20 MHz 基准上只有 1280 个样本，K = 32 时 GMP 拟合不够，DPD 一轮都不写入；采 32 个符号，仅发 EVM 好 3.3 dB（−20.8 → −24.1 dB，示例 03；`topology-b.md` §3，`assumed.cal_capture_symbols`）。（这里原先写“DPD 之后比不开还差 3.5 dB”，那是 wifitrx ≤ 0.7.38 无条件写入最后一轮时的数，见下下条。）换基准或换 K 后先看采集了多少样本。
 - **wifitrx ≤ 0.7.39 的 `ScaledPA` 在幅度斜坡上找小信号增益**：`ReferencePA(fs=, fir_fs=)` 的抽头隔 ≥ 2 个样本时它只读到主抽头（g0 = 1.0000，逐样本时 1.2295），同一颗 PA 的小信号增益被定高 1.80 dB；Psat 的锚不受影响。
   本库报告后对方在 0.7.40 修掉（B41：带记忆的模型逐电平读稳态，四种抽头间隔的 g0 都是 1.2301），`pamemory.memory_pa` 里的绕法已去掉。留着这条是因为它说明了一件事：两个模型的静态曲线相同不等于它们过同一个定标器得到同一个结果，要量。
 - **wifitrx ≤ 0.7.38 的 DPD 步无条件写入最后一轮**：软压缩的 PA、采集太短、PA 记忆够不着时第 2 轮会比第 1 轮甚至比不加还差，旧版照写。0.7.39 起留观测通路上最好的一轮（B40）。
   旧数字里凡是“开了 DPD 反而更差”的格（示例 03 的 640 MHz 列、示例 06 的 60 GHz 观测整套序列、示例 07 的若干格）都是这个行为，不是器件的结论；本库据此下过一个错的推广（`topology-b.md` 被推翻的判断 7）。
-- **wifitrx 默认驱动（`final_drive_scale` 0.12）在本库前端上落在回退 10.4–10.7 dB，不是预设的 8 dB**；不同的 PA 模型在同一驱动下还差约 1 dB。要在指定回退上读 DPD / 最终 EVM 用 `run_cal_at(obo_db=…)`（整套序列重跑到落点对上）。
+- **wifitrx 默认驱动（`final_drive_scale` 0.12）不在预设的 8 dB 回退上，而且落点跟着 PA 的增益走**：驱动定的是输入电平。预设换成测量的 PA（增益 23.2 dB，多 3.2 dB）后，它落在离 Psat 6.92 dB（Pout 7.68 dBm，P1dB 之下 2.3 dB）；换之前 11ad EM 的 Rapp（增益 20 dB）上是 10.4–10.7 dB（示例 03 / 08 是 10.73 dB，Pout 4.27 dBm）。不同的 PA 模型在同一驱动下还差约 1 dB。
+  于是示例 03 / 08 的校准读数换 PA 后变差了（K = 8 回环 / 仅发 / 仅收 −29.0 / −26.7 / −27.5 → −21.0 / −20.4 / −27.5 dB，DPD 步各列 degraded），但那是工作点从远离压缩挪到了贴近压缩，不是 PA 变差：在同一回退 8 dB 上重跑整套序列，新 PA 仅发 EVM 不开 / 开 DPD −22.2 / −24.2 dB，旧的 −18.8 / −19.6 dB（示例 09 §4）。
+  ROADMAP C8 原先担心的是“回退多了 2.5 dB、读数偏乐观”，换 PA 后反过来偏悲观（`topology-b.md` 被推翻的判断 9）。要在指定回退上读 DPD / 最终 EVM 用 `run_cal_at(obo_db=…)`（整套序列重跑到落点对上）；换 PA 或改增益后，先看默认驱动落在哪。
 - **DPD 抽头间隔不能直接取 fs_eff / fir_fs，也不能默认 1**：要在自己的链路上、自己的回退上量（`pamemory.candidate_spacings`，`topology-b.md` §3b）。对方在 wifi_trx_cal#5 给的经验法则：PA 抽头间距远大于发射基带低通的记忆时取匹配间隔，两者相当时间隔 1 可能更好。本库 K = 8 上哪个好还随回退变（8.5 dB 以下逐样本，9 dB 以上匹配）；对方的链路上没有这个交叉，匹配间隔处处好，所以这条也是链路相关的。`run_cal_at` 记下的 `dpd_tap_spacing` 是 DPD 步自己写进 `estimated` 的值，不是传进去的值。
-- **不要在 DPD 的崖上比两颗 PA**：DPD 的收益在 PA 接近饱和时断崖式消失（参考 PA 上回退 7.0 → 7.5 dB 之间 EVM 差 4.4 dB），预设的 8 dB 回退就在崖边。两颗 PA 的崖只要错开 1–2 dB，单点上就读出 4–6 dB 的 EVM 差。
+- **不要在 DPD 的崖上比两颗 PA**：DPD 的收益在 PA 接近饱和时断崖式消失（参考 PA 上回退 7.0 → 7.5 dB 之间 EVM 差 4.2 dB），预设的 8 dB 回退就在崖边。两颗 PA 的崖只要错开 1–2 dB，单点上就读出 4–6 dB 的 EVM 差。
   示例 07 因此连着下了两个错结论（`topology-b.md` 被推翻的判断 7、8）。做法：先扫回退看曲线，再在同一个 EVM 上比各自要退多少（`pamemory.backoff_penalty`）。
 - **`TDLChannel.k_db` 只让第一个 tap 变 Rician**，尾部功率不变；要 LOS 占优（抑制 GI 之外的 ISI）用本库 `channel.ExponentialTdl(los_k_db=…)`。
 - `EvmBudget` 默认 `t_fft_s = 12.8e-6`：用时必须传 `1/SCS_eff`。
@@ -78,15 +80,17 @@ authoring_mode: ai_generated
   相噪项读低 3.0 dB，当时还给它找了个物理解释（“不含 100 MHz 以上的底板”）。**一个恒定的 3.0 dB 差先查因子 2，再找物理。**
 - **`BoundedDPD` 不能 `copy.deepcopy`**：它的 `__getattr__` 把未知属性转给 `self.model`，deepcopy 重建对象时 `model` 还没设，无限递归。预失真器是拟合好的无状态可调用对象，复制链时共享它。
 - **`tx_power` 步的目标功率是在 wifitrx 自己的参考驱动（0.25 rms）上定义的**：链路跑在 0.15，差 4.4 dB。配置里的 `chip_pout_dbm` 指链路驱动下的输出，建链时换算。这颗芯片的增益码到 18.9 dBm 封顶。
-- **整套校准不能照搬到 60 GHz 观测回环**：第二级 PA（OBO 8 dB）在观测通路里，IQ 校准把它的失真当镜像修（IRR 55.7 → 37.8 dB），DPD 的 ILA 发散后 wifitrx 照样把它写进链里（芯片输出 EVM −9.6 dB）。
+- **整套校准不能照搬到 60 GHz 观测回环**：第二级 PA（OBO 8 dB）在观测通路里，IQ 校准把它的失真当镜像修（IRR 55.7 → 37.8 dB，当时的 11ad EM Rapp；2026-11-12 换成测量的 PA 后示例 06 是 55.67 → 48.35 dB），DPD 的 ILA 发散后 wifitrx 照样把它写进链里（芯片输出 EVM −9.6 dB）。
   只把 DPD 一步放到 60 GHz 观测上，并且与已有的预失真器在同一观测通路上比过再决定写不写。
-- **“这颗 PA 做不了 DPD”之前先扫迭代次数**：wifitrx 的 `calibrate_dpd` 默认迭代 2 次，在软压缩的 Rapp 上靠近饱和时第二次迭代把第一次的成果丢掉（8 dB 回退：1 / 2 / 3 次 −20.7 / −14.1 / +3.6 dB）。第一版只跑默认值，把发散归给了 PA。算法有旋钮时，结论要在旋钮的两端都成立才算 PA 的性质。比较候选时要放回同一输出功率：预失真把增益补回来，输出功率会变。
+- **“这颗 PA 做不了 DPD”之前先扫迭代次数**：wifitrx 的 `calibrate_dpd` 默认迭代 2 次，在软压缩的 Rapp 上靠近饱和时第二次迭代把第一次的成果丢掉（8 dB 回退：1 / 2 / 3 次 −20.7 / −14.1 / +3.6 dB，11ad EM 的 Rapp 上量的，2026-11-12 换 PA 之前）。第一版只跑默认值，把发散归给了 PA。算法有旋钮时，结论要在旋钮的两端都成立才算 PA 的性质。比较候选时要放回同一输出功率：预失真把增益补回来，输出功率会变。
 - **`ideal()` 改的是配置，芯片在缓存里**：拓扑 A 的理想链靠 `ifext.chip = "frontend"`（共享前端自己的 1× 链），不是把校准过的 wifitrx 芯片“关掉损伤”。铁律 2 的理想对比还要在同一过采样倍数上比（芯片 4 倍、拓扑 B 2 倍，LPF 群时延的份额不同：−43.0 对 −39.9 dB）。
-- **拓扑 A 的 K = 1 @60.48 GHz 行与拓扑 B 的 K = 1 行硬件上看起来一样，差别全在 CFO**：B 的 K = 1 失锁（+13 dB），A 靠 MLO 预补偿（−18.2 dB）。
+- **拓扑 A 的 K = 1 @60.48 GHz 行与拓扑 B 的 K = 1 行硬件上看起来一样，差别全在 CFO**：B 的 K = 1 失锁（+13 dB），A 靠 MLO 预补偿（示例 06 −21.04 dB；2026-11-12 换成测量的 PA 之前 −18.2 dB）。
 
 ## 文献对不上时的几个"口径"而非"参数"
 
-- **OBO 参考点**：11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB；"OBO 8 dB" 相对 Psat 是平均功率在 P1dB 之上 1.5 dB（孤立 EVM −17 dB），相对 P1dB 则是 −26 dB 量级。两种都跑，哪种是原文的意思写进 external-validation。
+- **OBO 参考点**：11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB；"OBO 8 dB" 相对 Psat 是平均功率在 P1dB 之上 1.5 dB（孤立 EVM −18.1 dB，示例 09 §2），从 P1dB 回退 8 dB 是 −32.9 dB。两种都跑，哪种是原文的意思写进 external-validation。
+  拓扑 A / B 的预设自 2026-11-12 起是测量的 PA（Rapp p = 1.286，P1dB 在 Psat 下 4.6 dB）：同样离 Psat 8 dB，平均功率在 P1dB 之下 3.4 dB，孤立 EVM −22.1 dB。“从 Psat 回退 8 dB”原本是和 11ad 形状配套的（Liu 用的就是这一对，示例 00 / 01 不换）；换了形状，同一个回退数字不再是同一个工作点（ROADMAP C10）。
+  （这里原先写“孤立 EVM −17 dB，相对 P1dB 则是 −26 dB 量级”；示例 09 §2 的读数是上面两个数。）
 - **SNR 口径**：每有效子载波 Es/N0 与每样本 SNR 差 10·log10(os·N_FFT/N_active) = 3.59 dB（os = 2，64 点，56 音）。
 - **信道**："802.11ad CR 信道"在没有 tap 表时只能用 PDP 代替；选 rms / LOS 比的依据是原文曲线自己给出的可观测事实（16× 不比 8× 差 ⇒ 50 ns 之外能量可忽略；曲线 3 dB 内从 1 到 1e-3 ⇒ 近 AWGN）。
 

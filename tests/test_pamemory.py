@@ -75,16 +75,25 @@ def test_dpd_tap_spacing_reaches_wifitrx_dpd_step(fe):
 
 @pytest.mark.slow
 def test_fixed_memory_costs_the_sample_spaced_basis_most_at_the_widest_clock(fe):
-    """Example 07's headline at K = 32 (2.56 GHz): memory fixed in seconds
-    costs the sample-spaced DPD several dB against memory that scales with
-    the signal, and the matched spacing wins most of it back."""
-    kw = dict(k=32, base_bw_hz=80e6, standard="11be")
+    """Example 07's K = 32 (2.56 GHz) reading at the preset back-off: memory
+    fixed in seconds costs the sample-spaced DPD dB against memory that scales
+    with the signal, and the matched spacing wins nearly all of it back
+    (example 07's sweep at 8 dB: -25.3 / -22.8 / -25.2 dB).
+
+    The rows sit on the preset back-off, as example 07's do.  Until
+    2026-11-12 this test ran them at wifitrx's default drive; that drive
+    lands wherever the PA's gain puts it (it moved by 3.8 dB when the presets
+    took the measured PA), and the two memory laws landed on different
+    back-offs (7.1 / 8.2 dB) — the single-operating-point comparison the
+    third reading of example 07 had already given up."""
+    kw = dict(k=32, base_bw_hz=80e6, standard="11be", obo_db=fe.obo_db)
     scales = pamemory.run_row(fe, **kw, tap_spacing=1)
     sample = pamemory.run_row(fe, **kw, fir_fs_hz=80e6, tap_spacing=1)
     matched = pamemory.run_row(fe, **kw, fir_fs_hz=80e6, tap_spacing=64)
-    assert sample.tx_evm_db - scales.tx_evm_db > 3.0
-    assert sample.tx_evm_db - matched.tx_evm_db > 2.5
-    assert matched.tx_evm_db - scales.tx_evm_db < 2.5
+    assert all(abs(r.obo_db - fe.obo_db) < 0.1 for r in (scales, sample, matched))
+    assert sample.tx_evm_db - scales.tx_evm_db > 2.0
+    assert sample.tx_evm_db - matched.tx_evm_db > 2.0
+    assert matched.tx_evm_db - scales.tx_evm_db < 1.0
     assert pamemory.best_spacing([scales, sample, matched]) is matched
 
 

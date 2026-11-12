@@ -504,15 +504,25 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
                   carrier_hz: float = 60.48e9, **top) -> Mmw60Config:
     """Topology B on the wifitrx zero-IF chain at fs_eff with the 60 GHz front
     end switched on (converters at ENOB(fs_eff), IQ mismatch, LO leakage, RX
-    DC); Liu 2025's crystal / phase-noise / PA numbers; carrier on an 802.11ay
-    channel centre inside 57–71 GHz (data/spec: ieee80211ay.channel_centres_ghz)."""
+    DC); Liu 2025's crystal / phase-noise numbers and back-off; carrier on an
+    802.11ay channel centre inside 57–71 GHz (data/spec:
+    ieee80211ay.channel_centres_ghz).
+
+    The 60 GHz PA is a measured 60 GHz CMOS PA (since 2026-11-12, ROADMAP
+    C10): its Psat, small-signal gain and peak PAE, and the Rapp smoothness
+    that puts its P1dB as far below Psat as measured (data/spec:
+    assumed.pa60_surveyed_pick).  The back-off is still Liu's, counted from
+    Psat; the AM/PM is still the 11ad evaluation methodology's.  Liu's own
+    shape at the old assumed scale is ``tgad_em_pa(cfg)``."""
     s = spec.value
     base = liu2025_table2(k=k, mcs=mcs)
+    pick = s("assumed.pa60_surveyed_pick")
+    measured = s(pick["source"])
     fe = FrontendConfig(
         model="zero_if_chain",
-        pa=base.frontend.pa,
-        pa_gain_db=float(s("assumed.pa60_gain_db")), psat_dbm=float(s("assumed.pa60_psat_dbm")),
-        pa_pae_max=float(s("assumed.pa60_pae_max")),
+        pa=dataclasses.replace(base.frontend.pa, rapp_p=float(s(pick["rapp_p"]))),
+        pa_gain_db=float(measured["gain_db"]), psat_dbm=float(measured["psat_dbm"]),
+        pa_pae_max=float(measured["pae_peak"]),
         converters=ConverterConfig(enob_ref=float(s("assumed.converter_enob_ref")),
                                    bits_per_octave=float(s("assumed.converter_bits_per_octave")),
                                    backoff_db=float(s("assumed.converter_backoff_db")), enabled=True),
@@ -531,14 +541,28 @@ def surveyed_pa(cfg: Mmw60Config) -> Mmw60Config:
     (data/spec: assumed.pa60_surveyed_pick and the entries it names): Psat,
     small-signal gain, peak PAE, and the Rapp smoothness that puts P1dB as far
     below Psat as the paper measured.  The back-off and its reference stay the
-    config's.  The presets do not call this: their PA is the 11ad evaluation
-    methodology's shape (P1dB 9.5 dB below Psat) at an assumed 15 dBm Psat."""
+    config's.  ``zero_if_60ghz`` (and the presets built on it) already carry
+    this PA; this puts it on any other config."""
     pick = spec.value("assumed.pa60_surveyed_pick")
     src = spec.value(pick["source"])
     pa = dataclasses.replace(cfg.frontend.pa, rapp_p=float(spec.value(pick["rapp_p"])))
     fe = dataclasses.replace(cfg.frontend, pa=pa, psat_dbm=float(src["psat_dbm"]),
                              pa_gain_db=float(src["gain_db"]), pa_pae_max=float(src["pae_peak"]))
     return dataclasses.replace(cfg, frontend=fe, label=(cfg.label + " surveyed PA").strip())
+
+
+def tgad_em_pa(cfg: Mmw60Config) -> Mmw60Config:
+    """``cfg`` with the PA the topology A / B presets had until 2026-11-12: the
+    11ad evaluation methodology's Rapp shape (tgad_em.pa_rapp_p, P1dB 9.5 dB
+    below Psat; Liu 2025's PA) at the assumed 15 dBm Psat, 20 dB gain and
+    20 % peak PAE (data/spec: assumed.pa60_*).  A sensitivity row: what the
+    tables read with Liu's shape."""
+    s = spec.value
+    pa = dataclasses.replace(cfg.frontend.pa, rapp_p=None)
+    fe = dataclasses.replace(cfg.frontend, pa=pa, psat_dbm=float(s("assumed.pa60_psat_dbm")),
+                             pa_gain_db=float(s("assumed.pa60_gain_db")),
+                             pa_pae_max=float(s("assumed.pa60_pae_max")))
+    return dataclasses.replace(cfg, frontend=fe, label=(cfg.label + " 11ad EM PA").strip())
 
 
 def surveyed_frontend(cfg: Mmw60Config) -> Mmw60Config:
