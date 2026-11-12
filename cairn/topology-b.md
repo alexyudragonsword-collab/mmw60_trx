@@ -5,7 +5,7 @@ summary: "拓扑 B（IMMW upclocking）在 60 GHz 零中频前端上的结论：
 tags: [mmw60, topology-b, upclocking, zero-if, calibration, grid]
 contains: [comparison-table, finding, decision, pitfall]
 created: "2026-11-07"
-updated: "2026-11-11"
+updated: "2026-11-12"
 related: [upclocking.md, external-validation.md, architecture-invariants.md, engineering-pitfalls.md]
 authoring_mode: ai_generated
 ---
@@ -157,3 +157,58 @@ PA 模型与 `fir_fs` = 80 MS/s（12.5 ns 一个抽头）都是假设（`assumed
    真正决定代价的是抽头隔多少个样本（8–16 个最糟）。教训：在一个 K 上排除的原因，不能替别的 K 排除。
 8. 以为“代价由 PA 的抽头隔多少个样本决定，隔 8–16 个样本最糟，差 4–6 dB”（§3b 的第二版，7b8d08e）——那是在预设回退 8 dB 这一个点上读的 EVM 差，而这个点正好在 DPD 的崖上：随信号缩放的那颗 PA 的崖在 7.0–7.5 dB，按秒固定的晚 1–2 dB。
    细扫回退、在同一个 EVM 上比各自要退多少，代价是 0.5–2.3 dB。对方复现不出来（他们在远离崖的地方量）正是线索。教训：比较两个非线性系统时先看指标随工作点的曲线，再决定在哪个点上比；单点上的大差距先怀疑是斜率。
+
+## 5. 前端的三个面：接收前端、收发隔离、发 / 收天线增益（示例 08，`src/mmw60/frontend/rxfront.py`）
+
+起因是 fmcw_radar 的消费清单（mmw60_trx#14）：雷达要从 `Frontend60` 读接收增益 / NF / 压缩点、收发隔离、两副天线的增益，而这三样此前要么藏在 wifitrx 的表里，要么没有。它们现在是同一个 `Frontend60` 实例上的三个面，不为雷达另开接口：
+
+| 面 | 怎么读 | 预设 | `config.surveyed_frontend` |
+|---|---|---|---|
+| 接收前端（最高增益档） | `fe.rx_front.gain_db / nf_db / iip3_dbm / p1db_in_dbm`，`fe.rx_front.sourced` | wifitrx 的 WiFi 7 梯子：37 dB / 3.5 dB / −20 dBm / −29.6 dBm，`sourced = False` | 梯子整体平移到 NF 6.1 dB、IIP3 −20 dBm；增益没有给，仍是 37 dB |
+| 收发隔离 | `fe.tx_rx_isolation_db`，`fe.leakage_budget()` | 未指定（None） | 20 dB |
+| 天线增益 | `fe.antenna_gain_tx_dbi`、`fe.antenna_gain_rx_resolved_dbi`、`fe.shared_antenna` | 发 0 dBi，收同发（时分双工一副天线） | 发 6 dBi、收 6 dBi（两个字段） |
+
+`fe.faces()` 把它们放在一个 dict 里；`fe.describe()` 的形状不变。
+
+**预设不用这一档**，所以现有数字逐位不变（指纹相同，示例 02–07 的输出不动）。预设的梯子是 sub-7 GHz WiFi 7 芯片的表，不是 60 GHz 前端的数，`sourced` 说的就是这件事。
+
+**出处（全部 survey、全部未核实）**：这一轮只读到搜索摘要，原文一份都没打开（网络策略不放行）。接收 NF / IIP3 按用户的要求以通信文献为主：取 60 GHz 通信收发机（`survey.rx60_comm_asada2011`，NF < 6.1 dB、IIP3 −20 dBm）；另一篇通信接收机（7.1 dB）、802.11ad 灵敏度表的参考接收机（10 dB）、雷达芯片（12 dB）只作灵敏度档。隔离取一篇摘要里“加隔离结构后 40 dB、比不加好 15–20 dB”减出来的下端 20 dB。天线取通信收发机封装内天线的 6 dBi。哪一档取哪个数是 `assumed.frontend_faces_pick`。
+
+### 接收 NF 动什么（K = 8、11ac 20 MHz 基准、flat；IIP3 都是 −20 dBm）
+
+| 接收前端 | NF dB | 灵敏度 MCS0 / MCS4 dBm | 链路 EVM（SNR 10 dB）dB | 校准读到的 RX NF dB | 回环 / TX 单独 / RX 单独 EVM dB |
+|---|---|---|---|---|---|
+| WiFi 7 梯子（预设） | 3.5 | −87.0 / −74.5 | −9.24 | 10.8 | −29.0 / −26.7 / −27.5 |
+| 通信收发机 65 nm（基准档） | 6.1 | −84.4 / −71.9 | −9.24 | 13.2 | −27.9 / −26.6 / −27.4 |
+| 通信接收机 90 nm | 7.1 | −83.4 / −70.9 | −9.24 | 14.2 | −27.3 / −26.5 / −27.4 |
+| 802.11ad 灵敏度表的接收机 | 10.0 | −80.5 / −68.0 | −9.24 | 17.0 | −24.9 / −25.6 / −27.3 |
+| 雷达芯片 | 12.0 | −78.5 / −66.0 | −9.24 | 19.0 | −23.6 / −25.2 / −27.1 |
+
+- 灵敏度 = 本库接收机实测的 PER 1e-2 门限对应的输入电平（不另加实现损耗），随 NF 1.00 dB 对 1 dB。
+- 链路 EVM 在 SNR 轴上不动（五档散布 0.00 dB）：轴是 SNR，NF 只定输入电平。所以同台表（SNR 轴上的 MCS 上限）不受接收 NF 影响。
+- 校准表会动：wifitrx 的序列经接收机观测，回环电平上 AGC 不在最高增益档（“校准读到的 RX NF”是那一档的）。NF 从 3.5 到 6.1 dB，最终回环 EVM 差 1.1 dB；到 12 dB 差 5.4 dB，其中 TX 单独的读数也差 1.5 dB（观测噪声进了估计）。
+
+### 泄漏预算（PA 输出 7 dBm；接收前端最高增益档输入 P1dB −29.6 dBm）
+
+| 隔离 dB | 接收输入端的泄漏 dBm | 到接收 P1dB 的余量 dB | 到 −33 dBm 最大输入的余量 dB | 到雷达芯片带外 P1dB（−12 dBm）的余量 dB | 接得住它的 AGC 档 |
+|---|---|---|---|---|---|
+| 20（基准档） | −13.0 | −16.6 | −20.0 | +1.0 | state 6：增益 1 dB、NF 32.6 dB |
+| 25 | −18.0 | −11.6 | −15.0 | +6.0 | state 5：增益 7 dB、NF 28.6 dB |
+| 40 | −33.0 | +3.4 | 0.0 | +21.0 | state 2：增益 25 dB、NF 12.6 dB |
+
+时分双工链路收发不同时，泄漏不进链路仿真；这张表是给收发同时工作的用法（雷达、全双工）看的。读法：通信接收前端按原样拿去做雷达，隔离 20 / 25 dB 时泄漏比它的压缩点高 16.6 / 11.6 dB；雷达芯片的带外压缩点高 17.6 dB，这是两类前端的差别。输入 P1dB 由 IIP3 减 9.6 dB 得到（`assumed.rx60_p1db_from_iip3_db`；链路里的三次项正好在 IIP3 − 9.64 dB 压缩 1 dB，`tests/test_frontend_faces.py` 守着）。
+
+### 天线增益（两端相同；PA 输出 7 dBm；MCS0 灵敏度 −84.4 dBm）
+
+| 增益 dBi | EIRP 平均 dBm | 平均 / 峰值余量 dB | 链路接得住的路径损耗 dB |
+|---|---|---|---|
+| 0（预设，未指定） | 7.0 | 33.0 / 26.0 | 91.4 |
+| 3.5（雷达封装内天线典型值） | 10.5 | 29.5 / 22.5 | 98.4 |
+| 6（通信封装内天线，基准档） | 13.0 | 27.0 / 20.0 | 103.4 |
+
+单个天线单元，没有阵列增益（里程碑 2）。
+
+### 没有接上的地方
+
+- **拓扑 A 不消费接收前端这个面**：它的 60 GHz 接收级是单位增益、不加噪声，SNR 轴上的 NF 是芯片的 WiFi 7 梯子。换上查到的前端，拓扑 A 的灵敏度不动（−92.5 dBm，差 0.00 dB），拓扑 B 动 2.6 dB。预设下两者同是 3.5 dB，同台表不受影响（ROADMAP C9）。
+- 梯子只有顶档有出处，其余七档与增益本身是 wifitrx 的（`assumed.rx60_ladder_shape`）。

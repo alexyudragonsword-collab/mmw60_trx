@@ -40,8 +40,7 @@ sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, spec                          # noqa: E402
 from mmw60.calcheck import run_cal_at                                       # noqa: E402
-from mmw60.config import (ChannelConfig, RxFrontConfig, if_extender_60ghz,  # noqa: E402
-                          surveyed_frontend, zero_if_60ghz)
+from mmw60.config import ChannelConfig, if_extender_60ghz, surveyed_frontend, zero_if_60ghz  # noqa: E402
 from mmw60.frontend import Frontend60                                       # noqa: E402
 from mmw60.sim.link import LinkSim, evm_at                                  # noqa: E402
 

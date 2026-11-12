@@ -43,6 +43,17 @@ python examples/07_pa_memory_dpd.py                       # 全量约 5 分钟�
 
 结论见 `cairn/topology-b.md` §3b：代价按回退读。达到同样的 DPD 后 EVM，记忆按秒固定（12.5 ns）的 PA 要多退 0.5–2.3 dB；预设的 8 dB 回退正好在 DPD 的崖上，在这一个点上读到的 EVM 差（最多 6 dB）不是代价。
 
+## 前端的三个面：接收前端、收发隔离、天线增益（示例 08）
+
+链路预算和雷达（fmcw_radar，mmw60_trx#14）要从共享的 `Frontend60` 读三样东西：60 GHz 接收前端在最高增益档的增益 / NF / 输入压缩点（`fe.rx_front`）、收发隔离（`fe.tx_rx_isolation_db`、`fe.leakage_budget()`）、发 / 收天线增益（两个字段）。
+预设不动：接收机仍是 wifitrx 的 WiFi 7 梯子（`fe.rx_front.sourced` 为 False，不要当成 60 GHz 前端的数读），天线 0 dBi，隔离未指定。`config.surveyed_frontend(cfg)` 换成查到的一档（NF 6.1 dB、IIP3 −20 dBm、隔离 20 dB、天线 6 dBi）。
+
+```bash
+python examples/08_frontend_faces.py                      # 全量约 15 秒；--quick 冒烟
+```
+
+**这一档的出处全部未核实**：八条文献数字只读到搜索摘要，原文没有打开。结论见 `cairn/topology-b.md` §5：接收 NF 动的是灵敏度（1 dB 对 1 dB）和校准表，不动 SNR 轴上的链路 EVM；隔离 20 dB 时发射泄漏比通信接收前端的压缩点高 16.6 dB（时分双工链路看不到，雷达看得到）。
+
 ## 里程碑 1 · A1：拓扑 A，IF 延伸（示例 06）
 
 芯片是 wifitrx 自己的收发机（K = 1），按它自己的配方随机化损伤并跑完 14 步校准；60 GHz 级（间级电平、IF 带通、固定 LO 混频、共享前端的 PA）显式插在它的 RF 输出之后（`src/mmw60/ifext.py`）。
