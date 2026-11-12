@@ -1,8 +1,10 @@
 """The 60 GHz PA against measured 60 GHz CMOS PAs (data/spec: pa60.*):
 ``config.surveyed_pa`` and the Rapp smoothness ``frontend.pa.rapp_p``.
 
-The presets keep the 11ad evaluation methodology's shape; the fingerprint
-guards their numbers, these tests the objects."""
+Since 2026-11-12 the topology A / B presets (``zero_if_60ghz`` and those built
+on it) carry the measured PA; Liu's preset (``liu2025_table2``, examples 00 /
+01, the fingerprint's configs) keeps the 11ad evaluation methodology's shape,
+and ``tgad_em_pa`` puts that shape back on any config."""
 import dataclasses as dc
 import re
 
@@ -11,7 +13,8 @@ import pytest
 
 from conftest import REPO
 from mmw60 import spec
-from mmw60.config import Mmw60Config, liu2025_table2, surveyed_pa, zero_if_60ghz
+from mmw60.config import (Mmw60Config, if_extender_60ghz, liu2025_table2, surveyed_pa, tgad_em_pa,
+                          wifi7_chain_k1, zero_if_60ghz)
 from mmw60.frontend import Frontend60
 from mmw60.frontend.grid import pa_isolated_evm_db
 from mmw60.pa.rapp import ModifiedRappPA
@@ -22,15 +25,34 @@ def gap_db(m: ModifiedRappPA) -> float:
     return float(10 * np.log10(m.p_sat / m.p1db))
 
 
-# ------------------------------------------------------------------ the presets are untouched
-def test_presets_keep_the_11ad_shape_on_both_paths():
-    cfg = zero_if_60ghz(k=8)
+# ------------------------------------------------------------------ which preset carries which PA
+def test_liu_preset_keeps_the_11ad_shape():
+    cfg = liu2025_table2(k=8, mcs=0)
     assert cfg.frontend.pa.rapp_p is None
-    fe = Frontend60.from_config(cfg)
-    assert fe.pa_model.p == spec.value("tgad_em.pa_rapp_p")
-    assert gap_db(fe.pa_model) == pytest.approx(spec.value("derived.rapp_p1db_below_psat_db"), abs=0.05)
-    beh = LinkSim(liu2025_table2(k=8, mcs=0))
+    beh = LinkSim(cfg)
     assert beh.pa.p == spec.value("tgad_em.pa_rapp_p")
+    assert gap_db(beh.pa) == pytest.approx(spec.value("derived.rapp_p1db_below_psat_db"), abs=0.05)
+
+
+def test_topology_a_and_b_presets_carry_the_measured_pa():
+    for cfg in (zero_if_60ghz(k=8), zero_if_60ghz(k=4, standard="11be", bandwidth_hz=80e6), wifi7_chain_k1(),
+                if_extender_60ghz()):
+        assert cfg.frontend == surveyed_pa(cfg).frontend, cfg.label
+    # Liu's back-off is kept, from Psat
+    assert zero_if_60ghz(k=8).frontend.pa.obo_db == liu2025_table2(k=8).frontend.pa.obo_db
+    assert zero_if_60ghz(k=8).frontend.pa.obo_reference == "psat"
+
+
+def test_tgad_em_pa_is_the_presets_pa_before_the_switch():
+    cfg = tgad_em_pa(zero_if_60ghz(k=8))
+    fe = Frontend60.from_config(cfg)
+    assert cfg.frontend.pa.rapp_p is None and fe.pa_model.p == spec.value("tgad_em.pa_rapp_p")
+    assert (cfg.frontend.psat_dbm, cfg.frontend.pa_gain_db, cfg.frontend.pa_pae_max) == (
+        spec.value("assumed.pa60_psat_dbm"), spec.value("assumed.pa60_gain_db"), spec.value("assumed.pa60_pae_max"))
+    # the two helpers undo each other on the PA and touch nothing else
+    back = surveyed_pa(cfg)
+    assert back.frontend == zero_if_60ghz(k=8).frontend
+    assert Mmw60Config.from_dict(cfg.to_dict()) == cfg
 
 
 def test_the_behavioural_path_reads_the_smoothness_too():
@@ -43,12 +65,12 @@ def test_the_behavioural_path_reads_the_smoothness_too():
 def test_surveyed_pa_is_built_from_spec_entries_only():
     pick = spec.value("assumed.pa60_surveyed_pick")
     src = spec.value(pick["source"])
-    cfg = surveyed_pa(zero_if_60ghz(k=8))
+    base = liu2025_table2(k=8, mcs=0)
+    cfg = surveyed_pa(base)
     fe = cfg.frontend
     assert (fe.psat_dbm, fe.pa_gain_db, fe.pa_pae_max) == (src["psat_dbm"], src["gain_db"], src["pae_peak"])
     assert fe.pa.rapp_p == spec.value(pick["rapp_p"])
     # back-off, reference, AM/PM and everything else stay the config's
-    base = zero_if_60ghz(k=8)
     assert (fe.pa.obo_db, fe.pa.obo_reference, fe.pa.ampm) == (base.frontend.pa.obo_db, base.frontend.pa.obo_reference,
                                                                base.frontend.pa.ampm)
     same = dc.replace(fe, pa=base.frontend.pa, psat_dbm=base.frontend.psat_dbm, pa_gain_db=base.frontend.pa_gain_db,
@@ -59,7 +81,7 @@ def test_surveyed_pa_is_built_from_spec_entries_only():
 
 def test_surveyed_pa_reads_the_papers_psat_p1db_and_gain_in_dbm():
     src = spec.value("pa60.asada_eumc2011")
-    fe = Frontend60.from_config(surveyed_pa(zero_if_60ghz(k=8)))
+    fe = Frontend60.from_config(zero_if_60ghz(k=8))
     pa = fe.scaled_pa()
     assert pa.psat_dbm == src["psat_dbm"] and pa.gain_db == src["gain_db"]
     assert pa.p1db_out_dbm == pytest.approx(src["p1db_dbm"], abs=0.02)

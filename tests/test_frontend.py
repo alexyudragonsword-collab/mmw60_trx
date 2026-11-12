@@ -72,9 +72,10 @@ def test_frontend_from_config_carries_every_knob():
 def test_chain_operating_point_is_psat_minus_obo():
     cfg = dc.replace(zero_if_60ghz(k=8), channel=ChannelConfig(model="flat"))
     sim = LinkSim(cfg)
-    assert sim.pout_dbm == pytest.approx(15.0 - 8.0, abs=0.05)
+    pout = cfg.frontend.psat_dbm - cfg.frontend.pa.obo_db
+    assert sim.pout_dbm == pytest.approx(pout, abs=0.05)
     r = sim.packet(None, np.random.default_rng(0))
-    assert r.pa_info["pout_dbm"] == pytest.approx(7.0, abs=0.3)
+    assert r.pa_info["pout_dbm"] == pytest.approx(pout, abs=0.3)
     assert -22 < r.rx.evm_db < -14              # PA-dominated floor
     assert abs(r.rx.cfo_hat_hz - r.cfo_true_hz) < 0.05 * sim.phy.scs_eff
 
@@ -141,7 +142,7 @@ def test_evm_only_bases_run_without_the_coded_data_field():
 def test_grid_analytic_floor_matches_the_time_domain_chain():
     fe = Frontend60.from_config(zero_if_60ghz(k=8))
     pa_evm = pa_isolated_evm_db(fe.pa_model, fe.obo_db, fe.obo_reference)
-    assert -20 < pa_evm < -16
+    assert -24 < pa_evm < -20          # the measured PA's shape at 8 dB from Psat: -22.1 dB (the 11ad shape: -18.1)
     for std, bw, k in (("11ac", 20e6, 8), ("11be", 80e6, 16)):
         c = evaluate_cell(zero_if_60ghz(k=k, standard=std, bandwidth_hz=bw), fe, isolate=False, pa_evm_db=pa_evm)
         assert abs(c.floor_db - c.td_evm_db) < 2.0, (std, bw, k, c.floor_db, c.td_evm_db)

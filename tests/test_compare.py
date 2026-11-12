@@ -108,8 +108,10 @@ def test_rows_cross_check_and_the_uncaught_cfo_row_is_flagged():
         else:
             assert c["td_ok"] is None
     k8 = by["be_upclocked 11ac 20M K=8 @60.48 GHz"]
-    assert k8["cfo_captured"] and k8["max_mcs"] == 2 and k8["rate_mbps"] == pytest.approx(156, abs=1)
-    assert k8["eirp"]["ok"] and k8["eirp"]["margin_avg_db"] == pytest.approx(33.0)
+    # the measured PA since 2026-11-12 (ROADMAP C10): MCS3 at 208 Mb/s; the 11ad EM shape read MCS2, 156 Mb/s
+    assert k8["cfo_captured"] and k8["max_mcs"] == 3 and k8["rate_mbps"] == pytest.approx(208, abs=1)
+    pout = fe.psat_dbm - fe.obo_db
+    assert k8["eirp"]["ok"] and k8["eirp"]["margin_avg_db"] == pytest.approx(fe.eirp.avg_dbm - pout)
     k1_6 = by["be 11ac 20M K=1 @6 GHz (WiFi 7 chain)"]
     assert k1_6["eirp"] is None and k1_6["plan_ok"] is None
     # the EvmBudget's phase-noise convention is the optimistic one (no floor above 100 MHz, no 1–10 kHz)
@@ -194,7 +196,8 @@ def test_power_model_bookkeeping_matches_its_coefficients():
 
 def test_pa_pae_knob_flows_from_config_to_the_shared_pa():
     cfg = zero_if_60ghz(k=8)
-    assert cfg.frontend.pa_pae_max == spec.value("assumed.pa60_pae_max")
+    pick = spec.value("assumed.pa60_surveyed_pick")
+    assert cfg.frontend.pa_pae_max == spec.value(pick["source"])["pae_peak"]
     fe = Frontend60.from_config(dc.replace(cfg, frontend=dc.replace(cfg.frontend, pa_pae_max=0.3)))
     assert fe.scaled_pa().pae_max == 0.3
     assert fe.scaled_pa().pae(fe.psat_dbm) == pytest.approx(0.3)
