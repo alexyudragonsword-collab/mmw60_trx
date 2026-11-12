@@ -31,6 +31,7 @@ from .converters import ConverterLaw
 from .eirp import EirpLimit
 from .lo import Lo60
 from .pa import ScaledRappPA
+from .rxfront import RxFront60
 
 
 @dataclass(frozen=True)
@@ -70,7 +71,10 @@ class Frontend60:
     obo_db: float = 8.0
     obo_reference: str = "psat"
     pa_pae_max: float = 0.20
-    antenna_gain_dbi: float = 0.0
+    antenna_gain_dbi: float = 0.0               # transmit; 0 = not specified
+    antenna_gain_rx_dbi: float | None = None    # None = the same antenna as the transmitter
+    tx_rx_isolation_db: float | None = None     # None = not specified
+    rx_front: RxFront60 = field(default_factory=RxFront60)
     seed: int = 0
 
     # ------------------------------------------------------------ build
@@ -94,7 +98,9 @@ class Frontend60:
                    pa_enabled=fe.pa.enabled, pa_gain_db=fe.pa_gain_db, psat_dbm=fe.psat_dbm,
                    obo_db=fe.pa.obo_db, obo_reference=fe.pa.obo_reference,
                    pa_pae_max=fe.pa_pae_max,
-                   antenna_gain_dbi=fe.antenna_gain_dbi, seed=cfg.seed)
+                   antenna_gain_dbi=fe.antenna_gain_dbi, antenna_gain_rx_dbi=fe.antenna_gain_rx_dbi,
+                   tx_rx_isolation_db=fe.tx_rx_isolation_db, rx_front=RxFront60.from_config(fe.rx_front),
+                   seed=cfg.seed)
 
     def scaled_pa(self) -> ScaledRappPA:
         return ScaledRappPA(self.pa_model or ModifiedRappPA(), self.pa_gain_db, self.psat_dbm,
@@ -122,10 +128,13 @@ class Frontend60:
             ref = 0.02 / 10 ** (-20 / 20)                     # the ladder's top ≈ -20 dBc at -20 dBm
             scale = 10 ** (self.lo.rx_dc_dbc / 20) / ref
             dc = tuple(complex(s * scale * np.exp(1j * 0.6)) for s in ladder)
+        # the WiFi 7 ladder is wifitrx's own default: left to RxParams, so the
+        # presets' numbers are the ones they always were
+        front = {} if self.rx_front.model == "wifi7_ladder" else {"lna_states": self.rx_front.states}
         return RxParams(bandwidth_hz=bw_eff_hz, iq=self.rx_iq.model(), dc_offset=dc,
                         lpf=TunableLPF(fc_nominal_hz=recommended_lpf_corner_hz(bw_eff_hz, "rx")),
                         adc=ADCParams(bits=bits, enabled=self.converters_enabled),
-                        lo=self.lo.lo_model(), seed=self.seed + 1)
+                        lo=self.lo.lo_model(), seed=self.seed + 1, **front)
 
     def build_chains(self, bw_eff_hz: float, fs_eff_hz: float) -> tuple[TxChain, RxChain]:
         tx = TxChain(self.tx_params(bw_eff_hz, fs_eff_hz), fs_eff_hz,
@@ -134,6 +143,45 @@ class Frontend60:
             tx.params.pa_enabled = False
         rx = RxChain(self.rx_params(bw_eff_hz, fs_eff_hz), fs_eff_hz)
         return tx, rx
+
+    # ------------------------------------------------------------ the faces a link budget or a radar reads
+    @property
+    def antenna_gain_tx_dbi(self) -> float:
+        return float(self.antenna_gain_dbi)
+
+    @property
+    def antenna_gain_rx_resolved_dbi(self) -> float:
+        """The receive antenna gain: its own figure, or the transmit antenna's
+        when the two are one (a TDD link)."""
+        return float(self.antenna_gain_dbi if self.antenna_gain_rx_dbi is None else self.antenna_gain_rx_dbi)
+
+    @property
+    def shared_antenna(self) -> bool:
+        return self.antenna_gain_rx_dbi is None
+
+    def tx_leak_at_rx_dbm(self, pout_dbm: float | None = None) -> float | None:
+        """The transmitter's output arriving at the receiver input through the
+        package / antenna coupling: Pout − isolation.  None when the isolation
+        is not specified.  A TDD link never sees it (the receiver is off while
+        the transmitter is on); a radar and a full-duplex link do."""
+        if self.tx_rx_isolation_db is None:
+            return None
+        p = self.target_pout_dbm() if pout_dbm is None else float(pout_dbm)
+        return p - float(self.tx_rx_isolation_db)
+
+    def leakage_budget(self, pout_dbm: float | None = None) -> dict | None:
+        """TX leakage at the receiver input against the receive front end's
+        input compression point (maximum gain) and the level an 802.11ad
+        receiver must take (data/spec: dmg.rx_max_input_dbm)."""
+        leak = self.tx_leak_at_rx_dbm(pout_dbm)
+        if leak is None:
+            return None
+        from .. import spec
+        max_in = float(spec.value("dmg.rx_max_input_dbm"))
+        return {"pout_dbm": self.target_pout_dbm() if pout_dbm is None else float(pout_dbm),
+                "isolation_db": float(self.tx_rx_isolation_db), "leak_at_rx_dbm": leak,
+                "rx_p1db_in_dbm": self.rx_front.p1db_in_dbm, "margin_to_p1db_db": self.rx_front.p1db_in_dbm - leak,
+                "dmg_max_input_dbm": max_in, "margin_to_dmg_max_input_db": max_in - leak}
 
     # ------------------------------------------------------------ operating point
     def target_pout_dbm(self) -> float:
@@ -167,4 +215,14 @@ class Frontend60:
             d.update({f"converter_{k}": v for k, v in self.converters.describe(fs_eff_hz).items()})
         if self.eirp is not None and self.pa_enabled:
             d.update(self.eirp.check(self.target_pout_dbm(), self.antenna_gain_dbi))
+        return d
+
+    def faces(self) -> dict:
+        """What ROADMAP D4 added, in one dict (kept out of ``describe`` so the
+        reports built on that keep their shape): the receive front end at its
+        maximum-gain state, the two antenna gains, the TX-RX isolation."""
+        d = self.rx_front.describe()
+        d.update({"antenna_gain_tx_dbi": self.antenna_gain_tx_dbi,
+                  "antenna_gain_rx_dbi": self.antenna_gain_rx_resolved_dbi, "shared_antenna": self.shared_antenna,
+                  "tx_rx_isolation_db": self.tx_rx_isolation_db})
         return d

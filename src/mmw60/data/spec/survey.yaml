@@ -632,6 +632,94 @@ entries:
     cite: "本库；DPD 基函数抽头间隔的候选，另外总是量 1（逐样本）和 fs_eff / fir_fs（匹配）"
     note: "抽头间隔在链路上量着选，不直接取 fs_eff / fir_fs：预失真器与 PA 之间的发射基带低通带来逐样本的记忆，稀疏基函数表示不了（wifi_trx_cal#5 的实测）。候选只有这几个，没有扫全。"
 
+  # ------------------------------------------------------------ ROADMAP D4：前端的三个面（接收前端、收发隔离、发 / 收天线增益）
+  # 2026-11-12 第二轮：放行站点后对着原文核过四条（改成 source: spec，带 quote 与 section）；
+  # 其余四条仍只读到搜索摘要（IEEE Xplore 与 Mouser 对脚本访问有校验，没有去绕）。
+  rx60.comm_asada2011:
+    value: {nf_db: 6.1, iip3_dbm: -20.0, gain_high_db: 27.0, gain_low_db: 17.0, antenna_gain_dbi: 2.0}
+    unit: "dB, dBm, dB, dB, dBi"
+    source: spec
+    cite: "Asada et al., 'A 60 GHz 16 Gb/s 16QAM Low-Power Direct-Conversion Transceiver Using Capacitive Cross-Coupling Neutralization in 65 nm CMOS', IEEE A-SSCC 2011, pp. 373–376（Tokyo Institute of Technology）；作者实验室站点上的论文 PDF（asdh_ASSCC2011_paper_v2.pdf），2026-11-12 读原文"
+    section: "V. Experimental Results；Table III Performance Summary"
+    quote: "Fig. 10 shows the conversion gain of RX. The LNA realizes a gain control, and the conversion gain is 27 dB in high-gain mode and 17 dB in low-gain mode. [...] Fig. 11 shows the noise figure. The entire noise figure is less than 6.1 dB, and the measured IIP3 is −20 dBm. [...] The antenna in the BGA package has a 2dBi gain."
+    note: "通信收发机的数，'anchored' 接收前端的基准档取它（NF、IIP3、高增益档增益、封装内天线）。6.1 dB 是原文给的上界（'less than'，Fig. 11 全频段）。原文没说 IIP3 是在哪一档增益下量的。接收机 = 4 级 LNA + I/Q 无源混频 + 基带 LNA，27 / 17 dB 是整条链的变频增益。同一张表的发射侧：变频增益 16 dB、P1dB 5.4 dBm、Psat 6.5 dBm（本库假设的 Psat 是 15 dBm，见 ROADMAP C9）；相噪 −94.2 dBc/Hz @ 1 MHz（60.48 GHz）。"
+
+  survey.rx60_comm_iscas2015:
+    value: {nf_db: 7.1, gain_max_db: 64.0, gain_range_db: 28.0, p1db_out_dbm: -5.5}
+    unit: "dB, dB, dB, dBm"
+    source: survey
+    cite: "'A 64 dB Gain 60 GHz Receiver with 7.1 dB Noise Figure for 802.11ad Applications in 90 nm CMOS'，IEEE ISCAS 2015（作者未读到）"
+    note: "未核实（只读到搜索摘要：双边带 NF 7.1 dB、最大变频增益 64 dB、调节范围 28 dB、输出 P1dB −5.5 dBm、177 mW）。64 dB 是含基带增益的整机增益，输出 P1dB 是输出端受限，折不到本库 LNA 档位表的字段上，所以只用它的 NF 作灵敏度档。"
+
+  survey.dmg_sensitivity_assumptions:
+    value: {nf_db: 10.0, implementation_loss_db: 5.0}
+    unit: dB
+    source: survey
+    cite: "IEEE 802.11ad（DMG PHY）接收灵敏度表的前提，转引自二手文献对该表的复述（'5 dB implementation loss, 10 dB noise figure'）；标准条文未读到"
+    note: "未核实（二手转引）。这是标准给灵敏度表定的参考接收机，不是哪颗芯片的实测；作 NF 的保守一档。实现损耗是另一项，本库的门限表（per_thresholds.yaml）是自己接收机的实测，不再叠加它。"
+
+  dmg.rx_max_input_dbm:
+    value: -33.0
+    unit: dBm
+    source: spec
+    cite: "Recommendation ITU-R M.2003 (03/2012), 'Multiple Gigabit Wireless Systems in frequencies around 60 GHz'，2026-11-12 读原文"
+    section: "Annex 1, 2.4.6 Maximum input level"
+    quote: "A compliant receiver has a receiver maximum input level of at least −33 dBm for each of the modulation formats that the receiver supports."
+    note: "接收机必须承受的最大输入电平，泄漏预算里作一条参考线。**这是 2012 年版的写法**；现行版 M.2003-2 (01/2018) 同一节改成了功率密度：'a receiver maximum input level at the receive antenna(s) of at least 10 microwatts/cm2'。按 60.48 GHz 换算，0 dBi 天线是 −37.1 dBm，2 dBi 是 −35.1 dBm，6 dBi 是 −31.1 dBm（−33 dBm 对应约 4 dBi）。IEEE 802.11 条文本身没有读到。"
+
+  rx60.radar_iwr6843:
+    value: {nf_db: 12.0, p1db_in_oob_dbm: -12.0, gain_max_db: 48.0, gain_range_db: 18.0, tx_power_dbm: 12.0}
+    unit: "dB, dBm, dB, dB, dBm"
+    source: spec
+    cite: "TI IWR6843 / IWR6443 数据手册 SWRS219F（OCTOBER 2018 – REVISED APRIL 2025），2026-11-12 读原文"
+    section: "7.9 RF Specification"
+    quote: "Receiver: Noise figure, 60 to 64 GHz, TYP 12 dB; 1-dB compression point (Out Of Band)(1), TYP –12 dBm; Maximum gain 48 dB; Gain range 18 dB; Gain step size 2 dB. Transmitter: Output power 12 dBm; Power backoff range 26 dB. (1) 1-dB Compression Point (Out Of Band) is measured by feed a Continuous wave Tone (10 kHz) well below the lowest HPF cut-off frequency."
+    note: "雷达芯片的数，全部是典型值。P1dB 是带外的（脚注 1）；带内 P1dB 随增益变，在手册 Figure 7-2 里，是图不是表，没有读数。只作对照档，通信前端的基准不取它。同一张表：1 MHz 处相噪 −93 dBc/Hz。fmcw_radar 在 mmw60_trx#14 上先查到。"
+
+  isolation.tx_rx_tue2018:
+    value: {with_ebg_db: 40.0, improvement_min_db: 15.0, improvement_max_db: 20.0}
+    unit: dB
+    source: spec
+    cite: "B. B. Adela, M. C. van Beurden, P. T. van Zeijl, A. B. Smolders, 'High-isolation array antenna integration for single-chip millimeter-wave FMCW radar', IEEE Trans. Antennas Propag., vol. 66, pp. 5214–5223, Oct. 2018, doi 10.1109/TAP.2018.2854286；TU/e 研究门户上的摘要，2026-11-12 读原文"
+    section: "Abstract（只读了摘要，正文没有读）"
+    quote: "Measurement results in the 57-64 GHz band show the TX-RX isolation of 40 dB, which is 15-20 dB better than the isolation between TX and RX arrays without EBG structures."
+    note: "57–64 GHz 单芯片 FMCW 雷达的收发微带阵，键合线互连。不加 EBG 的 20–25 dB 是用摘要里的两个数减出来的，不是原文给的数；正文里有没有直接给，没有读到。没有查到任何数据手册直接给收发隔离度。"
+
+  survey.antenna60_okada2013_dbi:
+    value: 6.0
+    unit: dBi
+    source: survey
+    cite: "Okada et al., 'Full Four-Channel 6.3-Gb/s 60-GHz CMOS Transceiver With Low-Power Analog and Digital Baseband Circuitry', IEEE JSSC vol. 48 no. 1, pp. 46–65, 2013，摘要（'a 6-dBi antenna built in an organic package'）"
+    note: "未核实（只读到搜索摘要；IEEE Xplore 对脚本访问有校验，原文没有读到）。通信收发机用的封装内天线，作灵敏度档；基准档取的是读过原文的 rx60.comm_asada2011 的 2 dBi。阵列增益是里程碑 2 的事，不在这里。"
+
+  survey.antenna60_bgt60_an600_dbi:
+    value: {min: 2.0, typ: 3.5, max: 5.0}
+    unit: dBi
+    source: survey
+    cite: "Infineon AN600（BGT60TR13C shield）；转引自 fmcw_radar 在 mmw60_trx#14 上的检索"
+    note: "未核实（本库没有搜到这份文档的摘要，数字是对方贴的，对方也只读到搜索摘要）。雷达封装内天线的单个 TX 天线增益，作灵敏度档。"
+
+  assumed.rx60_ladder_shape:
+    value: "wifitrx_ladder_shifted"
+    unit: model
+    source: assumed
+    cite: "本库 frontend/rxfront.py；wifitrx DEFAULT_LNA_STATES 的八档梯子整体平移；换档电平按 wifitrx chain/agc.py 的平衡点规则"
+    note: "'anchored' 接收前端怎么从最高增益档的 NF / IIP3 / 增益变成 AGC 要的八档表：保留 wifitrx 梯子的增益步进与各档之间的相对关系，每档的 NF、IIP3、增益各加同一个 dB 数。换档电平按 wifitrx 自己的规则走（噪声对 IM3 的平衡点 t_i = (2·IIP3_i + NF_{i+1} + 常数) / 3）：整体平移时每个电平移 (2·ΔIIP3 + ΔNF) / 3，与增益无关；以官方表的电平为基准，所以什么都不给时就是 wifitrx 的梯子。读到的文献只给高 / 低两档增益（27 / 17 dB），其余档位是假设。"
+
+  assumed.rx60_p1db_from_iip3_db:
+    value: 9.6
+    unit: dB
+    source: assumed
+    cite: "本库；三阶非线性的经验关系 IIP3 − P1dB ≈ 9.6 dB"
+    note: "把 IIP3 折成输入 1 dB 压缩点时用（泄漏预算里比的是压缩点）。真实前端的差值随级数与偏置变，常见 8–12 dB。"
+
+  assumed.frontend_faces_pick:
+    value: {rx_nf_db: 6.1, rx_iip3_dbm: -20.0, rx_gain_db: 27.0, tx_rx_isolation_db: 20.0, antenna_gain_tx_dbi: 2.0, antenna_gain_rx_dbi: 2.0}
+    unit: "dB, dBm, dB, dB, dBi, dBi"
+    source: assumed
+    cite: "本库 config.surveyed_frontend；从上面的条目里各取一个数"
+    note: "'surveyed' 一档取哪几个数是本库的选择：接收 NF / IIP3 / 高增益档增益与发 / 收天线增益都取同一颗通信收发机（rx60.comm_asada2011，读过原文），不取雷达芯片；收发隔离取不加 EBG 的下端 40 − 20 = 20 dB（保守，泄漏最大）。第一版取的天线是 6 dBi（survey.antenna60_okada2013_dbi，至今没有读到原文），读到 Asada 原文后换成它自己的 2 dBi，6 dBi 留作灵敏度档。预设不用这一档，现有数字不动；示例 08 每张表都是灵敏度行。"
+
   derived.irr_after_cal_measured_db:
     value: {20.0e+6: 55.3, 80.0e+6: 55.2, 160.0e+6: 50.4, 320.0e+6: 51.1, 640.0e+6: 46.5, 2560.0e+6: 37.9}
     unit: dB per side

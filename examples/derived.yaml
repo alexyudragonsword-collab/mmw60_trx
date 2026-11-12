@@ -148,3 +148,22 @@
   quotes:
     - {doc: ROADMAP.md, text: "7.0 → 7.5 dB 之间从 {e70} 跳到 {e75} dB"}
     - {doc: cairn/engineering-pitfalls.md, text: "回退 7.0 → 7.5 dB 之间 EVM 差 {e70 - e75} dB"}
+
+- name: ex08 what the receive noise figure moves in the calibration readings (K = 8, preset ladder vs the surveyed pick vs the radar chip's)
+  values:
+    lb_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (the presets) {*} {*} {*} {*} {*} {} {*} {*}"}
+    lb_comm: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz comm. transceiver, 65 nm {*} {*} {*} {*} {*} {} {*} {*}"}
+    lb_radar: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz radar chip {*} {*} {*} {*} {*} {} {*} {*}"}
+    tx_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (the presets) {*} {*} {*} {*} {*} {*} {} {*}"}
+    tx_radar: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz radar chip {*} {*} {*} {*} {*} {*} {} {*}"}
+  quotes:
+    - {doc: cairn/topology-b.md, text: "NF 从 3.5 到 6.1 dB，最终回环 EVM 差 {lb_comm - lb_w7} dB；到 12 dB 差 {lb_radar - lb_w7} dB，其中 TX 单独的读数也差 {tx_radar - tx_w7} dB"}
+    - {doc: ROADMAP.md, text: "K = 8 的回环 EVM {lb_w7} → {lb_comm} dB，NF 取 12 dB 时 {lb_radar} dB"}
+
+- name: ex08 sensitivity at MCS 0, topology B, preset ladder vs the surveyed pick
+  values:
+    s_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (the presets) {*} {} {*} {*} {*} {*} {*} {*}"}
+    s_comm: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz comm. transceiver, 65 nm {*} {} {*} {*} {*} {*} {*} {*}"}
+  quotes:
+    - {doc: ROADMAP.md, text: "拓扑 B 同一换法从 {s_w7} 变 {s_comm} dBm（差 {s_comm - s_w7} dB）"}
+    - {doc: cairn/topology-b.md, text: "拓扑 A 的灵敏度不动（−92.5 dBm，差 0.00 dB），拓扑 B 动 {s_comm - s_w7} dB"}

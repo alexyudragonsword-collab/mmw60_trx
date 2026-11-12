@@ -5,7 +5,7 @@ summary: "规范 / 文献数字的来源制度：四种标签、Liu 2025 两个 
 tags: [mmw60, spec, provenance, liu2025]
 contains: [reference, decision, open_question]
 created: "2026-11-06"
-updated: "2026-11-11"
+updated: "2026-11-12"
 related: [external-validation.md, upclocking.md]
 authoring_mode: ai_generated
 ---
@@ -31,6 +31,15 @@ authoring_mode: ai_generated
 
 MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B、20 + 20 ppm → ±2.94 MHz、相噪 1 极 1 零（1 MHz / 100 MHz / −93 dBc/Hz）、modified Rapp OBO 8 dB、STF/LTF 捕获 ±625 / ±156.25 kHz、门槛 5.88 MHz 与 4.7、PER 目标 1e-2、"refrained from using estimation and compensation algorithms for CFO and PN"。
 
+## 读过原文的（spec，带 quote 与 section；2026-11-12 起）
+
+本库第一批 `source: spec` 条目，都在 ROADMAP D4 这一轮（原文经放行站点后直接下载，没有绕任何访问校验）：
+
+- `rx60.comm_asada2011`：Asada et al., A-SSCC 2011，作者实验室站点上的论文 PDF。§V 与 Table III：接收变频增益 27 dB（高增益）/ 17 dB（低增益），“The entire noise figure is less than 6.1 dB, and the measured IIP3 is −20 dBm”，封装内天线 2 dBi。同一张表还有发射 P1dB 5.4 dBm、Psat 6.5 dBm、相噪 −94.2 dBc/Hz @ 1 MHz（60.48 GHz）。没说 IIP3 是哪一档增益下量的。
+- `rx60.radar_iwr6843`：TI SWRS219F（2025-04 修订）§7.9 RF Specification：NF 12 dB、带外 P1dB −12 dBm（脚注：10 kHz 连续波）、最大增益 48 dB、范围 18 dB、发射 12 dBm，全部是典型值。带内 P1dB 在 Figure 7-2 里，是图。
+- `isolation.tx_rx_tue2018`：Adela et al., IEEE TAP vol. 66, 2018，TU/e 研究门户上的**摘要**（正文没有读）：57–64 GHz 收发隔离 40 dB，比不加 EBG 好 15–20 dB。
+- `dmg.rx_max_input_dbm`：ITU-R M.2003 (03/2012) Annex 1 §2.4.6：“at least −33 dBm”。**现行版 M.2003-2 (01/2018) 同一节改成了接收天线处 10 µW/cm²**；60.48 GHz 下折合 −37.1 dBm（0 dBi）/ −31.1 dBm（6 dBi）。
+
 ## 原文没给、从别处拿的（survey，未核实）
 
 - Rapp 参数：IEEE 802.11-09/0296r16（TGad EM）CMOS PA，g = 4.65、Asat = 0.58、p = 0.81、α = 2560、β = 0.114、q1 = 2.4、q2 = 2.3——来自搜索命中的文档摘录，.doc 原文未读（r09 版是 5 / 0.6 / 0.71）。公式形状按记忆。
@@ -41,6 +50,7 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - 同台表 pJ/bit 列（A3）：Walden FoM 70 fJ（38.4–120.2）与 45 → 7 nm 能量比 0.175 经 Halo 的 `PowerCoefficients` 转引 Murmann / DeepScaleTool；pllsim wu19 时钟剖面是 Halo 随库数据（模型输出，不是实测）。
 - PA 记忆研究（示例 07，2026-11-11）：`assumed.pa_memory_model`（wifitrx / PA_DPD 的参考 PA，sub-7 GHz WiFi PA 的模型，不是 60 GHz 器件）、`assumed.pa_memory_fir_fs_hz`（80 MS/s，即 12.5 ns 一个抽头）及其灵敏度档、回退扫描的格点（细 / 粗）、目标 EVM（−25 / −27 dB）、DPD 抽头间隔候选，全部是本库的 assumed；60 GHz PA 的记忆时间常数没有查到出处。
 - pllsim ×10 剖面（`survey.clock_profile_wu19_x10`，2026-11-11）：pll_simulator@d67043e 的 CLI 在本地生成（命令在条目的 cite 里），wu19 预设重调到 6.048 GHz 再过对方的 ×10 倍频器模型；同样是模型输出，不是实测。倍频器底噪 −150 dBc/Hz 与谐波抑制 40 dB 是本库的 assumed，没有出处。
+- 前端的三个面（示例 08，2026-11-12，ROADMAP D4）里还没读到原文的四条：`survey.rx60_comm_iscas2015`（ISCAS 2015，NF 7.1 dB；64 dB 是含基带的整机增益，不用）、`survey.antenna60_okada2013_dbi`（JSSC 2013，6 dBi）——这两条在 IEEE Xplore，对脚本访问返回空页，没有去绕；`survey.antenna60_bgt60_an600_dbi`（Infineon AN600，2 / 3.5 / 5 dBi，fmcw_radar 在 mmw60_trx#14 上贴的；Mouser 断开连接）；`survey.dmg_sensitivity_assumptions`（802.11ad 灵敏度表的前提 NF 10 dB / 实现损耗 5 dB，二手转引；ITU-R M.2003 里没有这两个数）。四条都只作灵敏度档。没有查到任何数据手册直接给收发隔离度。
 
 ## 本库自己定的（assumed；每条在示例 00 有灵敏度行或在 LOG 有数字）
 
@@ -49,6 +59,8 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 拓扑 A（A1）的一组：IF 6.48 GHz、固定 LO ×3、IF 带通（Chebyshev-I 5 阶 0.5 dB、通带 1.2 GHz）、镜像抑制 30 dB、芯片 seed 5 与 4 倍过采样、MLO 的 sub-7 链路 5.5 GHz / 20 dB、同源晶振；每条在示例 06 §7 有灵敏度行（`cairn/topology-a.md` §9）。
 
 A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 峰值 PAE 20 %（B 类回退规律）、60 GHz / sub-7 频综 40 / 20 mW、数字字宽 16 bit、理想 ×N 的 20·log10 搬移；每条在示例 04 §6 的灵敏度表里有两端的数（`cairn/comparison-table.md` §5）。
+
+前端三个面的一组（示例 08）：`assumed.rx60_ladder_shape`（原文只给高 / 低两档增益与一个 NF、一个 IIP3，八档梯子是 wifitrx 的整体平移，换档电平按 wifitrx 的平衡点规则）、`assumed.rx60_p1db_from_iip3_db`（9.6 dB）、`assumed.frontend_faces_pick`（基准档各取哪个数：接收机与天线取同一颗通信收发机，隔离取减出来的下端 20 dB）。预设不用这一档；示例 08 每张表都是灵敏度行。
 
 ## 本库自己量的（derived）
 
@@ -60,3 +72,4 @@ A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 峰�
 1. Liu 2025 的 Rapp 参数与 OBO 定义（刊出版或作者）。
 2. 11ad CR 信道的 tap 表（Maltsev 11-09/0334；拿到后 `TapTableChannel` 直接接，`cairn/Reference/` 放原文）。
 3. IEEE 802.11-09/0296r16 原文：把 `tgad_em.*` 从 survey 改成 spec。
+4. 前端三个面还剩四条 survey（上面“前端的三个面”一条）：ISCAS 2015 与 Okada 2013 要 IEEE Xplore 的访问权或 PDF；Infineon AN600 要一份能下到的 PDF；802.11ad 灵敏度表的前提与最大输入电平要标准条文。另外两处读了原文仍没有答案：Asada 2011 的 IIP3 对应哪一档增益；TU/e 2018 正文里不加隔离结构时的隔离度到底给没给（只读了摘要）；IWR6843 的带内 P1dB 在图里。

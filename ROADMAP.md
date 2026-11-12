@@ -77,14 +77,23 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
   同台表计了 DPD 的功耗、底板用的是未预失真的 Rapp，所以是“付了钱没拿到线性度”的记账，与 A1 第二条是同一件事。
 - **示例 03 的校准表不在预设回退点上**：wifitrx 默认驱动在本库前端上落在回退 10.4–10.7 dB，不是预设的 8 dB。示例 07 已按预设回退重跑整套序列（`run_cal_at(obo_db=…)`）；示例 03 没改（改了全表都动），读它的 DPD / 最终 EVM 两行时要知道回退多了 2.5 dB。
 
+### C9. 前端三个面（示例 08）发现的（见 `cairn/LOG.md` 2026-11-12 两条、`cairn/topology-b.md` §5）
+- **还有四条文献数字没读到原文**：`python -c "from mmw60 import spec; print(len(spec.unverified()))"` 是 52（D4 前 48）。读过原文、已改成 `spec` 的四条：`rx60.comm_asada2011`、`rx60.radar_iwr6843`、`isolation.tx_rx_tue2018`（只读了摘要）、`dmg.rx_max_input_dbm`。没读到的四条：`survey.rx60_comm_iscas2015`、`survey.antenna60_okada2013_dbi`（都在 IEEE Xplore，对脚本访问返回空页，没有去绕）、`survey.antenna60_bgt60_an600_dbi`（Mouser 断开连接）、`survey.dmg_sensitivity_assumptions`（802.11 条文）。这四条都只作灵敏度档，基准档不用它们。
+- **最大输入电平 −33 dBm 是 2012 年版的写法**：ITU-R M.2003 (03/2012) §2.4.6 是 −33 dBm；现行版 M.2003-2 (01/2018) 同一节改成接收天线处 10 µW/cm²。按 60.48 GHz 换算是 −37.1 dBm（0 dBi）/ −35.1 dBm（2 dBi）/ −31.1 dBm（6 dBi）。示例 08 §3 那一列还按 −33 dBm 画；要不要改成按天线增益换算的功率密度线，待定。
+- **Asada 2011 的发射机比本库假设的小很多**：同一张表给发射 Psat 6.5 dBm、P1dB 5.4 dBm、变频增益 16 dB；本库的 60 GHz PA 是 Psat 15 dBm、增益 20 dB（`assumed.pa60_psat_dbm` / `assumed.pa60_gain_db`，没有出处）。本库回退 8 dB 后的 7 dBm 平均输出，已经高于这颗收发机的饱和功率。这一轮没有动 PA；要不要给 PA 也加一档“查到的”，待定。
+- **拓扑 A 不消费接收前端这个面**：`python examples/08_frontend_faces.py` §5，拓扑 A（11be 80 MHz、MCS 0）的灵敏度预设 −92.5 dBm、换上查到的前端仍是 −92.5 dBm（差 0.00 dB）；拓扑 B 同一换法从 −87.0 变 −84.4 dBm（差 2.6 dB）。原因：`ifext.MmwRxStage` 是单位增益、自己不加噪声，SNR 轴上的 NF 是芯片的 WiFi 7 梯子。用预设时两拓扑都是 3.5 dB，同台表不受影响；一旦用查到的前端，两拓扑的接收噪声就不是同一个口径（铁律 2）。补法是在芯片前面加一级 60 GHz LNA / 混频器（增益、NF），级联 NF 由它定。
+- **预设还在用 WiFi 7 的梯子**：换成查到的前端后，SNR 轴上的链路 EVM 不动（示例 08 §2，五档 NF 的散布 0.00 dB），动的是灵敏度（dB 对 dB）和校准表：K = 8 的回环 EVM −29.0 → −27.9 dB，NF 取 12 dB 时 −23.5 dB。也就是示例 03 的最终 EVM 是带着 3.5 dB 的接收机读的。要不要把预设换过去（示例 03 / 06 / 07 的数字会动），待定。
+- **梯子的形状是假设**：原文只给高 / 低两档（变频增益 27 / 17 dB）和一个 NF 上界、一个 IIP3（没说哪一档），其余档位是 wifitrx 梯子整体平移（`assumed.rx60_ladder_shape`）。wifitrx 梯子的调节范围 42 dB，Asada 的接收机 10 dB、雷达芯片 18 dB。增益取 27 dB 后，灵敏度电平上基带 VGA 顶在 40 dB 的上限（ADC 输入比目标低约 7.5 dB），SNR 2 / 10 / 30 dB 上的链路 EVM 与 37 dB 时相同；增益再低到 17 dB，SNR 30 dB 上差 0.18 dB。查到的 IIP3（−20 dBm）与 wifitrx 顶档恰好相同，所以压缩这个面眼下和预设没有差别。
+- **“校准读到的 RX NF”对换档电平很敏感**：回环电平正好落在第 1、2 档的换档点附近。换档电平按 wifitrx 的平衡点规则随 NF 移动 ΔNF / 3，所以 NF 6.1 dB 的那一行落在第 1 档、读 9.6 dB，比预设（第 2 档、10.8 dB）还低。读这一列时要连着档位读。
+- **泄漏预算是给雷达的，没有链路消费它**：PA 输出 7 dBm、隔离 20 dB 时泄漏 −13 dBm，比接收前端最高增益档的输入 P1dB（−29.6 dBm）高 16.6 dB，AGC 要退到 state 6（NF 32.6 dB）才接得住；隔离 40 dB 时余量 +3.4 dB。20 / 25 dB 是用一篇摘要里的两个数减出来的，正文没有读。时分双工链路收发不同时，本库的链路仿真不注入泄漏。
+- **查到的前端不在数值指纹里**：`tools/fingerprint.py` 只跑 `configs/*.yaml`。加一份配置会改指纹文件，要用一次逃生口；现在由 `tests/test_frontend_faces.py` 守着。
+
 ## D. 报回上游
 本库不动这三个库；需求各开一个 issue 交给对方，对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
 D1（wifi_trx_cal#4，非标准带宽的评分波形）、D2（pll_simulator#71，倍频器模型）、D3（PA_DPD#4 的 `fs` / `fir_fs` 与 `tap_spacing`，经 wifi_trx_cal#5 透传）都已落地并 pin 完（2026-11-11，`cairn/LOG.md`），条目已删。现在没有等上游的事。
 本库在验收时报告的两件对方已经修掉并 pin 进来（wifitrx@7b8d08e）：B40（DPD 步留观测通路上最好的一轮，都不如不加就不写入）与 B41（`ScaledPA` 对带记忆的 PA 逐电平读稳态）。对方自己还开着、与本库有关但不由本库推动的：B38（非标准音计划下 TX 视图 replay 的 gap）；`run_full_cal` 仍不透传 `n_iter`。
 
-### D4 ← fmcw_radar：雷达消费清单（收件）
-- fmcw_radar 会报一份"它能从本库 `Frontend60` 用什么、缺什么"的清单：能用 PA（`ScaledRappPA`）、LO 泄漏（`Lo60.tx_leak_dbc`）、LO 剖面形状（`PoleZeroPhase`）；缺天线增益、LNA NF、TX–RX 隔离、倍频器底噪。
-- 处理：这几个面补进 `Frontend60`（`antenna_gain_dbi` 已有，LNA NF 现在藏在 wifitrx `DEFAULT_LNA_STATES` 里要显式化，TX–RX 隔离与倍频器底噪新增），排在 A1 之后，不插队；补的时候保持铁律 2 的同一实例（两拓扑与雷达拿到的是同一个对象）。
+D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）也已落地（2026-11-12，示例 08、`cairn/topology-b.md` §5）：接收前端、收发隔离、发 / 收天线增益三个面在 `Frontend60` 上，条目已删；过程中发现的在 C9。倍频器底噪不进 `Frontend60`（雷达直接读剖面文件）。
 
 ## E. 明确不做
 MAC / MLO 调度、多用户、信道模型本身（用 11ad CR 现成表）、D-band、雷达（另开 fmcw_radar）；EIRP / 谱模板只做趋势比较，不替代认证测试；不把 vendor 变成 fork。
