@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### 60 GHz PA 对照原文：`config.surveyed_pa`、示例 09（2026-11-12）
+- 读了三篇 60 GHz CMOS PA 的原文（东工大 65 nm，作者实验室站点）。规范条目 +6：`pa60.asada_eumc2011`、`pa60.wu_asscc2012`、`pa60.ning_elex2011`、`pa60.eumc2011_table1`（spec，带引文）、`derived.pa60_rapp_p_asada_eumc2011`、`assumed.pa60_surveyed_pick`；`rx60.comm_asada2011` 补了发射侧三个数。未核实条目数不变（51）。
+- **配置 schema 增加字段** `frontend.pa.rapp_p`（Rapp 平滑度，None = 11ad 的 0.81）。`Frontend60` 与 behavioural 路径都读它。`config.surveyed_pa(cfg)`：Psat / 增益 / 峰值 PAE 取一颗测量的 PA，平滑度由它的 Psat − P1dB 算出；回退与参考点不动。
+- 示例 09（新）：测量的 PA 与预设并排；两种形状的 PA 单独 EVM 对回退（从 Psat / 从 P1dB 算）；功耗列的效率规律对照；wifitrx 的 DPD 步在两种 PA 上拿回多少；同台表 11be 80 MHz 行换 PA 后的解码器上限、速率、pJ/bit、限制项。
+- **发现**：预设的 Psat 在测量范围里，偏的是形状（P1dB 在 Psat 下 9.5 dB，测量中位 3.3 dB）。换成测量的形状，K ≤ 4 与拓扑 A 升一到两档 MCS，K ≥ 8 不动。**推翻**上一条 C9 里“Asada 的发射机比本库假设的 PA 小很多”：那是收发机的发射输出，不是 PA。
+- `tests/test_pa60.py`：+9。预设不动，指纹不变，示例 00–08 的输出不变。
+
 ### 规范表有了下游：记下被 fmcw_radar 消费的条目，并加一条守卫（2026-11-12）
 - fmcw_radar（0.2.8）vendor 了 `spec.py` 与 `data/spec/survey.yaml`，按条目读 `rx60.radar_iwr6843`、`rx60.radar_iwr6843_fig7_2`、`isolation.tx_rx_tue2018`，加载时核对数值相等。`cairn/spec-sources.md` 新增“被下游消费的条目”一节。
 - `tests/test_spec_sources.py`：+1，守着这三条的键、字段、数值与 `spec.py` 的公开名字。**以后动它们要在这里写明并同步改这条测试。**

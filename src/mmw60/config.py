@@ -143,6 +143,12 @@ class PaConfig:
     #: 9.5 dB below Psat, so the two readings of "OBO 8 dB" differ by that)
     obo_reference: str = "psat"
     ampm: bool = True
+    #: the Rapp smoothness p; None = the 11ad evaluation methodology's
+    #: (tgad_em.pa_rapp_p = 0.81, which puts P1dB 9.5 dB below Psat).  A larger
+    #: p compresses more abruptly; config.surveyed_pa sets it from a measured
+    #: Psat − P1dB (data/spec: derived.pa60_rapp_p_asada_eumc2011).  The AM/PM
+    #: stays the 11ad one either way.
+    rapp_p: float | None = None
 
     @property
     def enabled(self) -> bool:
@@ -309,6 +315,8 @@ class Mmw60Config:
             raise ValueError(f"channel.model must be one of {CHANNELS}")
         if int(self.upclock_k) < 1:
             raise ValueError("upclock_k must be >= 1")
+        if self.frontend.pa.rapp_p is not None and not float(self.frontend.pa.rapp_p) > 0:
+            raise ValueError("frontend.pa.rapp_p must be > 0")
         if self.frontend.pa.obo_reference not in ("psat", "p1db"):
             raise ValueError("frontend.pa.obo_reference must be psat | p1db")
         if self.frontend.model not in FRONTEND_MODELS:
@@ -516,6 +524,21 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
                               rx=improved_rx(dataclasses.replace(base.rx, dc_removal=True)),
                               label=f"zero-IF 60 GHz {standard} {bandwidth_hz / 1e6:g} MHz x{k} MCS{mcs}")
     return dataclasses.replace(cfg, **top) if top else cfg
+
+
+def surveyed_pa(cfg: Mmw60Config) -> Mmw60Config:
+    """``cfg`` with the 60 GHz PA taken from one measured 60 GHz CMOS PA
+    (data/spec: assumed.pa60_surveyed_pick and the entries it names): Psat,
+    small-signal gain, peak PAE, and the Rapp smoothness that puts P1dB as far
+    below Psat as the paper measured.  The back-off and its reference stay the
+    config's.  The presets do not call this: their PA is the 11ad evaluation
+    methodology's shape (P1dB 9.5 dB below Psat) at an assumed 15 dBm Psat."""
+    pick = spec.value("assumed.pa60_surveyed_pick")
+    src = spec.value(pick["source"])
+    pa = dataclasses.replace(cfg.frontend.pa, rapp_p=float(spec.value(pick["rapp_p"])))
+    fe = dataclasses.replace(cfg.frontend, pa=pa, psat_dbm=float(src["psat_dbm"]),
+                             pa_gain_db=float(src["gain_db"]), pa_pae_max=float(src["pae_peak"]))
+    return dataclasses.replace(cfg, frontend=fe, label=(cfg.label + " surveyed PA").strip())
 
 
 def surveyed_frontend(cfg: Mmw60Config) -> Mmw60Config:

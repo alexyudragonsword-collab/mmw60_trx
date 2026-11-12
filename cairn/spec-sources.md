@@ -41,6 +41,15 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - `isolation.tx_rx_tue2018`：Adela et al., IEEE TAP vol. 66, 2018，TU/e 研究门户上的**摘要**（正文没有读）：57–64 GHz 收发隔离 40 dB，比不加 EBG 好 15–20 dB。正文由 fmcw_radar 读过，本库转述在条目备注里：不加 EBG 的整机 21–27 dB 是仿真，天线级 21–28 dB 是实测。
 - `dmg.rx_max_input_dbm`：ITU-R M.2003 (03/2012) Annex 1 §2.4.6：“at least −33 dBm”。**现行版 M.2003-2 (01/2018) 同一节改成了接收天线处 10 µW/cm²**；60.48 GHz 下折合 −37.1 dBm（0 dBi）/ −31.1 dBm（6 dBi）。
 
+60 GHz PA（示例 09，2026-11-12）：三篇东工大 65 nm 60 GHz CMOS PA 的论文 PDF，作者实验室站点直接下载：
+- `pa60.asada_eumc2011`（基准档）：增益 23.2 dB、P1dB 10.0 dBm、Psat 14.6 dBm、峰值 PAE 16.3 %、P1dB 处 7.9 %、135 mW @ 1.2 V。会议名按文件路径是 EuMC 2011，PDF 本身没印。
+- `pa60.wu_asscc2012`：末级 1.0 V 时 Psat 13.2 / P1dB 10.2 dBm / PAE 15.0 %，0.7 V 时 10.1 / 5.8 / 8.1 %。
+- `pa60.ning_elex2011`：IEICE ELEX 2011，增益 9.8 dB、P1dB 9.4、Psat 11.7 dBm、PAE 14.3 % / P1dB 处 12.0 %。
+- `pa60.eumc2011_table1`：Asada 那篇的 Table I，14 颗 60 GHz CMOS PA 的汇编。是那篇转引的，各行原文本库没读，只用来看分布。
+- `rx60.comm_asada2011` 补了发射侧（变频增益 16 dB、P1dB 5.4、Psat 6.5 dBm）：那是收发机的发射输出，没有单独 PA 级。
+- `derived.pa60_rapp_p_asada_eumc2011` = 1.286：使 Rapp 的 Psat − P1dB 等于 4.6 dB 的平滑度，`tests/test_pa60.py` 复算。`assumed.pa60_surveyed_pick` 说基准档取哪一篇。
+- 没出处的：AM/PM（三篇都不给，仍用 11ad 的）。`assumed.pa60_psat_dbm` / `assumed.pa60_pae_max` 的备注里加了与测量值的对照。
+
 ## 被下游消费的条目（改之前先看这里）
 
 fmcw_radar 从 0.2.8 起（它的 main@`7685bb3`，fmcw_radar#11）vendor 本库的两个文件：`src/mmw60/spec.py` 与 `src/mmw60/data/spec/survey.yaml`，pin 在本库 `ef0f00c`，逐字节校验。它没有 vendor `Frontend60`（依赖整条 wifitrx 收发链，对只读几个数的雷达太重），所以读的是来源表，不是对象。以上是对方在 mmw60_trx#14 上的说明（评论 6823377875），本库没有读对方的仓库。
