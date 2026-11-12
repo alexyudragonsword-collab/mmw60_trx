@@ -167,3 +167,21 @@
   quotes:
     - {doc: ROADMAP.md, text: "拓扑 B 同一换法从 {s_w7} 变 {s_comm} dBm（差 {s_comm - s_w7} dB）"}
     - {doc: cairn/topology-b.md, text: "拓扑 A 的灵敏度不动（−92.5 dBm，差 0.00 dB），拓扑 B 动 {s_comm - s_w7} dB"}
+
+- name: ex09 the 11be 80 MHz K = 4 row with the preset and the surveyed PA (decoder cap rate and pJ/bit)
+  values:
+    r_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=4 @60.48 GHz presets {*} {*} {} {*} {*} pa"}
+    pj_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=4 @60.48 GHz presets {*} {*} {*} {} {*} pa"}
+    pj8_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=8 @60.48 GHz presets {*} {*} {*} {} {*} pa"}
+  quotes:
+    - {doc: cairn/comparison-table.md, text: "K = 4 从 {pj_p} 降到 483，和 K = 8 的差从 {pj_p - pj8_p} 缩到 11 pJ/bit"}
+    - {doc: cairn/LOG.md, text: "K = 4 4 → 5、{r_p} → 1153、{pj_p} → 483"}
+
+- name: ex09 what wifitrx's DPD step buys at 8 dB of back-off on each PA (K = 8)
+  values:
+    p0: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {} {*} {*} {*}"}
+    p1: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {*} {} {*} {*}"}
+    s0: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "surveyed 8 {*} {} {*} {*} {*}"}
+    s1: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "surveyed 8 {*} {*} {} {*} {*}"}
+  quotes:
+    - {doc: ROADMAP.md, text: "拿回 {p0 - p1} dB（{p0} → {p1}），对测量形状拿回 {s0 - s1} dB（{s0} → {s1}）"}
