@@ -39,7 +39,7 @@ entries:
     unit: text
     source: assumed
     cite: "本库"
-    note: "Liu 2025 未说相噪加在哪一侧。本库 TX、RX 各一份独立实现、同一 PSD（总相噪功率 +3 dB）；示例给 rx-only 灵敏度行。"
+    note: "Liu 2025 未说相噪加在哪一侧。本库 TX、RX 各一份独立实现、同一 PSD（总相噪功率 +3 dB）；示例给 rx-only 灵敏度行。2026-11-13（mmw60_trx#25）：TGad 评估方法学原文就是两侧各加一份（tgad_em.pn_sides，spec），Liu 用的正是它的相噪模型形状，本库的取法与之一致；仍是本库的取舍，因为 Liu 本人没说。"
 
   assumed.cr_rms_delay_ns:
     value: 7.0
@@ -67,7 +67,7 @@ entries:
     unit: text
     source: assumed
     cite: "本库"
-    note: "Liu 2025 只说 'OBO 8 dB'。字面 OBO 是相对饱和输出功率 Psat；但 11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB（tgad_em.rapp_p1db_below_psat_db），相对 Psat 回退 8 dB 等于平均功率在 P1dB 之上 1.5 dB，孤立 EVM 只有 −17 dB。主结果按字面 psat；示例另给 p1db 口径的灵敏度行。"
+    note: "Liu 2025 只说 'OBO 8 dB'。字面 OBO 是相对饱和输出功率 Psat；但 11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB（tgad_em.rapp_p1db_below_psat_db），相对 Psat 回退 8 dB 等于平均功率在 P1dB 之上 1.5 dB，孤立 EVM 只有 −17 dB。主结果按字面 psat；示例另给 p1db 口径的灵敏度行。2026-11-13（mmw60_trx#25）：TGad 评估方法学原文把回退定义为相对饱和输出功率（tgad_em.pa_backoff_definition，spec），并推荐 OFDM 8 dB（tgad_em.pa_backoff_recommended_db）——psat 口径与 Liu 的 8 dB 都有了出处；仍是本库的取舍，因为 Liu 本人没说参考点。"
 
   assumed.rx_timing:
     value: "genie (frame start known)"

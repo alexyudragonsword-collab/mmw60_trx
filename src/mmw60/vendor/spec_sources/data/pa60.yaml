@@ -1,4 +1,4 @@
-# Vendored from spec_sources@e573d4d99dcf0584b7245c4869aaaa8a84ada24c: src/spec_sources/data/pa60.yaml
+# Vendored from spec_sources@9a443ba73655591665df003bd9a863769cf81bdf: src/spec_sources/data/pa60.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # pa60 —— 60 GHz CMOS 功率放大器的测量值（读过原文），与只由它们推出的 derived。
 #
@@ -87,8 +87,3 @@ entries:
     source: derived
     cite: "pa.rapp.ModifiedRappPA(p=…) 使 10·log10(P_sat / P1dB) = pa60.asada_eumc2011 的 psat_dbm − p1db_dbm（4.6 dB）；tgad_em 的 g / A_sat 不变，P1dB 在 Psat 下几 dB 只由 p 决定"
     note: "单调求根，三位小数（1.286 时差 4.60 dB）。对照：tgad_em.pa_rapp_p = 0.81 对应 9.5 dB；Table I 的中位 3.3 dB 对应 p ≈ 1.57。tests/test_pa60.py 复算。"
-
-aliases:
-  # 0.2.0：mmw60_trx 带来的旧前缀键改名（前缀是标签，不是领域）。旧名至少留到 0.3.0，读取时 DeprecatedKeyWarning；
-  # keys.lock 里记着 aliased=0.2.0。
-  derived.pa60_rapp_p_asada_eumc2011: {to: pa60.asada_eumc2011_rapp_p, since: "0.2.0"}

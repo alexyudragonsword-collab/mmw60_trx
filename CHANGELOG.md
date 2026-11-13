@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### spec_sources 0.3.0：TGad 评估方法学读成原文、别名退役，重新 pin（2026-11-13，mmw60_trx#25）—— 数不变，示例 09 一个标签变
+- 重新 pin spec_sources @ `9a443ba73655591665df003bd9a863769cf81bdf`（0.3.0，它的 PR #8）。8 个文件里变了 6 个：`__init__.py` 版本号，`ieee80211.yaml`（9 条 `tgad_em.*` 由 survey 改成 spec、新增 4 条），另 4 张表删掉 `aliases:`；`reader.py`、`regulatory.yaml` 没变。
+- 合并后的表 126 → 130 条，值与单位一个不变，9 条标签 survey → spec，未核实条目 51 → 42。示例 09 第 15 行打印的 `tgad_em.pa_rapp_p` 标签从 `[survey, unverified]` 变成 `[spec]`。
+- 本地表 `assumed.pn_apply_sides`、`assumed.pa_obo_reference` 的说明指向新的原文条目（`tgad_em.pn_sides`、`tgad_em.pa_backoff_definition` / `pa_backoff_recommended_db`）：本库的取法与 TGad 原文一致；仍是 assumed，因为 Liu 本人没说。只改文字。
+- 测试：0.2.0 的别名测试改成“17 个旧名现在是 KeyError；垫片的别名路径用一个人造别名守着（警告指向调用方、本套件里是错误）”。新增一条守卫：本地表 cite / note 里点名的键必须是现存的键（往说明里注入一个旧名时红、还原后绿；它读到 25 处引用）。
+- ROADMAP C10 加一条：TGad 原文推荐的 OFDM 回退 8 dB 是配它自己那颗 PA 的，同一条工作点规则在那颗 PA 上要 10.0 dB。
+- **验收**：指纹逐位不变；`vendor_check --strict` 114 个全 verbatim；示例 02 / 04 / 08 逐字相同，09 只差那一个标签。
+
 ### spec_sources 0.2.0：17 个键改名，重新 pin（2026-11-13，mmw60_trx#23）—— 数不变，示例 08 / 09 打印的 4 个键名变
 - 重新 pin spec_sources @ `e573d4d99dcf0584b7245c4869aaaa8a84ada24c`（0.2.0，它的 PR #5）。8 个文件里 7 个变了：`__init__.py` 带上版本号，`reader.py` 去掉版本号，5 张表改键名并加 `aliases:`；`regulatory.yaml` 没变。
 - 17 个前缀是来源标签的键换成新名（如 `survey.n_sd_11ac` → `ieee80211ac.n_sd`、`derived.pa60_rapp_p_asada_eumc2011` → `pa60.asada_eumc2011_rapp_p`，全表在 spec_sources CHANGELOG 0.2.0）。本库 42 处调用（13 个文件）、本地表 4 处文字（3 条 cite / note 与 `assumed.pa60_surveyed_pick` 值里的键名引用）跟着改；`examples/expected/` 里示例 08 三行、09 一行打印的键名变成新名。

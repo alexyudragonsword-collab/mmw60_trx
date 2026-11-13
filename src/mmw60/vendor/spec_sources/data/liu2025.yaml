@@ -1,4 +1,4 @@
-# Vendored from spec_sources@e573d4d99dcf0584b7245c4869aaaa8a84ada24c: src/spec_sources/data/liu2025.yaml
+# Vendored from spec_sources@9a443ba73655591665df003bd9a863769cf81bdf: src/spec_sources/data/liu2025.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # liu2025 —— Liu 2025（Wi-Fi 8 毫米波 upclocking）论文里的数，与只由它们推出的 derived。
 #
@@ -195,10 +195,3 @@ entries:
     source: derived
     cite: "liu2025.cfo_from_ppm_hz / 156.25 kHz = 18.8"
     note: "只靠 L-LTF 两段估计（±SCS/2）要 K ≥ 18.8：K = 16 也接不住 2.94 MHz，必须有 STF 粗估计。"
-
-aliases:
-  # 0.2.0：mmw60_trx 带来的旧前缀键改名（前缀是标签，不是领域）。旧名至少留到 0.3.0，读取时 DeprecatedKeyWarning；
-  # keys.lock 里记着 aliased=0.2.0。
-  derived.cfo_liu2025_hz: {to: liu2025.cfo_from_ppm_hz, since: "0.2.0"}
-  derived.k_threshold_stf: {to: liu2025.k_threshold_stf, since: "0.2.0"}
-  derived.k_threshold_ltf_only: {to: liu2025.k_threshold_ltf_only, since: "0.2.0"}

@@ -1,7 +1,7 @@
 ---
 type: project_topic
 status: active
-summary: "规范 / 文献数字的来源制度：四种标签、Liu 2025 两个 arXiv 版本的差异、11ad EM 参数的出处与未核实之处、本库自己定的假设清单。"
+summary: "规范 / 文献数字的来源制度：四种标签、两张表（vendored spec_sources + 本库）、Liu 2025 两个 arXiv 版本的差异、11ad EM 参数的出处（2026-11-13 起读过原文）、本库自己定的假设清单。"
 tags: [mmw60, spec, provenance, liu2025]
 contains: [reference, decision, open_question]
 created: "2026-11-06"
@@ -24,6 +24,8 @@ authoring_mode: ai_generated
 下面各节按主题列条目；读过原文、文献、规管、11ad 的那些现在都在共享表里，键名没变。
 
 **0.2.0 的键改名（2026-11-13，mmw60_trx#23）**：重新 pin 到 spec_sources `e573d4d`（0.2.0）。它给 17 个前缀是来源标签的键改了名（`survey.` / `derived.` 前缀：标签会变，键名不该跟着标签），值、单位、标签都没变；旧名留在各数据文件的 `aliases:` 里，至少到 0.3.0。本库 42 处调用、本地表 4 处文字、示例 08 / 09 打印的 4 行跟着改成新名；`mmw60.spec` 读旧名照样拿到条目（`.key` 是新名），同时发 `DeprecatedKeyWarning`，而 pytest 的 `filterwarnings` 把它变成错误，所以本库不留旧名。对照表在 spec_sources 的 CHANGELOG 0.2.0 一节。本地表自己的 3 条 survey、3 条 derived 不在改名之列（ROADMAP C11）。
+
+**0.3.0（2026-11-13，mmw60_trx#25）**：重新 pin 到 spec_sources `9a443ba`。TGad 评估方法学的 9 条由 survey 改成 spec 并新增 4 条（见“原文没给、从别处拿的”一节的更正），0.2.0 的 17 个别名退役——旧名现在是 KeyError，本库在 #23 已改净。数值一个不变，指纹逐位不变。垫片的别名路径留着给下一次改名用，测试用一个人造别名守它；另加一条守卫：本地表说明文字里点名的键必须是现存的键。
 
 ## Liu 2025 的版本
 
@@ -90,6 +92,7 @@ fmcw_radar 从 0.2.8 起（它的 main@`7685bb3`，fmcw_radar#11）vendor 本库
 
 - Rapp 参数：IEEE 802.11-09/0296r16（TGad EM）CMOS PA，g = 4.65、Asat = 0.58、p = 0.81、α = 2560、β = 0.114、q1 = 2.4、q2 = 2.3——来自搜索命中的文档摘录，.doc 原文未读（r09 版是 5 / 0.6 / 0.71）。公式形状按记忆。
 - 相噪 PSD 形状 PSD0·(1+(f/f_z)²)/(1+(f/f_p)²)：TGad EM 的写法（它的 PSD0 是 −90，Liu 用 −93）。
+- **更正（2026-11-13，mmw60_trx#25）**：上面两条已不再是 survey。spec_sources 0.3.0 读了 r16 原文（并取 r09 对照；公式是 .doc 里嵌入的公式对象，转 PDF 后渲染第 4–5 页读的），9 条 `tgad_em.*`（Rapp 三个参数、AM/PM 四个参数、两个公式形状）改成 spec，带 quote 与 section；数与形状和原来逐个相同，“公式形状按记忆”这一句被原文证实。同时新增 4 条 spec：`tgad_em.pn_params`（PSD0 −90 dBc/Hz、fp 1 MHz、fz 100 MHz、PSD(∞) −130 dBc/Hz）、`tgad_em.pn_sides`（相噪在收发两侧各加一份）、`tgad_em.pa_backoff_definition`（回退 = 10·log10(平均发射功率 / Psat)）、`tgad_em.pa_backoff_recommended_db`（OFDM 8 dB、单载波 0.5 dB，推荐值）。本库 `assumed.pn_apply_sides` 与 `assumed.pa_obo_reference` 的取法和这两条原文一致，说明里已指过去；它们仍是 assumed，因为 Liu 本人没说。合并后的表 130 条，未核实的从 51 降到 42。
 - VHT MCS 表（N_SD = 52、N_DBPS 26/52/156）、交织 N_COL = 13、BCC 133/171、扰码 x⁷+x⁴+1：802.11 的通用知识，原文未贴入。
 - FCC 15.255 的 40 / 43 dBm：里程碑 1 用。
 - 802.11 LDPC 的 12 张原型矩阵（`data/spec/ldpc_80211.yaml`，A2）：规范 Annex F 原文未贴入，取两份独立公开转录（simgunz/802.11n-ldpc、tavildar/LDPC，MIT）逐项比对相同，再按双对角结构逐张校验；EHT 的 N_SD、D_TM、LDPC PPDU 流程阈值（912 / 1464 / 2916、10 % / 1.2 / 30 %）同样 survey。
@@ -117,5 +120,5 @@ A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 的 B
 
 1. Liu 2025 的 Rapp 参数与 OBO 定义（刊出版或作者）。
 2. 11ad CR 信道的 tap 表（Maltsev 11-09/0334；拿到后 `TapTableChannel` 直接接，`cairn/Reference/` 放原文）。
-3. IEEE 802.11-09/0296r16 原文：把 `tgad_em.*` 从 survey 改成 spec。
+3. ~~IEEE 802.11-09/0296r16 原文：把 `tgad_em.*` 从 survey 改成 spec。~~ 已由 spec_sources 0.3.0 关掉（2026-11-13，mmw60_trx#25）。
 4. 前端三个面还剩三条 survey（上面“前端的三个面”一条）：ISCAS 2015 与 Okada 2013 要 IEEE Xplore 的访问权或 PDF；802.11ad 灵敏度表的前提与最大输入电平要标准条文。另外两处读了原文仍没有答案：Asada 2011 的 IIP3 对应哪一档增益；TU/e 2018 正文里不加隔离结构时的隔离度到底给没给（只读了摘要）；通信接收前端的带外压缩点（基带高通之前）没有任何出处。
