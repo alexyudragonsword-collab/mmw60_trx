@@ -134,7 +134,7 @@ def main(argv=None) -> int:
           f"{tag('tgad_em.pa_rapp_p')}, {tag('assumed.pa60_psat_dbm')}")
     print(f"{'presets (measured PA)':<40} {pa_s.psat_dbm:6.1f} {pa_s.p1db_out_dbm:6.1f} "
           f"{gap_db(pa_s.psat_dbm, pa_s.p1db_out_dbm):5.1f} {pa_s.gain_db:6.1f} {100 * pa_s.pae_max:7.1f}   "
-          f"{tag('assumed.pa60_surveyed_pick')}, Rapp p {fe_s.pa_model.p:g} = {tag('derived.pa60_rapp_p_asada_eumc2011')}")
+          f"{tag('assumed.pa60_surveyed_pick')}, Rapp p {fe_s.pa_model.p:g} = {tag('pa60.asada_eumc2011_rapp_p')}")
     print("(dBm, dBm, dB = Psat − P1dB, dB, %.  The 11ad EM PA's Psat is inside the measured range; its P1dB is "
           f"{gap_db(pa_p.psat_dbm, pa_p.p1db_out_dbm):.1f} dB below it, against a measured median of "
           f"{np.median([r['psat_dbm'] - r['p1db_dbm'] for r in rows]):.1f} dB: the 11ad EM shape compresses far more "

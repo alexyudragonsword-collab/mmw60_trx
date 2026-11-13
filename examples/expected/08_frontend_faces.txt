@@ -23,8 +23,8 @@ link EVM = time-domain, flat channel, SNR 10 dB per active tone; calibration = w
 receive front end                        NF  sens MCS0  sens MCS4  link EVM  cal RX NF  loopback  TX alone  RX alone   figure from
 WiFi 7 chip ladder (the presets)        3.5      -87.0      -74.5     -9.26       11.1     -22.1     -21.4     -27.5   wifitrx DEFAULT_LNA_STATES
 60 GHz comm. transceiver, 65 nm         6.1      -84.4      -71.9     -9.26       13.4     -22.0     -21.4     -27.5   rx60.comm_asada2011 [spec]
-60 GHz comm. receiver, 90 nm            7.1      -83.4      -70.9     -9.26       14.3     -21.9     -21.4     -27.4   survey.rx60_comm_iscas2015 [survey, unverified]
-802.11ad sensitivity-table receiver    10.0      -80.5      -68.0     -9.26       17.1     -21.6     -21.4     -27.4   survey.dmg_sensitivity_assumptions [survey, unverified]
+60 GHz comm. receiver, 90 nm            7.1      -83.4      -70.9     -9.26       14.3     -21.9     -21.4     -27.4   rx60.comm_iscas2015 [survey, unverified]
+802.11ad sensitivity-table receiver    10.0      -80.5      -68.0     -9.26       17.1     -21.6     -21.4     -27.4   dmg.sensitivity_assumptions [survey, unverified]
 60 GHz radar chip                      12.0      -78.5      -66.0     -9.26       19.0     -21.3     -21.4     -27.3   rx60.radar_iwr6843 [spec]
 (dBm, dBm, dB, dB, dB, dB, dB)  [~s]
 sensitivity against noise figure, first to last row: 1.00 dB per dB
@@ -51,7 +51,7 @@ the isolation figures are isolation.tx_rx_tue2018 [spec]: one abstract; the 20 a
  gain  EIRP avg  margin avg  margin peak  path loss   figure from
   0.0       7.1        32.9         25.9       91.5   the presets (not specified)
   2.0       9.1        30.9         23.9       95.5   rx60.comm_asada2011 [spec], the pick
-  6.0      13.1        26.9         19.9      103.5   survey.antenna60_okada2013_dbi [survey, unverified]
+  6.0      13.1        26.9         19.9      103.5   antenna60.okada2013_dbi [survey, unverified]
 (dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.4 dBm, the surveyed receive front end; one element each end, no array gain — milestone 2)
 
 == 5. where the receive face is not consumed ==

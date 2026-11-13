@@ -146,7 +146,7 @@ class PaConfig:
     #: the Rapp smoothness p; None = the 11ad evaluation methodology's
     #: (tgad_em.pa_rapp_p = 0.81, which puts P1dB 9.5 dB below Psat).  A larger
     #: p compresses more abruptly; config.surveyed_pa sets it from a measured
-    #: Psat − P1dB (data/spec: derived.pa60_rapp_p_asada_eumc2011).  The AM/PM
+    #: Psat − P1dB (data/spec: pa60.asada_eumc2011_rapp_p).  The AM/PM
     #: stays the 11ad one either way.
     rapp_p: float | None = None
 

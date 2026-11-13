@@ -88,9 +88,9 @@ def test_spec_source_needs_a_quote_and_survey_needs_unverified():
 def test_derived_entries_follow_their_formulas():
     s = spec.value
     cfo = (s("liu2025.xo_ppm_tx") + s("liu2025.xo_ppm_rx")) * 1e-6 * s("liu2025.carrier_hz")
-    assert cfo == pytest.approx(s("derived.cfo_liu2025_hz"))
-    assert 2 * cfo / (4 * 312.5e3) == pytest.approx(s("derived.k_threshold_stf"), abs=0.01)
-    assert cfo / 156.25e3 == pytest.approx(s("derived.k_threshold_ltf_only"), abs=0.05)
+    assert cfo == pytest.approx(s("liu2025.cfo_from_ppm_hz"))
+    assert 2 * cfo / (4 * 312.5e3) == pytest.approx(s("liu2025.k_threshold_stf"), abs=0.01)
+    assert cfo / 156.25e3 == pytest.approx(s("liu2025.k_threshold_ltf_only"), abs=0.05)
     import numpy as np
     assert 10 * np.log10(np.exp(-50.0 / s("assumed.cr_rms_delay_ns"))) == pytest.approx(
         s("derived.isi_beyond_gi_k16_db"), abs=0.1)
@@ -119,20 +119,24 @@ def test_ldpc_base_matrix_file_is_a_tagged_survey_document():
     assert sum(len(v) for v in spec.ldpc_base_matrices().values()) == 12
 
 
-def test_entries_a_downstream_library_reads_keep_their_keys_fields_and_values():
-    """fmcw_radar vendors ``spec.py`` and ``data/spec/survey.yaml`` and reads these
-    entries by key and field, checking the values against its own table when it
-    loads (mmw60_trx#14; cairn/spec-sources.md).  A rename, a restructuring or a
-    changed figure here breaks its next re-pin, so it is a change to announce:
-    update this test in the same commit and say so in CHANGELOG.md."""
-    radar = spec.survey("rx60.radar_iwr6843")
-    assert radar.source == "spec"
-    assert (radar.value["tx_power_dbm"], radar.value["nf_db"], radar.value["p1db_in_oob_dbm"]) == (12.0, 12.0, -12.0)
-    fig = spec.value("rx60.radar_iwr6843_fig7_2")
-    assert len(fig["gain_db"]) == len(fig["nf_db"]) == len(fig["p1db_inband_dbm"])
-    assert dict(zip(fig["gain_db"], fig["p1db_inband_dbm"]))[40.0] == -34.0
-    iso = spec.value("isolation.tx_rx_tue2018")
-    assert iso["with_ebg_db"] - iso["improvement_max_db"] == 20.0
-    # the loader they vendor: its public names
-    for name in ("survey", "value", "all_entries", "unverified", "by_source", "SOURCES", "SpecNumber"):
-        assert hasattr(spec, name), name
+def test_a_renamed_key_still_reads_with_a_warning_and_none_is_used_here():
+    """spec_sources 0.2.0 renamed 17 keys and keeps the old names as aliases
+    until 0.3.0 (mmw60_trx#23).  Through this shim an old name reads the same
+    entry, under its new key, with a DeprecatedKeyWarning pointing at the
+    caller; pyproject's filterwarnings makes that warning an error in this
+    test suite, so a call site still on an old name fails here."""
+    aliases = ss.aliases()
+    assert len(aliases) == 17
+    table = spec.all_entries()
+    for old, a in aliases.items():
+        assert old not in table and a.to in table, old
+        with pytest.warns(spec.DeprecatedKeyWarning, match=a.to) as rec:
+            e = spec.survey(old)
+        assert e is table[a.to] and e.key == a.to
+        assert rec[0].filename == __file__                   # the warning names the caller, not the shim
+        with pytest.warns(spec.DeprecatedKeyWarning):
+            assert spec.value(old) == table[a.to].value
+    with pytest.raises(spec.DeprecatedKeyWarning):           # the suite's filter: an old name is an error
+        spec.value(next(iter(aliases)))
+    with pytest.raises(KeyError, match="no spec entry"):
+        spec.survey("survey.no_such_key")

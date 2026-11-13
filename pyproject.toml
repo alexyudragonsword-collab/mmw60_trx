@@ -35,6 +35,11 @@ addopts = "-q"
 markers = [
     "slow: long-running end-to-end runs (deselect with '-m \"not slow\"')",
 ]
+# a spec key spec_sources has renamed reads with a DeprecatedKeyWarning; here it is an error, so no
+# call site stays on an old name before spec_sources retires the aliases (0.3.0; mmw60_trx#23)
+filterwarnings = [
+    "error::mmw60.vendor.spec_sources.reader.DeprecatedKeyWarning",
+]
 
 [tool.ruff]
 line-length = 120     # tools/example_drift.py and fingerprint_walk.py are d2d_link's files at its width

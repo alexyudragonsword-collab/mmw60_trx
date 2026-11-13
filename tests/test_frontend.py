@@ -33,7 +33,7 @@ def test_scaled_rapp_anchors_gain_and_psat():
     assert power_dbm(pa(small)) - power_dbm(small) == pytest.approx(20.0, abs=0.01)
     big = np.full(1000, 1e3 + 0j)
     assert power_dbm(pa(big)) == pytest.approx(15.0, abs=0.01)
-    assert pa.p1db_out_dbm == pytest.approx(15.0 - spec.value("derived.rapp_p1db_below_psat_db"), abs=0.1)
+    assert pa.p1db_out_dbm == pytest.approx(15.0 - spec.value("tgad_em.rapp_p1db_below_psat_db"), abs=0.1)
     assert 0 < pa.average_pae(pa(big)) <= pa.pae_max
 
 

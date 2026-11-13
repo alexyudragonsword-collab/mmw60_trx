@@ -25,7 +25,7 @@ def test_upclock_scales_every_physical_quantity(k):
 
 
 def test_upclock_threshold_is_the_stf_capture_range():
-    cfo = spec.value("derived.cfo_liu2025_hz")
+    cfo = spec.value("liu2025.cfo_from_ppm_hz")
     assert liu2025_table2(k=4).upclocked().stf_capture_hz < cfo < liu2025_table2(k=8).upclocked().stf_capture_hz
     assert liu2025_table2(k=16).upclocked().ltf_capture_hz < cfo     # LTF alone never catches it
     with pytest.raises(ValueError):
@@ -46,7 +46,7 @@ def test_rapp_am_am_is_monotonic_and_saturates():
 def test_rapp_p1db_is_the_derived_distance_below_psat():
     pa = ModifiedRappPA()
     assert 10 * np.log10(pa.p_sat / pa.p1db) == pytest.approx(
-        spec.value("derived.rapp_p1db_below_psat_db"), abs=0.1)
+        spec.value("tgad_em.rapp_p1db_below_psat_db"), abs=0.1)
 
 
 def test_obo_solver_hits_its_target_for_both_references():

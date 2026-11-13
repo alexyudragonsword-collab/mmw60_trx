@@ -3,6 +3,16 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-13 · spec_sources 0.2.0 改名，重新 pin 到 e573d4d（feat/spec-sources-0.2.0，mmw60_trx#23）
+
+- spec_sources 验收并关了 #21，又发来 #23。用户定“做吧”。动手前核过：新 pin 相对旧 pin 变 7 个文件、`regulatory` 不变；17 个别名；换名后 126 条的 value / unit / source / quote / section 全同；调用 42 处 / 13 个文件；期望输出 4 行。都属实。
+- issue 没提的一处：本库垫片自己查表，不走共享库的别名，重新 pin 后旧名会直接 KeyError。按建议补上别名：旧名照读、发 `DeprecatedKeyWarning`（指向调用方），pytest 里升级成错误。
+- 守卫双向：`power.py` 读表的那一行改回旧名 → `test_compare` 因 `DeprecatedKeyWarning` 报错；还原 → 绿。第一次变异只改到了同文件里的一行注释，是空操作，测试照绿——换到真正读表的那一行才算数。
+- 比对：指纹逐位不变；126 条；字段变化只有登记的 3 条 cite / note、本地 3 条 cite / note 的键名文字、`assumed.pa60_surveyed_pick` 值里的键名引用。示例 08 / 09 与期望输出的差就是 4 行键名。
+- `vendor_check --strict` 一开始报 7 个 stale：本地的 spec_sources 克隆停在 0.2.0 之前；快进后 114 个全 verbatim、无 stale。
+- 删了下游守卫（fmcw_radar 已迁完，spec_sources 在 #21 说的，本库没去读 fmcw_radar）。
+- 下一步：合并后在 #23 回报，等对方验收后关；0.3.0 退役别名时重新 pin。
+
 ## 2026-11-13 · 规范表迁到 spec_sources，只搬家（feat/spec-sources-vendor，mmw60_trx#21）
 
 - spec_sources 发来 #21，用户定“做吧”。按对方的迁移说明（bef20fb）做：vendor `d7b4d1e` 的读取器与 6 张表，本地删 63 条留 62 条，`spec.py` 改成垫片，工具与测试四处，package-data，CI。

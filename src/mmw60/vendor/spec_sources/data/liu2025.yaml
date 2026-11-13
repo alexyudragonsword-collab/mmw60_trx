@@ -1,4 +1,4 @@
-# Vendored from spec_sources@d7b4d1eb510617d69784622c593c8ed31ab32b8b: src/spec_sources/data/liu2025.yaml
+# Vendored from spec_sources@e573d4d99dcf0584b7245c4869aaaa8a84ada24c: src/spec_sources/data/liu2025.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # liu2025 —— Liu 2025（Wi-Fi 8 毫米波 upclocking）论文里的数，与只由它们推出的 derived。
 #
@@ -15,7 +15,7 @@
 # Liu 2025 = X. Liu, T. Chen, Y. Dong, Z. Mao, M. Gan, X. Yang, J. Lu, "Wi-Fi 8: Embracing the
 # Millimeter-Wave Era", IEEE Commun. Mag., Mar. 2025; 读的是 arXiv:2309.16813 v1 (2023-09-28,
 # 含 PER 图 Fig. 4) 与 v2 (2024-07-08, 图被删、正文仍引用)。刊出版未取得。
-# 前缀：liu2025.*；derived.* 三条是 mmw60_trx 的旧键名（领域前缀改名见 ROADMAP，走弃用期）。
+# 前缀：liu2025.*。
 
 entries:
 
@@ -175,23 +175,30 @@ entries:
     note: "未核实。本库里程碑 0 不用。"
 
   # ------------------------------------------------------------ 推导：只用上面的 liu2025.* 与 802.11ac 的 312.5 kHz 子载波间距
-  derived.cfo_liu2025_hz:
+  liu2025.cfo_from_ppm_hz:
     value: 2.9376e+6
     unit: Hz
     source: derived
     cite: "(liu2025.xo_ppm_tx + liu2025.xo_ppm_rx) × 1e-6 × liu2025.carrier_hz"
     note: "40e-6 × 73.44e9。原文写 2.94 MHz。"
 
-  derived.k_threshold_stf:
+  liu2025.k_threshold_stf:
     value: 4.7
     unit: upclocking factor
     source: derived
-    cite: "2 × derived.cfo_liu2025_hz / (4 × 312.5 kHz) = 5.875 MHz / 1.25 MHz = 4.70"
+    cite: "2 × liu2025.cfo_from_ppm_hz / (4 × 312.5 kHz) = 5.875 MHz / 1.25 MHz = 4.70"
     note: "L-STF 自相关范围 ±625 kHz × K ≥ 2.9376 MHz ⇔ K ≥ 4.70。见 cairn/upclocking.md。"
 
-  derived.k_threshold_ltf_only:
+  liu2025.k_threshold_ltf_only:
     value: 18.8
     unit: upclocking factor
     source: derived
-    cite: "derived.cfo_liu2025_hz / 156.25 kHz = 18.8"
+    cite: "liu2025.cfo_from_ppm_hz / 156.25 kHz = 18.8"
     note: "只靠 L-LTF 两段估计（±SCS/2）要 K ≥ 18.8：K = 16 也接不住 2.94 MHz，必须有 STF 粗估计。"
+
+aliases:
+  # 0.2.0：mmw60_trx 带来的旧前缀键改名（前缀是标签，不是领域）。旧名至少留到 0.3.0，读取时 DeprecatedKeyWarning；
+  # keys.lock 里记着 aliased=0.2.0。
+  derived.cfo_liu2025_hz: {to: liu2025.cfo_from_ppm_hz, since: "0.2.0"}
+  derived.k_threshold_stf: {to: liu2025.k_threshold_stf, since: "0.2.0"}
+  derived.k_threshold_ltf_only: {to: liu2025.k_threshold_ltf_only, since: "0.2.0"}

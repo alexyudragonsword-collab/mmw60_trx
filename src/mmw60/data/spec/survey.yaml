@@ -67,7 +67,7 @@ entries:
     unit: text
     source: assumed
     cite: "本库"
-    note: "Liu 2025 只说 'OBO 8 dB'。字面 OBO 是相对饱和输出功率 Psat；但 11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB（derived.rapp_p1db_below_psat_db），相对 Psat 回退 8 dB 等于平均功率在 P1dB 之上 1.5 dB，孤立 EVM 只有 −17 dB。主结果按字面 psat；示例另给 p1db 口径的灵敏度行。"
+    note: "Liu 2025 只说 'OBO 8 dB'。字面 OBO 是相对饱和输出功率 Psat；但 11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB（tgad_em.rapp_p1db_below_psat_db），相对 Psat 回退 8 dB 等于平均功率在 P1dB 之上 1.5 dB，孤立 EVM 只有 −17 dB。主结果按字面 psat；示例另给 p1db 口径的灵敏度行。"
 
   assumed.rx_timing:
     value: "genie (frame start known)"
@@ -325,7 +325,7 @@ entries:
     unit: "dB, dBm, dB, dB, dBi, dBi"
     source: assumed
     cite: "本库 config.surveyed_frontend；从上面的条目里各取一个数"
-    note: "'surveyed' 一档取哪几个数是本库的选择：接收 NF / IIP3 / 高增益档增益与发 / 收天线增益都取同一颗通信收发机（rx60.comm_asada2011，读过原文），不取雷达芯片；收发隔离取不加 EBG 的下端 40 − 20 = 20 dB（保守，泄漏最大）。第一版取的天线是 6 dBi（survey.antenna60_okada2013_dbi，至今没有读到原文），读到 Asada 原文后换成它自己的 2 dBi，6 dBi 留作灵敏度档。预设不用这一档，现有数字不动；示例 08 每张表都是灵敏度行。"
+    note: "'surveyed' 一档取哪几个数是本库的选择：接收 NF / IIP3 / 高增益档增益与发 / 收天线增益都取同一颗通信收发机（rx60.comm_asada2011，读过原文），不取雷达芯片；收发隔离取不加 EBG 的下端 40 − 20 = 20 dB（保守，泄漏最大）。第一版取的天线是 6 dBi（antenna60.okada2013_dbi，至今没有读到原文），读到 Asada 原文后换成它自己的 2 dBi，6 dBi 留作灵敏度档。预设不用这一档，现有数字不动；示例 08 每张表都是灵敏度行。"
 
   # ------------------------------------------------------------ 60 GHz PA：本库的取舍与工作点（2026-11-12 / 13）
   # 读过原文的测量值（pa60.*）与平滑度的 derived 在 vendored spec_sources 的 data/pa60.yaml。
@@ -340,11 +340,11 @@ entries:
     value: 7.5
     unit: dB from Psat
     source: derived
-    cite: "frontend.grid.obo_for_isolated_evm(ModifiedRappPA(p=derived.pa60_rapp_p_asada_eumc2011), assumed.pa60_operating_rule.evm_limit_db, 'psat')；Gaussian 包络 32768 点，种子 3 得 7.457，保留一位小数"
+    cite: "frontend.grid.obo_for_isolated_evm(ModifiedRappPA(p=pa60.asada_eumc2011_rapp_p), assumed.pa60_operating_rule.evm_limit_db, 'psat')；Gaussian 包络 32768 点，种子 3 得 7.457，保留一位小数"
     note: "拓扑 A / B 预设的回退（从 Psat 算），P1dB 之下 2.9 dB，平均输出 14.6 − 7.5 = 7.1 dBm。不同种子 7.46–7.59 dB。tests/test_pa60.py 复算。Liu 的预设（liu2025_table2）仍是 liu2025.pa_obo_db 的 8 dB。"
 
   assumed.pa60_surveyed_pick:
-    value: {source: "pa60.asada_eumc2011", rapp_p: "derived.pa60_rapp_p_asada_eumc2011"}
+    value: {source: "pa60.asada_eumc2011", rapp_p: "pa60.asada_eumc2011_rapp_p"}
     unit: keys
     source: assumed
     cite: "本库 config.surveyed_pa；取一篇读过原文的 60 GHz CMOS PA"

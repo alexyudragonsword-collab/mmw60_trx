@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### spec_sources 0.2.0：17 个键改名，重新 pin（2026-11-13，mmw60_trx#23）—— 数不变，示例 08 / 09 打印的 4 个键名变
+- 重新 pin spec_sources @ `e573d4d99dcf0584b7245c4869aaaa8a84ada24c`（0.2.0，它的 PR #5）。8 个文件里 7 个变了：`__init__.py` 带上版本号，`reader.py` 去掉版本号，5 张表改键名并加 `aliases:`；`regulatory.yaml` 没变。
+- 17 个前缀是来源标签的键换成新名（如 `survey.n_sd_11ac` → `ieee80211ac.n_sd`、`derived.pa60_rapp_p_asada_eumc2011` → `pa60.asada_eumc2011_rapp_p`，全表在 spec_sources CHANGELOG 0.2.0）。本库 42 处调用（13 个文件）、本地表 4 处文字（3 条 cite / note 与 `assumed.pa60_surveyed_pick` 值里的键名引用）跟着改；`examples/expected/` 里示例 08 三行、09 一行打印的键名变成新名。
+- `mmw60.spec`：旧名经共享表的 `aliases:` 照样读到条目（`.key` 是新名），并发 `DeprecatedKeyWarning`（指向调用方），与 spec_sources 自己的读取器一致。pytest 的 `filterwarnings` 把这个警告变成错误：本库不留旧名，0.3.0 退役别名时无事可做。
+- 删掉 `test_entries_a_downstream_library_reads_keep_their_keys_fields_and_values`：fmcw_radar 已迁完、不再 vendor 本库的表（spec_sources 在 #21 确认），这几条的消费者由 spec_sources 登记。换成一条别名测试：17 个旧名都读得到新条目、警告指向调用方、在本套件里是错误。
+- **验收**：指纹逐位不变；`all_entries()` 仍 126 条，按改名表对应后 value / unit / source / quote / section 全同，cite / note 只在 spec_sources 登记的 3 条与本地 3 条文字里由旧名换成新名，本地 `assumed.pa60_surveyed_pick` 的值里一个键名引用换成新名；`vendor_check --strict` 114 个全 verbatim。
+
 ### 规范 / 文献数字表迁到共享库 spec_sources（2026-11-13，mmw60_trx#21）—— 只搬家，指纹不变
 - vendor spec_sources @ `d7b4d1eb510617d69784622c593c8ed31ab32b8b`（它的 PR #1）：`__init__.py`、`reader.py` 与 6 张表（`liu2025`、`ieee80211`、`regulatory`、`frontend60`、`pa60`、`energy`），放在 `src/mmw60/vendor/spec_sources/`，每个文件两行出处头，原样不改。
 - 本地 `data/spec/survey.yaml` 删掉迁走的 63 条（spec 10、survey 48、derived 5），剩 62 条（assumed 56、derived 3、survey 3）；表头改写。合并后的表 126 条 = 62 本地 + 64 共享（共享表新增 `isolation.tx_rx_tue2018_no_ebg_min_db`）。

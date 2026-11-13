@@ -201,7 +201,7 @@ def decoder_floor_db(analytic_floor_db: float, td_evm_db: float | None, cfo_capt
 
 
 def data_rate_bps(standard: str, bandwidth_hz: float, mcs_index: int, t_symbol_s: float) -> float:
-    table = spec.value("survey.n_sd_11ac" if standard == "11ac" else "survey.n_sd_11be")
+    table = spec.value("ieee80211ac.n_sd" if standard == "11ac" else "ieee80211be.n_sd")
     n_sd = int(table[float(bandwidth_hz)])
     row = MCS_TABLE[mcs_index]
     num, den = (int(v) for v in row.coding_rate.split("/"))
