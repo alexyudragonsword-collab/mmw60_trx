@@ -97,12 +97,17 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 - **峰值 PAE**：预设现在取测量的 16.3 %（旧的假设 20 % 偏高）；同组三颗 14.3–16.3 %，汇编的中位 8.5 %。功耗列的 B 类回退规律对一颗偏乐观（P1dB 处测 7.9 %、折出 9.6 %），对另一颗偏保守（测 12.0 %、折出 11.0 %）。
 - **汇编表是二手的**：`pa60.eumc2011_table1` 的 13 行别人的数是那篇论文转引的，本库没读各自原文；只用来看分布。
 
+### C11. 规范表迁到 spec_sources 时留下的（见 `cairn/LOG.md` 2026-11-13、`cairn/spec-sources.md` §制度，mmw60_trx#21）
+- **留在本地的 3 条 survey 不是文献**：`survey.clock_profile_wu19`、`survey.clock_profile_wu19_x10` 的值是本仓库 `data/clock_profiles/` 里的文件名（pll_simulator 的模型输出），`survey.dsp_ip_dpd_poly_p4` 是姊妹库 dsp_ip 的综合估计。标的是 survey，但“未核实的文献数字”这个意思对它们不成立；spec_sources 不收（`tests/test_extraction.py::MMW60_STAYS`），标签由本库定。改标签就得改键名（`survey.` 前缀），示例 04 / 08 / 09 打印键名，期望输出会动，所以这次只搬家没有改。复现：`python -c "from mmw60 import spec; print(sorted(spec.load_table()))"` 里的三条 `survey.`。
+- **spec_sources 0.2.0 会改 17 个 `survey.` / `derived.` 前缀键的名字**（旧名留别名，读取时警告）：对方会另开 issue。届时重新 pin，改调用处与示例 04 / 08 / 09 的期望输出。
+- **下游守卫的去留**：`tests/test_spec_sources.py::test_entries_a_downstream_library_reads_keep_their_keys_fields_and_values` 守的三条已进 spec_sources（它在 `consumers.yaml` 里登记）；fmcw_radar 迁到直接 vendor spec_sources 之后删掉，在那之前留着。
+
 ## D. 报回上游
 本库不动这三个库；需求各开一个 issue 交给对方，对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
 D1（wifi_trx_cal#4，非标准带宽的评分波形）、D2（pll_simulator#71，倍频器模型）、D3（PA_DPD#4 的 `fs` / `fir_fs` 与 `tap_spacing`，经 wifi_trx_cal#5 透传）都已落地并 pin 完（2026-11-11，`cairn/LOG.md`），条目已删。现在没有等上游的事。
 本库在验收时报告的两件对方已经修掉并 pin 进来（wifitrx@7b8d08e）：B40（DPD 步留观测通路上最好的一轮，都不如不加就不写入）与 B41（`ScaledPA` 对带记忆的 PA 逐电平读稳态）。对方自己还开着、与本库有关但不由本库推动的：B38（非标准音计划下 TX 视图 replay 的 gap）；`run_full_cal` 仍不透传 `n_iter`。
 
-D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）已落地并由对方关闭（2026-11-12，示例 08、`cairn/topology-b.md` §5）：接收前端、收发隔离、发 / 收天线增益三个面在 `Frontend60` 上，条目已删；过程中发现的在 C9。倍频器底噪不进 `Frontend60`（雷达直接读剖面文件）。对方最后读的是来源表而不是对象：它 vendor 了 `spec.py` 与 `survey.yaml`，按条目读三条 `spec`，哪几条、改之前要做什么见 `cairn/spec-sources.md` 的“被下游消费的条目”。
+D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）已落地并由对方关闭（2026-11-12，示例 08、`cairn/topology-b.md` §5）：接收前端、收发隔离、发 / 收天线增益三个面在 `Frontend60` 上，条目已删；过程中发现的在 C9。倍频器底噪不进 `Frontend60`（雷达直接读剖面文件）。对方最后读的是来源表而不是对象：它 vendor 了 `spec.py` 与 `survey.yaml`，按条目读三条 `spec`，哪几条、改之前要做什么见 `cairn/spec-sources.md` 的“被下游消费的条目”。这三条 2026-11-13 已随迁移进了 spec_sources（C11）。
 
 ## E. 明确不做
 MAC / MLO 调度、多用户、信道模型本身（用 11ad CR 现成表）、D-band、雷达（另开 fmcw_radar）；EIRP / 谱模板只做趋势比较，不替代认证测试；不把 vendor 变成 fork。

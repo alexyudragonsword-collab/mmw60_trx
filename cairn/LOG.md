@@ -3,6 +3,16 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-13 · 规范表迁到 spec_sources，只搬家（feat/spec-sources-vendor，mmw60_trx#21）
+
+- spec_sources 发来 #21，用户定“做吧”。按对方的迁移说明（bef20fb）做：vendor `d7b4d1e` 的读取器与 6 张表，本地删 63 条留 62 条，`spec.py` 改成垫片，工具与测试四处，package-data，CI。
+- 动手前独立核了一遍对方的说法：63 条在 pin 那版里 8 个字段 `repr` 逐条相同；本地表 125 条（assumed 56、survey 51、spec 10、derived 8）；`grep -c "source: spec"` 得 11 是 D4 注释里一句话被多数了。都属实。
+- 验收：指纹逐位不变；`all_entries()` 旧 125 键逐条相同，只多 `isolation.tx_rx_tue2018_no_ebg_min_db`（126）；本地表四个标签 grep 0 / 3 / 56 / 3；`vendor_check --strict` 114 个全 verbatim。
+- 说明之外多做的一处：`vendor_check --update` 原来把 pins 写死成只有 wifi_trx_cal，重建清单会丢掉 spec_sources；改成从文件头读，一个仓库两个 SHA 时报错。重建出来的清单与手写的逐字相同。
+- 新守卫都做了双向：本地表注释注入“source: spec”→ grep 守卫红、还原绿；共享表拷贝 → verbatim、改一个数 → DRIFT。
+- 没改的：留在本地的 3 条 survey 其实是模型输出 / 综合估计，改标签要改键名、示例输出会动，记 ROADMAP C11。
+- 下一步：在 #21 回报，等 spec_sources 验收后由对方关；0.2.0 的键改名另开 issue。
+
 ## 2026-11-13 · PA 工作点按 EVM 限值定为 7.5 dB；示例 03 / 08 在工作点上校准（feat/pa60-operating-point，numbers-move）
 
 - 用户定：C10、C8 按顺序都做。规则 `assumed.pa60_operating_rule`：PA 单独在 OFDM 高斯包络上刚好 −21 dB（802.11ad 16-QAM 限值）。读法来自 `pa60.wu_isscc2015`（ISSCC 2015 幻灯片，读原文）：收发机 9.3 dBm @ −21 dB，单载波 16-QAM，PA 的 P1dB ≈ 7.0 dBm（读图）。

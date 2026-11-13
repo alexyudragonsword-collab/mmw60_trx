@@ -1,10 +1,19 @@
 """Iron rule 5: every specification / literature number carries its source; the
-unverified ones are grep-able."""
+unverified ones are grep-able.
+
+Since mmw60_trx#21 the numbers about the outside world are in the vendored
+spec_sources tables and this library's own choices and outputs in
+``data/spec/survey.yaml``; ``spec.all_entries()`` merges the two, and every
+tag is counted in every table."""
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from mmw60 import spec
+from mmw60.vendor import spec_sources as ss
+
+SHARED_DATA = Path(spec.__file__).resolve().parent / "vendor" / "spec_sources" / "data"
 
 
 def test_every_entry_is_tagged_and_cited():
@@ -19,16 +28,50 @@ def test_every_entry_is_tagged_and_cited():
             assert e.note, f"{key}: an assumed entry must say why"
 
 
-def test_grep_lists_every_unverified_number():
-    out = subprocess.run(["grep", "-c", "source: survey", str(spec.SURVEY_FILE)],
-                         capture_output=True, text=True)
-    assert int(out.stdout.strip()) == len(spec.unverified())
+def _grep_count(tag: str, path) -> int:
+    out = subprocess.run(["grep", "-c", f"source: {tag}", str(path)], capture_output=True, text=True)
+    return int(out.stdout.strip() or 0)
 
 
-def test_grep_lists_every_assumed_number():
-    out = subprocess.run(["grep", "-c", "source: assumed", str(spec.SURVEY_FILE)],
-                         capture_output=True, text=True)
-    assert int(out.stdout.strip()) == len(spec.by_source("assumed"))
+def test_grep_counts_every_tag_in_every_table():
+    """``grep -c "source: <tag>"`` on each table file lists its entries of
+    that tag exactly, for all four tags (a comment or header line written as
+    "tag word + colon" would be counted; ``audit_tags`` names it)."""
+    tables = [(spec.SURVEY_FILE, spec.load_table()),
+              *((f, ss.load_table(f)) for f in ss.data_files(SHARED_DATA))]
+    assert len(tables) == 7
+    for path, table in tables:
+        for tag in spec.SOURCES:
+            assert _grep_count(tag, path) == sum(e.source == tag for e in table.values()), (path.name, tag)
+        assert ss.audit_tags(path) == [], path
+    # and the files together hold the merged table, nothing else
+    assert sum(len(t) for _, t in tables) == len(spec.all_entries())
+    assert sum(_grep_count("survey", p) for p, _ in tables) == len(spec.unverified())
+    assert sum(_grep_count("assumed", p) for p, _ in tables) == len(spec.by_source("assumed"))
+
+
+def test_the_local_table_keeps_only_this_librarys_choices_and_outputs():
+    """What stays in ``data/spec/survey.yaml`` after the move to spec_sources:
+    the assumed entries, three derived ones that use them or an example's
+    reading, and three survey entries spec_sources does not take (file names
+    in this repository, a sibling's synthesis estimate)."""
+    local = spec.load_table()
+    assert {e.source for e in local.values()} == {"assumed", "derived", "survey"}
+    assert sorted(k for k, e in local.items() if e.source != "assumed") == [
+        "derived.irr_after_cal_measured_db", "derived.isi_beyond_gi_k16_db", "derived.pa60_obo_at_evm_limit_db",
+        "survey.clock_profile_wu19", "survey.clock_profile_wu19_x10", "survey.dsp_ip_dpd_poly_p4"]
+    shared = ss.load_table(SHARED_DATA)
+    assert not set(local) & set(shared)
+    assert set(spec.all_entries()) == set(local) | set(shared)
+    # the shared tables are the vendored ones, not an installed copy
+    assert Path(ss.__file__).resolve().parent == SHARED_DATA.parent
+    with pytest.raises(ValueError, match="two tables"):
+        ss.merge_tables(shared, {"liu2025.pa_obo_db": local["assumed.base_bandwidth_hz"]})
+    # ref() reads across both tables: a shared mapping's field, a local one, a plain value
+    assert spec.ref("pa60.asada_eumc2011#psat_dbm") == spec.value("pa60.asada_eumc2011")["psat_dbm"]
+    rule = spec.value("assumed.pa60_operating_rule")
+    assert spec.ref("assumed.pa60_operating_rule#evm_limit_db") == rule["evm_limit_db"]
+    assert spec.ref("derived.pa60_obo_at_evm_limit_db") == spec.value("derived.pa60_obo_at_evm_limit_db")
 
 
 def test_spec_source_needs_a_quote_and_survey_needs_unverified():

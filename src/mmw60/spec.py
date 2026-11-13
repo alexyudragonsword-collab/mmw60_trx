@@ -1,9 +1,8 @@
 """Specification / literature numbers with provenance (iron rule 5; d2d_link's ``spec`` method).
 
 Every number the library takes from a standard, a paper or a regulation
-lives in ``data/spec/survey.yaml`` with a ``source`` tag; code reads it
-through :func:`survey` and never types the value itself.  ``source`` is
-one of
+carries a ``source`` tag; code reads it through :func:`survey` / :func:`value`
+and never types the value itself.  ``source`` is one of
 
 * ``spec``     — from the original text; needs ``quote`` and ``section``;
 * ``survey``   — from a paper / talk / search hit, unverified (the note
@@ -11,69 +10,54 @@ one of
 * ``assumed``  — the paper does not say; this library's own choice;
 * ``derived``  — computed from the above (the cite is the formula).
 
-``grep -c "source: survey" src/mmw60/data/spec/survey.yaml`` lists the
-unverified entries exactly (``tests/test_spec_sources.py``).
+Since 2026-11-13 (mmw60_trx#21) the numbers about the outside world live in
+the shared library spec_sources, vendored at a full SHA under
+``mmw60.vendor.spec_sources`` (its ``data/*.yaml``); this library's own
+choices and outputs stay in ``data/spec/survey.yaml``.  This module is a
+thin shim: :func:`all_entries` merges the two tables (a key in both is an
+error), every public name it had is kept, :class:`SpecNumber` and
+``SOURCES`` are the vendored ones (same fields, order, defaults and
+checks), and :func:`ref` reads a field of an entry by reference.  The
+Fig. 4 read-offs, the LDPC base matrices and the PER thresholds stay here
+unchanged.  ``tests/test_spec_sources.py`` counts every tag in every table.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
-SOURCES = ("spec", "survey", "assumed", "derived")
+from .vendor import spec_sources as _shared
+from .vendor.spec_sources import SOURCES, SpecNumber  # noqa: F401  (re-exported)
+
 DATA_DIR = Path(__file__).resolve().parent / "data" / "spec"
-SURVEY_FILE = DATA_DIR / "survey.yaml"
+SURVEY_FILE = DATA_DIR / "survey.yaml"     # this library's table: its assumed / derived and 3 survey entries
 FIG4_FILE = DATA_DIR / "liu2025_fig4.yaml"
 LDPC_FILE = DATA_DIR / "ldpc_80211.yaml"
 THRESHOLDS_FILE = DATA_DIR / "per_thresholds.yaml"
 
 
-@dataclass(frozen=True)
-class SpecNumber:
-    key: str
-    value: object
-    unit: str
-    source: str
-    cite: str
-    note: str = ""
-    quote: str | None = None
-    section: str | None = None
-
-    def __post_init__(self):
-        if self.source not in SOURCES:
-            raise ValueError(f"{self.key}: source must be one of {SOURCES}, got {self.source!r}")
-        if self.source == "spec" and not (self.quote and self.section):
-            raise ValueError(f"{self.key}: a 'spec' entry must carry the quoted text and section")
-        if self.source == "survey" and "未核实" not in self.note:
-            raise ValueError(f"{self.key}: a 'survey' entry's note must say it is unverified (未核实)")
-        if not self.cite:
-            raise ValueError(f"{self.key}: cite is required")
-
-    @property
-    def verified(self) -> bool:
-        return self.source == "spec"
-
-
 def load_table(path: Path = SURVEY_FILE) -> dict[str, SpecNumber]:
-    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    out: dict[str, SpecNumber] = {}
-    for key, e in raw["entries"].items():
-        out[key] = SpecNumber(key=key, value=e["value"], unit=str(e.get("unit", "")),
-                              source=e["source"], cite=e.get("cite", ""),
-                              note=e.get("note", ""), quote=e.get("quote"),
-                              section=e.get("section"))
-    return out
+    """One table file (by default this library's own) through the shared reader."""
+    return _shared.load_table(path)
 
 
 _TABLE: dict[str, SpecNumber] | None = None
 
 
 def all_entries() -> dict[str, SpecNumber]:
+    """The vendored shared tables plus this library's table; a key that
+    appears in both is an error."""
     global _TABLE
     if _TABLE is None:
-        _TABLE = load_table()
+        _TABLE = _shared.merge_tables(_shared.all_entries(), load_table())
     return _TABLE
+
+
+def ref(reference: str):
+    """A value, or a field of a mapping value, by reference (spec_sources'
+    ``ref`` over the merged table)."""
+    return _shared.ref(reference, all_entries())
 
 
 def survey(key: str) -> SpecNumber:

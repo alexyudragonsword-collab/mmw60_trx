@@ -4,6 +4,15 @@
 
 ## 未发布
 
+### 规范 / 文献数字表迁到共享库 spec_sources（2026-11-13，mmw60_trx#21）—— 只搬家，指纹不变
+- vendor spec_sources @ `d7b4d1eb510617d69784622c593c8ed31ab32b8b`（它的 PR #1）：`__init__.py`、`reader.py` 与 6 张表（`liu2025`、`ieee80211`、`regulatory`、`frontend60`、`pa60`、`energy`），放在 `src/mmw60/vendor/spec_sources/`，每个文件两行出处头，原样不改。
+- 本地 `data/spec/survey.yaml` 删掉迁走的 63 条（spec 10、survey 48、derived 5），剩 62 条（assumed 56、derived 3、survey 3）；表头改写。合并后的表 126 条 = 62 本地 + 64 共享（共享表新增 `isolation.tx_rx_tue2018_no_ebg_min_db`）。
+- `mmw60.spec` 改成薄垫片：公开名字一个不少，`SpecNumber` / `SOURCES` 用共享库的（字段、顺序、默认值、校验逐字相同），`all_entries()` 合并两张表、同一个键出现两次报错，新增 `ref()`。Fig. 4、LDPC、PER 门限三组不动。
+- 工具：`tools/vendor_check.py` 也核 `*.yaml`，清单的 pins 从文件头读（不再写死）；`tools/example_drift.py::spec_values` 连共享表一起读。`pyproject.toml` 的 package-data 加共享表；CI 的 vendor-drift 加 spec_sources 的 checkout（公开库，不要 token）。
+- 测试：`test_spec_sources.py` 的两条 grep 守卫换成“每张表、四个标签都数，`audit_tags` 干净”（往本地表注释里注入一个标签字串时红、还原后绿），加一条“本地表只剩该剩的”；`test_vendor_check.py` 认两个 pin，加一条“共享表被当代码一样逐字核对”（拷贝的表是 verbatim，改一个数是 DRIFT）。
+- **验收**：数值指纹逐位不变；迁移前后 `all_entries()` 的 125 个旧键 8 个字段的 `repr` 逐条相同，只多 1 条；`vendor_check --strict` 114 个文件全 verbatim（wifitrx 106 + spec_sources 8）；示例输出不动。
+- 发现：迁移前本地表 `grep -c "source: spec"` 得 11、实际 10 条（D4 一段注释被多数一次），旧守卫只数 survey 与 assumed，没发现；现在每个标签都数。
+
 ### PA 工作点按 EVM 限值定；示例 03 / 08 在工作点上校准（2026-11-13）—— **numbers-move**（示例 02–09）
 - 拓扑 A / B 预设的 PA 回退从 Liu 的 8 dB 改成**从 Psat 7.5 dB**（平均输出 6.6 → 7.1 dBm，P1dB 之下 2.9 dB）。规则是新的 `assumed.pa60_operating_rule`：PA 单独在 OFDM 样的高斯包络上 EVM 刚好到 −21 dB（802.11ad 16-QAM 的发射 EVM 限值）的回退。读法取自新读的 `pa60.wu_isscc2015`（spec）：60 GHz 收发机按“TX EVM 碰到 −21 dB 时的平均输出”给 Pout。数是 `derived.pa60_obo_at_evm_limit_db`（算出 7.457）。ROADMAP C10 的回退口径问题关掉。
 - 新增 `frontend.grid.obo_for_isolated_evm(pa, evm_limit_db, …)`：PA 单独到某个 EVM 的最小回退（单调求根）。`config.tgad_em_pa(cfg)` 现在连回退一起放回旧的（11ad 形状 + Liu 的 8 dB）。Liu 的预设不变，**指纹逐位不变**。

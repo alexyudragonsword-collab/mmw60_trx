@@ -27,7 +27,7 @@ jit = ["numba>=0.59"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-mmw60 = ["data/spec/*.yaml", "data/clock_profiles/*.yaml"]
+mmw60 = ["data/spec/*.yaml", "data/clock_profiles/*.yaml", "vendor/spec_sources/data/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
