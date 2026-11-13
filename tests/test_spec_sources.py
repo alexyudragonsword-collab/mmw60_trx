@@ -119,24 +119,49 @@ def test_ldpc_base_matrix_file_is_a_tagged_survey_document():
     assert sum(len(v) for v in spec.ldpc_base_matrices().values()) == 12
 
 
-def test_a_renamed_key_still_reads_with_a_warning_and_none_is_used_here():
-    """spec_sources 0.2.0 renamed 17 keys and keeps the old names as aliases
-    until 0.3.0 (mmw60_trx#23).  Through this shim an old name reads the same
-    entry, under its new key, with a DeprecatedKeyWarning pointing at the
-    caller; pyproject's filterwarnings makes that warning an error in this
-    test suite, so a call site still on an old name fails here."""
-    aliases = ss.aliases()
-    assert len(aliases) == 17
+# the 17 keys spec_sources 0.2.0 renamed (mmw60_trx#23); 0.3.0 retired their aliases (#25)
+RETIRED_0_2_0 = (
+    "survey.horowitz_mult32_pj", "survey.horowitz_add32_pj", "survey.walden_fom_fj", "survey.walden_fom_range_fj",
+    "survey.node_scale_45_to_7nm", "survey.n_sd_11ac", "survey.n_sd_11be", "survey.eht_tone_mapper_dtm",
+    "survey.ldpc_ppdu_encoding_thresholds", "survey.rx60_comm_iscas2015", "survey.dmg_sensitivity_assumptions",
+    "survey.antenna60_okada2013_dbi", "derived.cfo_liu2025_hz", "derived.k_threshold_stf",
+    "derived.k_threshold_ltf_only", "derived.rapp_p1db_below_psat_db", "derived.pa60_rapp_p_asada_eumc2011")
+
+
+def test_retired_names_are_gone_and_the_shim_still_resolves_an_alias(monkeypatch):
+    """spec_sources 0.2.0 renamed 17 keys and kept the old names as aliases
+    (mmw60_trx#23); 0.3.0 retired them (#25), so an old name is a KeyError
+    now.  The shim keeps the alias path for the next rename: an alias the
+    shared tables declare reads the new entry, under its new key, with a
+    DeprecatedKeyWarning pointing at the caller, and pyproject's
+    filterwarnings makes that warning an error in this test suite."""
+    assert len(RETIRED_0_2_0) == 17 and ss.aliases() == {}
     table = spec.all_entries()
-    for old, a in aliases.items():
-        assert old not in table and a.to in table, old
-        with pytest.warns(spec.DeprecatedKeyWarning, match=a.to) as rec:
-            e = spec.survey(old)
-        assert e is table[a.to] and e.key == a.to
-        assert rec[0].filename == __file__                   # the warning names the caller, not the shim
-        with pytest.warns(spec.DeprecatedKeyWarning):
-            assert spec.value(old) == table[a.to].value
+    for old in RETIRED_0_2_0:
+        assert old not in table, old
+        with pytest.raises(KeyError, match="no spec entry"):
+            spec.survey(old)
+    # the alias path, on an alias the shared tables could declare
+    fake = ss.Alias(old="survey.example_old_name", to="ieee80211ac.n_sd", since="9.9.9")
+    monkeypatch.setattr(spec._shared, "aliases", lambda: {fake.old: fake})
+    with pytest.warns(spec.DeprecatedKeyWarning, match="ieee80211ac.n_sd") as rec:
+        e = spec.survey(fake.old)
+    assert e is table[fake.to] and e.key == fake.to
+    assert rec[0].filename == __file__                       # the warning names the caller, not the shim
     with pytest.raises(spec.DeprecatedKeyWarning):           # the suite's filter: an old name is an error
-        spec.value(next(iter(aliases)))
-    with pytest.raises(KeyError, match="no spec entry"):
-        spec.survey("survey.no_such_key")
+        spec.value(fake.old)
+
+
+def test_key_names_cited_in_the_local_table_are_live_keys():
+    """A key named in a local entry's cite or note (``tgad_em.pn_sides``,
+    ``pa60.asada_eumc2011_rapp_p`` …) must exist in the merged table: a
+    rename in spec_sources (#23) or a retirement (#25) that leaves a dangling
+    reference here fails this test instead of rotting silently."""
+    import re
+    table = spec.all_entries()
+    prefixes = sorted({k.split(".")[0] for k in table})
+    pat = re.compile(r"(?<![\w./])((?:" + "|".join(map(re.escape, prefixes)) + r")\.[a-z0-9_]+)(?![\w])")
+    cited = {(k, tok) for k, e in spec.load_table().items() for fld in ("cite", "note")
+             for tok in pat.findall(getattr(e, fld) or "")}
+    assert len(cited) >= 10                                  # the check reads something
+    assert [(k, tok) for k, tok in sorted(cited) if tok not in table] == []

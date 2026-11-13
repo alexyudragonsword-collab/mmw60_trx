@@ -1,4 +1,4 @@
-# Vendored from spec_sources@e573d4d99dcf0584b7245c4869aaaa8a84ada24c: src/spec_sources/data/ieee80211.yaml
+# Vendored from spec_sources@9a443ba73655591665df003bd9a863769cf81bdf: src/spec_sources/data/ieee80211.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # ieee80211 —— IEEE 802.11 条文（VHT / EHT / DMG / EDMG）、TGad 评估方法学，与 ITU-R M.2003 的 DMG 条文。
 #
@@ -20,65 +20,119 @@ entries:
   tgad_em.pa_rapp_g:
     value: 4.65
     unit: V/V
-    source: survey
-    cite: "IEEE 802.11-09/0296r16 (TGad Evaluation Methodology), CMOS PA model: g = 4.65, Asat = 0.58, s = 0.81"
-    note: "未核实：文档正文未取得，数字来自搜索命中的文档摘录；r09 版是 g = 5, Asat = 0.6, s = 0.71。"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, c. CMOS PA model parameters"
+    quote: "c. CMOS PA model parameters – AM-AM • g = 4.65 • Asat = 0.58 • s = 0.81"
+    note: "小信号增益（原文 'the small gain signal'）。r09 版（2009）是 g = 5、Asat = 0.6、s = 0.71；r12 'Modified CMOS PA model'（2009-11-19）改成现值。0.3.0 前是 survey（只读到摘录）。"
 
   tgad_em.pa_rapp_asat:
     value: 0.58
     unit: V
-    source: survey
-    cite: "IEEE 802.11-09/0296r16（同上）"
-    note: "未核实。饱和输出幅度；Psat = Asat²（归一化负载）。"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, c. CMOS PA model parameters"
+    quote: "c. CMOS PA model parameters – AM-AM • g = 4.65 • Asat = 0.58 • s = 0.81"
+    note: "饱和电平（原文 'the saturation level'），RMS 伏；Psat = Asat²（归一化负载）。"
 
   tgad_em.pa_rapp_p:
     value: 0.81
     unit: smoothness
-    source: survey
-    cite: "IEEE 802.11-09/0296r16（同上，记号 s）"
-    note: "未核实。"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, c. CMOS PA model parameters"
+    quote: "c. CMOS PA model parameters – AM-AM • g = 4.65 • Asat = 0.58 • s = 0.81"
+    note: "原文记号 s（'the smoothness factor'），本表与 mmw60_trx 的代码记作 p。"
 
   tgad_em.pa_ampm_alpha:
     value: 2560.0
     unit: deg/V^q1
-    source: survey
-    cite: "IEEE 802.11-09/0296r16, AM/PM: alpha = 2560, beta = 0.114, q1 = 2.4, q2 = 2.3"
-    note: "未核实。"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, c. CMOS PA model parameters"
+    quote: "– AM-PM • α = 2560 • β = 0.114 • q1 = 2.4 • q2 = 2.3"
+    note: "AM-PM 的输出单位是度（原文 'in degrees'）。"
 
   tgad_em.pa_ampm_beta:
     value: 0.114
     unit: V
-    source: survey
-    cite: "IEEE 802.11-09/0296r16（同上）"
-    note: "未核实。"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, c. CMOS PA model parameters"
+    quote: "– AM-PM • α = 2560 • β = 0.114 • q1 = 2.4 • q2 = 2.3"
+    note: "见 tgad_em.pa_model_shape。"
 
   tgad_em.pa_ampm_q1:
     value: 2.4
     unit: exponent
-    source: survey
-    cite: "IEEE 802.11-09/0296r16（同上）"
-    note: "未核实。"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, c. CMOS PA model parameters"
+    quote: "– AM-PM • α = 2560 • β = 0.114 • q1 = 2.4 • q2 = 2.3"
+    note: "见 tgad_em.pa_model_shape。"
 
   tgad_em.pa_ampm_q2:
     value: 2.3
     unit: exponent
-    source: survey
-    cite: "IEEE 802.11-09/0296r16（同上）"
-    note: "未核实。"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, c. CMOS PA model parameters"
+    quote: "– AM-PM • α = 2560 • β = 0.114 • q1 = 2.4 • q2 = 2.3"
+    note: "见 tgad_em.pa_model_shape。"
 
   tgad_em.pa_model_shape:
     value: "AM/AM G(A) = g·A / (1 + (g·A/Asat)^(2p))^(1/(2p)); AM/PM Phi(A) = alpha·A^q1 / (1 + (A/beta)^q2) [deg]"
     unit: formula
-    source: survey
-    cite: "IEEE 802.11-09/0296 (TGad EM) 'modified Rapp' CMOS PA model；同形式见 11ay EM 11-15/0866"
-    note: "未核实：公式按文献记忆写出，原文档是 .doc 内嵌图片，未逐字核对。"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, a. Rapp AM-AM; b. Modified Rapp AM-PM"
+    quote: "a. Rapp AM-AM G(A) = g A / (1 + (gA/Asat)^(2s))^(1/(2s)) in RMS Volts, where g is the small gain signal, s is the smoothness factor, Asat is the saturation level. b. Modified Rapp AM-PM Ψ(A) = α A^q1 / (1 + (A/β)^q2) in degrees"
+    note: "公式在 .doc 里是嵌入的公式对象，文本取不出；转成 PDF 后渲染第 4 页读的，引文里的上下标按读图写成行内形式。与本条的 value 逐项一致（value 用 p 记 s）。0.3.0 前是 survey（按记忆写出）。"
 
   tgad_em.pn_model_shape:
     value: "PSD(f) = PSD0 · (1 + (f/f_z)^2) / (1 + (f/f_p)^2)  [dBc/Hz 形式：PSD0 + 10·log10(...)]"
     unit: formula
-    source: survey
-    cite: "IEEE 802.11-09/0296 (TGad EM) phase-noise model, 1 pole / 1 zero；Liu 2025 只给 fp / fz / PSD0"
-    note: "未核实：TGad EM 的 PSD0 是 −90 dBc/Hz，Liu 2025 用 −93 dBc/Hz；形状按 TGad EM。"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 1. phase noise, a. model"
+    quote: "a. model PSD(f) = PSD(0) [ (1 + (f/fz)^2) / (1 + (f/fp)^2) ]"
+    note: "公式读自渲染的第 4 页（同上）。TGad EM 自己的参数在 tgad_em.pn_params（PSD0 −90 dBc/Hz）；Liu 2025 只给 fp / fz / PSD0，并用 −93 dBc/Hz。r11（2009-11-18）'Modified phase noise model to single pole'，r09 是双极点（PSD0 −80 dBc/Hz，fp1 0.75 MHz，fp2 2 MHz）。"
+
+  tgad_em.pn_params:
+    value: {psd0_dbchz: -90.0, f_pole_hz: 1.0e+6, f_zero_hz: 100.0e+6, psd_inf_dbchz: -130.0}
+    unit: "dBc/Hz, Hz, Hz, dBc/Hz"
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 1. phase noise, b. parameters"
+    quote: "b. parameters • PSD(0) = -90 dBc/Hz • Pole frequency fp = 1 MHz • Zero frequency fz = 100 MHz • Corresponding PSD(infinity) = -130 dBc/Hz"
+    note: "TGad EM 自己的相噪参数（0.3.0 新增）。psd_inf 是原文写出的值，也等于 PSD0 + 20·log10(fp/fz)。"
+
+  tgad_em.pn_sides:
+    value: "transmitter and receiver"
+    unit: text
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 1. phase noise, c."
+    quote: "c. impairment is modeled at both transmitter and receiver"
+    note: "TGad EM 的约定：相噪在收发两侧各加一份（0.3.0 新增）。Liu 2025 没说加在哪一侧；mmw60_trx 的 assumed.pn_apply_sides 取的也是两侧。"
+
+  tgad_em.pa_backoff_definition:
+    value: "PA Backoff = 10·log10(Average TX Power / Psat)"
+    unit: formula
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, d."
+    quote: "d. Calculate backoff as the output power backoff from full saturation: PA Backoff = 10 log10(Average TX Power/Psat)"
+    note: "回退从饱和输出功率算起（0.3.0 新增）。mmw60_trx 的 assumed.pa_obo_reference 取的 psat 口径就是这个定义。"
+
+  tgad_em.pa_backoff_recommended_db:
+    value: {ofdm: 8.0, single_carrier: 0.5}
+    unit: dB
+    source: spec
+    cite: "E. Perahia (Intel), 'TGad Evaluation Methodology', IEEE 802.11-09/0296r16, 2010-01-20；mentor.ieee.org/802.11/dcn/09/11-09-0296-16-00ad-evaluation-methodology.doc，2026-11-13 读原文"
+    section: "3.2 Hardware impairments, 2. PA non-linearity model, d."
+    quote: "Note: a PA Backoff equal to 8 dB for OFDM and 0.5 dB for single carrier is recommended."
+    note: "推荐值，不是规定（0.3.0 新增）。Liu 2025 的 OFDM 回退 8 dB（liu2025.pa_obo_db）与此相同。"
 
   # ------------------------------------------------------------ 推导：TGad EM 的 modified Rapp 在 p = 0.81 时的压缩点
   tgad_em.rapp_p1db_below_psat_db:
@@ -141,13 +195,3 @@ entries:
     source: survey
     cite: "IEEE 802.11-2020 §19.3.11.7.5 'LDPC PPDU encoding process' steps (b)–(e) and Table 19-16（码长与码字数选取、缩短 / 删余 / 重复及加一个符号的两个条件）；VHT / HE / EHT 沿用同一流程"
     note: "未核实：原文未贴入。本库按 HT/VHT 的流程（预 FEC 填充到 N_SYM·N_DBPS，等价于 HE 的 a = 4），不建 HE/EHT 的 a 因子与 PE 字段（assumed.eht_prefec_padding）。"
-
-aliases:
-  # 0.2.0：mmw60_trx 带来的旧前缀键改名（前缀是标签，不是领域）。旧名至少留到 0.3.0，读取时 DeprecatedKeyWarning；
-  # keys.lock 里记着 aliased=0.2.0。
-  survey.n_sd_11ac: {to: ieee80211ac.n_sd, since: "0.2.0"}
-  survey.n_sd_11be: {to: ieee80211be.n_sd, since: "0.2.0"}
-  survey.eht_tone_mapper_dtm: {to: ieee80211be.ldpc_tone_mapping_distance, since: "0.2.0"}
-  survey.ldpc_ppdu_encoding_thresholds: {to: ieee80211.ldpc_ppdu_encoding_thresholds, since: "0.2.0"}
-  survey.dmg_sensitivity_assumptions: {to: dmg.sensitivity_assumptions, since: "0.2.0"}
-  derived.rapp_p1db_below_psat_db: {to: tgad_em.rapp_p1db_below_psat_db, since: "0.2.0"}
