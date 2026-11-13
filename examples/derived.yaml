@@ -106,7 +106,7 @@
   quotes:
     - {doc: cairn/topology-a.md, text: "MCS6 预测 {pred} dB、实测 {meas} dB"}
 
-- name: ex06 the 60 GHz-observed DPD at the preset 8 dB back-off (chip-only vs the programmed one)
+- name: ex06 the 60 GHz-observed DPD at 8 dB of back-off (the preset until 2026-11-13; 7.5 dB is not on the sweep grid) (chip-only vs the programmed one)
   values:
     chip8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {} {*} / {*} / {*} / {*} pass {*} {*} vs {*} pass {*} {*} {*}"}
     prog8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {*} {*} / {*} / {*} / {*} pass {*} {*} vs {*} pass {*} {} {*}"}
