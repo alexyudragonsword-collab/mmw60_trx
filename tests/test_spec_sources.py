@@ -67,6 +67,11 @@ def test_the_local_table_keeps_only_this_librarys_choices_and_outputs():
     assert Path(ss.__file__).resolve().parent == SHARED_DATA.parent
     with pytest.raises(ValueError, match="two tables"):
         ss.merge_tables(shared, {"liu2025.pa_obo_db": local["assumed.base_bandwidth_hz"]})
+    # ref() reads across both tables: a shared mapping's field, a local one, a plain value
+    assert spec.ref("pa60.asada_eumc2011#psat_dbm") == spec.value("pa60.asada_eumc2011")["psat_dbm"]
+    rule = spec.value("assumed.pa60_operating_rule")
+    assert spec.ref("assumed.pa60_operating_rule#evm_limit_db") == rule["evm_limit_db"]
+    assert spec.ref("derived.pa60_obo_at_evm_limit_db") == spec.value("derived.pa60_obo_at_evm_limit_db")
 
 
 def test_spec_source_needs_a_quote_and_survey_needs_unverified():
