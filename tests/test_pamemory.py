@@ -138,7 +138,7 @@ def test_rows_do_not_depend_on_the_worker_count_and_duplicates_run_once(fe):
     assert len(pts) == 1 and pts[0].fixed_best_evm_db == min(pts[0].fixed_x1.tx_evm_db, pts[0].fixed_matched.tx_evm_db)
     pen = pamemory.backoff_penalty(pts, -10.0)
     assert pen["scales"] == 10.0 and not pen["scales_exact"] and pen["cost"] is None    # one point: no crossing
-    assert spec.value("assumed.pa_memory_obo_sweep_db")[2] == fe.obo_db                 # the preset is on the grid
+    assert fe.obo_db in spec.value("assumed.pa_memory_obo_sweep_db")                    # the preset is on the grid
     assert set(spec.value("assumed.pa_memory_obo_sweep_coarse_db")) <= set(spec.value("assumed.pa_memory_obo_sweep_db"))
 
 

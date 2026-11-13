@@ -49,6 +49,22 @@ def pa_isolated_evm_db(pa: ModifiedRappPA, obo_db: float, reference: str, seed: 
     return _db(np.mean(np.abs(y - g * x) ** 2) / np.mean(np.abs(g * x) ** 2))
 
 
+def obo_for_isolated_evm(pa: ModifiedRappPA, evm_limit_db: float, reference: str = "psat",
+                         seed: int = 3, lo_db: float = 1.0, hi_db: float = 20.0) -> float:
+    """The smallest back-off at which the Rapp alone meets ``evm_limit_db``
+    (``pa_isolated_evm_db`` falls monotonically with the back-off): the
+    operating point a transmitter is rated at when its output is quoted
+    "at the TX EVM limit" (data/spec: assumed.pa60_operating_rule).  The
+    search starts 1 dB from the reference: a Rapp never reaches its Psat."""
+    from scipy.optimize import brentq
+    f = lambda o: pa_isolated_evm_db(pa, o, reference, seed=seed) - float(evm_limit_db)   # noqa: E731
+    if f(hi_db) > 0:
+        raise ValueError(f"the PA does not reach {evm_limit_db} dB within {hi_db} dB of back-off")
+    if f(lo_db) <= 0:
+        return float(lo_db)
+    return float(brentq(f, lo_db, hi_db, xtol=1e-4))
+
+
 def analytic_floors(cfg: Mmw60Config, fe: Frontend60, pa_evm_db: float | None = None,
                     irr_after_cal_db: float | None = None) -> dict:
     """``irr_after_cal_db``: replace the uncorrected IQ image by the residual a

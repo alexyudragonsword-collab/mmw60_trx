@@ -16,7 +16,7 @@ from mmw60 import spec
 from mmw60.config import (Mmw60Config, if_extender_60ghz, liu2025_table2, surveyed_pa, tgad_em_pa,
                           wifi7_chain_k1, zero_if_60ghz)
 from mmw60.frontend import Frontend60
-from mmw60.frontend.grid import pa_isolated_evm_db
+from mmw60.frontend.grid import obo_for_isolated_evm, pa_isolated_evm_db
 from mmw60.pa.rapp import ModifiedRappPA
 from mmw60.sim.link import LinkSim
 
@@ -38,9 +38,10 @@ def test_topology_a_and_b_presets_carry_the_measured_pa():
     for cfg in (zero_if_60ghz(k=8), zero_if_60ghz(k=4, standard="11be", bandwidth_hz=80e6), wifi7_chain_k1(),
                 if_extender_60ghz()):
         assert cfg.frontend == surveyed_pa(cfg).frontend, cfg.label
-    # Liu's back-off is kept, from Psat
-    assert zero_if_60ghz(k=8).frontend.pa.obo_db == liu2025_table2(k=8).frontend.pa.obo_db
+    # the operating point is the rule's (ROADMAP C10), from Psat; Liu's preset keeps Liu's
+    assert zero_if_60ghz(k=8).frontend.pa.obo_db == spec.value("derived.pa60_obo_at_evm_limit_db")
     assert zero_if_60ghz(k=8).frontend.pa.obo_reference == "psat"
+    assert liu2025_table2(k=8).frontend.pa.obo_db == spec.value("liu2025.pa_obo_db")
 
 
 def test_tgad_em_pa_is_the_presets_pa_before_the_switch():
@@ -49,9 +50,12 @@ def test_tgad_em_pa_is_the_presets_pa_before_the_switch():
     assert cfg.frontend.pa.rapp_p is None and fe.pa_model.p == spec.value("tgad_em.pa_rapp_p")
     assert (cfg.frontend.psat_dbm, cfg.frontend.pa_gain_db, cfg.frontend.pa_pae_max) == (
         spec.value("assumed.pa60_psat_dbm"), spec.value("assumed.pa60_gain_db"), spec.value("assumed.pa60_pae_max"))
-    # the two helpers undo each other on the PA and touch nothing else
+    assert (cfg.frontend.pa.obo_db, cfg.frontend.pa.obo_reference) == (spec.value("liu2025.pa_obo_db"), "psat")
+    # surveyed_pa puts the measured PA back but keeps the config's back-off; nothing else is touched
     back = surveyed_pa(cfg)
-    assert back.frontend == zero_if_60ghz(k=8).frontend
+    preset = zero_if_60ghz(k=8)
+    assert back.frontend == dc.replace(preset.frontend, pa=dc.replace(preset.frontend.pa,
+                                                                      obo_db=spec.value("liu2025.pa_obo_db")))
     assert Mmw60Config.from_dict(cfg.to_dict()) == cfg
 
 
@@ -138,3 +142,31 @@ def test_law1_no_pa_figure_is_typed_outside_the_spec_file():
         for forbidden in ("14.6", "23.2", "16.3", "1.286", "13.2", "11.7"):
             hit = re.search(rf"(?<![\w.:{{]){re.escape(forbidden)}(?![\w.])", code)
             assert hit is None, f"{rel} types a literature number: {forbidden}"
+
+
+# ------------------------------------------------------------------ the operating point (ROADMAP C10)
+def test_preset_back_off_follows_the_operating_rule():
+    """The presets run the measured PA where it alone meets the 802.11ad 16-QAM
+    TX EVM limit on the OFDM waveform: the rule the read 60 GHz transmitters
+    are rated by (pa60.wu_isscc2015)."""
+    rule = spec.value("assumed.pa60_operating_rule")
+    p = spec.value("derived.pa60_rapp_p_asada_eumc2011")
+    obo = obo_for_isolated_evm(ModifiedRappPA(p=p), rule["evm_limit_db"], "psat")
+    assert spec.value("derived.pa60_obo_at_evm_limit_db") == pytest.approx(obo, abs=0.05)
+    assert pa_isolated_evm_db(ModifiedRappPA(p=p), obo, "psat") == pytest.approx(rule["evm_limit_db"], abs=0.01)
+    # the rule's number is the limit the transmitter paper plots and rates its output at
+    wu = spec.survey("pa60.wu_isscc2015")
+    assert wu.source == "spec" and wu.value["evm_limit_db"] == rule["evm_limit_db"]
+    assert "-21dB" in wu.quote and "9.3" in wu.quote
+    # the noise seed of the Gaussian envelope moves it by less than 0.2 dB
+    spread = [obo_for_isolated_evm(ModifiedRappPA(p=p), rule["evm_limit_db"], "psat", seed=sd) for sd in (1, 2, 4, 5)]
+    assert max(spread) - min(spread) < 0.2 and abs(np.mean(spread) - obo) < 0.15
+    # the same rule on the 11ad shape asks for more back-off than Liu's 8 dB
+    assert obo_for_isolated_evm(ModifiedRappPA(), rule["evm_limit_db"], "psat") > spec.value("liu2025.pa_obo_db") + 1.5
+
+
+def test_obo_for_isolated_evm_is_monotone_and_refuses_an_unreachable_limit():
+    m = ModifiedRappPA(p=spec.value("derived.pa60_rapp_p_asada_eumc2011"))
+    assert obo_for_isolated_evm(m, -18.0) < obo_for_isolated_evm(m, -21.0) < obo_for_isolated_evm(m, -24.0)
+    with pytest.raises(ValueError, match="does not reach"):
+        obo_for_isolated_evm(m, -90.0, hi_db=10.0)
