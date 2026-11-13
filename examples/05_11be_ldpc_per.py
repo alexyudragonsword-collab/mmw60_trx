@@ -7,8 +7,8 @@ packets, MCS 0 / 4 / 7 (BPSK 1/2, 16-QAM 3/4, 64-QAM 5/6), three sets:
 
 - **ideal**: no CFO, ideal LO, ideal PA, converters / IQ / leakage off, flat
   channel — the LDPC decoder against AWGN;
-- **impaired**: the shared 60 GHz front end as example 04 has it (Rapp at
-  OBO 8 dB, Liu's phase noise, 40 ppm, converters at ENOB(fs_eff), the
+- **impaired**: the shared 60 GHz front end as example 04 has it (the
+  measured Rapp at the preset back-off, Liu's phase noise, 40 ppm, converters at ENOB(fs_eff), the
   uncalibrated IQ mismatch), flat channel;
 - **no PA**: the same with the PA ideal — the cap in the comparison table
   is the PA's, so this set says what the back-off costs in MCS.
