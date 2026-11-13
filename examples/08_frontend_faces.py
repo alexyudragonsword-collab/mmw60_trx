@@ -56,8 +56,8 @@ MCS_ROWS = (0, 4)
 #: the receive noise figures looked at: (label, spec key or None for wifitrx's own ladder)
 NF_ROWS = (("WiFi 7 chip ladder (the presets)", None),
            ("60 GHz comm. transceiver, 65 nm", "rx60.comm_asada2011"),
-           ("60 GHz comm. receiver, 90 nm", "survey.rx60_comm_iscas2015"),
-           ("802.11ad sensitivity-table receiver", "survey.dmg_sensitivity_assumptions"),
+           ("60 GHz comm. receiver, 90 nm", "rx60.comm_iscas2015"),
+           ("802.11ad sensitivity-table receiver", "dmg.sensitivity_assumptions"),
            ("60 GHz radar chip", "rx60.radar_iwr6843"))
 
 
@@ -209,7 +209,7 @@ def main(argv=None) -> int:
     # ---------------------------------------------------------------- 4
     gains = ((0.0, "the presets (not specified)"),
              (spec.value("rx60.comm_asada2011")["antenna_gain_dbi"], tag("rx60.comm_asada2011") + ", the pick"),
-             (spec.value("survey.antenna60_okada2013_dbi"), tag("survey.antenna60_okada2013_dbi")))
+             (spec.value("antenna60.okada2013_dbi"), tag("antenna60.okada2013_dbi")))
     sim = LinkSim(dc.replace(surveyed, channel=FLAT), frontend=fe_s)
     s0 = sim.rx_input_dbm_for_snr(thr[MCS_ROWS[0]])
     print(f"\n== 4. antenna gains (the same on both ends): EIRP limit and the path loss the link takes at MCS {MCS_ROWS[0]} ==")

@@ -231,8 +231,8 @@ def test_law1_no_front_end_figure_is_typed_outside_the_spec_file():
 def test_law5_d4_figures_read_in_the_original_carry_the_quote_and_the_rest_say_unverified():
     read = ("rx60.comm_asada2011", "rx60.radar_iwr6843", "rx60.radar_iwr6843_fig7_2", "isolation.tx_rx_tue2018",
             "dmg.rx_max_input_dbm")
-    snippet_only = ("survey.rx60_comm_iscas2015", "survey.dmg_sensitivity_assumptions",
-                    "survey.antenna60_okada2013_dbi")
+    snippet_only = ("rx60.comm_iscas2015", "dmg.sensitivity_assumptions",
+                    "antenna60.okada2013_dbi")
     # withdrawn by the party that supplied it: the application note it cited holds no antenna gain
     assert "survey.antenna60_bgt60_an600_dbi" not in spec.all_entries()
     for k in read:

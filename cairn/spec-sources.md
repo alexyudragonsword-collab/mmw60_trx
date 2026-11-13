@@ -23,6 +23,8 @@ authoring_mode: ai_generated
 
 下面各节按主题列条目；读过原文、文献、规管、11ad 的那些现在都在共享表里，键名没变。
 
+**0.2.0 的键改名（2026-11-13，mmw60_trx#23）**：重新 pin 到 spec_sources `e573d4d`（0.2.0）。它给 17 个前缀是来源标签的键改了名（`survey.` / `derived.` 前缀：标签会变，键名不该跟着标签），值、单位、标签都没变；旧名留在各数据文件的 `aliases:` 里，至少到 0.3.0。本库 42 处调用、本地表 4 处文字、示例 08 / 09 打印的 4 行跟着改成新名；`mmw60.spec` 读旧名照样拿到条目（`.key` 是新名），同时发 `DeprecatedKeyWarning`，而 pytest 的 `filterwarnings` 把它变成错误，所以本库不留旧名。对照表在 spec_sources 的 CHANGELOG 0.2.0 一节。本地表自己的 3 条 survey、3 条 derived 不在改名之列（ROADMAP C11）。
+
 ## Liu 2025 的版本
 
 | 版本 | 日期 | 有什么 |
@@ -53,7 +55,7 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - `pa60.ning_elex2011`：IEICE ELEX 2011，增益 9.8 dB、P1dB 9.4、Psat 11.7 dBm、PAE 14.3 % / P1dB 处 12.0 %。
 - `pa60.eumc2011_table1`：Asada 那篇的 Table I，14 颗 60 GHz CMOS PA 的汇编。是那篇转引的，各行原文本库没读，只用来看分布。
 - `rx60.comm_asada2011` 补了发射侧（变频增益 16 dB、P1dB 5.4、Psat 6.5 dBm）：那是收发机的发射输出，没有单独 PA 级。
-- `derived.pa60_rapp_p_asada_eumc2011` = 1.286：使 Rapp 的 Psat − P1dB 等于 4.6 dB 的平滑度，`tests/test_pa60.py` 复算。`assumed.pa60_surveyed_pick` 说基准档取哪一篇。
+- `pa60.asada_eumc2011_rapp_p` = 1.286：使 Rapp 的 Psat − P1dB 等于 4.6 dB 的平滑度，`tests/test_pa60.py` 复算。`assumed.pa60_surveyed_pick` 说基准档取哪一篇。
 - 没出处的：AM/PM（三篇都不给，仍用 11ad 的）。`assumed.pa60_psat_dbm` / `assumed.pa60_pae_max` 的备注里加了与测量值的对照。
 - 2026-11-12 起拓扑 A / B 的预设（`zero_if_60ghz`，以及建在它上面的 `if_extender_60ghz` / `wifi7_chain_k1`）取 `assumed.pa60_surveyed_pick`：Psat 14.6 dBm、增益 23.2 dB、峰值 PAE 16.3 %、p = 1.286。回退那时仍从 Psat 8 dB（Pout 6.6 dBm），2026-11-13 起按下一段的规则取 7.5 dB（Pout 7.1 dBm）。
   `assumed.pa60_psat_dbm` / `assumed.pa60_gain_db` / `assumed.pa60_pae_max` 现在只由 `config.tgad_em_pa` 读（旧的 11ad EM PA，连同 Liu 的 8 dB 回退，作灵敏度行）。Liu 的预设 `liu2025_table2` 不变，仍是 11ad EM 的 Rapp、8 dB。
@@ -65,9 +67,10 @@ PA 的工作点（2026-11-13，ROADMAP C10）：
 - `derived.pa60_obo_at_evm_limit_db` = 7.5 dB（算出 7.457，种子 1–5 为 7.46–7.59）：`tests/test_pa60.py` 复算。灵敏度在示例 09 §2：去掉 AM/PM 7.06，汇编表中位形状 6.74，11ad 形状 9.97 dB。
 - 想读而没去绕的：MDPI 上一篇 22 nm 60 GHz PA（可能给 OFDM 工作点）对脚本访问返回 403，没有去绕。
 
-## 被下游消费的条目（改之前先看这里）
+## 被下游消费的条目（历史；2026-11-13 起已不由本库守）
 
-（2026-11-13：下面这三条已随迁移进了 spec_sources 的 `data/frontend60.yaml`，键名与值不变；共享库在它的 `consumers.yaml` 登记谁读哪条。fmcw_radar 迁到直接 vendor spec_sources 之前，它仍按本库旧的 pin 读，本库的守卫测试先留着。）
+（2026-11-13：下面这三条已随迁移进了 spec_sources 的 `data/frontend60.yaml`，键名与值不变；共享库在它的 `consumers.yaml` 登记谁读哪条。
+更正（同日，mmw60_trx#23）：据 spec_sources 在 #21 的验收评论，fmcw_radar 已迁完（fmcw_radar#13，`79d040a`），不再 vendor 本库的表；本库的守卫测试 `test_entries_a_downstream_library_reads_keep_their_keys_fields_and_values` 已删，这几条的消费者由 spec_sources 的 `consumers.yaml` 登记、它的测试守。本库没有读 fmcw_radar 的仓库。下面留作当时的记录。）
 
 fmcw_radar 从 0.2.8 起（它的 main@`7685bb3`，fmcw_radar#11）vendor 本库的两个文件：`src/mmw60/spec.py` 与 `src/mmw60/data/spec/survey.yaml`，pin 在本库 `ef0f00c`，逐字节校验。它没有 vendor `Frontend60`（依赖整条 wifitrx 收发链，对只读几个数的雷达太重），所以读的是来源表，不是对象。以上是对方在 mmw60_trx#14 上的说明（评论 6823377875），本库没有读对方的仓库。
 
@@ -93,7 +96,7 @@ fmcw_radar 从 0.2.8 起（它的 main@`7685bb3`，fmcw_radar#11）vendor 本库
 - 同台表 pJ/bit 列（A3）：Walden FoM 70 fJ（38.4–120.2）与 45 → 7 nm 能量比 0.175 经 Halo 的 `PowerCoefficients` 转引 Murmann / DeepScaleTool；pllsim wu19 时钟剖面是 Halo 随库数据（模型输出，不是实测）。
 - PA 记忆研究（示例 07，2026-11-11）：`assumed.pa_memory_model`（wifitrx / PA_DPD 的参考 PA，sub-7 GHz WiFi PA 的模型，不是 60 GHz 器件）、`assumed.pa_memory_fir_fs_hz`（80 MS/s，即 12.5 ns 一个抽头）及其灵敏度档、回退扫描的格点（细 / 粗）、目标 EVM（−25 / −27 dB）、DPD 抽头间隔候选，全部是本库的 assumed；60 GHz PA 的记忆时间常数没有查到出处。
 - pllsim ×10 剖面（`survey.clock_profile_wu19_x10`，2026-11-11）：pll_simulator@d67043e 的 CLI 在本地生成（命令在条目的 cite 里），wu19 预设重调到 6.048 GHz 再过对方的 ×10 倍频器模型；同样是模型输出，不是实测。倍频器底噪 −150 dBc/Hz 与谐波抑制 40 dB 是本库的 assumed，没有出处。
-- 前端的三个面（示例 08，2026-11-12，ROADMAP D4）里还没读到原文的三条：`survey.rx60_comm_iscas2015`（ISCAS 2015，NF 7.1 dB；64 dB 是含基带的整机增益，不用）、`survey.antenna60_okada2013_dbi`（JSSC 2013，6 dBi）——这两条在 IEEE Xplore，对脚本访问返回空页，没有去绕；`survey.dmg_sensitivity_assumptions`（802.11ad 灵敏度表的前提 NF 10 dB / 实现损耗 5 dB，二手转引；ITU-R M.2003 里没有这两个数）。三条都只作灵敏度档。没有查到任何数据手册直接给收发隔离度。**已删的一条**：`survey.antenna60_bgt60_an600_dbi`（2 / 3.5 / 5 dBi）。这组数是 fmcw_radar 在 mmw60_trx#14 上贴的搜索摘要，对方读了 AN600 原文（Rev. 2.40）后撤回：文件里没有天线增益，只有归一化方向图。教训：转引别人的搜索摘要，等于未核实再套一层。
+- 前端的三个面（示例 08，2026-11-12，ROADMAP D4）里还没读到原文的三条：`rx60.comm_iscas2015`（ISCAS 2015，NF 7.1 dB；64 dB 是含基带的整机增益，不用）、`antenna60.okada2013_dbi`（JSSC 2013，6 dBi）——这两条在 IEEE Xplore，对脚本访问返回空页，没有去绕；`dmg.sensitivity_assumptions`（802.11ad 灵敏度表的前提 NF 10 dB / 实现损耗 5 dB，二手转引；ITU-R M.2003 里没有这两个数）。三条都只作灵敏度档。没有查到任何数据手册直接给收发隔离度。**已删的一条**：`survey.antenna60_bgt60_an600_dbi`（2 / 3.5 / 5 dBi）。这组数是 fmcw_radar 在 mmw60_trx#14 上贴的搜索摘要，对方读了 AN600 原文（Rev. 2.40）后撤回：文件里没有天线增益，只有归一化方向图。教训：转引别人的搜索摘要，等于未核实再套一层。
 
 ## 本库自己定的（assumed；每条在示例 00 有灵敏度行或在 LOG 有数字）
 

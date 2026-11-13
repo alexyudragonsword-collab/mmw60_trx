@@ -78,7 +78,7 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
   同台表计了 DPD 的功耗、底板用的是未预失真的 Rapp。在 7.5 dB 上 K ≤ 8 又回到“付了钱没拿到线性度”；K = 32 拿到 2 dB，但底板仍没有算进它。待做：工作点规则要不要把 DPD 算进去（按“发射机 DPD 后刚好 −21 dB”取点，要先知道 wifitrx 的 DPD 为什么在这里断崖，见本节第一条）。
 
 ### C9. 前端三个面（示例 08）发现的（见 `cairn/LOG.md` 2026-11-12 两条、`cairn/topology-b.md` §5）
-- **还有三条文献数字没读到原文**：`python -c "from mmw60 import spec; print(len(spec.unverified()))"` 是 51（D4 前 48）。读过原文、已是 `spec` 的五条：`rx60.comm_asada2011`、`rx60.radar_iwr6843`、`rx60.radar_iwr6843_fig7_2`（读图）、`isolation.tx_rx_tue2018`（只读了摘要）、`dmg.rx_max_input_dbm`。没读到的三条：`survey.rx60_comm_iscas2015`、`survey.antenna60_okada2013_dbi`（都在 IEEE Xplore，对脚本访问返回空页，没有去绕）、`survey.dmg_sensitivity_assumptions`（802.11 条文）。都只作灵敏度档，基准档不用它们。原来的第四条（“Infineon AN600”的天线增益）已删：提供方读了原文后撤回，那份文件里没有这组数。
+- **还有三条文献数字没读到原文**：`python -c "from mmw60 import spec; print(len(spec.unverified()))"` 是 51（D4 前 48）。读过原文、已是 `spec` 的五条：`rx60.comm_asada2011`、`rx60.radar_iwr6843`、`rx60.radar_iwr6843_fig7_2`（读图）、`isolation.tx_rx_tue2018`（只读了摘要）、`dmg.rx_max_input_dbm`。没读到的三条：`rx60.comm_iscas2015`、`antenna60.okada2013_dbi`（都在 IEEE Xplore，对脚本访问返回空页，没有去绕）、`dmg.sensitivity_assumptions`（802.11 条文）。都只作灵敏度档，基准档不用它们。原来的第四条（“Infineon AN600”的天线增益）已删：提供方读了原文后撤回，那份文件里没有这组数。
 - **最大输入电平 −33 dBm 是 2012 年版的写法**：ITU-R M.2003 (03/2012) §2.4.6 是 −33 dBm；现行版 M.2003-2 (01/2018) 同一节改成接收天线处 10 µW/cm²。按 60.48 GHz 换算是 −37.1 dBm（0 dBi）/ −35.1 dBm（2 dBi）/ −31.1 dBm（6 dBi）。示例 08 §3 那一列还按 −33 dBm 画；要不要改成按天线增益换算的功率密度线，待定。
 - **拓扑 A 不消费接收前端这个面**：`python examples/08_frontend_faces.py` §5，拓扑 A（11be 80 MHz、MCS 0）的灵敏度预设 −92.5 dBm、换上查到的前端仍是 −92.5 dBm（差 0.00 dB）；拓扑 B 同一换法从 −87.0 变 −84.4 dBm（差 2.6 dB）。原因：`ifext.MmwRxStage` 是单位增益、自己不加噪声，SNR 轴上的 NF 是芯片的 WiFi 7 梯子。用预设时两拓扑都是 3.5 dB，同台表不受影响；一旦用查到的前端，两拓扑的接收噪声就不是同一个口径（铁律 2）。补法是在芯片前面加一级 60 GHz LNA / 混频器（增益、NF），级联 NF 由它定。
 - **预设还在用 WiFi 7 的梯子**：换成查到的前端后，SNR 轴上的链路 EVM 不动（示例 08 §2，五档 NF 的散布 0.00 dB），动的是灵敏度（dB 对 dB），校准表几乎不动：K = 8 的回环 EVM −22.1 → −22.0 dB，NF 取 12 dB 时 −21.3 dB。校准落在预设工作点（PA 单独 −21 dB）上，回环被发射侧限住，接收 NF 的分量看不太出来。（2026-11-13 之前校准跑在 wifitrx 的默认驱动上，回退 6.9 dB：−21.0 → −20.9、NF 12 dB 时 −20.4 dB。2026-11-12 预设换成测量的 PA 之前，回退 10.7 dB：−29.0 → −27.9、NF 12 dB 时 −23.5 dB，那时回环是接收侧有分量的。）示例 03 的最终 EVM 仍是带着 3.5 dB 的接收机读的。要不要把预设换过去（示例 03 / 06 / 07 的数字会动），待定。
@@ -97,17 +97,16 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 - **峰值 PAE**：预设现在取测量的 16.3 %（旧的假设 20 % 偏高）；同组三颗 14.3–16.3 %，汇编的中位 8.5 %。功耗列的 B 类回退规律对一颗偏乐观（P1dB 处测 7.9 %、折出 9.6 %），对另一颗偏保守（测 12.0 %、折出 11.0 %）。
 - **汇编表是二手的**：`pa60.eumc2011_table1` 的 13 行别人的数是那篇论文转引的，本库没读各自原文；只用来看分布。
 
-### C11. 规范表迁到 spec_sources 时留下的（见 `cairn/LOG.md` 2026-11-13、`cairn/spec-sources.md` §制度，mmw60_trx#21）
-- **留在本地的 3 条 survey 不是文献**：`survey.clock_profile_wu19`、`survey.clock_profile_wu19_x10` 的值是本仓库 `data/clock_profiles/` 里的文件名（pll_simulator 的模型输出），`survey.dsp_ip_dpd_poly_p4` 是姊妹库 dsp_ip 的综合估计。标的是 survey，但“未核实的文献数字”这个意思对它们不成立；spec_sources 不收（`tests/test_extraction.py::MMW60_STAYS`），标签由本库定。改标签就得改键名（`survey.` 前缀），示例 04 / 08 / 09 打印键名，期望输出会动，所以这次只搬家没有改。复现：`python -c "from mmw60 import spec; print(sorted(spec.load_table()))"` 里的三条 `survey.`。
-- **spec_sources 0.2.0 会改 17 个 `survey.` / `derived.` 前缀键的名字**（旧名留别名，读取时警告）：对方会另开 issue。届时重新 pin，改调用处与示例 04 / 08 / 09 的期望输出。
-- **下游守卫的去留**：`tests/test_spec_sources.py::test_entries_a_downstream_library_reads_keep_their_keys_fields_and_values` 守的三条已进 spec_sources（它在 `consumers.yaml` 里登记）；fmcw_radar 迁到直接 vendor spec_sources 之后删掉，在那之前留着。
+### C11. 规范表迁到 spec_sources 时留下的（见 `cairn/LOG.md` 2026-11-13 两条、`cairn/spec-sources.md` §制度，mmw60_trx#21 / #23）
+- **留在本地的 3 条 survey 不是文献**：`survey.clock_profile_wu19`、`survey.clock_profile_wu19_x10` 的值是本仓库 `data/clock_profiles/` 里的文件名（pll_simulator 的模型输出），`survey.dsp_ip_dpd_poly_p4` 是姊妹库 dsp_ip 的综合估计。标的是 survey，但“未核实的文献数字”这个意思对它们不成立；spec_sources 不收（`tests/test_extraction.py::MMW60_STAYS`），标签由本库定。改标签就得改键名（`survey.` 前缀），示例 04 打印这三个键名，期望输出会动，所以搬家（#21）和 0.2.0 的改名（#23）都没有动它们；共享库改名用的别名机制只在它自己的表里，本地表要改名得自己留旧名的读法。复现：`python -c "from mmw60 import spec; print(sorted(spec.load_table()))"` 里的三条 `survey.`。
+- **0.3.0 退役别名之前不用做什么**：0.2.0 改名后本库已无旧名（pytest 把 `DeprecatedKeyWarning` 当错误）；spec_sources 退役 17 个别名时重新 pin 一次即可，复现：`python -m pytest tests/test_spec_sources.py -k renamed`。
 
 ## D. 报回上游
 本库不动这三个库；需求各开一个 issue 交给对方，对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
 D1（wifi_trx_cal#4，非标准带宽的评分波形）、D2（pll_simulator#71，倍频器模型）、D3（PA_DPD#4 的 `fs` / `fir_fs` 与 `tap_spacing`，经 wifi_trx_cal#5 透传）都已落地并 pin 完（2026-11-11，`cairn/LOG.md`），条目已删。现在没有等上游的事。
 本库在验收时报告的两件对方已经修掉并 pin 进来（wifitrx@7b8d08e）：B40（DPD 步留观测通路上最好的一轮，都不如不加就不写入）与 B41（`ScaledPA` 对带记忆的 PA 逐电平读稳态）。对方自己还开着、与本库有关但不由本库推动的：B38（非标准音计划下 TX 视图 replay 的 gap）；`run_full_cal` 仍不透传 `n_iter`。
 
-D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）已落地并由对方关闭（2026-11-12，示例 08、`cairn/topology-b.md` §5）：接收前端、收发隔离、发 / 收天线增益三个面在 `Frontend60` 上，条目已删；过程中发现的在 C9。倍频器底噪不进 `Frontend60`（雷达直接读剖面文件）。对方最后读的是来源表而不是对象：它 vendor 了 `spec.py` 与 `survey.yaml`，按条目读三条 `spec`，哪几条、改之前要做什么见 `cairn/spec-sources.md` 的“被下游消费的条目”。这三条 2026-11-13 已随迁移进了 spec_sources（C11）。
+D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）已落地并由对方关闭（2026-11-12，示例 08、`cairn/topology-b.md` §5）：接收前端、收发隔离、发 / 收天线增益三个面在 `Frontend60` 上，条目已删；过程中发现的在 C9。倍频器底噪不进 `Frontend60`（雷达直接读剖面文件）。对方最后读的是来源表而不是对象：它 vendor 了 `spec.py` 与 `survey.yaml`，按条目读三条 `spec`，哪几条、改之前要做什么见 `cairn/spec-sources.md` 的“被下游消费的条目”。这三条 2026-11-13 已随迁移进了 spec_sources；fmcw_radar 也已迁完，本库那条下游守卫已删（mmw60_trx#23）。
 
 ## E. 明确不做
 MAC / MLO 调度、多用户、信道模型本身（用 11ad CR 现成表）、D-band、雷达（另开 fmcw_radar）；EIRP / 谱模板只做趋势比较，不替代认证测试；不把 vendor 变成 fork。

@@ -31,7 +31,7 @@ def test_liu_preset_keeps_the_11ad_shape():
     assert cfg.frontend.pa.rapp_p is None
     beh = LinkSim(cfg)
     assert beh.pa.p == spec.value("tgad_em.pa_rapp_p")
-    assert gap_db(beh.pa) == pytest.approx(spec.value("derived.rapp_p1db_below_psat_db"), abs=0.05)
+    assert gap_db(beh.pa) == pytest.approx(spec.value("tgad_em.rapp_p1db_below_psat_db"), abs=0.05)
 
 
 def test_topology_a_and_b_presets_carry_the_measured_pa():
@@ -95,7 +95,7 @@ def test_surveyed_pa_reads_the_papers_psat_p1db_and_gain_in_dbm():
 
 def test_derived_smoothness_follows_its_formula():
     src = spec.value("pa60.asada_eumc2011")
-    p = spec.value("derived.pa60_rapp_p_asada_eumc2011")
+    p = spec.value("pa60.asada_eumc2011_rapp_p")
     assert gap_db(ModifiedRappPA(p=p)) == pytest.approx(src["psat_dbm"] - src["p1db_dbm"], abs=0.01)
     # larger p, more abrupt compression: P1dB closer to Psat
     assert gap_db(ModifiedRappPA(p=p + 0.2)) < gap_db(ModifiedRappPA(p=p)) < gap_db(ModifiedRappPA())
@@ -105,7 +105,7 @@ def test_at_the_presets_back_off_the_measured_shape_is_the_more_linear_one():
     """8 dB from Psat puts the 11ad shape above its P1dB and the measured one
     below; counted from P1dB instead, the two shapes are within 1.5 dB."""
     obo = zero_if_60ghz(k=8).frontend.pa.obo_db
-    p = spec.value("derived.pa60_rapp_p_asada_eumc2011")
+    p = spec.value("pa60.asada_eumc2011_rapp_p")
     preset, measured = ModifiedRappPA(), ModifiedRappPA(p=p)
     assert pa_isolated_evm_db(measured, obo, "psat") < pa_isolated_evm_db(preset, obo, "psat") - 3.0
     assert abs(pa_isolated_evm_db(measured, obo, "p1db") - pa_isolated_evm_db(preset, obo, "p1db")) < 1.5
@@ -133,7 +133,7 @@ def test_pa_figures_read_in_the_original_carry_their_quote():
     assert (this["gain_db"], this["p1db_dbm"], this["psat_dbm"]) == (a["gain_db"], a["p1db_dbm"], a["psat_dbm"])
     assert this["pae_peak_pct"] == pytest.approx(100 * a["pae_peak"])
     assert spec.survey("assumed.pa60_surveyed_pick").source == "assumed"
-    assert spec.survey("derived.pa60_rapp_p_asada_eumc2011").source == "derived"
+    assert spec.survey("pa60.asada_eumc2011_rapp_p").source == "derived"
 
 
 def test_law1_no_pa_figure_is_typed_outside_the_spec_file():
@@ -150,7 +150,7 @@ def test_preset_back_off_follows_the_operating_rule():
     TX EVM limit on the OFDM waveform: the rule the read 60 GHz transmitters
     are rated by (pa60.wu_isscc2015)."""
     rule = spec.value("assumed.pa60_operating_rule")
-    p = spec.value("derived.pa60_rapp_p_asada_eumc2011")
+    p = spec.value("pa60.asada_eumc2011_rapp_p")
     obo = obo_for_isolated_evm(ModifiedRappPA(p=p), rule["evm_limit_db"], "psat")
     assert spec.value("derived.pa60_obo_at_evm_limit_db") == pytest.approx(obo, abs=0.05)
     assert pa_isolated_evm_db(ModifiedRappPA(p=p), obo, "psat") == pytest.approx(rule["evm_limit_db"], abs=0.01)
@@ -166,7 +166,7 @@ def test_preset_back_off_follows_the_operating_rule():
 
 
 def test_obo_for_isolated_evm_is_monotone_and_refuses_an_unreachable_limit():
-    m = ModifiedRappPA(p=spec.value("derived.pa60_rapp_p_asada_eumc2011"))
+    m = ModifiedRappPA(p=spec.value("pa60.asada_eumc2011_rapp_p"))
     assert obo_for_isolated_evm(m, -18.0) < obo_for_isolated_evm(m, -21.0) < obo_for_isolated_evm(m, -24.0)
     with pytest.raises(ValueError, match="does not reach"):
         obo_for_isolated_evm(m, -90.0, hi_db=10.0)

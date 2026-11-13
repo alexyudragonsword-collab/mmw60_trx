@@ -7,15 +7,15 @@ What is modelled, and from where (all ``source: survey`` — the standard's
 text is not in this repository):
 
 - MCS 0 … 13 (modulation, N_BPSCS, R): wifitrx's reviewed ``link/mcs.py``
-  table; N_SD per bandwidth ``survey.n_sd_11be`` (234 / 468 / 980 / 1960 /
+  table; N_SD per bandwidth ``ieee80211be.n_sd`` (234 / 468 / 980 / 1960 /
   3920 — the 242 / 484 / 996 / 2×996 / 4×996-tone RUs less their pilots,
   which wifitrx's 78.125 kHz pilot table places);
 - the LDPC PPDU encoding process of 802.11-2020 §19.3.11.7.5 (shared by
   11n / ac / ax / be), its thresholds in
-  ``survey.ldpc_ppdu_encoding_thresholds``, pre-FEC padding to whole
+  ``ieee80211.ldpc_ppdu_encoding_thresholds``, pre-FEC padding to whole
   symbols (``assumed.eht_prefec_padding``: the HT/VHT form, no a-factor and
   no packet extension — PER does not see them);
-- the LDPC tone mapper, distance D_TM per RU (``survey.eht_tone_mapper_dtm``:
+- the LDPC tone mapper, distance D_TM per RU (``ieee80211be.ldpc_tone_mapping_distance``:
   9 / 12 / 20), applied per 996-tone segment on 160 / 320 MHz after the
   segment parser (blocks of s = max(1, N_BPSCS/2) bits round-robin);
 - the 7-bit scrambler of the VHT path (EHT's is 11-bit; the PER is
@@ -81,7 +81,7 @@ class EhtMcs:
 
     @property
     def d_tm(self) -> int:
-        return int(spec.value("survey.eht_tone_mapper_dtm")[float(self.bandwidth_hz)])
+        return int(spec.value("ieee80211be.ldpc_tone_mapping_distance")[float(self.bandwidth_hz)])
 
     def n_symbols(self, psdu_bytes: int) -> int:
         return ldpc_encoding_params(N_SERVICE + 8 * int(psdu_bytes), self).n_sym
@@ -92,7 +92,7 @@ class EhtMcs:
 
 def eht_mcs(index: int, bandwidth_hz: float) -> EhtMcs:
     bw = float(bandwidth_hz)
-    table = spec.value("survey.n_sd_11be")
+    table = spec.value("ieee80211be.n_sd")
     if bw not in table:
         raise ValueError(f"11be bandwidth must be one of {sorted(table)} Hz, got {bw}")
     if not 0 <= int(index) <= 13:
@@ -127,7 +127,7 @@ class LdpcParams:
 
 def ldpc_encoding_params(n_payload_bits: int, mcs: EhtMcs) -> LdpcParams:
     """§19.3.11.7.5 steps (a)–(e) for ``n_payload_bits`` (SERVICE + PSDU)."""
-    th = spec.value("survey.ldpc_ppdu_encoding_thresholds")
+    th = spec.value("ieee80211.ldpc_ppdu_encoding_thresholds")
     r = float(mcs.rate)
     d = mcs.n_dbps_exact
     n_sym = -(-Fraction(int(n_payload_bits)) // d)              # ceil(bits / N_DBPS)

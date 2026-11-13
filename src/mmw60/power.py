@@ -61,22 +61,22 @@ BUTTERFLY_MULT, BUTTERFLY_ADD = 4, 6
 class PowerCoefficients:
     """Coefficients of the power model, read from the spec table by
     :meth:`from_spec`; every field names its entry."""
-    walden_fom_j: float            # survey.walden_fom_fj
-    mult32_j: float                # survey.horowitz_mult32_pj
-    add32_j: float                 # survey.horowitz_add32_pj
+    walden_fom_j: float            # adc_survey.walden_fom_fj
+    mult32_j: float                # horowitz2014.mult32_pj
+    add32_j: float                 # horowitz2014.add32_pj
     pll60_w: float                 # assumed.pll60_power_mw
     pll_sub7_w: float              # assumed.pll_sub7_power_mw
     word_bits: int = 16            # assumed.dsp_word_bits
-    node_scale: float = 1.0        # 1.0 = 45 nm as published; survey.node_scale_45_to_7nm for 7 nm
+    node_scale: float = 1.0        # 1.0 = 45 nm as published; deepscale.node_scale_45_to_7nm for 7 nm
     dpd_model: str = "ddr_r1_w16"  # survey.dsp_ip_dpd_poly_p4 key
     mmwave_above_hz: float = 10e9  # which synthesizer figure a carrier takes
 
     @classmethod
     def from_spec(cls, **over) -> "PowerCoefficients":
         s = spec.value
-        kw = dict(walden_fom_j=float(s("survey.walden_fom_fj")) * 1e-15,
-                  mult32_j=float(s("survey.horowitz_mult32_pj")) * 1e-12,
-                  add32_j=float(s("survey.horowitz_add32_pj")) * 1e-12,
+        kw = dict(walden_fom_j=float(s("adc_survey.walden_fom_fj")) * 1e-15,
+                  mult32_j=float(s("horowitz2014.mult32_pj")) * 1e-12,
+                  add32_j=float(s("horowitz2014.add32_pj")) * 1e-12,
                   pll60_w=float(s("assumed.pll60_power_mw")) * 1e-3,
                   pll_sub7_w=float(s("assumed.pll_sub7_power_mw")) * 1e-3,
                   word_bits=int(s("assumed.dsp_word_bits")))

@@ -408,12 +408,12 @@ def sensitivity_knobs() -> list[dict]:
     """Every number the power column and the MCS cap lean on, with the ends
     it is moved to; ``kind`` says what is changed (coefficient, front end,
     or the calibrated-IRR source)."""
-    lo, hi = (float(v) for v in spec.value("survey.walden_fom_range_fj"))
+    lo, hi = (float(v) for v in spec.value("adc_survey.walden_fom_range_fj"))
     return [
         {"name": "Walden FoM", "kind": "coeff", "field": "walden_fom_j", "values": (lo * 1e-15, hi * 1e-15),
-         "source": "survey.walden_fom_range_fj"},
+         "source": "adc_survey.walden_fom_range_fj"},
         {"name": "digital node 45 → 7 nm", "kind": "coeff", "field": "node_scale",
-         "values": (float(spec.value("survey.node_scale_45_to_7nm")),), "source": "survey.node_scale_45_to_7nm"},
+         "values": (float(spec.value("deepscale.node_scale_45_to_7nm")),), "source": "deepscale.node_scale_45_to_7nm"},
         {"name": "synthesizer power", "kind": "coeff_scale", "field": ("pll60_w", "pll_sub7_w"), "values": (0.5, 2.0),
          "source": "assumed.pll60_power_mw / assumed.pll_sub7_power_mw"},
         {"name": "PA peak PAE", "kind": "frontend", "field": "pa_pae_max", "values": (0.10, 0.30),

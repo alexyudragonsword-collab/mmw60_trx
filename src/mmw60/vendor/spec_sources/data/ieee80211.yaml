@@ -1,4 +1,4 @@
-# Vendored from spec_sources@d7b4d1eb510617d69784622c593c8ed31ab32b8b: src/spec_sources/data/ieee80211.yaml
+# Vendored from spec_sources@e573d4d99dcf0584b7245c4869aaaa8a84ada24c: src/spec_sources/data/ieee80211.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # ieee80211 —— IEEE 802.11 条文（VHT / EHT / DMG / EDMG）、TGad 评估方法学，与 ITU-R M.2003 的 DMG 条文。
 #
@@ -12,7 +12,7 @@
 # 所以 cite / note 里的"本库"指 mmw60_trx，cairn/…、examples/…、tests/…、config.…、frontend.… 是它仓库里的路径，
 # assumed.* 是它本地表里的条目；这些写法在条目下一次因核实而改动时改成明确的库名（ROADMAP）。
 #
-# 前缀：tgad_em.*、ieee80211ay.*、dmg.*；survey.* / derived.* 是 mmw60_trx 的旧键名（改名见 ROADMAP）。
+# 前缀：tgad_em.*、ieee80211.*、ieee80211ac.*、ieee80211be.*、ieee80211ay.*、dmg.*。
 
 entries:
 
@@ -81,7 +81,7 @@ entries:
     note: "未核实：TGad EM 的 PSD0 是 −90 dBc/Hz，Liu 2025 用 −93 dBc/Hz；形状按 TGad EM。"
 
   # ------------------------------------------------------------ 推导：TGad EM 的 modified Rapp 在 p = 0.81 时的压缩点
-  derived.rapp_p1db_below_psat_db:
+  tgad_em.rapp_p1db_below_psat_db:
     value: 9.5
     unit: dB
     source: derived
@@ -96,14 +96,14 @@ entries:
     cite: "IEEE 802.11ay 2.16 GHz channelization, channels 1–6 (channel 8 = 73.44 GHz per Liu 2025 is outside 57–71 GHz)"
     note: "未核实：按 802.11ad/ay 信道化的通用知识列出，原文表未贴入。"
 
-  survey.n_sd_11ac:
+  ieee80211ac.n_sd:
     value: {20.0e+6: 52, 40.0e+6: 108, 80.0e+6: 234, 160.0e+6: 468}
     unit: data subcarriers
     source: survey
     cite: "IEEE 802.11-2020 VHT N_SD per bandwidth (Table 21-5)"
     note: "未核实：原文表未贴入；20 MHz 的 52 与 phy/mcs.py 一致。"
 
-  survey.n_sd_11be:
+  ieee80211be.n_sd:
     value: {20.0e+6: 234, 40.0e+6: 468, 80.0e+6: 980, 160.0e+6: 1960, 320.0e+6: 3920}
     unit: data subcarriers
     source: survey
@@ -111,7 +111,7 @@ entries:
     note: "未核实：原文表未贴入。"
 
   # ------------------------------------------------------------ DMG 接收机：灵敏度表的前提、最大输入电平
-  survey.dmg_sensitivity_assumptions:
+  dmg.sensitivity_assumptions:
     value: {nf_db: 10.0, implementation_loss_db: 5.0}
     unit: dB
     source: survey
@@ -128,16 +128,26 @@ entries:
     note: "接收机必须承受的最大输入电平，泄漏预算里作一条参考线。**这是 2012 年版的写法**；现行版 M.2003-2 (01/2018) 同一节改成了功率密度：'a receiver maximum input level at the receive antenna(s) of at least 10 microwatts/cm2'。按 60.48 GHz 换算，0 dBi 天线是 −37.1 dBm，2 dBi 是 −35.1 dBm，6 dBi 是 −31.1 dBm（−33 dBm 对应约 4 dBi）。IEEE 802.11 条文本身没有读到。"
 
   # ------------------------------------------------------------ 11ax / 11be LDPC 数据域
-  survey.eht_tone_mapper_dtm:
+  ieee80211be.ldpc_tone_mapping_distance:
     value: {20.0e+6: 9, 40.0e+6: 12, 80.0e+6: 20, 160.0e+6: 20, 320.0e+6: 20}
     unit: tones
     source: survey
     cite: "IEEE 802.11ax-2021 Table 27-31 'LDPC tone mapping distance' by RU size（242: 9、484: 12、996: 20，2×996 / 4×996 每个 996 段各 20）；EHT 沿用（802.11be D3.0 §36.3.12.8）"
     note: "未核实：原文表未贴入。D_TM 只影响频率选择性信道上的 PER（平坦信道不变）；N_SD 必须整除 D_TM（234/9、468/12、980/20）。"
 
-  survey.ldpc_ppdu_encoding_thresholds:
+  ieee80211.ldpc_ppdu_encoding_thresholds:
     value: {l1296_over_648: 912, l1944_over_1296: 1464, l1944_over_1296_two_cw: 2916, punc_frac_a: 0.1, shrt_ratio_b: 1.2, punc_frac_c: 0.3}
     unit: bits / ratios
     source: survey
     cite: "IEEE 802.11-2020 §19.3.11.7.5 'LDPC PPDU encoding process' steps (b)–(e) and Table 19-16（码长与码字数选取、缩短 / 删余 / 重复及加一个符号的两个条件）；VHT / HE / EHT 沿用同一流程"
     note: "未核实：原文未贴入。本库按 HT/VHT 的流程（预 FEC 填充到 N_SYM·N_DBPS，等价于 HE 的 a = 4），不建 HE/EHT 的 a 因子与 PE 字段（assumed.eht_prefec_padding）。"
+
+aliases:
+  # 0.2.0：mmw60_trx 带来的旧前缀键改名（前缀是标签，不是领域）。旧名至少留到 0.3.0，读取时 DeprecatedKeyWarning；
+  # keys.lock 里记着 aliased=0.2.0。
+  survey.n_sd_11ac: {to: ieee80211ac.n_sd, since: "0.2.0"}
+  survey.n_sd_11be: {to: ieee80211be.n_sd, since: "0.2.0"}
+  survey.eht_tone_mapper_dtm: {to: ieee80211be.ldpc_tone_mapping_distance, since: "0.2.0"}
+  survey.ldpc_ppdu_encoding_thresholds: {to: ieee80211.ldpc_ppdu_encoding_thresholds, since: "0.2.0"}
+  survey.dmg_sensitivity_assumptions: {to: dmg.sensitivity_assumptions, since: "0.2.0"}
+  derived.rapp_p1db_below_psat_db: {to: tgad_em.rapp_p1db_below_psat_db, since: "0.2.0"}

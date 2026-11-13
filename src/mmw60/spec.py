@@ -23,12 +23,13 @@ unchanged.  ``tests/test_spec_sources.py`` counts every tag in every table.
 """
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import yaml
 
 from .vendor import spec_sources as _shared
-from .vendor.spec_sources import SOURCES, SpecNumber  # noqa: F401  (re-exported)
+from .vendor.spec_sources import SOURCES, DeprecatedKeyWarning, SpecNumber  # noqa: F401  (re-exported)
 
 DATA_DIR = Path(__file__).resolve().parent / "data" / "spec"
 SURVEY_FILE = DATA_DIR / "survey.yaml"     # this library's table: its assumed / derived and 3 survey entries
@@ -60,16 +61,31 @@ def ref(reference: str):
     return _shared.ref(reference, all_entries())
 
 
-def survey(key: str) -> SpecNumber:
-    """The entry for ``key`` (any source); KeyError names what exists."""
+def _resolve(key: str, stacklevel: int) -> SpecNumber:
     table = all_entries()
-    if key not in table:
-        raise KeyError(f"no spec entry {key!r}; known: {sorted(table)}")
-    return table[key]
+    if key in table:
+        return table[key]
+    alias = _shared.aliases().get(key)
+    if alias is not None and alias.to in table:
+        warnings.warn(f"spec key {key!r} is deprecated since {alias.since}: read {alias.to!r}",
+                      DeprecatedKeyWarning, stacklevel=stacklevel)
+        return table[alias.to]
+    raise KeyError(f"no spec entry {key!r}; known: {sorted(table)}")
+
+
+def survey(key: str) -> SpecNumber:
+    """The entry for ``key`` (any source); KeyError names what exists.
+
+    A key spec_sources has renamed (its tables' ``aliases:``, e.g. the 17
+    of 0.2.0, mmw60_trx#23) still reads, with a ``DeprecatedKeyWarning``
+    naming the new key, as spec_sources' own reader does; the entry's
+    ``.key`` is the new name.  This library's tests turn that warning into
+    an error (pyproject ``filterwarnings``), so no old name stays here."""
+    return _resolve(key, stacklevel=3)
 
 
 def value(key: str):
-    return survey(key).value
+    return _resolve(key, stacklevel=3).value
 
 
 def unverified() -> dict[str, SpecNumber]:

@@ -1,4 +1,4 @@
-# Vendored from spec_sources@d7b4d1eb510617d69784622c593c8ed31ab32b8b: src/spec_sources/data/pa60.yaml
+# Vendored from spec_sources@e573d4d99dcf0584b7245c4869aaaa8a84ada24c: src/spec_sources/data/pa60.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # pa60 —— 60 GHz CMOS 功率放大器的测量值（读过原文），与只由它们推出的 derived。
 #
@@ -12,7 +12,7 @@
 # 所以 cite / note 里的"本库"指 mmw60_trx，cairn/…、examples/…、tests/…、config.…、frontend.… 是它仓库里的路径，
 # assumed.* 是它本地表里的条目；这些写法在条目下一次因核实而改动时改成明确的库名（ROADMAP）。
 #
-# 前缀：pa60.*；derived.* 是 mmw60_trx 的旧键名（改名见 ROADMAP）。
+# 前缀：pa60.*。
 # 迁入前的节注释：三篇（asada_eumc2011、wu_asscc2012、ning_elex2011）都是东工大 Okada / Matsuzawa 组的
 # 65 nm CMOS PA，PDF 在作者实验室站点上，直接下载读原文（2026-11-12）；与 rx60.comm_asada2011 同组同工艺。
 
@@ -81,9 +81,14 @@ entries:
     note: "65 nm 60 GHz 收发机，单载波 16-QAM（802.11ad MCS12，7 Gb/s）。整个发射机的 TX EVM 在平均输出 9.3 dBm 时碰到 802.11ad 16-QAM 的 −21 dB 限（幻灯片 26 的曲线、27 的表）。单独的 PA 的 P1dB 约 7.0 dBm（幻灯片 24，读图，'Fresh' 的 P1dB 符号，accelerated measurement 条件）——单载波在 P1dB 之上约 2.3 dB 还满足限值。−21 dB 是幻灯片上标的规范线，802.11ad 条文本身没有读。这一条给的是'按 EVM 限定额定输出'这个读法（assumed.pa60_operating_rule），不是 OFDM 的工作点：单载波的峰均比比 OFDM 低得多。"
 
   # ------------------------------------------------------------ 推导：tgad_em.pa_model_shape 的 modified Rapp 对上 pa60.asada_eumc2011 的 Psat − P1dB
-  derived.pa60_rapp_p_asada_eumc2011:
+  pa60.asada_eumc2011_rapp_p:
     value: 1.286
     unit: Rapp smoothness p
     source: derived
     cite: "pa.rapp.ModifiedRappPA(p=…) 使 10·log10(P_sat / P1dB) = pa60.asada_eumc2011 的 psat_dbm − p1db_dbm（4.6 dB）；tgad_em 的 g / A_sat 不变，P1dB 在 Psat 下几 dB 只由 p 决定"
     note: "单调求根，三位小数（1.286 时差 4.60 dB）。对照：tgad_em.pa_rapp_p = 0.81 对应 9.5 dB；Table I 的中位 3.3 dB 对应 p ≈ 1.57。tests/test_pa60.py 复算。"
+
+aliases:
+  # 0.2.0：mmw60_trx 带来的旧前缀键改名（前缀是标签，不是领域）。旧名至少留到 0.3.0，读取时 DeprecatedKeyWarning；
+  # keys.lock 里记着 aliased=0.2.0。
+  derived.pa60_rapp_p_asada_eumc2011: {to: pa60.asada_eumc2011_rapp_p, since: "0.2.0"}

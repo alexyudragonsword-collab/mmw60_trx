@@ -1,4 +1,4 @@
-# Vendored from spec_sources@d7b4d1eb510617d69784622c593c8ed31ab32b8b: src/spec_sources/data/energy.yaml
+# Vendored from spec_sources@e573d4d99dcf0584b7245c4869aaaa8a84ada24c: src/spec_sources/data/energy.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # energy —— 电路能耗与转换器的品质因数：运算能耗、ADC FoM 调查、工艺节点缩放。
 #
@@ -12,19 +12,19 @@
 # 所以 cite / note 里的"本库"指 mmw60_trx，cairn/…、examples/…、tests/…、config.…、frontend.… 是它仓库里的路径，
 # assumed.* 是它本地表里的条目；这些写法在条目下一次因核实而改动时改成明确的库名（ROADMAP）。
 #
-# 前缀：全部是 survey.*（mmw60_trx 的旧键名；改名见 ROADMAP）。
+# 前缀：horowitz2014.*（Horowitz ISSCC 2014）、adc_survey.*（Murmann ADC survey）、deepscale.*（DeepScaleTool）。
 
 entries:
 
   # ------------------------------------------------------------ 运算能耗（Horowitz, ISSCC 2014，45 nm）
-  survey.horowitz_mult32_pj:
+  horowitz2014.mult32_pj:
     value: 3.1
     unit: pJ
     source: survey
     cite: "Horowitz, ISSCC 2014 '1.1 Computing's energy problem' 32-bit int multiply at 45 nm, 0.9 V；经 Halo_Serdes analysis/power.py PowerCoefficients"
     note: "未核实：照 Halo 示例 41 的口径。"
 
-  survey.horowitz_add32_pj:
+  horowitz2014.add32_pj:
     value: 0.1
     unit: pJ
     source: survey
@@ -32,14 +32,14 @@ entries:
     note: "未核实。"
 
   # ------------------------------------------------------------ ADC 的 Walden FoM（Murmann ADC survey）
-  survey.walden_fom_fj:
+  adc_survey.walden_fom_fj:
     value: 70.0
     unit: fJ/conv-step
     source: survey
     cite: "Murmann ADC survey（GitHub bmurmann/ADC-survey）≥ 40 GS/s、4–7 nm 时间交织 SAR 六行的中位数；经 Halo_Serdes analysis/power.py PowerCoefficients.adc_fom_walden_j 与 cairn/功耗建模.md"
-    note: "未核实：Halo 示例 41 的口径（P = FoM · 2^ENOB · fs）。本库的转换器在 0.04–20 GS/s、8–11 bit，不是那六行的角落；区间端点在 survey.walden_fom_range_fj，同台表的灵敏度节两端都跑。"
+    note: "未核实：Halo 示例 41 的口径（P = FoM · 2^ENOB · fs）。本库的转换器在 0.04–20 GS/s、8–11 bit，不是那六行的角落；区间端点在 adc_survey.walden_fom_range_fj，同台表的灵敏度节两端都跑。"
 
-  survey.walden_fom_range_fj:
+  adc_survey.walden_fom_range_fj:
     value: [38.4, 120.2]
     unit: fJ/conv-step
     source: survey
@@ -47,9 +47,18 @@ entries:
     note: "未核实。"
 
   # ------------------------------------------------------------ 工艺节点缩放（DeepScaleTool）
-  survey.node_scale_45_to_7nm:
+  deepscale.node_scale_45_to_7nm:
     value: 0.175
     unit: ratio
     source: survey
     cite: "DeepScaleTool（Sarangi & Baas, ISCAS 2021）45 nm → 7 nm 能量比；经 Halo_Serdes PowerCoefficients.node_scale"
     note: "未核实：同台表默认不缩放（45 nm 的 Horowitz 数照 dpd_cost.py / 示例 02 的口径），灵敏度节按 7 nm 再算一遍。"
+
+aliases:
+  # 0.2.0：mmw60_trx 带来的旧前缀键改名（前缀是标签，不是领域）。旧名至少留到 0.3.0，读取时 DeprecatedKeyWarning；
+  # keys.lock 里记着 aliased=0.2.0。
+  survey.horowitz_mult32_pj: {to: horowitz2014.mult32_pj, since: "0.2.0"}
+  survey.horowitz_add32_pj: {to: horowitz2014.add32_pj, since: "0.2.0"}
+  survey.walden_fom_fj: {to: adc_survey.walden_fom_fj, since: "0.2.0"}
+  survey.walden_fom_range_fj: {to: adc_survey.walden_fom_range_fj, since: "0.2.0"}
+  survey.node_scale_45_to_7nm: {to: deepscale.node_scale_45_to_7nm, since: "0.2.0"}

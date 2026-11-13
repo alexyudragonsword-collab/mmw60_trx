@@ -29,8 +29,8 @@ class DpdCost:
         return 4 * self.f_clk_mhz_p4
 
     def energy_pj_per_sample(self, width_bits: int = 16) -> float:
-        mult = float(spec.value("survey.horowitz_mult32_pj")) * (width_bits / 32) ** 2
-        add = float(spec.value("survey.horowitz_add32_pj")) * (width_bits / 32)
+        mult = float(spec.value("horowitz2014.mult32_pj")) * (width_bits / 32) ** 2
+        add = float(spec.value("horowitz2014.add32_pj")) * (width_bits / 32)
         return self.terms * (mult + add)
 
     def pj_per_bit(self, dpd_rate_hz: float, data_rate_bps: float) -> float:

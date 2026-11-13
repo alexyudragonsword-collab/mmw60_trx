@@ -40,8 +40,8 @@ wifitrx 在**基准数字学**（312.5 kHz / 20 MHz / 64 点 / GI 1/4）生成�
 
 要接住 Δf_max = 40 ppm × 73.44 GHz = 2.9376 MHz：
 
-- 用 STF：625 kHz × K ≥ 2.9376 MHz ⇔ **K ≥ 4.70**；写成"训练场有效间距 1/T_stf ≥ 2·Δf_max = 5.875 MHz"就是原文的 5.88 MHz 门槛（`derived.k_threshold_stf`）。
-- 只用 LTF：156.25 kHz × K ≥ 2.9376 MHz ⇔ K ≥ 18.8（`derived.k_threshold_ltf_only`）——**K = 16 也接不住**，所以原文的 8×/16× 能工作这一事实本身说明其接收机在跑 STF 粗估计（见 external-validation.md 的矛盾记录）。
+- 用 STF：625 kHz × K ≥ 2.9376 MHz ⇔ **K ≥ 4.70**；写成"训练场有效间距 1/T_stf ≥ 2·Δf_max = 5.875 MHz"就是原文的 5.88 MHz 门槛（`liu2025.k_threshold_stf`）。
+- 只用 LTF：156.25 kHz × K ≥ 2.9376 MHz ⇔ K ≥ 18.8（`liu2025.k_threshold_ltf_only`）——**K = 16 也接不住**，所以原文的 8×/16× 能工作这一事实本身说明其接收机在跑 STF 粗估计（见 external-validation.md 的矛盾记录）。
 
 仿真里的表现（`tests/test_models.py::test_stf_estimator_*`、示例 00 首行表）：K = 4 时 STF 估计读出 2.9376 − 2 × 2.5 = −2.06 MHz（混叠到范围内），再经 LTF 细估计也无法回到真值，整包 ICI → PER = 1；K = 8 / 16 估计误差 < 0.02 SCS。
 
