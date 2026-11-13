@@ -12,7 +12,7 @@ Li, parallel A/AB, 65 nm                   11.7    9.4   2.3    9.8    14.3   pa
   14 PAs compiled, Psat                  min   8.0  median  12.4  max  19.9   pa60.eumc2011_table1 [spec] (secondary)
   14 PAs compiled, gap                   min   1.0  median   3.3  max   9.0   pa60.eumc2011_table1 [spec] (secondary)
   14 PAs compiled, PAE pk                min   4.9  median   8.5  max  16.3   pa60.eumc2011_table1 [spec] (secondary)
-11ad EM Rapp, assumed scale                15.0    5.5   9.5   20.0    20.0   tgad_em.pa_rapp_p [survey, unverified], assumed.pa60_psat_dbm [assumed]
+11ad EM Rapp, assumed scale                15.0    5.5   9.5   20.0    20.0   tgad_em.pa_rapp_p [spec], assumed.pa60_psat_dbm [assumed]
 presets (measured PA)                      14.6   10.0   4.6   23.2    16.3   assumed.pa60_surveyed_pick [assumed], Rapp p 1.286 = pa60.asada_eumc2011_rapp_p [derived]
 (dBm, dBm, dB = Psat − P1dB, dB, %.  The 11ad EM PA's Psat is inside the measured range; its P1dB is 9.5 dB below it, against a measured median of 3.3 dB: the 11ad EM shape compresses far more gradually than these PAs.  The AM/PM is the 11ad EM one in both rows: none of the papers gives it)
 
