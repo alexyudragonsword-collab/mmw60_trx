@@ -511,16 +511,21 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
     The 60 GHz PA is a measured 60 GHz CMOS PA (since 2026-11-12, ROADMAP
     C10): its Psat, small-signal gain and peak PAE, and the Rapp smoothness
     that puts its P1dB as far below Psat as measured (data/spec:
-    assumed.pa60_surveyed_pick).  The back-off is still Liu's, counted from
-    Psat; the AM/PM is still the 11ad evaluation methodology's.  Liu's own
-    shape at the old assumed scale is ``tgad_em_pa(cfg)``."""
+    assumed.pa60_surveyed_pick).  Its operating point follows the rule the
+    read 60 GHz transmitters are rated by — the highest output at which TX
+    EVM meets the 802.11ad 16-QAM limit — applied to the PA alone on the OFDM
+    waveform (data/spec: assumed.pa60_operating_rule,
+    derived.pa60_obo_at_evm_limit_db): 7.5 dB from Psat, where Liu's preset
+    keeps Liu's 8 dB.  The AM/PM is still the 11ad evaluation methodology's.
+    The presets' PA and back-off before 2026-11-12 are ``tgad_em_pa(cfg)``."""
     s = spec.value
     base = liu2025_table2(k=k, mcs=mcs)
     pick = s("assumed.pa60_surveyed_pick")
     measured = s(pick["source"])
     fe = FrontendConfig(
         model="zero_if_chain",
-        pa=dataclasses.replace(base.frontend.pa, rapp_p=float(s(pick["rapp_p"]))),
+        pa=dataclasses.replace(base.frontend.pa, rapp_p=float(s(pick["rapp_p"])),
+                               obo_db=float(s("derived.pa60_obo_at_evm_limit_db"))),
         pa_gain_db=float(measured["gain_db"]), psat_dbm=float(measured["psat_dbm"]),
         pa_pae_max=float(measured["pae_peak"]),
         converters=ConverterConfig(enob_ref=float(s("assumed.converter_enob_ref")),
@@ -552,13 +557,15 @@ def surveyed_pa(cfg: Mmw60Config) -> Mmw60Config:
 
 
 def tgad_em_pa(cfg: Mmw60Config) -> Mmw60Config:
-    """``cfg`` with the PA the topology A / B presets had until 2026-11-12: the
-    11ad evaluation methodology's Rapp shape (tgad_em.pa_rapp_p, P1dB 9.5 dB
-    below Psat; Liu 2025's PA) at the assumed 15 dBm Psat, 20 dB gain and
-    20 % peak PAE (data/spec: assumed.pa60_*).  A sensitivity row: what the
-    tables read with Liu's shape."""
+    """``cfg`` with the PA and operating point the topology A / B presets had
+    until 2026-11-12: the 11ad evaluation methodology's Rapp shape
+    (tgad_em.pa_rapp_p, P1dB 9.5 dB below Psat; Liu 2025's PA) at the assumed
+    15 dBm Psat, 20 dB gain and 20 % peak PAE (data/spec: assumed.pa60_*),
+    backed off Liu's 8 dB from Psat (liu2025.pa_obo_db).  A sensitivity row:
+    what the tables read with Liu's PA."""
     s = spec.value
-    pa = dataclasses.replace(cfg.frontend.pa, rapp_p=None)
+    pa = dataclasses.replace(cfg.frontend.pa, rapp_p=None, obo_db=float(s("liu2025.pa_obo_db")),
+                             obo_reference="psat")
     fe = dataclasses.replace(cfg.frontend, pa=pa, psat_dbm=float(s("assumed.pa60_psat_dbm")),
                              pa_gain_db=float(s("assumed.pa60_gain_db")),
                              pa_pae_max=float(s("assumed.pa60_pae_max")))

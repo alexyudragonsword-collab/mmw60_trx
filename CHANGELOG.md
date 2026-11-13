@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### PA 工作点按 EVM 限值定；示例 03 / 08 在工作点上校准（2026-11-13）—— **numbers-move**（示例 02–09）
+- 拓扑 A / B 预设的 PA 回退从 Liu 的 8 dB 改成**从 Psat 7.5 dB**（平均输出 6.6 → 7.1 dBm，P1dB 之下 2.9 dB）。规则是新的 `assumed.pa60_operating_rule`：PA 单独在 OFDM 样的高斯包络上 EVM 刚好到 −21 dB（802.11ad 16-QAM 的发射 EVM 限值）的回退。读法取自新读的 `pa60.wu_isscc2015`（spec）：60 GHz 收发机按“TX EVM 碰到 −21 dB 时的平均输出”给 Pout。数是 `derived.pa60_obo_at_evm_limit_db`（算出 7.457）。ROADMAP C10 的回退口径问题关掉。
+- 新增 `frontend.grid.obo_for_isolated_evm(pa, evm_limit_db, …)`：PA 单独到某个 EVM 的最小回退（单调求根）。`config.tgad_em_pa(cfg)` 现在连回退一起放回旧的（11ad 形状 + Liu 的 8 dB）。Liu 的预设不变，**指纹逐位不变**。
+- 示例 03 / 08 的校准改在预设工作点上跑（`run_cal_at(obo_db=fe.obo_db)`），不再跑在 wifitrx 的默认驱动上（ROADMAP C8 最后一条关掉）。示例 03 每列打印落点，并留一行默认驱动的对照。`derived.irr_after_cal_measured_db` 重导（57.3 / 55.9 / 53.4 / 51.9 / 48.1 / 40.2 dB）。
+- 示例 09：两颗 PA 各自的回退分开打印；§2 加“工作点规则”一节（每种形状的规则回退、去掉 AM/PM、种子散布、Wu 那篇的额定点）；§4 的回退里加上预设的 7.5 dB。
+- 测试：`tests/test_pa60.py` +3（规则复算、求根函数的单调与不可达、示例 03 每列落在预设回退上——变异成 6.92 dB 时红、还原后绿），预设与 `tgad_em_pa` 的断言改成新回退。`test_pamemory` 的 K = 32 慢测试改钉在示例 07 扫描的 8 dB 点上（7.5 dB 上匹配间隔比随信号缩放差 1.2 dB，原断言 < 1.0 不成立；那是 DPD 的崖口）；预设回退要在扫描网格上的断言改成成员测试。`test_thresholds` 的 c4 断言改成不等式。
+- **动了什么**（详见 `cairn/LOG.md`）：PA 项 −22.1 → −21.1 dB。网格（示例 02）0.32 GHz 的四格 MCS3 → MCS2。同台表合规上限 11be 80 MHz × 4 MCS3 → MCS2，解码器上限 K = 1 @6 GHz 11be 80 MHz MCS6 → MCS5，2.56 GHz 行校准后的两列各降一档，其余行上限不动。7.5 dB 在 wifitrx DPD 的崖口：K = 8 上 DPD 拿回 0.0 dB（8 dB 时 2.0 dB）。示例 03 的 K = 8 回环 / 仅发 −21.0 / −20.4 → −22.1 / −21.4 dB。
+
 ### 拓扑 A / B 的预设换成测量的 60 GHz PA（2026-11-12）—— **numbers-move**（示例 02–09）
 - `zero_if_60ghz`（以及建在它上面的 `if_extender_60ghz`、`wifi7_chain_k1`）的 PA 换成 `assumed.pa60_surveyed_pick`：Psat 14.6 dBm、增益 23.2 dB、峰值 PAE 16.3 %、Rapp 平滑度 1.286（P1dB 在 Psat 下 4.6 dB）。回退不变（Liu 的从 Psat 8 dB，平均输出 6.6 dBm）；AM/PM 仍是 11ad 的。`liu2025_table2`（示例 00 / 01、数值指纹的两份配置）不换，**指纹逐位不变**。
 - 新增 `config.tgad_em_pa(cfg)`：把换之前的 PA（11ad 形状、假设的 15 dBm / 20 dB / 20 %）放回去，作灵敏度行；示例 09 改成“11ad EM 对预设”。

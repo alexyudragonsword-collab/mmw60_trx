@@ -8,7 +8,7 @@ image sideband 47.52 GHz (12.96 GHz below the carrier), LO feedthrough 54.00 GHz
 channel in the unlicensed band: True; not modelled: image sideband at f_LO − f_IF, LO feedthrough at f_LO, chip harmonics × N: outside the simulated band; positions only, no level is endorsed
 IF filter: Chebyshev-I order 5, 0.5 dB ripple, 1.2 GHz passband centred 6.525 GHz; the channel sits -45 MHz from its centre: in-channel ripple 0.22 dB, group-delay spread 61 ps (GI 800 ns)
 receive image band: rejection 30 dB -> noise-figure penalty 0.004 dB (topology A only: a zero-IF receiver has no image band)
-operating point: chip PA 13.3 dBm (its Psat 28 dBm), interstage -29.1 dB, 60 GHz PA 6.6 dBm = Psat 14.6 - OBO 8
+operating point: chip PA 13.3 dBm (its Psat 28 dBm), interstage -28.5 dB, 60 GHz PA 7.1 dBm = Psat 14.6 - OBO 7.5
 
 == 2. wifitrx's calibration sequence on the chip (profile factory): its own coupler / the 60 GHz observation loopback ==
 -- chip coupler: coupler 40.0 dB --
@@ -26,41 +26,41 @@ operating point: chip PA 13.3 dBm (its Psat 28 dBm), interstage -29.1 dB, 60 GHz
   K=1   dpd                    ok        evm_db -41.76
   K=1   agc_sweep              ok        worst_landing_err_db 0.41
   K=1   final_loopback_evm     ok        tx_evm_modem_db -41.61 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
--- 60 GHz observation: coupler 33.3 dB --
+-- 60 GHz observation: coupler 33.7 dB --
   K=1   tx_lpf_corner          ok        fc_err_pct 0.18
   K=1   rx_lpf_corner          ok        fc_err_pct 0.06
   K=1   rx_dc_offset           ok        worst_dc_dbfs -69.14
-  K=1   tx_lo_leak_envdet      ok        lo_leak_dbc -64.77
-  K=1   tx_lo_leak_loopback    ok        lo_leak_dbc -63.85 already at -63.8 dBc (<= -55.0); refinement near the measurement floor skipped
-  K=1   rx_iip2                ok        iip2_dbm 70.30
+  K=1   tx_lo_leak_envdet      ok        lo_leak_dbc -64.49
+  K=1   tx_lo_leak_loopback    ok        lo_leak_dbc -63.51 already at -63.5 dBc (<= -55.0); refinement near the measurement floor skipped
+  K=1   rx_iip2                ok        iip2_dbm 74.50
   K=1   loopback_delay         ok        delay_ns 29.73 captures in later cals are aligned with this estimate
-  K=1   tx_iq                  degraded  irr_min_db 48.35
-  K=1   group_delay            ok        error_ps -29.01
-  K=1   rx_iq                  degraded  irr_min_db 47.92
+  K=1   tx_iq                  degraded  irr_min_db 47.48
+  K=1   group_delay            ok        error_ps -28.10
+  K=1   rx_iq                  degraded  irr_min_db 47.18
   K=1   tx_power               ok
-  K=1   dpd                    degraded  evm_db -23.08
+  K=1   dpd                    degraded  evm_db -21.50
   K=1   agc_sweep              ok        worst_landing_err_db 0.46
-  K=1   final_loopback_evm     ok        tx_evm_modem_db -24.33 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  K=1   final_loopback_evm     ok        tx_evm_modem_db -22.72 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
 
 step                                               chip coupler                      60 GHz observation
 tx_lpf_corner                                ok fc_err_pct 0.18                      ok fc_err_pct 0.18
 rx_lpf_corner                                ok fc_err_pct 0.06                      ok fc_err_pct 0.06
 rx_dc_offset                            ok worst_dc_dbfs -69.14                 ok worst_dc_dbfs -69.14
-tx_lo_leak_envdet                         ok lo_leak_dbc -66.01                   ok lo_leak_dbc -64.77
-tx_lo_leak_loopback                       ok lo_leak_dbc -66.06                   ok lo_leak_dbc -63.85
-rx_iip2                                       ok iip2_dbm 74.50                       ok iip2_dbm 70.30
+tx_lo_leak_envdet                         ok lo_leak_dbc -66.01                   ok lo_leak_dbc -64.49
+tx_lo_leak_loopback                       ok lo_leak_dbc -66.06                   ok lo_leak_dbc -63.51
+rx_iip2                                       ok iip2_dbm 74.50                       ok iip2_dbm 74.50
 loopback_delay                                ok delay_ns 27.54                       ok delay_ns 29.73
-tx_iq                                       ok irr_min_db 55.67               degraded irr_min_db 48.35
-group_delay                                  ok error_ps -30.02                      ok error_ps -29.01
-rx_iq                                       ok irr_min_db 55.56               degraded irr_min_db 47.92
+tx_iq                                       ok irr_min_db 55.67               degraded irr_min_db 47.48
+group_delay                                  ok error_ps -30.02                      ok error_ps -28.10
+rx_iq                                       ok irr_min_db 55.56               degraded irr_min_db 47.18
 tx_power                                                    ok                                      ok
-dpd                                            ok evm_db -41.76                  degraded evm_db -23.08
+dpd                                            ok evm_db -41.76                  degraded evm_db -21.50
 agc_sweep                          ok worst_landing_err_db 0.41            ok worst_landing_err_db 0.46
-final_loopback_evm                    ok tx_evm_modem_db -41.61               ok tx_evm_modem_db -24.33
+final_loopback_evm                    ok tx_evm_modem_db -41.61               ok tx_evm_modem_db -22.72
 
 TX EVM [dB] (wifitrx tx_evm, fixed-LO phase noise left out)    60 GHz PA out before   chip out after   60 GHz PA out after   loopback before / after
-  calibrated on the chip coupler                       -21.13            -41.44           -24.08           -28.6 / -41.6
-  calibrated on the 60 GHz observation                 -21.13            -15.82           -24.34           -21.2 / -24.8
+  calibrated on the chip coupler                       -20.46            -41.44           -23.06           -28.6 / -41.6
+  calibrated on the 60 GHz observation                 -20.46            -14.18           -22.24           -20.6 / -23.1
 
 == 3. the predistorter against the 60 GHz PA's back-off: TX EVM at the 60 GHz PA output [dB] ==
 OBO2[dB]  Pout[dBm]   no DPD   chip-only DPD   60 GHz-observed fit, as its step reads none / pass 1 / 2 / 3   kept    fitted vs chip-only   programmed    TX EVM programmed   gain of the observation
@@ -74,13 +74,13 @@ no DPD / chip-only / TX EVM programmed: wifitrx tx_evm on the 64-QAM scoring fra
 
 == 4. MCS cap against the fixed LO's phase noise at 1 MHz (one-pole / one-zero profile, TX and RX LO) ==
 L(1MHz)   IPN 10k-100M   ICI analytic   EvmBudget PN   TD, LO only   budget-TD   floor   TD all   conf cap   dec cap   Mb/s@dec
-    -85          -20.1          -14.1          -14.1         -14.0      -0.16   -13.4    -13.4      MCS1      MCS3        144
-    -90          -25.1          -19.1          -19.1         -19.0      -0.11   -17.3    -17.6      MCS2      MCS4        216
-    -95          -30.1          -24.1          -24.1         -24.0      -0.09   -19.9    -20.6      MCS3      MCS6        324
-   -100          -35.1          -29.1          -29.1         -29.0      -0.10   -21.2    -22.2      MCS3      MCS6        324
-   -105          -40.1          -34.1          -34.1         -34.0      -0.13   -21.7    -22.8      MCS3      MCS7        360
-   -110          -45.1          -39.1          -39.1         -38.9      -0.23   -21.9    -23.0      MCS3      MCS7        360
-ICI analytic = this library's term (cpe_partition to fs/2, both LOs); EvmBudget PN = wifitrx's budget term (IPN 10 kHz-100 MHz less the CPE-tracked share, both LOs); TD, LO only = the time-domain chain with nothing else on. floor / TD all / caps: the whole link at OBO 8 dB (PA isolated EVM -22.1 dB, chip residual and chip LO included).
+    -85          -20.1          -14.1          -14.1         -14.0      -0.16   -13.3    -13.3      MCS1      MCS3        144
+    -90          -25.1          -19.1          -19.1         -19.0      -0.11   -16.9    -17.3      MCS2      MCS4        216
+    -95          -30.1          -24.1          -24.1         -24.0      -0.09   -19.3    -20.0      MCS3      MCS5        288
+   -100          -35.1          -29.1          -29.1         -29.0      -0.10   -20.4    -21.4      MCS3      MCS6        324
+   -105          -40.1          -34.1          -34.1         -34.0      -0.13   -20.8    -21.9      MCS3      MCS6        324
+   -110          -45.1          -39.1          -39.1         -38.9      -0.23   -21.0    -22.1      MCS3      MCS6        324
+ICI analytic = this library's term (cpe_partition to fs/2, both LOs); EvmBudget PN = wifitrx's budget term (IPN 10 kHz-100 MHz less the CPE-tracked share, both LOs); TD, LO only = the time-domain chain with nothing else on. floor / TD all / caps: the whole link at OBO 7.5 dB (PA isolated EVM -21.1 dB, chip residual and chip LO included).
 per step of the LO level: -85->-90: analytic 5.00, budget 5.00, TD 5.06 dB; -90->-95: analytic 5.00, budget 5.00, TD 5.02 dB; -95->-100: analytic 5.00, budget 5.00, TD 5.00 dB; -100->-105: analytic 5.00, budget 5.00, TD 4.97 dB; -105->-110: analytic 5.00, budget 5.00, TD 4.89 dB
 
 == 5. cascade back-off: chip PA output x 60 GHz PA back-off (link EVM, flat channel, no noise; decoder cap) ==
@@ -99,27 +99,27 @@ sub-7 SNR[dB]   sub-7 estimate rms error[Hz]   60 GHz residual rms / max[kHz]   
         10                         2275               25.02 /  69.22                 0.89   yes
         20                          677                7.44 /  24.01                 0.31   yes
         30                          212                2.33 /   7.99                 0.10   yes
-  MLO pre-compensation on (the preset)       link EVM  -21.04 dB
-  MLO off: the raw offset reaches the chip   link EVM    7.12 dB
-  ppm = 0 (the CFO term off)                 link EVM  -21.00 dB
+  MLO pre-compensation on (the preset)       link EVM  -20.44 dB
+  MLO off: the raw offset reaches the chip   link EVM    4.10 dB
+  ppm = 0 (the CFO term off)                 link EVM  -20.39 dB
 
 == 7. sensitivity: one assumed input at a time (link EVM, flat channel, no noise) ==
-  preset                                                                 EVM  -20.98 dB (+0.00)   ripple 0.22 dB, group-delay spread 61 ps
-  IF filter off                                                          EVM  -20.98 dB (-0.00)   ripple 0.00 dB, group-delay spread 0 ps
-  channel at the filter's band edge                                      EVM  -20.97 dB (+0.00)   ripple 0.50 dB, group-delay spread 1231 ps
-  IF filter ripple 2 dB                                                  EVM  -20.96 dB (+0.01)   ripple 0.96 dB, group-delay spread 321 ps
-  another chip (seed 6)                                                  EVM  -20.98 dB (+0.00)   ripple 0.22 dB, group-delay spread 61 ps
-  chip without DPD                                                       EVM  -19.63 dB (+1.35)   ripple 0.22 dB, group-delay spread 61 ps
-  the shared front end's own chain as the chip (uncalibrated, like B's)  EVM  -20.53 dB (+0.45)   ripple 0.22 dB, group-delay spread 61 ps
-  phase noise on the RX LO only                                          EVM  -21.93 dB (-0.95)   ripple 0.22 dB, group-delay spread 61 ps
+  preset                                                                 EVM  -20.37 dB (+0.00)   ripple 0.22 dB, group-delay spread 61 ps
+  IF filter off                                                          EVM  -20.38 dB (-0.00)   ripple 0.00 dB, group-delay spread 0 ps
+  channel at the filter's band edge                                      EVM  -20.37 dB (+0.01)   ripple 0.50 dB, group-delay spread 1231 ps
+  IF filter ripple 2 dB                                                  EVM  -20.36 dB (+0.02)   ripple 0.96 dB, group-delay spread 321 ps
+  another chip (seed 6)                                                  EVM  -20.37 dB (+0.00)   ripple 0.22 dB, group-delay spread 61 ps
+  chip without DPD                                                       EVM  -19.13 dB (+1.25)   ripple 0.22 dB, group-delay spread 61 ps
+  the shared front end's own chain as the chip (uncalibrated, like B's)  EVM  -19.95 dB (+0.42)   ripple 0.22 dB, group-delay spread 61 ps
+  phase noise on the RX LO only                                          EVM  -21.19 dB (-0.81)   ripple 0.22 dB, group-delay spread 61 ps
   image rejection   30 dB -> noise-figure penalty 0.004 dB (sensitivity, not EVM)
   image rejection   20 dB -> noise-figure penalty 0.043 dB (sensitivity, not EVM)
   image rejection   10 dB -> noise-figure penalty 0.414 dB (sensitivity, not EVM)
   image rejection    0 dB -> noise-figure penalty 3.010 dB (sensitivity, not EVM)
-  the widest WiFi 7 channel, 11be 320 MHz: EVM -20.66 dB, in-channel ripple 0.50 dB, chip residual -38.9 dB, decoder cap MCS6 (1297 Mb/s)
+  the widest WiFi 7 channel, 11be 320 MHz: EVM -20.04 dB, in-channel ripple 0.50 dB, chip residual -38.9 dB, decoder cap MCS6 (1297 Mb/s)
 
 == 8. the decoder cap checked with PER (impaired link, flat channel) ==
 floor   cap    T[dB]  SNR needed (predicted)  measured @ PER 1e-2   one MCS above: predicted  measured
--20.3   MCS6   16.52       18.90                 18.05              MCS7:    23.25      21.34
+-19.6   MCS6   16.52       19.48                 18.61              MCS7:    25.05      23.08
 
 wrote examples/output/06_sweeps.json  [~s]

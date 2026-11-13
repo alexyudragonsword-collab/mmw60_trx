@@ -4,10 +4,13 @@ Until 2026-11-12 the topology A / B presets' PA was the 11ad evaluation
 methodology's modified Rapp (Liu 2025 used it) scaled to an assumed 15 dBm
 Psat and 20 dB gain, backed off 8 dB from Psat; none of those numbers had a
 source.  Three 60 GHz CMOS PA papers were read in the original (data/spec:
-pa60.*) and the presets now carry one of them (``config.surveyed_pa``); the
-back-off is still Liu's, from Psat.  ``config.tgad_em_pa`` puts the old PA
-back: this example is the side-by-side that motivated the switch.  Liu's
-own preset (examples 00 / 01) keeps the 11ad shape.
+pa60.*) and the presets now carry one of them (``config.surveyed_pa``).
+Since 2026-11-13 the presets' back-off is no longer Liu's: it is where the
+measured PA alone meets the 802.11ad 16-QAM TX EVM limit on the OFDM
+envelope (data/spec: assumed.pa60_operating_rule), the rating convention of
+the 60 GHz transmitters read.  ``config.tgad_em_pa`` puts the old PA back
+at Liu's 8 dB: this example is the side-by-side that motivated the switch.
+Liu's own preset (examples 00 / 01) keeps the 11ad shape and the 8 dB.
 
 What the tables answer:
 
@@ -15,7 +18,7 @@ What the tables answer:
    in range, its shape is not: P1dB 9.5 dB below Psat against a measured
    median of 3.3 dB;
 2. what the shape does to the PA alone against the back-off, read from Psat
-   and from P1dB;
+   and from P1dB, and where the operating rule puts each shape;
 3. the efficiency law behind the power column, against the two papers that
    give PAE at P1dB as well as at peak;
 4. what wifitrx's DPD step buys on each PA (K = 8, the calibration sequence
@@ -44,13 +47,13 @@ from mmw60.calcheck import run_cal_at                                         # 
 from mmw60.compare import Scheme                                              # noqa: E402
 from mmw60.config import tgad_em_pa, zero_if_60ghz                           # noqa: E402
 from mmw60.frontend import Frontend60                                         # noqa: E402
-from mmw60.frontend.grid import pa_isolated_evm_db                            # noqa: E402
+from mmw60.frontend.grid import obo_for_isolated_evm, pa_isolated_evm_db      # noqa: E402
 from mmw60.pa.rapp import ModifiedRappPA                                       # noqa: E402
 from scipy.optimize import brentq                                              # noqa: E402
 
 K_DPD, BASE_DPD = 8, 20e6
 BACKOFFS = (4.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.0)
-DPD_BACKOFFS = (6.0, 8.0, 10.0)
+DPD_BACKOFFS = (6.0, 8.0, 10.0)                  # plus the presets' operating point
 TABLE_KS = (4, 8, 16, 32)
 
 
@@ -107,8 +110,9 @@ def main(argv=None) -> int:
     fe_p = Frontend60.from_config(tgad_em_pa(preset))
     fe_s = Frontend60.from_config(preset)
     pa_p, pa_s = fe_p.scaled_pa(), fe_s.scaled_pa()
-    print(f"mmw60 {__version__}; {'QUICK' if quick else 'full'}; back-off {fe_p.obo_db:g} dB from "
-          f"{fe_p.obo_reference} (the config's, both PAs)")
+    print(f"mmw60 {__version__}; {'QUICK' if quick else 'full'}; back-off from {fe_s.obo_reference}: presets "
+          f"{fe_s.obo_db:g} dB ({tag('derived.pa60_obo_at_evm_limit_db')}), 11ad EM PA {fe_p.obo_db:g} dB "
+          f"({tag('liu2025.pa_obo_db')})")
     print("[spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet "
           "only; [assumed] = this library's choice; [derived] = computed from entries")
 
@@ -149,9 +153,27 @@ def main(argv=None) -> int:
     print(f"{'back-off from P1dB':<30}" + "".join(f"{o:>7.0f}" for o in BACKOFFS))
     for name, m in shapes:
         print(f"{name:<30}" + "".join(f"{pa_isolated_evm_db(m, o, 'p1db'):7.1f}" for o in BACKOFFS))
-    print(f"(at the presets' back-off, {fe_p.obo_db:g} dB from Psat, the 11ad EM PA runs "
-          f"{pa_p.p1db_out_dbm - fe_p.target_pout_dbm():+.1f} dB from its P1dB, the presets' "
+    print(f"(at its own back-off the 11ad EM PA ({fe_p.obo_db:g} dB from Psat) runs "
+          f"{pa_p.p1db_out_dbm - fe_p.target_pout_dbm():+.1f} dB from its P1dB, the presets' ({fe_s.obo_db:g} dB) "
           f"{pa_s.p1db_out_dbm - fe_s.target_pout_dbm():+.1f} dB; the medium-gap row is a sensitivity only)")
+    rule = spec.value("assumed.pa60_operating_rule")
+    lim = float(rule["evm_limit_db"])
+    print(f"\n-- the operating rule: the back-off at which the PA alone reads {lim:g} dB, the 802.11ad 16-QAM "
+          f"TX EVM limit ({tag('assumed.pa60_operating_rule')}) --")
+    no_ampm = ModifiedRappPA(p=fe_s.pa_model.p, ampm=False)
+    print(f"{'shape':<30} {'from Psat':>10} {'from P1dB':>10}   (dB)")
+    for name, m in (*shapes, ("presets without AM/PM", no_ampm)):
+        o = obo_for_isolated_evm(m, lim, "psat")
+        print(f"{name:<30} {o:10.2f} {o - 10 * np.log10(m.p_sat / m.p1db):10.2f}")
+    seeds = [obo_for_isolated_evm(fe_s.pa_model, lim, "psat", seed=sd) for sd in (1, 2, 3, 4, 5)]
+    wu = spec.value("pa60.wu_isscc2015")
+    print(f"(the presets carry {fe_s.obo_db:g} dB = {tag('derived.pa60_obo_at_evm_limit_db')}; seeds 1–5 of the "
+          f"Gaussian envelope give {min(seeds):.2f}–{max(seeds):.2f} dB.  On the 11ad shape the same rule asks for "
+          f"more than Liu's {fe_p.obo_db:g} dB.  The transmitter the rule is read from, {tag('pa60.wu_isscc2015')}, "
+          f"is rated at {wu['tx_pout_at_evm_limit_dbm']:g} dBm for {wu['evm_limit_db']:g} dB on single-carrier "
+          f"16-QAM, {wu['tx_pout_at_evm_limit_dbm'] - wu['pa_p1db_dbm']:+.1f} dB from its PA's P1dB "
+          f"({wu['pa_p1db_dbm']:g} dBm, read from a figure): a lower-PAPR waveform than OFDM, so not a check of the "
+          "number, only of the convention)")
 
     # ---------------------------------------------------------------- 3
     print("\n== 3. the efficiency law of the power column against the papers that give PAE at P1dB ==")
@@ -170,7 +192,7 @@ def main(argv=None) -> int:
     # ---------------------------------------------------------------- 4
     print(f"\n== 4. wifitrx's DPD step on each PA (K = {K_DPD}, 11ac {BASE_DPD / 1e6:g} MHz base; the calibration "
           "sequence run at each back-off from Psat) ==")
-    obos = DPD_BACKOFFS[1:2] if quick else DPD_BACKOFFS
+    obos = (fe_s.obo_db,) if quick else tuple(sorted({*DPD_BACKOFFS, fe_s.obo_db}))
     jobs = [(w, o, d) for w in ("11ad EM", "presets") for o in obos for d in (False, True)]
     with ProcessPoolExecutor(max(1, a.jobs)) as ex:
         res = {(w, o, d): (p, tx, lb) for w, o, d, p, tx, lb in ex.map(dpd_cell, jobs)}
@@ -179,9 +201,10 @@ def main(argv=None) -> int:
         for o in obos:
             p, tx0, _ = res[(w, o, False)]
             _, tx1, lb1 = res[(w, o, True)]
-            print(f"{w:<10} {o:9.0f} {p:6.1f} {tx0:10.1f} {tx1:8.1f} {tx0 - tx1:6.1f} {lb1:9.1f}")
+            print(f"{w:<10} {o:9g} {p:6.1f} {tx0:10.1f} {tx1:8.1f} {tx0 - tx1:6.1f} {lb1:9.1f}")
     print(f"(dB, dBm, then EVM in dB as a standard receiver reads it; 'gain' = what the DPD step bought; a 0.0 means "
-          f"the step kept nothing better than no DPD)  [{time.time() - t0:.0f}s]")
+          f"the step kept nothing better than no DPD.  {fe_s.obo_db:g} dB is the presets' operating point, "
+          f"{fe_p.obo_db:g} dB the 11ad EM PA's)  [{time.time() - t0:.0f}s]")
 
     # ---------------------------------------------------------------- 5
     print("\n== 5. the comparison table's 11be 80 MHz rows with each PA (decoder cap, uncalibrated IQ) ==")
@@ -198,8 +221,9 @@ def main(argv=None) -> int:
                   f"{'—' if r.dec_rate_mbps is None else f'{r.dec_rate_mbps:.0f}':>7} "
                   f"{'—' if pj is None else f'{pj:.0f}':>7} {'—' if eirp is None else f'{eirp:.1f}':>6}   {r.dominant}")
     print("(floor dB (the decoder's: analytic, or the time-domain EVM when that reads worse), MCS at the decoder cap, "
-          "Mb/s, pJ/bit at that rate, average EIRP margin dB.  The PA-isolated EVM at the presets' back-off: "
-          f"11ad EM {reps['11ad EM']['pa_isolated_evm_db']:.1f} dB, presets {reps['presets']['pa_isolated_evm_db']:.1f} dB)")
+          "Mb/s, pJ/bit at that rate, average EIRP margin dB.  The PA-isolated EVM at each PA's own back-off: "
+          f"11ad EM {reps['11ad EM']['pa_isolated_evm_db']:.1f} dB at {fe_p.obo_db:g}, presets "
+          f"{reps['presets']['pa_isolated_evm_db']:.1f} dB at {fe_s.obo_db:g})")
     print(f"\n[{time.time() - t0:.0f}s]")
     return 0
 

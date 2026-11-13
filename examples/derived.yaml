@@ -18,15 +18,17 @@
   quotes:
     - {doc: cairn/external-validation.md, text: "K = 8 MCS1 字面 {lit1} dB、flat {flat1} dB"}
 
-- name: ex04 the best row at the conformance cap (11be 80 MHz x 8 since the measured PA; x 4 second)
+- name: ex04 the best row at the conformance cap (11be 80 MHz x 8 since the measured PA; since the 7.5 dB back-off 11ac 20 MHz x 32 second, x 4 third)
   values:
     rate: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=8 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
     pj: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
+    rate32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
+    pj32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
     rate4: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
     pj4: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
   quotes:
-    - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 8（640 MHz）以 {rate} Mb/s、{pj} pJ/bit 居首"}
-    - {doc: cairn/comparison-table.md, text: "× 4（320 MHz）以 {rate4} Mb/s、{pj4} pJ/bit 第二"}
+    - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 8（640 MHz）以 {rate} Mb/s、{pj} pJ/bit 居首；第二是 11ac 20 MHz × 32（{rate32} Mb/s、{pj32} pJ/bit）"}
+    - {doc: cairn/comparison-table.md, text: "合规口径降到 MCS2，{rate4} Mb/s、{pj4} pJ/bit"}
 
 - name: ex04 20 MHz base, K = 16 vs K = 32 pJ/bit at the conformance cap (K = 32 is cheaper since the measured PA)
   values:
@@ -106,7 +108,7 @@
   quotes:
     - {doc: cairn/topology-a.md, text: "MCS6 预测 {pred} dB、实测 {meas} dB"}
 
-- name: ex06 the 60 GHz-observed DPD at the preset 8 dB back-off (chip-only vs the programmed one)
+- name: ex06 the 60 GHz-observed DPD at 8 dB of back-off (the preset until 2026-11-13; 7.5 dB is not on the sweep grid) (chip-only vs the programmed one)
   values:
     chip8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {} {*} / {*} / {*} / {*} pass {*} {*} vs {*} pass {*} {*} {*}"}
     prog8: {example: "06", after: "== 3. the predistorter", line: "8 {*} {*} {*} {*} / {*} / {*} / {*} pass {*} {*} vs {*} pass {*} {} {*}"}
@@ -179,8 +181,10 @@
     r_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=4 @60.48 GHz 11ad EM {*} {*} {} {*} {*} pa"}
     pj_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=4 @60.48 GHz 11ad EM {*} {*} {*} {} {*} pa"}
     pj8_p: {example: "09", after: "== 5. the comparison table's 11be 80 MHz rows", line: "be_upclocked 11be 80M K=8 @60.48 GHz 11ad EM {*} {*} {*} {} {*} pa"}
+    pj_s: {example: "09", after: "be_upclocked 11be 80M K=4 @60.48 GHz 11ad EM", line: "presets {*} {*} {*} {} {*} pa"}
+    pj8_s: {example: "09", after: "be_upclocked 11be 80M K=8 @60.48 GHz 11ad EM", line: "presets {*} {*} {*} {} {*} iq_image"}
   quotes:
-    - {doc: cairn/comparison-table.md, text: "K = 4 从 {pj_p} 降到 483，和 K = 8 的差从 {pj_p - pj8_p} 缩到 11 pJ/bit"}
+    - {doc: cairn/comparison-table.md, text: "K = 4 从 {pj_p} 降到 {pj_s}，和 K = 8 的差从 {pj_p - pj8_p} 缩到 {pj_s - pj8_s} pJ/bit"}
     - {doc: cairn/LOG.md, text: "K = 4 4 → 5、{r_p} → 1153、{pj_p} → 483"}
 
 - name: ex09 what wifitrx's DPD step buys at 8 dB of back-off on each PA (K = 8)

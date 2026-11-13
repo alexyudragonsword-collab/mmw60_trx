@@ -11,8 +11,9 @@ fs_eff / fir_fs samples apart at K)?  The DPD's GMP tap spacing is measured
 on the chain at each candidate, not set to fs_eff / fir_fs.
 
 The cost is read in back-off, not in EVM at one back-off: the DPD's gain
-falls off a cliff as the PA nears saturation, the preset 8 dB sits on that
-cliff, and the two memory laws' cliffs are 1–2 dB apart.  So the example
+falls off a cliff as the PA nears saturation, the preset back-off (7.5 dB
+from Psat since 2026-11-13, 8 dB before) sits on that cliff, and the two
+memory laws' cliffs are 1–2 dB apart.  So the example
 sweeps the back-off and compares the back-off each PA needs for the same
 EVM.
 

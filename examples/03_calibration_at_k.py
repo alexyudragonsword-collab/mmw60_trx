@@ -11,6 +11,13 @@ K times the spacing — wifitrx's tone plans carry their own pilots since
 recorded as ok / degraded / failed with the metric its own spec names and
 the mechanism behind a change (``calcheck.MECHANISM``).
 
+Every run puts its final EVM check at the preset's PA operating point
+(back-off from Psat, data/spec: derived.pa60_obo_at_evm_limit_db):
+``run_cal_at(obo_db=…)`` trims the drive and reruns the sequence until the
+check lands there.  Until 2026-11-13 the sequence ran at wifitrx's default
+drive, which lands wherever the PA's gain puts it (ROADMAP C8); the last
+sensitivity section shows where that is and what it reads.
+
     python examples/03_calibration_at_k.py [--quick]
 """
 from __future__ import annotations
@@ -41,13 +48,17 @@ def main(argv=None) -> int:
     fe = Frontend60.from_config(zero_if_60ghz(k=8))
     print(f"mmw60 {__version__}; {'QUICK' if quick else 'full'}; profile poweron; front end {fe.describe()['pa']} "
           f"Pout {fe.target_pout_dbm():g} dBm, TX leak {fe.lo.tx_leak_dbc:g} dBc, IQ {fe.tx_iq.gd_mismatch_ps:g} ps, "
-          f"LO IPN {fe.lo.ipn_dbc():.1f} dBc")
+          f"LO IPN {fe.lo.ipn_dbc():.1f} dBc; calibrated at back-off {fe.obo_db:g} dB from {fe.obo_reference} "
+          f"(Psat {fe.psat_dbm:g} dBm)")
     plan = [(1, 20e6), (8, 20e6)] if quick else [(1, 20e6), (4, 20e6), (8, 20e6), (16, 20e6), (32, 20e6), (32, 80e6)]
     runs = []
     for k, base in plan:
         print(f"\n== K = {k}, base {base / 1e6:g} MHz -> {base * k / 1e6:g} MHz at {2 * base * k / 1e9:.2f} GS/s ==")
         run = run_cal_at(fe, k, base, with_dpd=not quick, log=lambda s: print(s, flush=True),
-                         standard="11be" if base == 80e6 else "11ac")
+                         standard="11be" if base == 80e6 else "11ac", obo_db=fe.obo_db)
+        print(f"  operating point at the final check: Pout {run.pout_dbm:.2f} dBm, back-off "
+              f"{fe.psat_dbm - run.pout_dbm:.2f} dB from Psat ({run.passes} run{'s' if run.passes > 1 else ''} "
+              "of the sequence)")
         print(f"  scoring waveform: {run.waveform}; loopback EVM before/after: "
               f"{'—' if run.evm_before_db is None else f'{run.evm_before_db:.1f}'} / "
               f"{'—' if run.evm_after_db is None else f'{run.evm_after_db:.1f}'} dB  [{time.time() - t0:.0f}s]")
@@ -61,15 +72,31 @@ def main(argv=None) -> int:
         print(f"\n== sensitivity: capture length at K = {k}, base {base / 1e6:g} MHz (assumed.cal_capture_symbols) ==")
         print(f"{'symbols':>8} {'samples':>8} {'dpd':>7} {'loopback':>9} {'TX alone':>9} {'RX alone':>9}   (EVM dB; the first row is the column above)")
         for n_sym in (runs[4].n_symbols, 32):
-            r = runs[4] if n_sym == runs[4].n_symbols else run_cal_at(fe, k, base, standard="11ac", n_symbols=n_sym)
+            r = runs[4] if n_sym == runs[4].n_symbols else run_cal_at(fe, k, base, standard="11ac", n_symbols=n_sym,
+                                                                          obo_db=fe.obo_db)
             dpd = next(row.value for row in r.rows if row.step == "dpd")
             v = r.final_views
             print(f"{r.n_symbols:>8} {r.capture_samples:>8} {dpd:7.1f} {v['evm_modem_db']:9.1f} {v['tx_evm_modem_db']:9.1f} "
                   f"{v['rx_evm_modem_db']:9.1f}")
-        no_dpd = run_cal_at(fe, k, base, standard="11ac", with_dpd=False)
+        no_dpd = run_cal_at(fe, k, base, standard="11ac", with_dpd=False, obo_db=fe.obo_db)
         v = no_dpd.final_views
         print(f"{no_dpd.n_symbols:>8} {no_dpd.capture_samples:>8} {'off':>7} {v['evm_modem_db']:9.1f} {v['tx_evm_modem_db']:9.1f} "
               f"{v['rx_evm_modem_db']:9.1f}")
+    if not quick:
+        k, base = 8, 20e6
+        print(f"\n== sensitivity: wifitrx's default drive at K = {k}, base {base / 1e6:g} MHz (how this example ran "
+              "until 2026-11-13) ==")
+        print(f"{'drive':<22} {'Pout':>6} {'back-off':>9} {'from P1dB':>10} {'dpd':>7} {'loopback':>9} {'TX alone':>9} "
+              f"{'RX alone':>9}")
+        p1 = fe.scaled_pa().p1db_out_dbm
+        free = run_cal_at(fe, k, base, standard="11ac")
+        for name, r in (("preset back-off", runs[2]), ("wifitrx default", free)):
+            dpd = next(row.value for row in r.rows if row.step == "dpd")
+            v = r.final_views
+            print(f"{name:<22} {r.pout_dbm:6.2f} {fe.psat_dbm - r.pout_dbm:9.2f} {p1 - r.pout_dbm:10.2f} {dpd:7.1f} "
+                  f"{v['evm_modem_db']:9.1f} {v['tx_evm_modem_db']:9.1f} {v['rx_evm_modem_db']:9.1f}")
+        print("(dBm, dB from Psat, dB below P1dB, then EVM dB.  The default drive lands where the PA's gain puts it: "
+              "it is not an operating point anyone chose)")
     print("\n== step × K (status, metric) ==")
     labels = [r.label for r in runs]
     print("step                   " + "".join(f"{lab:>18}" for lab in labels))
