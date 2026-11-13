@@ -133,7 +133,8 @@ def main(argv=None) -> int:
     print(f"sensitivity = the receiver input for the measured PER 1e-2 threshold of this receiver (MCS {MCS_ROWS[0]}: "
           f"{thr[MCS_ROWS[0]]:g} dB, MCS {MCS_ROWS[1]}: {thr[MCS_ROWS[1]]:g} dB per active tone; no implementation loss added)")
     print(f"link EVM = time-domain, flat channel, SNR {SNR_AXIS_DB:g} dB per active tone; calibration = wifitrx's sequence, "
-          f"profile poweron{', no DPD' if quick else ''}")
+          f"profile poweron{', no DPD' if quick else ''}, final check at the preset PA back-off ({fe_s.obo_db:g} dB from "
+          f"{fe_s.obo_reference})")
     print(f"{'receive front end':<37} {'NF':>5} {'sens MCS' + str(MCS_ROWS[0]):>10} {'sens MCS' + str(MCS_ROWS[1]):>10} "
           f"{'link EVM':>9} {'cal RX NF':>10} {'loopback':>9} {'TX alone':>9} {'RX alone':>9}   figure from")
     nf_rows = NF_ROWS[:2] if quick else NF_ROWS
@@ -144,7 +145,7 @@ def main(argv=None) -> int:
         sim = LinkSim(dc.replace(cfg, channel=FLAT), frontend=fe)
         s = {m: sim.rx_input_dbm_for_snr(thr[m]) for m in MCS_ROWS}
         e = evm_at(dc.replace(cfg, channel=FLAT), SNR_AXIS_DB, n_packets=1 if quick else 2, frontend=fe)["evm_db"]
-        run = run_cal_at(fe, K, BASE_BW, standard=STD, with_dpd=not quick)
+        run = run_cal_at(fe, K, BASE_BW, standard=STD, with_dpd=not quick, obo_db=fe.obo_db)
         v = run.final_views
         print(f"{label:<37} {fe.rx_front.nf_db:5.1f} {s[MCS_ROWS[0]]:10.1f} {s[MCS_ROWS[1]]:10.1f} {e:9.2f} "
               f"{v['rx_nf_db']:10.1f} {v['evm_modem_db']:9.1f} {v['tx_evm_modem_db']:9.1f} {v['rx_evm_modem_db']:9.1f}   "

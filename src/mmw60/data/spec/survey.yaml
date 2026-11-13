@@ -814,13 +814,13 @@ entries:
     unit: keys
     source: assumed
     cite: "本库 config.surveyed_pa；取一篇读过原文的 60 GHz CMOS PA"
-    note: "取 Asada EuMC 2011 的理由：与接收前端的基准档同一个组、同一个工艺（一套芯片的读法）；读过原文；Psat − P1dB 4.6 dB 在 Table I 里偏软，对线性度是保守的一侧。Psat 14.6 dBm、增益 23.2 dB、峰值 PAE 16.3 % 直接取它；Rapp 的 p 由它的 Psat − P1dB 算出。AM/PM 没有出处，仍是 11ad 评估方法学的。回退量与参考点不在这一档里，由配置决定。2026-11-12 起拓扑 A / B 的预设（zero_if_60ghz 及建在它上面的）用这一档，回退仍是 Liu 的从 Psat 8 dB；Liu 的预设（liu2025_table2）不用。"
+    note: "取 Asada EuMC 2011 的理由：与接收前端的基准档同一个组、同一个工艺（一套芯片的读法）；读过原文；Psat − P1dB 4.6 dB 在 Table I 里偏软，对线性度是保守的一侧。Psat 14.6 dBm、增益 23.2 dB、峰值 PAE 16.3 % 直接取它；Rapp 的 p 由它的 Psat − P1dB 算出。AM/PM 没有出处，仍是 11ad 评估方法学的。回退量与参考点不在这一档里，由配置决定。2026-11-12 起拓扑 A / B 的预设（zero_if_60ghz 及建在它上面的）用这一档，回退仍是 Liu 的从 Psat 8 dB；Liu 的预设（liu2025_table2）不用。更正（2026-11-13）：预设的回退改由 assumed.pa60_operating_rule 定，从 Psat 7.5 dB（derived.pa60_obo_at_evm_limit_db）；Liu 的预设仍是 8 dB。"
 
   derived.irr_after_cal_measured_db:
-    value: {20.0e+6: 56.3, 80.0e+6: 56.8, 160.0e+6: 52.9, 320.0e+6: 50.9, 640.0e+6: 47.6, 2560.0e+6: 38.5}
+    value: {20.0e+6: 57.3, 80.0e+6: 55.9, 160.0e+6: 53.4, 320.0e+6: 51.9, 640.0e+6: 48.1, 2560.0e+6: 40.2}
     unit: dB per side
     source: derived
-    cite: "examples/expected/03_calibration_at_k.txt（2026-11-12，预设换成测量的 PA 之后，wifitrx@7b8d08e）tx_iq / rx_iq 两步 irr_min_db 的较小值，按有效带宽。换 PA 之前（2026-11-11）是 55.3 / 55.2 / 50.4 / 51.1 / 46.5 / 37.9"
+    cite: "examples/expected/03_calibration_at_k.txt（2026-11-13，校准跑在预设的 PA 工作点上——从 Psat 回退 7.5 dB，wifitrx@7b8d08e）tx_iq / rx_iq 两步 irr_min_db 的较小值，按有效带宽。之前跑在 wifitrx 的默认驱动上：2026-11-12（测量的 PA，落在回退 6.9 dB）56.3 / 56.8 / 52.9 / 50.9 / 47.6 / 38.5；换 PA 之前（2026-11-11）55.3 / 55.2 / 50.4 / 51.1 / 46.5 / 37.9"
     note: "示例 03 实测的校准后镜像抑制；同台表的 'IQcal' 列用它（取不大于该行带宽的最近一档），替代 assumed.irr_after_cal_db（ROADMAP A2 第一条）。示例 02 的网格仍用 45 dB 的假设值。"
 
   # ------------------------------------------------------------ 里程碑 1 A2：11be 编码 PER（EHT LDPC）
