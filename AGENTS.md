@@ -30,7 +30,7 @@
 | `cairn/<topic>.md` | 知识专题文档（当前真相） | 就地更新；坑放正文小节并用 `contains` 标注 |
 | `cairn/Reference/` | 外部原始输入（规范原文贴进来放这里） | 按需创建，只追加 |
 
-> 工程资产（配置、规范数字表 `src/mmw60/data/spec/`、期望输出 `examples/expected/`）留在代码树里；`cairn/` 只放关于它们的知识。
+> 工程资产（配置、规范数字表 `src/mmw60/data/spec/` 与 vendored 的 `src/mmw60/vendor/spec_sources/data/`、期望输出 `examples/expected/`）留在代码树里；`cairn/` 只放关于它们的知识。
 
 ## 项目铁律（每条都有测试守着；论证见 `cairn/architecture-invariants.md`）
 
@@ -38,13 +38,13 @@
 2. **每种方案（拓扑 × 波形）公平可比** —— 60 GHz 前端、LO 链、信道、EIRP 限值是同一个对象实例；毫米波级的插入点显式（A 在 wifitrx 的 RF 之后，B 替换它的 RF）；只对一种方案建的损伤在同台表里标出来。锚：K = 1 行就是未改动的 wifitrx 链（`test_law2_k1_chain_is_the_unmodified_wifitrx_chain`），拓扑 A 的毫米波级关掉时逐位等于 wifitrx 链（`tests/test_ifext.py::test_law2_*`），全部方案的共享实例测试在 `tests/test_compare.py::test_law2_*`。
 3. **CFO 端到端建模** —— (ppm_tx + ppm_rx) × f_c，每种方案（拓扑 × 波形）声明自己怎么接住它：B 靠大 SCS 与 L-STF/L-LTF 估计，A 靠 MLO sub-7 估计乘频率比预补偿 + 残差，ay 靠 5.16 MHz SCS 本身；ppm = 0 时该项逐位为零（`test_law3_*`）。
 4. **校准是跑出来的，不是假设的** —— wifitrx 校准序列（`cal/deps.py` 顺序约束）在每种方案（拓扑 × 波形）上都真跑，每步在毫米波级的结果进表；不许手填"已校准"（`test_law4_*`；拓扑 A 建链时就跑，`tests/test_ifext.py::test_law4_*`）。
-5. **规范和文献数字只用原文** —— 全部在 `data/spec/survey.yaml`，`source: spec | survey | assumed | derived`；拿不到原文的标 survey 并注明出处，原文没说的标 assumed；`grep -c "source: survey"` 一次列全（`tests/test_spec_sources.py`）。
+5. **规范和文献数字只用原文** —— 外部的数在 vendored 的共享库 spec_sources（`src/mmw60/vendor/spec_sources/data/`），本库的取舍与产出在 `data/spec/survey.yaml`，`mmw60.spec` 合起来读、同键报错；`source: spec | survey | assumed | derived`；拿不到原文的标 survey 并注明出处，原文没说的标 assumed；每张表四个标签都按 `grep -c` 核对（`tests/test_spec_sources.py`）。
 6. **杂散结论只能来自逐周期引擎** —— 本库是线性化的时域基带引擎，每个示例第一行打印引擎名，凡杂散 / 互调结论标"线性化引擎，不能背书"（`test_law6_*`）。
 7. **数值指纹** —— 重构必须用 `tools/fingerprint.py` 证明逐位不变；CI 比较 base 与 head，`(numbers-move)` 标记是逃生口（`tests/test_fingerprint.py`）。
 
 ## 本仓库特有的硬规矩
 
-- **`src/mmw60/vendor/` 是可校验的改编副本，不是 fork**：wifitrx 整包按完整 SHA pin，`tools/vendor_check.py --strict` 必须全 verbatim；需要上游改的（倍频器模型、PA 带宽项、两 DUT 级联）报回各自 ROADMAP，合并后重新 pin。PA_DPD 经 wifitrx / polar_tx 的 vendor 副本拿，不要第二份 pin。
+- **`src/mmw60/vendor/` 是可校验的改编副本，不是 fork**：wifitrx 整包、spec_sources（读取器与 6 张表）各按完整 SHA pin，`tools/vendor_check.py --strict` 必须全 verbatim（YAML 一起核）；外部的数要改回 spec_sources 提；需要上游改的（倍频器模型、PA 带宽项、两 DUT 级联）报回各自 ROADMAP，合并后重新 pin。PA_DPD 经 wifitrx / polar_tx 的 vendor 副本拿，不要第二份 pin。
 - **numba 是性能层不是正确性层**：`MMW60_NO_JIT=1` 必须逐位相同（`tests/test_phy.py`）。
 - **假设要可见**：原文没说的每个选择（基准带宽、SNR 口径、相噪加在哪一侧、CR 信道、OBO 参考点、信道估计平滑）都是 `source: assumed` 条目，示例里有对应的灵敏度行；对不上文献时查到原因写进 LOG，不调参数凑。
 - 开发在指定分支上提交；不开 PR 除非用户要求。

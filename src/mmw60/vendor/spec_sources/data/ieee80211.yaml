@@ -1,0 +1,143 @@
+# Vendored from spec_sources@d7b4d1eb510617d69784622c593c8ed31ab32b8b: src/spec_sources/data/ieee80211.yaml
+# Adapted-copy policy: see src/mmw60/vendor/__init__.py
+# ieee80211 —— IEEE 802.11 条文（VHT / EHT / DMG / EDMG）、TGad 评估方法学，与 ITU-R M.2003 的 DMG 条文。
+#
+# 标签：spec（对过原文，带 quote 与 section）/ survey（未核实，note 写明）/ derived（只由本库的 spec、
+# survey 条目推出，note 或 cite 是公式）。本表不收 assumed：哪个库自己的取舍留在那个库的本地表。
+# 只有条目自己的标签行写成"标签词 + 冒号"，说明文字里不写，所以对四个标签各跑一次 grep -c
+# 都恰好等于该标签的条目数（tests/test_iron_rules.py 跑真的 grep）。
+#
+# 出处：条目从 mmw60_trx@13024e0b012923071d827cc557b0da5eb9a9b2aa src/mmw60/data/spec/survey.yaml
+# 逐字迁入，每个字段与源表相等（tests/test_extraction.py 对 tests/fixtures/ 里的副本逐条比）。
+# 所以 cite / note 里的"本库"指 mmw60_trx，cairn/…、examples/…、tests/…、config.…、frontend.… 是它仓库里的路径，
+# assumed.* 是它本地表里的条目；这些写法在条目下一次因核实而改动时改成明确的库名（ROADMAP）。
+#
+# 前缀：tgad_em.*、ieee80211ay.*、dmg.*；survey.* / derived.* 是 mmw60_trx 的旧键名（改名见 ROADMAP）。
+
+entries:
+
+  # ------------------------------------------------------------ 11ad 评估方法学（TGad EM, IEEE 802.11-09/0296）
+  tgad_em.pa_rapp_g:
+    value: 4.65
+    unit: V/V
+    source: survey
+    cite: "IEEE 802.11-09/0296r16 (TGad Evaluation Methodology), CMOS PA model: g = 4.65, Asat = 0.58, s = 0.81"
+    note: "未核实：文档正文未取得，数字来自搜索命中的文档摘录；r09 版是 g = 5, Asat = 0.6, s = 0.71。"
+
+  tgad_em.pa_rapp_asat:
+    value: 0.58
+    unit: V
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上）"
+    note: "未核实。饱和输出幅度；Psat = Asat²（归一化负载）。"
+
+  tgad_em.pa_rapp_p:
+    value: 0.81
+    unit: smoothness
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上，记号 s）"
+    note: "未核实。"
+
+  tgad_em.pa_ampm_alpha:
+    value: 2560.0
+    unit: deg/V^q1
+    source: survey
+    cite: "IEEE 802.11-09/0296r16, AM/PM: alpha = 2560, beta = 0.114, q1 = 2.4, q2 = 2.3"
+    note: "未核实。"
+
+  tgad_em.pa_ampm_beta:
+    value: 0.114
+    unit: V
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上）"
+    note: "未核实。"
+
+  tgad_em.pa_ampm_q1:
+    value: 2.4
+    unit: exponent
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上）"
+    note: "未核实。"
+
+  tgad_em.pa_ampm_q2:
+    value: 2.3
+    unit: exponent
+    source: survey
+    cite: "IEEE 802.11-09/0296r16（同上）"
+    note: "未核实。"
+
+  tgad_em.pa_model_shape:
+    value: "AM/AM G(A) = g·A / (1 + (g·A/Asat)^(2p))^(1/(2p)); AM/PM Phi(A) = alpha·A^q1 / (1 + (A/beta)^q2) [deg]"
+    unit: formula
+    source: survey
+    cite: "IEEE 802.11-09/0296 (TGad EM) 'modified Rapp' CMOS PA model；同形式见 11ay EM 11-15/0866"
+    note: "未核实：公式按文献记忆写出，原文档是 .doc 内嵌图片，未逐字核对。"
+
+  tgad_em.pn_model_shape:
+    value: "PSD(f) = PSD0 · (1 + (f/f_z)^2) / (1 + (f/f_p)^2)  [dBc/Hz 形式：PSD0 + 10·log10(...)]"
+    unit: formula
+    source: survey
+    cite: "IEEE 802.11-09/0296 (TGad EM) phase-noise model, 1 pole / 1 zero；Liu 2025 只给 fp / fz / PSD0"
+    note: "未核实：TGad EM 的 PSD0 是 −90 dBc/Hz，Liu 2025 用 −93 dBc/Hz；形状按 TGad EM。"
+
+  # ------------------------------------------------------------ 推导：TGad EM 的 modified Rapp 在 p = 0.81 时的压缩点
+  derived.rapp_p1db_below_psat_db:
+    value: 9.5
+    unit: dB
+    source: derived
+    cite: "ModifiedRappPA().p_sat / .p1db，tgad_em.pa_rapp_* 参数（p = 0.81）"
+    note: "1 dB 压缩点输出功率在饱和输出功率以下 9.5 dB；tests/test_pa.py 守着这个数。"
+
+  # ------------------------------------------------------------ 信道化与每带宽的数据子载波数
+  ieee80211ay.channel_centres_ghz:
+    value: [58.32, 60.48, 62.64, 64.80, 66.96, 69.12]
+    unit: GHz
+    source: survey
+    cite: "IEEE 802.11ay 2.16 GHz channelization, channels 1–6 (channel 8 = 73.44 GHz per Liu 2025 is outside 57–71 GHz)"
+    note: "未核实：按 802.11ad/ay 信道化的通用知识列出，原文表未贴入。"
+
+  survey.n_sd_11ac:
+    value: {20.0e+6: 52, 40.0e+6: 108, 80.0e+6: 234, 160.0e+6: 468}
+    unit: data subcarriers
+    source: survey
+    cite: "IEEE 802.11-2020 VHT N_SD per bandwidth (Table 21-5)"
+    note: "未核实：原文表未贴入；20 MHz 的 52 与 phy/mcs.py 一致。"
+
+  survey.n_sd_11be:
+    value: {20.0e+6: 234, 40.0e+6: 468, 80.0e+6: 980, 160.0e+6: 1960, 320.0e+6: 3920}
+    unit: data subcarriers
+    source: survey
+    cite: "IEEE 802.11be EHT N_SD per bandwidth (RU 242/484/996/2×996/4×996 minus pilots)"
+    note: "未核实：原文表未贴入。"
+
+  # ------------------------------------------------------------ DMG 接收机：灵敏度表的前提、最大输入电平
+  survey.dmg_sensitivity_assumptions:
+    value: {nf_db: 10.0, implementation_loss_db: 5.0}
+    unit: dB
+    source: survey
+    cite: "IEEE 802.11ad（DMG PHY）接收灵敏度表的前提，转引自二手文献对该表的复述（'5 dB implementation loss, 10 dB noise figure'）；标准条文未读到"
+    note: "未核实（二手转引）。这是标准给灵敏度表定的参考接收机，不是哪颗芯片的实测；作 NF 的保守一档。实现损耗是另一项，本库的门限表（per_thresholds.yaml）是自己接收机的实测，不再叠加它。"
+
+  dmg.rx_max_input_dbm:
+    value: -33.0
+    unit: dBm
+    source: spec
+    cite: "Recommendation ITU-R M.2003 (03/2012), 'Multiple Gigabit Wireless Systems in frequencies around 60 GHz'，2026-11-12 读原文"
+    section: "Annex 1, 2.4.6 Maximum input level"
+    quote: "A compliant receiver has a receiver maximum input level of at least −33 dBm for each of the modulation formats that the receiver supports."
+    note: "接收机必须承受的最大输入电平，泄漏预算里作一条参考线。**这是 2012 年版的写法**；现行版 M.2003-2 (01/2018) 同一节改成了功率密度：'a receiver maximum input level at the receive antenna(s) of at least 10 microwatts/cm2'。按 60.48 GHz 换算，0 dBi 天线是 −37.1 dBm，2 dBi 是 −35.1 dBm，6 dBi 是 −31.1 dBm（−33 dBm 对应约 4 dBi）。IEEE 802.11 条文本身没有读到。"
+
+  # ------------------------------------------------------------ 11ax / 11be LDPC 数据域
+  survey.eht_tone_mapper_dtm:
+    value: {20.0e+6: 9, 40.0e+6: 12, 80.0e+6: 20, 160.0e+6: 20, 320.0e+6: 20}
+    unit: tones
+    source: survey
+    cite: "IEEE 802.11ax-2021 Table 27-31 'LDPC tone mapping distance' by RU size（242: 9、484: 12、996: 20，2×996 / 4×996 每个 996 段各 20）；EHT 沿用（802.11be D3.0 §36.3.12.8）"
+    note: "未核实：原文表未贴入。D_TM 只影响频率选择性信道上的 PER（平坦信道不变）；N_SD 必须整除 D_TM（234/9、468/12、980/20）。"
+
+  survey.ldpc_ppdu_encoding_thresholds:
+    value: {l1296_over_648: 912, l1944_over_1296: 1464, l1944_over_1296_two_cw: 2916, punc_frac_a: 0.1, shrt_ratio_b: 1.2, punc_frac_c: 0.3}
+    unit: bits / ratios
+    source: survey
+    cite: "IEEE 802.11-2020 §19.3.11.7.5 'LDPC PPDU encoding process' steps (b)–(e) and Table 19-16（码长与码字数选取、缩短 / 删余 / 重复及加一个符号的两个条件）；VHT / HE / EHT 沿用同一流程"
+    note: "未核实：原文未贴入。本库按 HT/VHT 的流程（预 FEC 填充到 N_SYM·N_DBPS，等价于 HE 的 a = 4），不建 HE/EHT 的 a 因子与 PE 字段（assumed.eht_prefec_padding）。"

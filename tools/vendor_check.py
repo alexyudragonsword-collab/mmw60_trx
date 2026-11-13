@@ -178,10 +178,11 @@ def _classify(body: str, upstream: str) -> tuple[str, str]:
 
 
 def vendored_files() -> list[Path]:
-    """Every vendored .py file, ``__init__.py`` included; the policy module
+    """Every vendored .py and .yaml file (spec_sources ships its tables as
+    YAML next to its reader), ``__init__.py`` included; the policy module
     ``vendor/__init__.py`` itself is ours and is skipped."""
     out = []
-    for f in sorted(VENDOR.rglob("*.py")):
+    for f in sorted([*VENDOR.rglob("*.py"), *VENDOR.rglob("*.yaml")]):
         if f.parent == VENDOR and f.name == "__init__.py":
             continue
         if "__pycache__" in f.parts:
@@ -267,8 +268,10 @@ def _extracted_or_extended(rel, body, entry, mode) -> tuple[str, str]:
 
 
 def build_manifest(siblings: Siblings) -> dict:
-    """(Re)build the manifest from the current tree. Hash-pins local files."""
+    """(Re)build the manifest from the current tree. Hash-pins local files;
+    the pins are read from the files' headers (one SHA per sibling repo)."""
     files: dict = {}
+    pins: dict = {}
     for f in vendored_files():
         rel = str(f.relative_to(VENDOR))
         lines = f.read_text(encoding="utf-8").splitlines()
@@ -276,6 +279,8 @@ def build_manifest(siblings: Siblings) -> dict:
         if not m:
             continue
         repo, sha, upath, kind = (m["repo"], m["sha"], m["path"], m["kind"])
+        if pins.setdefault(repo, sha) != sha:
+            raise SystemExit(f"cannot build manifest: {repo} is pinned at two SHAs ({pins[repo]}, {sha})")
         body = _strip_header(lines)
         if kind == "Extracted":
             files[rel] = _entry(repo, sha, upath, "extracted", body,
@@ -294,7 +299,7 @@ def build_manifest(siblings: Siblings) -> dict:
                   "sanctioned local changes (extended/extracted) are pinned "
                   "here by body_sha256; verbatim/adapted files are verified "
                   "directly against pinned upstream."),
-        "pins": {"wifi_trx_cal": "7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02"},
+        "pins": dict(sorted(pins.items())),
         "files": files,
     }
 

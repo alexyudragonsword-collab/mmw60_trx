@@ -1,0 +1,89 @@
+# Vendored from spec_sources@d7b4d1eb510617d69784622c593c8ed31ab32b8b: src/spec_sources/data/pa60.yaml
+# Adapted-copy policy: see src/mmw60/vendor/__init__.py
+# pa60 —— 60 GHz CMOS 功率放大器的测量值（读过原文），与只由它们推出的 derived。
+#
+# 标签：spec（对过原文，带 quote 与 section）/ survey（未核实，note 写明）/ derived（只由本库的 spec、
+# survey 条目推出，note 或 cite 是公式）。本表不收 assumed：哪个库自己的取舍留在那个库的本地表。
+# 只有条目自己的标签行写成"标签词 + 冒号"，说明文字里不写，所以对四个标签各跑一次 grep -c
+# 都恰好等于该标签的条目数（tests/test_iron_rules.py 跑真的 grep）。
+#
+# 出处：条目从 mmw60_trx@13024e0b012923071d827cc557b0da5eb9a9b2aa src/mmw60/data/spec/survey.yaml
+# 逐字迁入，每个字段与源表相等（tests/test_extraction.py 对 tests/fixtures/ 里的副本逐条比）。
+# 所以 cite / note 里的"本库"指 mmw60_trx，cairn/…、examples/…、tests/…、config.…、frontend.… 是它仓库里的路径，
+# assumed.* 是它本地表里的条目；这些写法在条目下一次因核实而改动时改成明确的库名（ROADMAP）。
+#
+# 前缀：pa60.*；derived.* 是 mmw60_trx 的旧键名（改名见 ROADMAP）。
+# 迁入前的节注释：三篇（asada_eumc2011、wu_asscc2012、ning_elex2011）都是东工大 Okada / Matsuzawa 组的
+# 65 nm CMOS PA，PDF 在作者实验室站点上，直接下载读原文（2026-11-12）；与 rx60.comm_asada2011 同组同工艺。
+
+entries:
+
+  # ------------------------------------------------------------ 测量值（读过原文）
+  pa60.asada_eumc2011:
+    value: {gain_db: 23.2, p1db_dbm: 10.0, psat_dbm: 14.6, pae_peak: 0.163, pae_at_p1db: 0.079, pdc_mw: 135.0, vdd_v: 1.2}
+    unit: "dB, dBm, dBm, ratio, ratio, mW, V"
+    source: spec
+    cite: "H. Asada, K. Matsushita, K. Bunsen, K. Okada, A. Matsuzawa, 'A 60 GHz CMOS Power Amplifier Using Capacitive Cross-Coupling Neutralization with 16 % PAE'（Tokyo Institute of Technology）；作者实验室站点 publications/2011/EuMC/asdh_EuMC2011_v5_paper.pdf，会议名按文件路径是 EuMC 2011，PDF 本身没有印；2026-11-12 读原文"
+    section: "Abstract；测量结果一节（Fig. 10）；Table I"
+    quote: "The 3-stage differential power amplifier is fabricated in a 65 nm CMOS process and evaluated with 1.2 V power supply. The power amplifier achieves power gain of 23.2 dB, output power of 10 dBm at 1 dB compression point, saturated output power of 14.6 dBm, peak PAE of 16.3 %, and power consumption of 135 mW. [...] The measured PAE at 1 dB compression point and the measured peak PAE are 7.9 % and 16.3 %, respectively."
+    note: "60 GHz 单音测量（Fig. 10）。Psat − P1dB = 4.6 dB，在同一篇 Table I 收的 14 个 60 GHz CMOS PA 里偏软（中位 3.3 dB，见 pa60.eumc2011_table1）。'surveyed' 一档的 PA 取它（assumed.pa60_surveyed_pick）。原文没有 AM/PM。"
+
+  pa60.wu_asscc2012:
+    value: {vpa_1v0: {psat_dbm: 13.2, p1db_dbm: 10.2, pae_peak: 0.150}, vpa_0v7: {psat_dbm: 10.1, p1db_dbm: 5.8, pae_peak: 0.081}, evm_qpsk_db: {pout_5dbm: -18.6, pout_10dbm: -17.7}}
+    unit: "dBm, dBm, ratio; dB"
+    source: spec
+    cite: "R. Wu, Y. Tsukui, R. Minami, K. Okada, A. Matsuzawa, 'A 0.7 V-to-1.0 V 10.1 dBm-to-13.2 dBm 60-GHz Power Amplifier Using Digitally-Assisted LDO Considering HCI Issues'（Tokyo Institute of Technology）；作者实验室站点 publications/2012/A-SSCC/WU_ASSCC2012_final.pdf；2026-11-12 读原文"
+    section: "Abstract；测量结果一节（Fig. 6、Fig. 9）；Table I"
+    quote: "The PA is capable of outputting 13.2 dBm saturation power (Psat), 10.2 dBm power at 1-dB compression point (P1dB) and achieving 15.0% peak power-added efficiency (PAE). [...] The P1dB is reduced from 10.2 dBm to 5.8 dBm when VPA is [reduced] [...] the measured EVM is from 11.7% (-18.6 dB) to 12.9% (-17.8 dB) for low output power (Pout = 5 dBm) [...] While at high output power (Pout = 10 dBm), the measurement value of the EVM is 13.1% (-17.7 dB)"
+    note: "末级电源 VPA 1.0 / 0.7 V 两档。Psat − P1dB = 3.0 / 4.3 dB。EVM 是 802.15.3c 信道 3、3.52 Gb/s QPSK，整个测试链读的，不只是 PA；到 P1dB 附近（10 dBm）也只差 0.9 dB，说明这组 EVM 被别的东西（仪器、调制器）限住，不能拿来定 PA 的线性度。"
+
+  pa60.ning_elex2011:
+    value: {gain_db: 9.8, p1db_dbm: 9.4, psat_dbm: 11.7, pae_peak: 0.143, pae_at_p1db: 0.120}
+    unit: "dB, dBm, dBm, ratio, ratio"
+    source: spec
+    cite: "N. Li, K. Matsushita, K. Okada, A. Matsuzawa, 'A 14.3% PAE parallel class-A and AB 60 GHz CMOS PA', IEICE Electronics Express vol. 8 no. 13, pp. 1071–1074, 2011, doi 10.1587/elex.8.1071；作者实验室站点 publications/2011/IEICE/Ning_ELEX.pdf；2026-11-12 读原文"
+    section: "3 Experimental results；Table I"
+    quote: "A peak gain of 14.6 dB at 49 GHz and a 9.8-dB gain at 60 GHz are achieved. [...] The measured saturation output power is 11.7 dBm and the power at 1 dB compression point is 9.4 dBm. A maximum power added efficiency (PAE) of 14.3% and 12.0% at 1 dB compression point are realized at 60 GHz."
+    note: "并联 A / AB 类。Psat − P1dB = 2.3 dB。"
+
+  pa60.eumc2011_table1:
+    value:
+      columns: [ref, node_nm, gain_db, p1db_dbm, psat_dbm, pae_peak_pct]
+      rows:
+        - ["[1]", 65, 16.0, 2.5, 11.5, 11.0]
+        - ["[2]", 65, 19.2, 15.1, 17.7, 11.1]
+        - ["[5]", 90, 8.3, 8.2, 10.6, 5.0]
+        - ["[6]", 90, 20.6, 18.2, 19.9, 14.2]
+        - ["[7]", 90, 10.0, 8.8, 12.6, 6.9]
+        - ["[8]", 90, 4.4, 12.1, 14.2, 5.8]
+        - ["[9]", 90, 30.0, 10.3, 13.8, 12.6]
+        - ["[10]", 90, 20.0, 8.2, 12.0, 9.0]
+        - ["[11]", 90, 25.0, 5.0, 8.0, 7.0]
+        - ["[12]", 90, 17.0, 5.1, 8.4, 5.8]
+        - ["[13]", 90, 15.2, 10.0, 11.0, 8.2]
+        - ["[14]", 90, 5.5, 9.0, 12.3, 8.8]
+        - ["[15]", 65, 14.3, 11.0, 16.6, 4.9]
+        - ["this work", 65, 23.2, 10.0, 14.6, 16.3]
+    unit: "nm, dB, dBm, dBm, %"
+    source: spec
+    cite: "pa60.asada_eumc2011 那篇的 Table I 'Performance comparison'；2026-11-12 读原文"
+    section: "Table I. Performance comparison"
+    quote: "TABLE I PERFORMANCE COMPARISON. Technology | Power Gain[dB] | P1dB [dBm] | Psat [dBm] | Peak PAE[%] | Power[mW] | VDD [V]"
+    note: "这张表是那篇论文对 2007–2011 年 60 GHz CMOS PA 的汇编，表里其他各行是它转引的、本库没有读各自的原文；用来看量级与分布，不用作基准档。14 行的 Psat 8–19.9 dBm（中位 12.45），Psat − P1dB 1.0–9.0 dB（中位 3.3），只有 [1] 一行（9.0 dB）接近 11ad 评估方法学那颗 Rapp 的 9.5 dB。峰值 PAE 4.9–16.3 %。"
+
+  pa60.wu_isscc2015:
+    value: {tx_pout_at_evm_limit_dbm: 9.3, evm_limit_db: -21.0, pa_p1db_dbm: 7.0, tx_evm_best_db: -27.9}
+    unit: "dBm, dB, dBm, dB"
+    source: spec
+    cite: "R. Wu, S. Kawai, Y. Seo, … K. Okada, A. Matsuzawa, 'An HCI-Healing 60GHz CMOS Transceiver', IEEE ISSCC 2015, paper 19.5（Tokyo Institute of Technology）；作者实验室站点上的报告幻灯片 publications/2015/201502_ISSCC/wu/20150225_ISSCC2015_wu_v21.pdf；2026-11-12 读原文，两张图渲染出来读"
+    section: "幻灯片 24 'Measured Pin-Pout of the PA'（读图）、26 'Measured TX EVM versus Pout'、27 '60GHz TRX Performance Comparison'"
+    quote: "Measured TX EVM versus Pout: IEEE802.11ad MCS12(16QAM) specification [line at -21 dB]; 7Gb/s; Fresh 9dBm … Comparison: Pout/each PA (dBm) — Tokyo Tech [1] 8.5* @TX EVM = -21dB (*Estimated from literature); This work 9.3 @TX EVM = -21dB … The transceiver demonstrates an EVM of -27.9dB and can transmit 7Gb/s in 16QAM within 2.16GHz"
+    note: "65 nm 60 GHz 收发机，单载波 16-QAM（802.11ad MCS12，7 Gb/s）。整个发射机的 TX EVM 在平均输出 9.3 dBm 时碰到 802.11ad 16-QAM 的 −21 dB 限（幻灯片 26 的曲线、27 的表）。单独的 PA 的 P1dB 约 7.0 dBm（幻灯片 24，读图，'Fresh' 的 P1dB 符号，accelerated measurement 条件）——单载波在 P1dB 之上约 2.3 dB 还满足限值。−21 dB 是幻灯片上标的规范线，802.11ad 条文本身没有读。这一条给的是'按 EVM 限定额定输出'这个读法（assumed.pa60_operating_rule），不是 OFDM 的工作点：单载波的峰均比比 OFDM 低得多。"
+
+  # ------------------------------------------------------------ 推导：tgad_em.pa_model_shape 的 modified Rapp 对上 pa60.asada_eumc2011 的 Psat − P1dB
+  derived.pa60_rapp_p_asada_eumc2011:
+    value: 1.286
+    unit: Rapp smoothness p
+    source: derived
+    cite: "pa.rapp.ModifiedRappPA(p=…) 使 10·log10(P_sat / P1dB) = pa60.asada_eumc2011 的 psat_dbm − p1db_dbm（4.6 dB）；tgad_em 的 g / A_sat 不变，P1dB 在 Psat 下几 dB 只由 p 决定"
+    note: "单调求根，三位小数（1.286 时差 4.60 dB）。对照：tgad_em.pa_rapp_p = 0.81 对应 9.5 dB；Table I 的中位 3.3 dB 对应 p ≈ 1.57。tests/test_pa60.py 复算。"

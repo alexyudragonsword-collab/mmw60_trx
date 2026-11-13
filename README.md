@@ -22,7 +22,7 @@ python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_
 ## 里程碑 0：对外校验（示例 00 / 01）
 
 按 Liu 2025 Table II 配置拓扑 B：VHT 20 MHz × K、MCS 0 / 1 / 4、4096 B、73.44 GHz、40 ppm、相噪 −93 dBc/Hz（1 MHz / 100 MHz）、modified Rapp OBO 8 dB，K = 4 / 8 / 16 的 PER–SNR 曲线。
-结果、与原文 Fig. 4 的逐条差值、以及原文没说而本库自己定的每一个假设（`grep "source: assumed" src/mmw60/data/spec/survey.yaml`）见 `cairn/external-validation.md` 与 `examples/expected/`。
+结果、与原文 Fig. 4 的逐条差值、以及原文没说而本库自己定的每一个假设（`grep "source: assumed" src/mmw60/data/spec/survey.yaml`；外部的数在 vendored 的共享库 spec_sources，`src/mmw60/vendor/spec_sources/data/`）见 `cairn/external-validation.md` 与 `examples/expected/`。
 
 示例 01 回答原文没问的问题：把 L-LTF 的整数子载波模糊解开后，K = 4 能不能活。
 
@@ -121,10 +121,10 @@ python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 5 分钟（4 核�
 - `cairn/LOG.md`：每轮的数字原值与被推翻的判断。
 - `cairn/upclocking.md`：K 的建模方式与 5.88 MHz / 4.7 门槛的推导。
 - `cairn/topology-a.md`、`cairn/topology-b.md`、`cairn/comparison-table.md`：两条拓扑各自的结论与同台表。
-- `src/mmw60/data/spec/survey.yaml`：每一个文献数字的出处与标签。
+- `src/mmw60/vendor/spec_sources/data/*.yaml`：每一个规范 / 文献数字的出处与标签（共享库 spec_sources，按完整 SHA vendor）；`src/mmw60/data/spec/survey.yaml`：本库自己的假设与产出。
 
 ## CI
 
-lint、测试（jit / no-jit）、示例冒烟、vendor 漂移（需要能读 private 的 `wifi_trx_cal` 的 `SIBLING_READ_TOKEN` secret，否则该作业按设计是红的）、数值指纹（base vs head，`(numbers-move)` 标记是逃生口）。
+lint、测试（jit / no-jit）、示例冒烟、vendor 漂移（wifitrx 与 spec_sources 两个 pin；spec_sources 是公开库，wifi_trx_cal 是 private，需要 `SIBLING_READ_TOKEN` secret，否则该作业按设计是红的）、数值指纹（base vs head，`(numbers-move)` 标记是逃生口）。
 
 MIT License。

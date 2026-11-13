@@ -28,4 +28,17 @@ file's first line (full SHA).  Policy (polar_tx CONTRIBUTING §3):
 
 Import only through ``mmw60.vendor.wifitrx...``; the package's internal
 imports are all relative, so it runs unchanged under this path.
+
+Pins:
+
+* ``wifitrx`` — wifi_trx_cal, the SHA in every file's first line.
+* ``spec_sources`` — ``alexyudragonsword-collab/spec_sources`` @
+  ``d7b4d1eb510617d69784622c593c8ed31ab32b8b`` (its PR #1, milestone 1;
+  mmw60_trx#21): ``src/spec_sources/__init__.py``, ``reader.py`` and six
+  of its data tables (``liu2025``, ``ieee80211``, ``regulatory``,
+  ``frontend60``, ``pa60``, ``energy``; not ``ucie``, not
+  ``legacy_keys/``).  The numbers about the outside world that this
+  library reads; ``mmw60.spec`` merges them with this library's own table.
+  The YAML files carry the same two-line header as ``#`` comments and are
+  checked by ``tools/vendor_check.py`` like the code.
 """

@@ -5,7 +5,7 @@ summary: "规范 / 文献数字的来源制度：四种标签、Liu 2025 两个 
 tags: [mmw60, spec, provenance, liu2025]
 contains: [reference, decision, open_question]
 created: "2026-11-06"
-updated: "2026-11-12"
+updated: "2026-11-13"
 related: [external-validation.md, upclocking.md]
 authoring_mode: ai_generated
 ---
@@ -14,8 +14,14 @@ authoring_mode: ai_generated
 
 ## 制度（铁律 5）
 
-`src/mmw60/data/spec/survey.yaml` 一条一个数，`source` 四选一：`spec`（原文，必须带 quote + section）、`survey`（文献 / 搜索命中，一律"未核实"）、`assumed`（原文没说，本库定）、`derived`（公式推出）。
-代码只经 `mmw60.spec.value(key)` 取，`liu2025_table2()` 预设就是这样建的。`grep -c "source: survey"` 等于未核实条目数（`tests/test_spec_sources.py`）。
+一条一个数，`source` 四选一：`spec`（原文，必须带 quote + section）、`survey`（文献 / 搜索命中，一律"未核实"）、`assumed`（原文没说，本库定）、`derived`（公式推出）。
+代码只经 `mmw60.spec.value(key)` 取，`liu2025_table2()` 预设就是这样建的。
+
+**两张表（2026-11-13 起，mmw60_trx#21）**：关于外部世界的数——规范条文、论文与数据手册的数字、只由它们推出的 derived——在共享库 spec_sources 里，按完整 SHA（`d7b4d1e`）vendor 在 `src/mmw60/vendor/spec_sources/`（读取器加 6 张表：`liu2025`、`ieee80211`、`regulatory`、`frontend60`、`pa60`、`energy`）。本库自己的取舍与产出留在 `src/mmw60/data/spec/survey.yaml`：assumed 56、derived 3、survey 3。
+`mmw60.spec` 是一层薄垫片：`all_entries()` 把两张表合起来，同一个键出现两次直接报错；公开名字一个没少，另加 `ref()`。迁移前后 125 个旧键逐条相同（8 个字段的 `repr`），只多了共享库新增的 `isolation.tx_rx_tue2018_no_ebg_min_db`；数值指纹逐位不变。
+外部的数要改，回 spec_sources 提，不改副本（`tools/vendor_check.py --strict` 连 YAML 一起逐字核对）。每张表、四个标签都按 `grep -c "source: <标签>"` 核对（`tests/test_spec_sources.py`），所以表头与注释里不写“标签词 + 冒号”。迁移前本地表的 spec 计数是 11 而条目只有 10：D4 一段注释里的那句话被多数了一次，当时的守卫只数 survey 与 assumed，没发现。
+
+下面各节按主题列条目；读过原文、文献、规管、11ad 的那些现在都在共享表里，键名没变。
 
 ## Liu 2025 的版本
 
@@ -60,6 +66,8 @@ PA 的工作点（2026-11-13，ROADMAP C10）：
 - 想读而没去绕的：MDPI 上一篇 22 nm 60 GHz PA（可能给 OFDM 工作点）对脚本访问返回 403，没有去绕。
 
 ## 被下游消费的条目（改之前先看这里）
+
+（2026-11-13：下面这三条已随迁移进了 spec_sources 的 `data/frontend60.yaml`，键名与值不变；共享库在它的 `consumers.yaml` 登记谁读哪条。fmcw_radar 迁到直接 vendor spec_sources 之前，它仍按本库旧的 pin 读，本库的守卫测试先留着。）
 
 fmcw_radar 从 0.2.8 起（它的 main@`7685bb3`，fmcw_radar#11）vendor 本库的两个文件：`src/mmw60/spec.py` 与 `src/mmw60/data/spec/survey.yaml`，pin 在本库 `ef0f00c`，逐字节校验。它没有 vendor `Frontend60`（依赖整条 wifitrx 收发链，对只读几个数的雷达太重），所以读的是来源表，不是对象。以上是对方在 mmw60_trx#14 上的说明（评论 6823377875），本库没有读对方的仓库。
 
