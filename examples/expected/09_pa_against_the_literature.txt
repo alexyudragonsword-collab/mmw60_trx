@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.1.0; full; back-off 8 dB from psat (the config's, both PAs)
+mmw60 0.1.0; full; back-off from psat: presets 7.5 dB (derived.pa60_obo_at_evm_limit_db [derived]), 11ad EM PA 8 dB (liu2025.pa_obo_db [survey, unverified])
 [spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; [assumed] = this library's choice; [derived] = computed from entries
 
 == 1. measured 60 GHz CMOS PAs, and the 11ad EM PA (the presets' until 2026-11-12) among them ==
@@ -25,7 +25,15 @@ back-off from P1dB                  4      6      7      8      9     10     12
 11ad EM (p 0.81)                -26.5  -29.7  -31.3  -32.9  -34.5  -36.1  -39.4
 presets (p 1.286)               -23.3  -27.5  -29.7  -31.9  -34.1  -36.4  -41.1
 compiled median gap (p 1.57)    -22.2  -26.7  -29.0  -31.3  -33.6  -36.0  -40.7
-(at the presets' back-off, 8 dB from Psat, the 11ad EM PA runs -1.5 dB from its P1dB, the presets' +3.4 dB; the medium-gap row is a sensitivity only)
+(at its own back-off the 11ad EM PA (8 dB from Psat) runs -1.5 dB from its P1dB, the presets' (7.5 dB) +2.9 dB; the medium-gap row is a sensitivity only)
+
+-- the operating rule: the back-off at which the PA alone reads -21 dB, the 802.11ad 16-QAM TX EVM limit (assumed.pa60_operating_rule [assumed]) --
+shape                           from Psat  from P1dB   (dB)
+11ad EM (p 0.81)                     9.97       0.47
+presets (p 1.286)                    7.46       2.86
+compiled median gap (p 1.57)         6.74       3.44
+presets without AM/PM                7.06       2.46
+(the presets carry 7.5 dB = derived.pa60_obo_at_evm_limit_db [derived]; seeds 1–5 of the Gaussian envelope give 7.46–7.59 dB.  On the 11ad shape the same rule asks for more than Liu's 8 dB.  The transmitter the rule is read from, pa60.wu_isscc2015 [spec], is rated at 9.3 dBm for -21 dB on single-carrier 16-QAM, +2.3 dB from its PA's P1dB (7 dBm, read from a figure): a lower-PAPR waveform than OFDM, so not a check of the number, only of the convention)
 
 == 3. the efficiency law of the power column against the papers that give PAE at P1dB ==
 PA                               gap   peak  at P1dB  class B  class A   figure from
@@ -36,27 +44,29 @@ Li                               2.3   14.3     12.0     11.0      8.4   pa60.ni
 == 4. wifitrx's DPD step on each PA (K = 8, 11ac 20 MHz base; the calibration sequence run at each back-off from Psat) ==
 PA          back-off   Pout  TX no DPD   TX DPD   gain  loopback
 11ad EM            6    9.0      -16.2    -16.2    0.0     -16.4
+11ad EM          7.5    7.5      -18.2    -18.2    0.0     -18.5
 11ad EM            8    7.0      -18.8    -19.6    0.8     -20.1
 11ad EM           10    5.0      -21.4    -25.9    4.5     -27.8
 presets            6    8.6      -18.9    -18.9    0.0     -19.3
+presets          7.5    7.1      -21.4    -21.4    0.0     -22.1
 presets            8    6.6      -22.2    -24.2    2.0     -25.7
 presets           10    4.6      -25.0    -27.7    2.6     -31.1
-(dB, dBm, then EVM in dB as a standard receiver reads it; 'gain' = what the DPD step bought; a 0.0 means the step kept nothing better than no DPD)  [~s]
+(dB, dBm, then EVM in dB as a standard receiver reads it; 'gain' = what the DPD step bought; a 0.0 means the step kept nothing better than no DPD.  7.5 dB is the presets' operating point, 8 dB the 11ad EM PA's)  [~s]
 
 == 5. the comparison table's 11be 80 MHz rows with each PA (decoder cap, uncalibrated IQ) ==
 row                                            PA         floor  MCS    rate  pJ/bit   EIRP   limited by
 be 11be 80M IF extender @60.48 GHz             11ad EM    -17.3    4     216    3153   33.0   pa
-                                               presets    -20.3    6     324    2130   33.4   pa
+                                               presets    -19.6    6     324    2143   32.9   pa
 be 11be 80M K=1 @6 GHz (WiFi 7 chain)          11ad EM    -17.1    4     216    1204      —   pa
-                                               presets    -20.0    6     324     830      —   pa
+                                               presets    -19.4    5     288     949      —   pa
 be_upclocked 11be 80M K=4 @60.48 GHz           11ad EM    -16.6    4     865     628   33.0   pa
-                                               presets    -19.0    5    1153     483   33.4   pa
+                                               presets    -18.5    5    1153     487   32.9   pa
 be_upclocked 11be 80M K=8 @60.48 GHz           11ad EM    -14.9    4    1729     467   33.0   pa
-                                               presets    -16.4    4    1729     472   33.4   iq_image
+                                               presets    -16.2    4    1729     474   32.9   iq_image
 be_upclocked 11be 80M K=16 @60.48 GHz          11ad EM    -10.9    3    2306     557   33.0   iq_image
-                                               presets    -11.4    3    2306     560   33.4   iq_image
+                                               presets    -11.3    3    2306     562   32.9   iq_image
 be_upclocked 11be 80M K=32 @60.48 GHz          11ad EM     -4.7    0    1153    1805   33.0   iq_image
-                                               presets     -4.7    0    1153    1812   33.4   iq_image
-(floor dB (the decoder's: analytic, or the time-domain EVM when that reads worse), MCS at the decoder cap, Mb/s, pJ/bit at that rate, average EIRP margin dB.  The PA-isolated EVM at the presets' back-off: 11ad EM -18.1 dB, presets -22.1 dB)
+                                               presets     -4.7    0    1153    1815   32.9   iq_image
+(floor dB (the decoder's: analytic, or the time-domain EVM when that reads worse), MCS at the decoder cap, Mb/s, pJ/bit at that rate, average EIRP margin dB.  The PA-isolated EVM at each PA's own back-off: 11ad EM -18.1 dB at 8, presets -21.1 dB at 7.5)
 
 [~s]

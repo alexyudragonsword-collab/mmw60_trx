@@ -49,9 +49,15 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - `rx60.comm_asada2011` 补了发射侧（变频增益 16 dB、P1dB 5.4、Psat 6.5 dBm）：那是收发机的发射输出，没有单独 PA 级。
 - `derived.pa60_rapp_p_asada_eumc2011` = 1.286：使 Rapp 的 Psat − P1dB 等于 4.6 dB 的平滑度，`tests/test_pa60.py` 复算。`assumed.pa60_surveyed_pick` 说基准档取哪一篇。
 - 没出处的：AM/PM（三篇都不给，仍用 11ad 的）。`assumed.pa60_psat_dbm` / `assumed.pa60_pae_max` 的备注里加了与测量值的对照。
-- 2026-11-12 起拓扑 A / B 的预设（`zero_if_60ghz`，以及建在它上面的 `if_extender_60ghz` / `wifi7_chain_k1`）取 `assumed.pa60_surveyed_pick`：Psat 14.6 dBm、增益 23.2 dB、峰值 PAE 16.3 %、p = 1.286，回退仍从 Psat 8 dB（Pout 6.6 dBm）。
-  `assumed.pa60_psat_dbm` / `assumed.pa60_gain_db` / `assumed.pa60_pae_max` 现在只由 `config.tgad_em_pa` 读（旧的 11ad EM PA，作灵敏度行）。Liu 的预设 `liu2025_table2` 不变，仍是 11ad EM 的 Rapp。
+- 2026-11-12 起拓扑 A / B 的预设（`zero_if_60ghz`，以及建在它上面的 `if_extender_60ghz` / `wifi7_chain_k1`）取 `assumed.pa60_surveyed_pick`：Psat 14.6 dBm、增益 23.2 dB、峰值 PAE 16.3 %、p = 1.286。回退那时仍从 Psat 8 dB（Pout 6.6 dBm），2026-11-13 起按下一段的规则取 7.5 dB（Pout 7.1 dBm）。
+  `assumed.pa60_psat_dbm` / `assumed.pa60_gain_db` / `assumed.pa60_pae_max` 现在只由 `config.tgad_em_pa` 读（旧的 11ad EM PA，连同 Liu 的 8 dB 回退，作灵敏度行）。Liu 的预设 `liu2025_table2` 不变，仍是 11ad EM 的 Rapp、8 dB。
   （之前预设用的就是这三条 assumed 加 `tgad_em.pa_rapp_p` 的 0.81。）
+
+PA 的工作点（2026-11-13，ROADMAP C10）：
+- `pa60.wu_isscc2015`（spec）：Wu 等 ISSCC 2015 paper 19.5 的报告幻灯片（作者实验室站点的 PDF，两页渲染出来读图）。65 nm 60 GHz 收发机，单载波 16-QAM 7 Gb/s；发射机平均输出 9.3 dBm 时 TX EVM 碰到幻灯片上标的 “IEEE802.11ad MCS12(16QAM) specification” −21 dB 线；对比表的 Pout 一栏就写 “@TX EVM = −21dB”。单独 PA 的 P1dB 约 7.0 dBm 是读图。−21 dB 是幻灯片上的规范线，802.11ad 条文本身没读。
+- `assumed.pa60_operating_rule`：预设的回退 = PA 单独在 OFDM 样的高斯包络上 EVM 刚好 −21 dB 的回退（`frontend.grid.obo_for_isolated_evm`）。只看 PA 单独，是为了同台表各行共用一个前端实例（铁律 2）；读法取自上一条，数不是。
+- `derived.pa60_obo_at_evm_limit_db` = 7.5 dB（算出 7.457，种子 1–5 为 7.46–7.59）：`tests/test_pa60.py` 复算。灵敏度在示例 09 §2：去掉 AM/PM 7.06，汇编表中位形状 6.74，11ad 形状 9.97 dB。
+- 想读而没去绕的：MDPI 上一篇 22 nm 60 GHz PA（可能给 OFDM 工作点）对脚本访问返回 403，没有去绕。
 
 ## 被下游消费的条目（改之前先看这里）
 

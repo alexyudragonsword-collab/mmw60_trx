@@ -170,3 +170,19 @@ def test_obo_for_isolated_evm_is_monotone_and_refuses_an_unreachable_limit():
     assert obo_for_isolated_evm(m, -18.0) < obo_for_isolated_evm(m, -21.0) < obo_for_isolated_evm(m, -24.0)
     with pytest.raises(ValueError, match="does not reach"):
         obo_for_isolated_evm(m, -90.0, hi_db=10.0)
+
+
+def test_example_03_calibrates_at_the_preset_operating_point():
+    """ROADMAP C8: every column of example 03 lands its final EVM check on
+    the preset back-off (run_cal_at(obo_db=…)), not where wifitrx's default
+    drive puts it; the default-drive row is kept as a sensitivity and lands
+    elsewhere."""
+    text = (REPO / "examples" / "expected" / "03_calibration_at_k.txt").read_text(encoding="utf-8")
+    obo = zero_if_60ghz(k=8).frontend.pa.obo_db
+    landed = [float(x) for x in re.findall(
+        r"operating point at the final check: Pout -?[\d.]+ dBm, back-off (-?[\d.]+) dB from Psat", text)]
+    assert len(landed) == 6 and all(abs(o - obo) <= 0.1 for o in landed), landed
+    rows = {ln.split()[0] + " " + ln.split()[1]: ln.split() for ln in text.splitlines()
+            if ln.startswith(("preset back-off ", "wifitrx default "))}
+    assert float(rows["preset back-off"][3]) == pytest.approx(obo, abs=0.1)
+    assert abs(float(rows["wifitrx default"][3]) - obo) > 0.3
