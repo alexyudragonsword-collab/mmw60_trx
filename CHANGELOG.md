@@ -4,6 +4,15 @@
 
 ## 未发布
 
+### 里程碑 2：阵列层（2026-11-14）—— 预设一个单元，指纹不变
+- vendor array_tx @ `5815c5a7ea43143fd58502d4894ac840b5b5fb86`（包名 `arraytx`）整包 135 个 `.py`，原样（它的 `data/`、`webui/` 资源不搬）；`vendor_check --strict` 249 个全 verbatim；清单、vendor 测试、策略说明与 CI 的 vendor-drift 作业（公开仓库，不用 token）带上新 pin。
+- `frontend/array60.py`：`Array60`——arraytx 的几何与阵列因子，加上本库补的移相器量化（以第一个单元为参考、四舍五入）、逐单元静态误差、训练码本、EIRP 与接收阵列 SNR 增益；每个单元是共享前端的，两条拓扑同一个。一个单元（预设）即原单元件链路。
+- `arraylink.py`：EIRP 上限下的逐单元工作点（PA 随之回退、更线性）、该点的底板与解码器上限、各 MCS 的最大路径损耗（拓扑自己的灵敏度）、MLO 触发的扇区扫描训练所需 SNR（非中心卡方闭式，测试对照逐音蛮力）、TX / RX 扫的预算与扫描时长。
+- 配置：`ArrayConfig` 取代占位（`tx_nx/tx_ny/rx_nx/rx_ny`、间距、单元因子、移相器位数、导向、误差、码本）；`config.array_frontend()` 读新的 `assumed.array_*` 五条。两个 `configs/*.yaml` 的 `array:` 块随之改写。
+- 示例 10（新）、`cairn/array-layer.md`（新）；`tests/test_array60.py` 7 项。
+- 结论：N = 64 时 EIRP 上限把每单元压到 3.9 dBm（回退 10.7 dB），PA 单独 EVM −21.1 → −27.8 dB，三个方案的解码器上限各升一到两档；训练的瓶颈是对端单个单元接收的 TX 扫，N ≥ 16 时到不了 MCS0 的边（11be 80 MHz 基准差 2.7 / 8.9 dB，N = 16 / 64），上限 MCS 的范围内都够；2.56 GHz × N = 64 的移相器斜视平均 0.98 dB、最差音 3.36 dB。
+- **验收**：指纹逐位不变；已有示例逐字不变。
+
 ### C7 推翻：校准里 DPD 成不成看训练数据，不看采集长度（2026-11-14）—— 预设与指纹不变
 - `calcheck`：`scoring_config` / `upclocked_scoring_config` / `plain_config` 与 `run_cal_at` / `run_cal_on` 加 `waveform_seed`（训练与评分波形的随机数据，默认 0 = wifitrx 的默认，逐位不变）；`CalRun` 多 `dpd_kept`、`dpd_before_db`、`dpd_after_db`。
 - 示例 03 灵敏度节加一张表：K = 1 / 32 × 8 / 32 个符号，各 24 组训练数据，DPD 写入几次、PA 输出的增益（平均 / 中位 / 最大）。写入比例 5/24、6/24、2/24、6/24，平均 0.41 / 0.43 / 0.12 / 0.26 dB，中位 0。
