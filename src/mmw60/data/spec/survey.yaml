@@ -430,6 +430,13 @@ entries:
     cite: "本库；wifitrx handoff/runner.build_calibrated_trx 的默认 seed"
     note: "拓扑 A 的芯片是 wifitrx 自己随机化损伤后跑完校准序列的收发机（芯片原样）；seed 选哪一颗芯片。示例 06 有换芯片的灵敏度行。"
 
+  assumed.ifext_chip_pa_bypass:
+    value: {tap: "mixer_output", pa_power: "off", coupler: "ahead_of_pa", coupler_atten: "recommended_minus_pa_gain", dpd_step: "off", tx_power_step: "table_only"}
+    unit: procedure
+    source: assumed
+    cite: "本库 ifext.py::calibrated_chip(pa_bypass=True)；wifitrx TxParams.pa_enabled = False"
+    note: "拓扑 A 的芯片 PA 旁路一档（ifext.chip_pa_bypass，预设不开）：IF 从芯片的混频器输出取，芯片 PA 断电、不计功耗。wifitrx 的交付序列在这条链上真跑：校准耦合器跟着移到 PA 前，衰减减去实测的 PA 大信号增益（11be 80 MHz 上 25.6 dB），使芯片接收机看到交付序列调好的电平；DPD 步不跑（芯片上没有要线性化的 PA）；tx_power 步只建表（没有输出可设）。另一种做法——带着 PA 按交付方式校准、链路上再旁路——没有建。原文没有这样的芯片模式，是本库的取舍。"
+
   assumed.ifext_chip_oversampling:
     value: 4
     unit: x bandwidth

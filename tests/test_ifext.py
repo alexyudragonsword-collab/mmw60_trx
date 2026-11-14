@@ -17,6 +17,7 @@ from mmw60.impairments.phase_noise import load_clock_profile
 from mmw60.ifext import (IfFilter, MmwRxStage, MmwTxStage, build_chip_wifitrx,
                          calibrated_chip, chip_facts, if_plan)
 from mmw60.impairments.cfo import CfoModel, MloCfo
+from mmw60.power import power_report
 from mmw60.sim.link import LinkSim, evm_at
 from mmw60.vendor.wifitrx.cal.deps import validate_order
 from mmw60.vendor.wifitrx.chain.rx import RxChain
@@ -227,6 +228,48 @@ def test_law4_the_chip_is_calibrated_by_running_wifitrx_sequence():
     # each call hands out its own chains (a sweep must not share AGC / gain state) on the same calibration
     tx2, rx2, res2 = calibrated_chip(BW, FS, 5, True, None, 0.15)
     assert tx2 is not tx and rx2 is not rx and res2 is res and tx2.dpd is tx.dpd
+
+
+def test_law4_a_bypassed_chip_pa_is_calibrated_on_its_own_chain():
+    """``ifext.chip_pa_bypass``: the IF is taken at the chip's mixer output and
+    its PA is powered down (assumed.ifext_chip_pa_bypass).  wifitrx's sequence
+    runs on that chain — no "calibrated" by hand: the coupler sits ahead of the
+    PA with its attenuation lowered by the PA's measured gain, the DPD step is
+    not run, tx_power only builds its table.  The 60 GHz PA runs at the same
+    operating point; the power column loses the chip PA."""
+    a = small()
+    b = dc.replace(a, ifext=dc.replace(a.ifext, chip_pa_bypass=True))
+    fe = Frontend60.from_config(zero_if_60ghz(k=8))
+    sa, sb = LinkSim(a, frontend=fe), LinkSim(b, frontend=fe)
+    assert sa.ifx.tx.params.pa_enabled and not sb.ifx.tx.params.pa_enabled
+    assert sb.describe()["if_extender"]["chip_pa_bypass"] is True
+    na, nb = [r.name for r in sa.ifx.cal_results], [r.name for r in sb.ifx.cal_results]
+    validate_order(nb)
+    assert "dpd" in na and nb == [n for n in na if n != "dpd"] and sb.ifx.tx.dpd is None
+    tp = next(r for r in sb.ifx.cal_results if r.name == "tx_power")
+    assert "target_dbm" not in tp.estimated and sb.ifx.tx.gain_code_db == 0.0
+    gain = sb.ifx.tx.pa_bypass_gain_db
+    assert 20.0 < gain < 30.0 and sa.ifx.tx.pa_bypass_gain_db is None
+    # the finding: the sequence's IIP2 coupler has an absolute 30 dB floor (sized for a
+    # PA-level stimulus), so ahead of the PA the two-tone arrives ~gain dB low and the trim
+    # search does not converge; every other step passes
+    by_name = {r.name: r for r in sb.ifx.cal_results}
+    assert by_name["rx_iip2"].passed is False
+    assert all(r.passed in (True, None) for n, r in by_name.items() if n != "rx_iip2")
+    # the same 60 GHz operating point; the interstage makes up the PA's gain
+    assert sb.pout_dbm == pytest.approx(fe.target_pout_dbm(), abs=0.05)
+    gap = sb.ifx.tx.stage.interstage_gain_db - sa.ifx.tx.stage.interstage_gain_db
+    assert gap == pytest.approx(gain, abs=1.5)
+    # the power column: no chip PA block, said so
+    fb = chip_facts(b, BW, FS)
+    assert fb["pa_bypass"] and fb["pa_dc_w"] == 0.0 and fb["pa_pae"] is None
+    ra, rb = power_report(a, fe, 100e6), power_report(b, fe, 100e6)
+    assert "chip_pa" in [x.name for x in ra.blocks] and "chip_pa" not in [x.name for x in rb.blocks]
+    assert any("bypassed" in o for o in rb.omitted)
+    assert rb.total_w == pytest.approx(ra.total_w - ra.watts("chip_pa"))
+    for bad in (dc.replace(b.ifext, chip="frontend"), dc.replace(b.ifext, chip_pout_dbm=13.0)):
+        with pytest.raises(ValueError, match="chip_pa_bypass"):
+            dc.replace(b, ifext=bad)
 
 
 @pytest.mark.slow

@@ -116,6 +116,10 @@ class IfExtConfig:
     #: calibration's tx_power step; None = the chip's delivered gain code
     chip_pout_dbm: float | None = None
     with_dpd: bool = True
+    #: the IF taken at the chip's mixer output, ahead of its PA (powered down): the
+    #: chip's cal coupler moves with the tap, its DPD step is not run and its tx_power
+    #: step only builds the table (data/spec: assumed.ifext_chip_pa_bypass)
+    chip_pa_bypass: bool = False
     #: where the DPD observes: the chip's own coupler (it linearises the chip PA
     #: only) or a 60 GHz coupler after the second PA, down-converted with the same LO
     dpd_observation: str = "chip"
@@ -327,6 +331,9 @@ class Mmw60Config:
             raise ValueError(f"ifext.chip must be one of {IFEXT_CHIPS}")
         if self.ifext.dpd_observation not in DPD_OBSERVATIONS:
             raise ValueError(f"ifext.dpd_observation must be one of {DPD_OBSERVATIONS}")
+        if self.ifext.chip_pa_bypass and (self.ifext.chip != "wifitrx" or self.ifext.chip_pout_dbm is not None):
+            raise ValueError("ifext.chip_pa_bypass needs ifext.chip wifitrx and no chip_pout_dbm "
+                             "(the 'frontend' chip already has its PA bypassed; a bypassed PA has no output to set)")
         if int(self.ifext.dpd_max_iterations) < 1:
             raise ValueError("ifext.dpd_max_iterations must be >= 1")
         rxf = self.frontend.rx_front

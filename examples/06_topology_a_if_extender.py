@@ -16,7 +16,8 @@ What the tables answer (ROADMAP A1):
    second PA's back-off;
 4. the MCS cap against the fixed LO's noise at 1 MHz, with wifitrx's
    ``EvmBudget`` next to the time-domain reading;
-5. the cascade back-off table: chip PA output × 60 GHz PA back-off;
+5. the cascade back-off table: chip PA output × 60 GHz PA back-off, and
+   the chip's PA bypassed (the IF taken at its mixer output);
 6. the CFO: 40 ppm at 60 GHz against the chip's estimators, the multi-link
    pre-compensation and what is left (iron rule 3);
 7. the inputs this library assumed, one at a time;
@@ -38,7 +39,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
-from mmw60 import ENGINE_BANNER, __version__, spec                              # noqa: E402
+from mmw60 import ENGINE_BANNER, __version__, compare, spec                     # noqa: E402
 from mmw60.calcheck import compare_runs, run_cal_on                             # noqa: E402
 from mmw60.compare import PN_BAND_HZ                                            # noqa: E402
 from mmw60.config import ChannelConfig, if_extender_60ghz, zero_if_60ghz        # noqa: E402
@@ -281,6 +282,38 @@ def main(argv=None) -> int:
               + "        ".join(cells) + f"     chip PA DC {facts['pa_dc_w'] * 1e3:.0f} mW")
     print("the chip's output is padded down to the 60 GHz PA's drive (interstage), so its back-off costs DC power, not link EVM, "
           "until its own residual reaches the 60 GHz PA's.")
+
+    # ---------------------------------------------------------------- 5b. the chip PA bypassed
+    print("\n== 5b. the chip's PA bypassed: the IF taken at its mixer output, the PA powered down "
+          "(assumed.ifext_chip_pa_bypass) ==")
+    cfg_b = dc.replace(cfg, ifext=dc.replace(cfg.ifext, chip_pa_bypass=True))
+    sim_b = LinkSim(cfg_b, frontend=fe)
+    res_on = {r.name: r for r in sim.ifx.cal_results}
+    res_by = {r.name: r for r in sim_b.ifx.cal_results}
+    print(f"wifitrx's sequence on the bypassed chain: the coupler ahead of the PA, its attenuation lowered by the PA's "
+          f"measured gain {sim_b.ifx.tx.pa_bypass_gain_db:.1f} dB; {len(res_by)} steps run ({len(res_on)} with the PA in: "
+          f"{', '.join(n for n in res_on if n not in res_by)} not run); failed: "
+          f"{', '.join(n for n, r in res_by.items() if r.passed is False) or 'none'}")
+    print(f"{'step':<22} {'reading':<14} {'chip PA in':>11} {'bypassed':>9}")
+    for name, key in (("tx_iq", "irr_min_db"), ("rx_iq", "irr_min_db"), ("rx_iip2", "iip2_dbm"),
+                      ("tx_lo_leak_loopback", "lo_leak_dbc"), ("final_loopback_evm", "evm_db"),
+                      ("final_loopback_evm", "tx_evm_db"), ("final_loopback_evm", "rx_evm_db")):
+        a_v, b_v = (float(r[name].metrics_after[key]) for r in (res_on, res_by))
+        print(f"{name:<22} {key:<14} {a_v:11.2f} {b_v:9.2f}")
+    g_on, g_by = sim.ifx.tx.stage.interstage_gain_db, sim_b.ifx.tx.stage.interstage_gain_db
+    need = ("an attenuation either way: no driver needed" if max(g_on, g_by) <= 0 else
+            "a gain: a driver ahead of the 60 GHz PA is needed, its power is not counted")
+    print(f"interstage to the 60 GHz PA: {g_on:+.2f} dB with the chip PA in, {g_by:+.2f} dB bypassed ({need}); "
+          f"60 GHz PA out {sim.pout_dbm:.2f} / {sim_b.pout_dbm:.2f} dBm")
+    rep_b = compare.build([compare.Scheme("chip PA in (the preset)", "if_extender", "be", cfg),
+                           compare.Scheme("chip PA bypassed", "if_extender", "be", cfg_b)], fe, time_domain=not quick)
+    print(f"{'':<26} {'floor':>6} {'TD':>6} {'dec cap':>8} {'Mb/s':>6} {'pJ/bit':>7} {'of it chip PA':>13}")
+    for r in rep_b["rows"]:
+        pdc = r["power_dec"] or {}
+        chip_pj = (pdc.get("blocks") or {}).get("chip_pa", {}).get("pj_per_bit")
+        print(f"{r['label']:<26} {r['floor_db']:6.1f} {fmt(r['td_evm_db'], '{:6.1f}'):>6} {fmt(r['dec_mcs'], 'MCS{}'):>8} "
+              f"{fmt(r['dec_rate_mbps'], '{:.0f}'):>6} {fmt(pdc.get('pj_per_bit'), '{:.0f}'):>7} {fmt(chip_pj, '{:.0f}'):>13}")
+    print("the 320 MHz pair against topology B's 80 MHz x 4 is in example 04 (tables 4 / 4b)")
 
     # ---------------------------------------------------------------- 6. CFO
     print("\n== 6. CFO (iron rule 3): crystals x carrier against the chip's estimators, and the multi-link pre-compensation ==")

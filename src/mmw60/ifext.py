@@ -239,13 +239,16 @@ def build_chip_wifitrx(bandwidth_hz: float, fs_hz: float, seed: int):
 
 def calibrate_chip(tx: IfExtenderTx, rx: IfExtenderRx, bandwidth_hz: float, oversampling: int,
                    with_dpd: bool = True, target_pout_dbm: float | None = None,
-                   drive_scale: float = 0.15, on_step=None) -> list:
+                   drive_scale: float = 0.15, on_step=None, coupler_offset_db: float = 0.0) -> list:
     """wifitrx's delivered sequence (``run_full_cal``) on the chip's own coupler
-    (the chains come without a stage, or with it switched off)."""
+    (the chains come without a stage, or with it switched off).
+    ``coupler_offset_db`` lowers the coupler's attenuation: with the chip PA
+    bypassed the coupler sits ahead of it, and the chip's receiver should see
+    the level the delivered sequence is tuned for."""
     from .vendor.wifitrx.cal.sequence import run_full_cal
     from .vendor.wifitrx.chain.loopback import LoopbackPath, recommended_loopback_atten_db
     cfg = cal_ofdm_config(bandwidth_hz, oversampling)
-    path = LoopbackPath(atten_db=recommended_loopback_atten_db(bandwidth_hz), delay_ns=6.0)
+    path = LoopbackPath(atten_db=recommended_loopback_atten_db(bandwidth_hz) - float(coupler_offset_db), delay_ns=6.0)
     return run_full_cal(tx, rx, cfg, path, with_dpd=with_dpd, target_pout_dbm=target_pout_dbm,
                         final_drive_scale=drive_scale, on_step=on_step)
 
@@ -265,21 +268,53 @@ def mmw_observation_path(tx: IfExtenderTx, bandwidth_hz: float, x_probe: np.ndar
     return LoopbackPath(atten_db=float(atten), delay_ns=6.0)
 
 
+def chip_pa_gain_db(tx: IfExtenderTx, bandwidth_hz: float, oversampling: int,
+                    drive: float = TX_POWER_REF_DRIVE) -> float:
+    """The chip PA's large-signal gain on the cal waveform at ``drive``: its
+    output with the PA in, less the mixer output with it bypassed (measured)."""
+    from .vendor.wifitrx.waveform.ofdm import generate_ofdm
+    x = generate_ofdm(cal_ofdm_config(bandwidth_hz, oversampling)).x * drive
+    stage_on, pa_on = tx.stage_on, tx.params.pa_enabled
+    tx.stage_on = False
+    try:
+        tx.params.pa_enabled = True
+        p_pa = power_dbm(tx(x))
+        tx.params.pa_enabled = False
+        p_mix = power_dbm(tx(x))
+    finally:
+        tx.params.pa_enabled, tx.stage_on = pa_on, stage_on
+    return float(p_pa - p_mix)
+
+
 def calibrated_chip(bandwidth_hz: float, fs_hz: float, seed: int, with_dpd: bool,
-                    target_pout_dbm: float | None, drive_scale: float):
+                    target_pout_dbm: float | None, drive_scale: float, pa_bypass: bool = False):
     """A calibrated chip (deep copy of a cached one: the sequence takes seconds
-    and a sweep builds many links on the same chip).  Returns (tx, rx, results)."""
+    and a sweep builds many links on the same chip).  Returns (tx, rx, results).
+
+    ``pa_bypass``: the IF is taken at the chip's mixer output and its PA is
+    powered down (data/spec: assumed.ifext_chip_pa_bypass).  The sequence runs
+    on that chain: the coupler moves ahead of the PA with its attenuation
+    lowered by the PA's measured gain, the DPD step is not run (no chip PA to
+    linearise) and tx_power only builds its table (no output to set)."""
     import copy
-    key = (float(bandwidth_hz), float(fs_hz), int(seed), bool(with_dpd),
-           None if target_pout_dbm is None else float(target_pout_dbm), float(drive_scale))
+    with_dpd = bool(with_dpd) and not pa_bypass
+    if pa_bypass and target_pout_dbm is not None:
+        raise ValueError("a bypassed chip PA has no output power to set (target_pout_dbm must be None)")
+    key = (float(bandwidth_hz), float(fs_hz), int(seed), with_dpd,
+           None if target_pout_dbm is None else float(target_pout_dbm), float(drive_scale), bool(pa_bypass))
     if key not in _CHIP_CACHE:
         tx, rx = build_chip_wifitrx(bandwidth_hz, fs_hz, seed)
+        os_ = int(round(fs_hz / bandwidth_hz))
+        offset = 0.0
+        tx.pa_bypass_gain_db = None
+        if pa_bypass:
+            offset = tx.pa_bypass_gain_db = chip_pa_gain_db(tx, bandwidth_hz, os_)
+            tx.params.pa_enabled = False
         # wifitrx's tx_power step sets the average output at its own reference drive
         # (TX_POWER_REF_DRIVE rms); the target here is the output at the link's drive
         target = None if target_pout_dbm is None else (
             float(target_pout_dbm) + 20 * np.log10(TX_POWER_REF_DRIVE / drive_scale))
-        res = calibrate_chip(tx, rx, bandwidth_hz, int(round(fs_hz / bandwidth_hz)), with_dpd,
-                             target, drive_scale)
+        res = calibrate_chip(tx, rx, bandwidth_hz, os_, with_dpd, target, drive_scale, coupler_offset_db=offset)
         _CHIP_CACHE[key] = (tx, rx, res)
     tx, rx, res = _CHIP_CACHE[key]
     # the predistorter is a fitted, stateless callable (and wifitrx's BoundedDPD does not
@@ -315,18 +350,21 @@ def chip_facts(cfg, bandwidth_hz: float, fs_hz: float) -> dict:
     cached chip, not assumed."""
     ix = cfg.ifext
     key = (float(bandwidth_hz), float(fs_hz), int(ix.chip_seed), bool(ix.with_dpd),
-           None if ix.chip_pout_dbm is None else float(ix.chip_pout_dbm))
+           None if ix.chip_pout_dbm is None else float(ix.chip_pout_dbm), bool(ix.chip_pa_bypass))
     if key not in _CHIP_FACTS:
         from .vendor.wifitrx.waveform.ofdm import generate_ofdm
         tx, rx, res = calibrated_chip(bandwidth_hz, fs_hz, ix.chip_seed, ix.with_dpd, ix.chip_pout_dbm,
-                                      CHIP_DRIVE_RMS)
+                                      CHIP_DRIVE_RMS, pa_bypass=ix.chip_pa_bypass)
         final = next((r for r in res if r.name == "final_loopback_evm"), None)
         x = generate_ofdm(cal_ofdm_config(bandwidth_hz, int(round(fs_hz / bandwidth_hz)))).x * CHIP_DRIVE_RMS
         y = tx.chip(x)
+        pa_on = tx.params.pa_enabled
         _CHIP_FACTS[key] = {
             "residual_evm_db": None if final is None else float(final.metrics_after["evm_db"]),
-            "pout_dbm": float(power_dbm(y)), "pa_dc_w": float(tx.pa.dc_power_w(y)),
-            "pa_pae": float(tx.pa.average_pae(y)), "psat_dbm": float(tx.params.psat_dbm),
+            # a bypassed PA is powered down: no DC power, no PAE; pout is then the mixer output
+            "pa_bypass": not pa_on, "pa_bypass_gain_db": tx.pa_bypass_gain_db,
+            "pout_dbm": float(power_dbm(y)), "pa_dc_w": float(tx.pa.dc_power_w(y)) if pa_on else 0.0,
+            "pa_pae": float(tx.pa.average_pae(y)) if pa_on else None, "psat_dbm": float(tx.params.psat_dbm),
             "lo_profile": tx.params.lo.profile if tx.params.lo.enabled else None,
             "steps": [(r.name, r.passed) for r in res]}
     return _CHIP_FACTS[key]
@@ -375,7 +413,7 @@ class IfExtender:
                               image_rejection_db=ix.image_rejection_db, seed=cfg.seed)
         if ix.chip == "wifitrx":
             tx, rx, res = calibrated_chip(bandwidth_hz, fs_hz, ix.chip_seed, ix.with_dpd,
-                                          ix.chip_pout_dbm, drive_scale)
+                                          ix.chip_pout_dbm, drive_scale, pa_bypass=ix.chip_pa_bypass)
         else:
             # the shared front end's own chain at 1×: its PA bypassed (the IF is taken
             # before it) and its LO off — in this build the one LO profile is the fixed
@@ -488,7 +526,8 @@ class IfExtender:
 
     def describe(self) -> dict:
         st = self.tx.stage
-        return {"chip": self.chip, "plan": self.plan, "interstage_gain_db": st.interstage_gain_db,
+        return {"chip": self.chip, "chip_pa_bypass": not self.tx.params.pa_enabled if self.chip == "wifitrx" else None,
+                "plan": self.plan, "interstage_gain_db": st.interstage_gain_db,
                 "chip_pout_dbm": self.chip_pout_dbm, "pout_dbm": self.pout_dbm,
                 "dpd_observation": self.dpd_observation, "dpd_mmw": self.dpd_mmw,
                 "if_filter_ripple_db": st.if_filter.ripple_in_band_db(self.tx.params.bandwidth_hz),
