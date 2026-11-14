@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### 拓扑 A：芯片 PA 旁路一档（2026-11-14，ROADMAP A1）—— 预设不变，同台表多一行
+- `ifext.chip_pa_bypass`：IF 从芯片的混频器输出取，芯片 PA 断电（`assumed.ifext_chip_pa_bypass`；预设 False）。wifitrx 的交付序列在这条链上真跑（铁律 4）：校准耦合器跟着移到 PA 前，衰减减去实测的 PA 大信号增益（25.6 dB）；DPD 步不跑；tx_power 步只建表。只对 `chip: wifitrx` 有效，与 `chip_pout_dbm` 互斥。
+- 功率列：旁路时去掉芯片 PA 一块，在“没计”里说明。`chip_facts` 多了 `pa_bypass` / `pa_bypass_gain_db`，旁路时 `pa_dc_w` 为 0。
+- 示例 04 加一行：11be 320 MHz 的拓扑 A，芯片 PA 旁路。底板 / 上限不动；合规口径 1712 → 1200 pJ/bit（比拓扑 B 80 MHz × 4 的 1268 省，全表第二），解码器口径 765 → 538（B 487）。已有各行的数不变；灵敏度节因多一行，Walden 区间、频综 ×2 的排名、PA 回退与解码器裕量的行数跟着变。
+- 示例 06 加 §5b：80 MHz 预设上旁路前后的校准读数、级间（−28.50 → −2.65 dB，仍是衰减）、上限与 pJ/bit（2143 → 1236，芯片 PA 原占 907）。
+- **发现**：wifitrx 序列的 IIP2 耦合器衰减有 30 dB 的绝对下限，耦合器在 PA 前时顶住，`rx_iip2` 判失败（74.5 → 42.9 dBm）；测试守着这一条，ROADMAP A1 记着。
+- **验收**：指纹逐位不变；新测试变异两处（功率列不去芯片 PA、建链不关 PA）都红，还原都绿。
+
 ### 拓扑 A 的固定 LO：pllsim 剖面放在 LO 频率上，加 ×9 一档（2026-11-14，ROADMAP A1）—— 预设的数不变
 - **修正**：`model: profile` 的 LO 剖面原来对两条拓扑都放在载频上；拓扑 A 的固定 LO 在 f_c − f_IF = 54.0 GHz，配 pllsim 剖面时用的是 60.48 GHz 的 ×10 文件，IPN 高 0.95 dB。现在按 `Mmw60Config.lo_hz`（零中频是载频，拓扑 A 是 f_c − f_IF）放：`Frontend60.from_config`、`LinkSim`、拓扑 A 的 60 GHz 级、同台表与网格的解析相噪项都读这个频率。
 - `Lo60.at(freq)`：同一个 LO 设计在另一频率上。1 极 1 零与 WiFi 7 剖面给在 LO 输出端、不带频率，返回共享实例本身（铁律 2 的同一对象不变）；pllsim 剖面按 `profile_at_carrier` 重放（整数倍；经过 ×N 块的文件只在自己的 f0 上用）。所以拓扑 B 建的共享前端交给拓扑 A 时，剖面落在 54.0 GHz 上。

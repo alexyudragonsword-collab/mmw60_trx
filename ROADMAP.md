@@ -5,8 +5,10 @@
 ## A. 里程碑 1 —— 两条拓扑同台（主体都已落地；下面是剩余项）
 
 ### A1. 拓扑 A 的剩余项（主体已落地：`src/mmw60/ifext.py`、示例 06、`cairn/topology-a.md`）
-- **芯片的 PA 当驱动级太贵**：芯片 PA 在 13.3 dBm 耗 294 mW（10.1 dBm 时 202 mW），而它的输出要先衰减 28.5 dB 才到 60 GHz PA 的驱动电平；同样 320 MHz，解码器上限下拓扑 A 是 MCS6、1297 Mb/s、765 pJ/bit，拓扑 B（80 MHz × 4）是 MCS5、1153 Mb/s、487 pJ/bit；芯片 PA 一项在合规上限（576 Mb/s）下是 512 pJ/bit。（2026-11-13 回退从 8 dB 改成 7.5 dB 之前：衰减 29.1 dB，762 对 483 pJ/bit。2026-11-12 预设换成测量的 PA 之前：衰减 24 dB，两者同是 865 Mb/s，1128 对 628 pJ/bit，芯片 PA 占 339。）
-  复现：`python examples/06_topology_a_if_extender.py` §5、`examples/04_comparison_table.py` §4。待做：芯片 PA 旁路（IF 从 PA 前取）的一档，wifitrx 的 `TxParams.pa_enabled = False` 加上它的 DPD / tx_power 两步怎么处理。
+- **芯片 PA 旁路这一档留下的**（2026-11-14 已建：`ifext.chip_pa_bypass`，预设不开；`cairn/topology-a.md` §6b）：320 MHz 解码器口径 765 → 538 pJ/bit，拓扑 B 487；合规口径 1712 → 1200，比 B 的 1268 省。
+  - **IIP2 校准在旁路链上不收敛**：wifitrx 序列里 IIP2 一步的耦合器衰减是 `max(主路 − 10, 30)` dB，30 dB 是绝对下限，按 PA 输出电平的双音定的。耦合器在 PA 前时主路只有 14.4 dB（11be 80 MHz），下限顶住，双音低约 25.6 dB：`rx_iip2` 判失败、IIP2 74.5 → 42.9 dBm。复现：`python examples/06_topology_a_if_extender.py` §5b，或 `tests/test_ifext.py::test_law4_a_bypassed_chip_pa_is_calibrated_on_its_own_chain`。链路仿真里没有阻塞信号，不进链路 EVM。要上游改（下限随 TX 输出电平走）就报 wifi_trx_cal，待定。
+  - 另一种做法没建：带着 PA 按交付方式校准、链路上再旁路（IIP2 照常，IQ 估计里混进 PA 失真，残差要在旁路模式下另量）。
+  - 旁路后剩下的差：每端两个频综（芯片的 + 固定 LO）与 4 倍过采样的转换器。
 - **间接学习越迭代越差，靠近饱和时 1 轮也不够**：60 GHz 观测回环的 DPD 在回退 6 dB 上每一轮都不如不加（观测读数 不加 −18.41、第 1 轮 −16.27 dB），留芯片上的；8 dB 上值 +1.63 dB（示例 06 §3）。换成压缩更陡的测量形状之后，第 2、3 轮照样越来越差。
   整套序列搬到 60 GHz 观测上，IQ 校准的 IRR 从 55.7 掉到 47.5 dB，芯片自己输出端的 TX EVM 掉到 −14.2 dB（§2）。（2026-11-13 回退改成 7.5 dB 之前：48.4 dB、−15.8 dB。2026-11-12 预设换成测量的 PA 之前：6 dB 上 −16.0 / −14.6，8 dB 上 +1.2；IRR 掉到 37.9 dB，芯片输出 −11.9 dB。）挑哪一轮现在由 wifitrx 的 DPD 步自己做（0.7.39），本库只再和芯片上原有的比（`train_dpd_mmw`）。
   待做：这类 PA 上换直接学习，或目标增益按可达的峰值输出折算（PA_DPD 有 `dpd/direct.py`，针对样条预失真器；已在 PA_DPD#4 上问对方要不要单开 issue）；
