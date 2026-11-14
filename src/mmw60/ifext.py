@@ -146,18 +146,59 @@ class MmwTxStage:
 
 @dataclass
 class MmwRxStage:
-    """Fixed-LO down-conversion → IF filter, in front of the chip's receiver.
-    Unit gain: the SNR axis stays the chip's own (noise figure of its LNA
-    state); what the stage adds is its LO's phase noise, the filter and the
-    noise of the unrejected image band."""
+    """The 60 GHz LNA / down-mixer → fixed-LO down-conversion → IF filter, in
+    front of the chip's receiver.
+
+    The LNA is the shared front end's ``rx_front`` at its maximum-gain state,
+    a fixed-gain block (``lna_gain_db``, ``lna_nf_db``, ``lna_iip3_dbm``; the
+    chip's own ladder does the AGC behind it) — present only when that front end is a 60 GHz
+    one (``RxFront60.sourced``).  The preset's WiFi 7 ladder is the chip's own
+    ladder, so with it the stage has no LNA (``lna_nf_db`` None) and unit
+    gain: the noise figure is the chip's, as it was (data/spec:
+    assumed.ifext_rx_front60).  The observation loopback (``lo_shared_loopback``)
+    enters at the mixer, past the LNA."""
     lo_profile: NoiseSource | None = None
     if_filter: IfFilter = field(default_factory=IfFilter)
     image_rejection_db: float | None = None
     lo_shared_loopback: bool = False
     seed: int = 0
+    lna_gain_db: float = 0.0
+    lna_nf_db: float | None = None
+    lna_iip3_dbm: float | None = None    # None = linear
 
-    def __call__(self, y: np.ndarray, fs: float, rng: np.random.Generator | None = None) -> np.ndarray:
+    @property
+    def lna_on(self) -> bool:
+        return self.lna_nf_db is not None
+
+    def front_gain_db(self) -> float:
+        """Gain from the 60 GHz input to the chip's input (the LNA's; the mixer and filter at unity)."""
+        return float(self.lna_gain_db) if self.lna_on else 0.0
+
+    def cascade_nf_db(self, chip_nf_db: float) -> float:
+        """Friis: F1 + (F2 − 1) / G1 with the chip's state noise figure as F2;
+        the chip's own figure when there is no LNA."""
+        if not self.lna_on:
+            return float(chip_nf_db)
+        f1, g1, f2 = (10.0 ** (float(v) / 10.0) for v in (self.lna_nf_db, self.lna_gain_db, chip_nf_db))
+        return float(10.0 * np.log10(f1 + (f2 - 1.0) / g1))
+
+    def __call__(self, y: np.ndarray, fs: float, rng: np.random.Generator | None = None,
+                 noise: bool = True) -> np.ndarray:
         y = np.asarray(y, dtype=complex)
+        if self.lna_on and not self.lo_shared_loopback:
+            if noise:
+                # input-referred kT·(F1 − 1/G1): the chip adds kT·F2 at its input after
+                # the gain, so the total is Friis' kT·(F1 + (F2 − 1)/G1) exactly
+                from .vendor.wifitrx.impairments.noise import noise_at_density
+                from .vendor.wifitrx.units import KT_DBM_HZ
+                f1, g1 = 10.0 ** (self.lna_nf_db / 10.0), 10.0 ** (self.lna_gain_db / 10.0)
+                rng_n = np.random.default_rng(self.seed + 17) if rng is None else rng
+                y = y + noise_at_density(y.size, fs, KT_DBM_HZ + 10.0 * np.log10(f1 - 1.0 / g1), rng_n)
+            if self.lna_iip3_dbm is not None:
+                # the same memoryless cubic wifitrx's receiver applies per gain state, input-referred
+                from .vendor.wifitrx.impairments.nonlinear import MemorylessNonlin
+                y = MemorylessNonlin(iip3_dbm=float(self.lna_iip3_dbm)).apply(y)
+            y = y * db_to_amp(self.lna_gain_db)
         if self.lo_profile is not None and not self.lo_shared_loopback:
             rng = np.random.default_rng(self.seed + 13) if rng is None else rng
             y = y * np.exp(1j * _lo_phase(self.lo_profile, y.size, fs, rng))
@@ -203,8 +244,17 @@ class IfExtenderRx(RxChain):
 
     def __call__(self, y_rf, phi_lo=None, rng=None, nodes=None):
         if self.stage is not None and self.stage_on:
-            y_rf = self.stage(y_rf, self.fs, self.stage_rng)
+            y_rf = self.stage(y_rf, self.fs, self.stage_rng, noise=self.noise_enabled)
         return super().__call__(y_rf, phi_lo=phi_lo, rng=rng, nodes=nodes)
+
+    def front_gain_db(self) -> float:
+        """Gain from the 60 GHz input to the chip's input (0 dB without a 60 GHz LNA)."""
+        return self.stage.front_gain_db() if self.stage is not None and self.stage_on else 0.0
+
+    def cascade_nf_db(self) -> float:
+        """The receive noise figure at the 60 GHz input for the chip's current gain state."""
+        nf = self.params.lna_states[self.lna_idx].nf_db
+        return self.stage.cascade_nf_db(nf) if self.stage is not None and self.stage_on else float(nf)
 
 
 # ---------------------------------------------------------------- the chip, built and calibrated
@@ -409,8 +459,14 @@ class IfExtender:
         tx_stage = MmwTxStage(pa=fe.scaled_pa() if fe.pa_enabled else None,
                               lo_profile=lo_prof if sides in ("tx", "both") else None,
                               if_filter=flt, seed=cfg.seed)
+        # the 60 GHz LNA / mixer ahead of the chip is the shared front end's receive face when that
+        # is a 60 GHz one; the preset's WiFi 7 ladder is the chip's own (assumed.ifext_rx_front60)
+        rxf = fe.rx_front
         rx_stage = MmwRxStage(lo_profile=lo_prof if sides in ("rx", "both") else None, if_filter=flt,
-                              image_rejection_db=ix.image_rejection_db, seed=cfg.seed)
+                              image_rejection_db=ix.image_rejection_db, seed=cfg.seed,
+                              lna_gain_db=rxf.gain_db if rxf.sourced else 0.0,
+                              lna_nf_db=rxf.nf_db if rxf.sourced else None,
+                              lna_iip3_dbm=rxf.iip3_dbm if rxf.sourced else None)
         if ix.chip == "wifitrx":
             tx, rx, res = calibrated_chip(bandwidth_hz, fs_hz, ix.chip_seed, ix.with_dpd,
                                           ix.chip_pout_dbm, drive_scale, pa_bypass=ix.chip_pa_bypass)

@@ -26,7 +26,7 @@ What the tables answer:
    — a TDD link never sees it, a full-duplex link and a radar do, and they
    read different columns;
 4. the antenna gains against the EIRP limit and the path loss the link takes;
-5. where the receive face is not consumed (topology A).
+5. topology A's receive face: the 60 GHz LNA / mixer ahead of the chip, against topology B.
 
     python examples/08_frontend_faces.py [--quick]
 """
@@ -222,19 +222,26 @@ def main(argv=None) -> int:
           f"receive front end; one element each end, no array gain — milestone 2)")
 
     # ---------------------------------------------------------------- 5
-    print("\n== 5. where the receive face is not consumed ==")
+    print("\n== 5. topology A's receive face: the 60 GHz LNA / mixer ahead of the chip (assumed.ifext_rx_front60) ==")
     if quick:
         print("topology A (skipped in quick mode: it calibrates the chip first)")
     else:
         a0 = if_extender_60ghz()
         a1 = surveyed_frontend(a0)
         t = spec.per_threshold_db(a0.phy.standard, a0.phy.bandwidth_hz, MCS_ROWS[0])
-        sa = [LinkSim(dc.replace(c, channel=FLAT)).rx_input_dbm_for_snr(t) for c in (a0, a1)]
+        sims = [LinkSim(dc.replace(c, channel=FLAT)) for c in (a0, a1)]
+        sa = [s.rx_input_dbm_for_snr(t) for s in sims]
+        nfa = [s._rx_nf_db() for s in sims]
+        sb = [LinkSim(dc.replace(c, channel=FLAT)).rx_input_dbm_for_snr(thr[MCS_ROWS[0]]) for c in (preset, surveyed)]
+        st = sims[1].ifx.rx.stage
         print(f"topology A ({a0.phy.standard} {a0.phy.bandwidth_hz / 1e6:g} MHz): sensitivity at MCS {MCS_ROWS[0]}, preset "
-              f"{sa[0]:.1f} dBm, surveyed front end {sa[1]:.1f} dBm, difference {sa[1] - sa[0]:.2f} dB")
-        print("its 60 GHz receive stage is unit gain and adds no noise of its own (the image band's folding aside): the "
-              "noise figure on its SNR axis is the WiFi 7 chip's ladder, which is what the chip is.  A 60 GHz LNA / mixer "
-              "in front of it is not modelled (ROADMAP)")
+              f"{sa[0]:.1f} dBm (noise figure {nfa[0]:.2f} dB), surveyed front end {sa[1]:.1f} dBm ({nfa[1]:.2f} dB), "
+              f"difference {sa[1] - sa[0]:.2f} dB")
+        print(f"topology B (this example's {preset.phy.standard} {BASE_BW / 1e6:g} MHz x {K}): preset {sb[0]:.1f} dBm, "
+              f"surveyed front end {sb[1]:.1f} dBm, difference {sb[1] - sb[0]:.2f} dB")
+        print(f"with a 60 GHz front end, topology A puts its maximum-gain state ahead of the chip (gain {st.lna_gain_db:g} dB, "
+              f"NF {st.lna_nf_db:g} dB, IIP3 {st.lna_iip3_dbm:g} dBm) and cascades the chip's ladder behind it (Friis); "
+              "the preset's WiFi 7 ladder is the chip's own and is not put in front of it twice")
     print(f"\n[{time.time() - t0:.0f}s]")
     return 0
 

@@ -195,10 +195,22 @@ class LinkSim:
         the LNA state's noise figure (AGC and NF are solved together)."""
         p = -60.0
         for _ in range(3):
-            self.rx.agc(p)
-            nf = self.rx.params.lna_states[self.rx.lna_idx].nf_db
-            p = snr_tone_db + KT_DBM_HZ + nf + 10 * np.log10(self.occupied_bw_hz)
+            self._agc(p)
+            p = snr_tone_db + KT_DBM_HZ + self._rx_nf_db() + 10 * np.log10(self.occupied_bw_hz)
         return float(p)
+
+    def _agc(self, p_in_dbm: float) -> None:
+        """The receiver's AGC for an input of ``p_in_dbm`` at the 60 GHz input:
+        topology A's chip sees it after the 60 GHz LNA's gain (0 dB without one)."""
+        g = self.ifx.rx.front_gain_db() if self.ifx is not None else 0.0
+        self.rx.agc(p_in_dbm + g if g else p_in_dbm)
+
+    def _rx_nf_db(self) -> float:
+        """The noise figure at the receiver input for the AGC's state; topology A
+        cascades the 60 GHz LNA (when there is one) ahead of the chip."""
+        if self.ifx is not None:
+            return self.ifx.rx.cascade_nf_db()
+        return float(self.rx.params.lna_states[self.rx.lna_idx].nf_db)
 
     def _impair_chain(self, x: np.ndarray, rng: np.random.Generator, snr_db: float | None):
         fs = self.phy.fs_eff
@@ -221,10 +233,11 @@ class LinkSim:
             p_in = self.rx_input_dbm_for_snr(snr_db)
             rx.noise_enabled = True
         y = y * db_to_amp(p_in - power_dbm(y[n_sil:]))
-        rx.agc(p_in)
+        self._agc(p_in)
         if self.ifx is not None and rx.noise_enabled and rx.stage.image_rejection_db is not None:
-            # the image band's noise folded in by the down-conversion (topology A only)
-            nf = rx.params.lna_states[rx.lna_idx].nf_db
+            # the image band's noise folded in by the down-conversion (topology A only),
+            # referred to the 60 GHz input with the cascaded noise figure
+            nf = rx.cascade_nf_db()
             sigma2 = 10 ** ((KT_DBM_HZ + nf - rx.stage.image_rejection_db) / 10) * fs
             y = y + np.sqrt(sigma2 / 2) * (rng.standard_normal(y.size) + 1j * rng.standard_normal(y.size))
         phi_rx = rx.lo_phase(y.size, rng) if rx.params.lo.enabled else None

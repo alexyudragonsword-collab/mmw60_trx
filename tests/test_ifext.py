@@ -10,7 +10,8 @@ import pytest
 
 from mmw60 import compare
 from mmw60 import spec
-from mmw60.config import ChannelConfig, Mmw60Config, PhaseNoiseConfig, if_extender_60ghz, zero_if_60ghz
+from mmw60.config import (ChannelConfig, Mmw60Config, PhaseNoiseConfig, if_extender_60ghz, surveyed_frontend,
+                          zero_if_60ghz)
 from mmw60.frontend import Frontend60
 from mmw60.frontend.grid import analytic_floors
 from mmw60.impairments.phase_noise import load_clock_profile
@@ -24,6 +25,7 @@ from mmw60.vendor.wifitrx.chain.rx import RxChain
 from mmw60.vendor.wifitrx.chain.tx import TxChain
 from mmw60.vendor.wifitrx.impairments.phase_noise import cpe_partition
 from mmw60.vendor.wifitrx.link.evm_budget import PN_BAND_HZ, EvmBudget
+from mmw60.vendor.wifitrx.units import power_dbm
 
 FLAT = ChannelConfig(model="flat")
 BW, OS = 20e6, 4
@@ -228,6 +230,43 @@ def test_law4_the_chip_is_calibrated_by_running_wifitrx_sequence():
     # each call hands out its own chains (a sweep must not share AGC / gain state) on the same calibration
     tx2, rx2, res2 = calibrated_chip(BW, FS, 5, True, None, 0.15)
     assert tx2 is not tx and rx2 is not rx and res2 is res and tx2.dpd is tx.dpd
+
+
+def test_law2_topology_a_consumes_the_shared_receive_front_end():
+    """ROADMAP C9: topology A's 60 GHz LNA / mixer is the shared front end's
+    receive face (its maximum-gain state, assumed.ifext_rx_front60), so a
+    60 GHz front end moves A's sensitivity as it moves B's.  The preset's
+    WiFi 7 ladder is the chip's own and is not put in front of it twice."""
+    a0 = small()
+    a1 = surveyed_frontend(a0)
+    fe0, fe1 = Frontend60.from_config(a0), Frontend60.from_config(a1)
+    s0, s1 = LinkSim(a0, frontend=fe0), LinkSim(a1, frontend=fe1)
+    st0, st1 = s0.ifx.rx.stage, s1.ifx.rx.stage
+    assert not fe0.rx_front.sourced and not st0.lna_on and s0.ifx.rx.front_gain_db() == 0.0
+    assert fe1.rx_front.sourced and st1.lna_on
+    rxf = fe1.rx_front
+    assert (st1.lna_gain_db, st1.lna_nf_db, st1.lna_iip3_dbm) == (rxf.gain_db, rxf.nf_db, rxf.iip3_dbm)
+    # sensitivity: dB for dB with the front end's noise figure, as topology B's
+    t = 2.0
+    da = s1.rx_input_dbm_for_snr(t) - s0.rx_input_dbm_for_snr(t)
+    b0 = dc.replace(zero_if_60ghz(k=4, standard="11be", bandwidth_hz=BW), channel=FLAT)
+    b1 = surveyed_frontend(b0)
+    db_ = LinkSim(b1).rx_input_dbm_for_snr(t) - LinkSim(b0).rx_input_dbm_for_snr(t)
+    assert da == pytest.approx(rxf.nf_db - fe0.rx_front.nf_db, abs=0.05) and da == pytest.approx(db_, abs=0.05)
+    assert s1._rx_nf_db() == pytest.approx(st1.cascade_nf_db(s1.rx.params.lna_states[s1.rx.lna_idx].nf_db))
+    # the LNA's noise is in the time domain: on the SNR axis both read the same EVM
+    e0 = evm_at(a0, 10.0, n_packets=2, frontend=fe0)["evm_db"]
+    e1 = evm_at(a1, 10.0, n_packets=2, frontend=fe1)["evm_db"]
+    assert e1 == pytest.approx(e0, abs=0.5)
+    # the 60 GHz observation loopback enters at the mixer, past the LNA
+    x = np.exp(2j * np.pi * 0.01 * np.arange(4096)) * 1e-3
+    st0.lo_shared_loopback = st1.lo_shared_loopback = True
+    try:
+        assert np.array_equal(st1(x, FS, noise=False), st0(x, FS, noise=False))
+    finally:
+        st0.lo_shared_loopback = st1.lo_shared_loopback = False
+    gain = power_dbm(st1(x, FS, noise=False)) - power_dbm(st0(x, FS, noise=False))
+    assert gain == pytest.approx(rxf.gain_db, abs=1e-3)
 
 
 def test_law4_a_bypassed_chip_pa_is_calibrated_on_its_own_chain():
