@@ -54,7 +54,19 @@ frontend:
   antenna_gain_dbi: 0.0
   eirp_limit_dbm: null
   array:
-    n_elements: 1
+    tx_nx: 1
+    tx_ny: 1
+    rx_nx: 1
+    rx_ny: 1
+    spacing_lambda: 0.5
+    element_pattern: isotropic
+    phase_bits: null
+    steering: phase
+    gain_err_db_rms: 0.0
+    phase_err_deg_rms: 0.0
+    error_seed: 0
+    scan_max_deg: 60.0
+    sector_oversampling: 1.0
 channel:
   model: flat
   rms_delay_ns: 7.0
