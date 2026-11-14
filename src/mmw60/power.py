@@ -169,11 +169,14 @@ def power_report(cfg, fe, bit_rate_bps: float, coeffs: PowerCoefficients | None 
         omitted.append("PA ideal (no DC power counted)")
     topo_a = cfg.topology == "if_extender"
     # topology A: the chip's own PA drives the 60 GHz stage (measured on the calibrated chip)
-    if topo_a and cfg.ifext.chip == "wifitrx":
+    if topo_a and cfg.ifext.chip == "wifitrx" and not cfg.ifext.chip_pa_bypass:
         from .ifext import chip_facts
         f = chip_facts(cfg, bw, fs)
         blocks.append(PowerBlock("chip_pa", f["pa_dc_w"],
                                  f"the chip's PA as the driver: Pout {f['pout_dbm']:.1f} dBm, average PAE {100 * f['pa_pae']:.1f} %"))
+    elif topo_a and cfg.ifext.chip == "wifitrx":
+        omitted.append("the chip's PA bypassed and powered down (the IF taken at its mixer output; "
+                       "assumed.ifext_chip_pa_bypass): no driver counted")
     # synthesizers
     mm = cfg.carrier_hz >= k.mmwave_above_hz
     p_lo = k.pll60_w if mm else k.pll_sub7_w

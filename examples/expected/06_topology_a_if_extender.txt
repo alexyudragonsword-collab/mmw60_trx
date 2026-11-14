@@ -93,6 +93,22 @@ chip Pout[dBm] (OBO1 from its Psat)   chip residual   OBO2 6: EVM / cap   OBO2 8
     18.9 ( 9.1)                  -29.0         -17.7 / MCS4          -20.0 / MCS6          -21.4 / MCS6          -22.1 / MCS7      chip PA DC 555 mW
 the chip's output is padded down to the 60 GHz PA's drive (interstage), so its back-off costs DC power, not link EVM, until its own residual reaches the 60 GHz PA's.
 
+== 5b. the chip's PA bypassed: the IF taken at its mixer output, the PA powered down (assumed.ifext_chip_pa_bypass) ==
+wifitrx's sequence on the bypassed chain: the coupler ahead of the PA, its attenuation lowered by the PA's measured gain 25.6 dB; 13 steps run (14 with the PA in: dpd not run); failed: rx_iip2
+step                   reading         chip PA in  bypassed
+tx_iq                  irr_min_db           55.67     62.21
+rx_iq                  irr_min_db           55.56     54.44
+rx_iip2                iip2_dbm             74.50     42.93
+tx_lo_leak_loopback    lo_leak_dbc         -66.06    -66.27
+final_loopback_evm     evm_db              -43.49    -43.92
+final_loopback_evm     tx_evm_db           -43.17    -45.18
+final_loopback_evm     rx_evm_db           -40.39    -40.41
+interstage to the 60 GHz PA: -28.50 dB with the chip PA in, -2.65 dB bypassed (an attenuation either way: no driver needed); 60 GHz PA out 7.08 / 7.10 dBm
+                            floor     TD  dec cap   Mb/s  pJ/bit of it chip PA
+chip PA in (the preset)     -19.6  -20.4     MCS6    324    2143           907
+chip PA bypassed            -19.6  -20.3     MCS6    324    1236             —
+the 320 MHz pair against topology B's 80 MHz x 4 is in example 04 (tables 4 / 4b)
+
 == 6. CFO (iron rule 3): crystals x carrier against the chip's estimators, and the multi-link pre-compensation ==
 raw offset (ppm_tx + ppm_rx) x f_c = 40 ppm x 60.48 GHz = 2.419 MHz = 31.0 subcarriers; the chip's L-STF reaches +-625 kHz
 sub-7 GHz link at 5.5 GHz: offset 220.0 kHz, ratio f_c / f_sub7 = 11.00

@@ -2,8 +2,9 @@
 
 Rows: the WiFi 7 chain at K = 1 on a 6 GHz carrier, topology B at K = 1 / 4 /
 8 / 16 / 32 on 60.48 GHz (11ac 20 MHz base) and K = 4 … 32 on the 11be
-80 MHz base; topology A and the two 802.11ay waveforms are listed with the
-milestone that brings them.  One ``Frontend60`` instance — PA, converters,
+80 MHz base; topology A (the IF extender) on 11ac 20 MHz and 11be 80 / 320
+MHz, the 320 MHz row once more with the chip's PA bypassed; the two 802.11ay
+waveforms are listed with the milestone that brings them.  One ``Frontend60`` instance — PA, converters,
 IQ, LO chain, EIRP ceiling — is handed to every ``LinkSim`` (iron rule 2).
 Per row: numerology, CFO capture, the analytic EVM floor and its terms, the
 time-domain EVM of the same cell (flat channel, no noise), wifitrx's
@@ -80,8 +81,14 @@ def main(argv=None) -> int:
         schemes += [s for s in compare.scheme_matrix(ks=(4, 8, 16, 32), standard="11be", bandwidth_hz=80e6)
                     if s.status == "built"]
         # topology A on the widest channel the chip has: the same 320 MHz at 60 GHz as 80 MHz × 4
-        schemes += [s for s in compare.scheme_matrix(ks=(), standard="11be", bandwidth_hz=320e6)
-                    if s.key == ("if_extender", "be")]
+        a320 = [s for s in compare.scheme_matrix(ks=(), standard="11be", bandwidth_hz=320e6)
+                if s.key == ("if_extender", "be")]
+        schemes += a320
+        # the same row with the chip's PA bypassed: the IF taken at its mixer output, the PA
+        # powered down (assumed.ifext_chip_pa_bypass; the chip's calibration runs on that chain)
+        schemes += [compare.Scheme(s.label.replace("IF extender", "IF ext. PA bypass"), s.topology, s.waveform,
+                                   dc.replace(s.cfg, ifext=dc.replace(s.cfg.ifext, chip_pa_bypass=True)))
+                    for s in a320]
     fe = Frontend60.from_config(zero_if_60ghz(k=8))
     d = fe.describe()
     print(f"mmw60 {__version__}; {'QUICK' if quick else 'full'}; one Frontend60 for every row: PA {d['pa']} Psat "
