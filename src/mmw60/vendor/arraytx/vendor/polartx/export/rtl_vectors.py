@@ -1,0 +1,323 @@
+# Vendored from array_tx@5815c5a7ea43143fd58502d4894ac840b5b5fb86: src/arraytx/vendor/polartx/export/rtl_vectors.py
+# Adapted-copy policy: see src/mmw60/vendor/__init__.py
+# Vendored from polar_tx@b007e60: src/polartx/export/rtl_vectors.py
+# Adapted-copy policy: see src/arraytx/vendor/__init__.py
+"""Integer golden-vector sets of two RTL blocks, for an external lockstep.
+
+``export/rtl.py`` emits each block with its own self-checking Verilog
+testbench and golden CSV.  This module writes the same bit-true goldens as
+plain streams (one integer per line, a ``*_dims.svh`` with the widths and a
+``*_meta.json``) so another repository can pin them by hash and hold its
+own implementation to them sample by sample (dsp_ip ``ip/dtc_dither`` and
+``ip/polar_dpd_lut``):
+
+* ``dtc_random`` / ``dtc_ramp`` — the DTC code path's first-order
+  error-feedback quantizer (``efm1_int_golden``): phase word in, dithered
+  DTC code out.  ``random`` is the exact stream ``emit_dtc_dither_rtl``
+  checks (seed 7, 2048 words); ``ramp`` feeds it what it sees in use, a
+  modulo-2^w phase accumulator (``phase_acc_golden``) driven by a constant
+  fractional frequency word, which exercises the wrap and the error
+  carry over thousands of cycles.
+* ``dpd_lut`` — the polar DPD dual LUT (``quantize_dpd_luts``) of the DPA
+  ``run_rtl_export`` ships: ROM images (``dpd_amp.memh`` / ``dpd_ph.memh``,
+  the format ``emit_dpd_rtl`` writes), an address stream (every address,
+  then the 8-bit envelope command of a WiFi OFDM burst), and the looked-up
+  codes.  The meta also carries the float LUT the codes quantize, so the
+  consumer can measure the quantization against it.
+
+* ``cfr_clip`` / ``phase_acc`` / ``thermo`` — the other three blocks ``emit_datapath`` ships
+  (``cfr_clip_golden``, ``phase_acc_golden``, ``thermo_decode_golden``) as streams:
+  ``emit_cfr_clip_rtl``'s random envelope words (seed 3) followed by a WiFi-20 burst's
+  envelope; ``emit_phase_acc_rtl``'s random frequency words (seed 11, 16 bit); every code of
+  the 10-bit / 7-thermo DPA.
+* ``datapath`` — the whole digital polar datapath as one bit-true chain (``datapath_golden``):
+  amplitude path CFR clip -> DPD amplitude LUT -> DPA thermometer/binary decode, phase path
+  phase accumulator -> minus the DPD AM-PM correction -> EFM1 dither, driven by a WiFi-20
+  burst. The stage-to-stage word widths are fixed here (see ``datapath_golden``).
+
+    python -m polartx.export.rtl_vectors {dtc_random,dtc_ramp,dpd_lut,cfr_clip,phase_acc,thermo,datapath} OUTDIR
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from typing import Any
+
+import numpy as np
+
+from .rtl import (cfr_clip_golden, efm1_int_golden, phase_acc_golden, quantize_dpd_luts,
+                  thermo_decode_golden)
+
+DTC_N_BITS, DTC_FRAC_BITS = 11, 8
+DTC_RAMP_FCW = 0.0123456789     # cycles of the 2^w phase word per sample
+DTC_RAMP_N = 4096
+# the DPA of run_rtl_export (guiutil) / the polar-DPD RTL export
+DPA_KW: dict[str, Any] = dict(n_bits=10, n_thermo=7, sigma_cell=0.01,
+                              amam=("rapp", 2.5, 1.1), ampm_deg_poly=(0.0, 2.0, 3.0))
+SETS = ("dtc_random", "dtc_ramp", "dpd_lut", "cfr_clip", "phase_acc", "thermo", "datapath")
+CFR_W = 12                      # envelope word of emit_cfr_clip_rtl
+CFR_T = int(0.75 * ((1 << CFR_W) - 1))   # its default threshold (3071)
+ACC_W = DTC_N_BITS + DTC_FRAC_BITS       # 19-bit phase word: the DTC dither's input
+
+
+def _write_ints(path: str, values) -> None:
+    with open(path, "w", newline="\n") as f:
+        f.write("\n".join(str(int(v)) for v in values) + "\n")
+
+
+def _write_text(path: str, text: str) -> None:
+    with open(path, "w", newline="\n") as f:
+        f.write(text)
+
+
+def _write_meta(path: str, meta: dict) -> None:
+    with open(path, "w", newline="\n") as f:
+        json.dump(meta, f, indent=1, sort_keys=True)
+        f.write("\n")
+
+
+def dtc_phase_words(kind: str, n_bits: int = DTC_N_BITS,
+                    frac_bits: int = DTC_FRAC_BITS) -> np.ndarray:
+    """The input stream of a DTC set (unsigned words of n_bits + frac_bits)."""
+    w = n_bits + frac_bits
+    if kind == "random":
+        rng = np.random.default_rng(7)               # emit_dtc_dither_rtl's stream
+        return rng.integers(0, 1 << w, 2048)
+    if kind == "ramp":
+        finc = np.full(DTC_RAMP_N, int(round(DTC_RAMP_FCW * (1 << w))), dtype=np.int64)
+        return phase_acc_golden(finc, w)
+    raise ValueError(f"unknown DTC set {kind!r}")
+
+
+def write_dtc_set(outdir: str, kind: str, n_bits: int = DTC_N_BITS,
+                  frac_bits: int = DTC_FRAC_BITS) -> dict:
+    os.makedirs(outdir, exist_ok=True)
+    xw = dtc_phase_words(kind, n_bits, frac_bits)
+    code = efm1_int_golden(xw, n_bits, frac_bits)
+    _write_ints(os.path.join(outdir, "phase_w.txt"), xw)
+    _write_ints(os.path.join(outdir, "code.txt"), code)
+    _write_text(os.path.join(outdir, "dtc_dims.svh"),
+                "// generated by polartx.export.rtl_vectors -- do not edit\n"
+                f"localparam int N_BITS    = {n_bits};\n"
+                f"localparam int FRAC_BITS = {frac_bits};\n"
+                f"localparam int N_VEC     = {len(xw)};\n")
+    meta = {"set": f"dtc_{kind}", "n_bits": n_bits, "frac_bits": frac_bits,
+            "n": int(len(xw)),
+            "source": ("rng(7).integers(0, 2^w, 2048)" if kind == "random" else
+                       f"phase_acc_golden(round({DTC_RAMP_FCW} * 2^w), w), {DTC_RAMP_N} samples"),
+            "command": f"python -m polartx.export.rtl_vectors dtc_{kind} OUTDIR"}
+    _write_meta(os.path.join(outdir, "dtc_meta.json"), meta)
+    return meta
+
+
+def dpd_addresses(addr_bits: int = 8) -> np.ndarray:
+    """Every address once, then the envelope command of a WiFi-20 burst
+    (peak-normalized |x|, rounded to addr_bits) -- what the LUT is read with."""
+    from ..waveforms.ofdm import wifi_waveform
+
+    wf = wifi_waveform(bw=20e6, qam=64, n_symbols=8, seed=3)
+    env = np.abs(wf.x)
+    env = env / env.max()
+    n = 1 << addr_bits
+    stream = np.rint(env * (n - 1)).astype(np.int64)
+    return np.concatenate([np.arange(n, dtype=np.int64), stream])
+
+
+def write_dpd_set(outdir: str, addr_bits: int = 8, amp_bits: int = 12,
+                  ph_bits: int = 14) -> dict:
+    from ..cal.polar_dpd import PolarDPD
+    from ..dpa import DPA, DPAConfig
+
+    os.makedirs(outdir, exist_ok=True)
+    dpd = PolarDPD.from_dpa(DPA(DPAConfig(**DPA_KW)))
+    luts = quantize_dpd_luts(dpd, addr_bits=addr_bits, amp_bits=amp_bits,
+                             ph_bits=ph_bits)
+    amp_code, ph_code = luts["amp_code"], luts["ph_code"]
+    # ROM images exactly as emit_dpd_rtl writes them
+    _write_text(os.path.join(outdir, "dpd_amp.memh"),
+                "\n".join(f"{c:0{(amp_bits + 3) // 4}x}" for c in amp_code) + "\n")
+    _write_text(os.path.join(outdir, "dpd_ph.memh"),
+                "\n".join(f"{c & ((1 << ph_bits) - 1):0{(ph_bits + 3) // 4}x}"
+                          for c in ph_code) + "\n")
+    addr = dpd_addresses(addr_bits)
+    _write_ints(os.path.join(outdir, "addr.txt"), addr)
+    _write_ints(os.path.join(outdir, "amp.txt"), amp_code[addr])
+    _write_ints(os.path.join(outdir, "ph.txt"), ph_code[addr])
+    _write_text(os.path.join(outdir, "dpd_dims.svh"),
+                "// generated by polartx.export.rtl_vectors -- do not edit\n"
+                f"localparam int ADDR_BITS = {addr_bits};\n"
+                f"localparam int AMP_BITS  = {amp_bits};\n"
+                f"localparam int PH_BITS   = {ph_bits};\n"
+                f"localparam int N_VEC     = {len(addr)};\n")
+    x = np.arange(1 << addr_bits) / ((1 << addr_bits) - 1)
+    amp_f, ph_f = dpd.predistort(x)
+    meta = {"set": "dpd_lut", "addr_bits": addr_bits, "amp_bits": amp_bits,
+            "ph_bits": ph_bits, "n": int(len(addr)), "dpa": {k: list(v) if isinstance(v, tuple)
+                                                            else v for k, v in DPA_KW.items()},
+            "amp_float": [float(v) for v in amp_f], "ph_float_rad": [float(v) for v in ph_f],
+            "command": "python -m polartx.export.rtl_vectors dpd_lut OUTDIR"}
+    _write_meta(os.path.join(outdir, "dpd_meta.json"), meta)
+    return meta
+
+
+def _wifi20():
+    from ..polar import polar_split
+    from ..waveforms.ofdm import wifi_waveform
+
+    wf = wifi_waveform(bw=20e6, qam=64, n_symbols=8, seed=3)
+    env, phase, _ = polar_split(wf.x)
+    return env, phase
+
+
+def burst_envelope_codes(w: int = CFR_W) -> np.ndarray:
+    """WiFi-20 burst envelope, peak-normalized, as unsigned w-bit codes."""
+    env, _ = _wifi20()
+    return np.rint(env / env.max() * ((1 << w) - 1)).astype(np.int64)
+
+
+def burst_frequency_words(w: int = ACC_W) -> np.ndarray:
+    """The same burst's phase increments as w-bit frequency words (one turn = 2^w)."""
+    _, phase = _wifi20()
+    dphi = np.diff(np.concatenate([[0.0], phase]))
+    return np.rint(dphi / (2 * np.pi) * (1 << w)).astype(np.int64) & ((1 << w) - 1)
+
+
+def datapath_golden(env: np.ndarray, finc: np.ndarray, amp_rom: np.ndarray,
+                    ph_rom: np.ndarray, *, threshold: int = CFR_T, env_bits: int = CFR_W,
+                    addr_bits: int = 8, amp_bits: int = 12, dpa_bits: int = 10,
+                    n_thermo: int = 7, ph_bits: int = 14, acc_w: int = ACC_W,
+                    dtc_bits: int = DTC_N_BITS) -> dict:
+    """Bit-true digital polar datapath, sample by sample (same index in, same index out):
+
+    amplitude: e = min(env, threshold)                      (cfr_clip_golden)
+               a = e >> (env_bits - addr_bits)              (LUT address: top bits)
+               c = amp_rom[a] >> (amp_bits - dpa_bits)      (DPA code: top bits)
+               thermo, bin = decode(c, n_thermo)            (thermo_decode_golden)
+    phase:     acc = (acc + finc) mod 2^acc_w               (phase_acc_golden)
+               p = (acc - (ph_rom[a] << (acc_w - ph_bits))) mod 2^acc_w
+                   (subtract the AM-PM correction, as chain.py does; ph_rom is pi-scaled
+                    signed, one turn = 2^ph_bits)
+               code = efm1(p, dtc_bits, acc_w - dtc_bits)   (efm1_int_golden)
+    """
+    e = cfr_clip_golden(env, threshold)
+    a = e >> (env_bits - addr_bits)
+    c = np.asarray(amp_rom, dtype=np.int64)[a] >> (amp_bits - dpa_bits)
+    td = thermo_decode_golden(dpa_bits, n_thermo)
+    thermo = [td["thermo_int"][int(v)] for v in c]
+    binw = td["bin"][c]
+    acc = phase_acc_golden(finc, acc_w)
+    p = (acc - (np.asarray(ph_rom, dtype=np.int64)[a] << (acc_w - ph_bits))) & ((1 << acc_w) - 1)
+    dtc = efm1_int_golden(p, dtc_bits, acc_w - dtc_bits)
+    return {"env_clip": e, "addr": a, "dpa_code": c, "thermo": thermo, "bin": binw,
+            "acc": acc, "phase_w": p, "dtc_code": dtc}
+
+
+def _dims(path: str, **kw) -> None:
+    _write_text(path, "// generated by polartx.export.rtl_vectors -- do not edit\n"
+                + "".join(f"localparam int {k:<9} = {v};\n" for k, v in kw.items()))
+
+
+def write_cfr_set(outdir: str) -> dict:
+    os.makedirs(outdir, exist_ok=True)
+    rng = np.random.default_rng(3)                     # emit_cfr_clip_rtl's stream
+    env = np.concatenate([rng.integers(0, 1 << CFR_W, 1024), burst_envelope_codes()])
+    out = cfr_clip_golden(env, CFR_T)
+    _write_ints(os.path.join(outdir, "env.txt"), env)
+    _write_ints(os.path.join(outdir, "env_clip.txt"), out)
+    _write_ints(os.path.join(outdir, "clipped.txt"), (env > CFR_T).astype(int))
+    _dims(os.path.join(outdir, "cfr_dims.svh"), W=CFR_W, THRESHOLD=CFR_T, N_VEC=len(env))
+    meta = {"set": "cfr_clip", "w": CFR_W, "threshold": CFR_T, "n": int(len(env)),
+            "clip_fraction": float(np.mean(env > CFR_T)),
+            "command": "python -m polartx.export.rtl_vectors cfr_clip OUTDIR"}
+    _write_meta(os.path.join(outdir, "cfr_meta.json"), meta)
+    return meta
+
+
+def write_phase_acc_set(outdir: str, w: int = 16) -> dict:
+    os.makedirs(outdir, exist_ok=True)
+    rng = np.random.default_rng(11)                    # emit_phase_acc_rtl's stream
+    finc = rng.integers(0, 1 << w, 2048)
+    _write_ints(os.path.join(outdir, "finc.txt"), finc)
+    _write_ints(os.path.join(outdir, "phase.txt"), phase_acc_golden(finc, w))
+    _dims(os.path.join(outdir, "acc_dims.svh"), W=w, N_VEC=len(finc))
+    meta = {"set": "phase_acc", "w": w, "n": int(len(finc)),
+            "command": "python -m polartx.export.rtl_vectors phase_acc OUTDIR"}
+    _write_meta(os.path.join(outdir, "acc_meta.json"), meta)
+    return meta
+
+
+def write_thermo_set(outdir: str) -> dict:
+    os.makedirs(outdir, exist_ok=True)
+    n_bits, n_thermo = DPA_KW["n_bits"], DPA_KW["n_thermo"]
+    g = thermo_decode_golden(n_bits, n_thermo)
+    _write_ints(os.path.join(outdir, "code.txt"), g["codes"])
+    _write_ints(os.path.join(outdir, "thermo.txt"), g["thermo_int"])
+    _write_ints(os.path.join(outdir, "bin.txt"), g["bin"])
+    _dims(os.path.join(outdir, "thermo_dims.svh"), N_BITS=n_bits, N_THERMO=n_thermo,
+          N_VEC=len(g["codes"]))
+    meta = {"set": "thermo", "n_bits": n_bits, "n_thermo": n_thermo, "n_seg": g["n_seg"],
+            "n": int(len(g["codes"])),
+            "command": "python -m polartx.export.rtl_vectors thermo OUTDIR"}
+    _write_meta(os.path.join(outdir, "thermo_meta.json"), meta)
+    return meta
+
+
+def write_datapath_set(outdir: str) -> dict:
+    from ..cal.polar_dpd import PolarDPD
+    from ..dpa import DPA, DPAConfig
+
+    os.makedirs(outdir, exist_ok=True)
+    luts = quantize_dpd_luts(PolarDPD.from_dpa(DPA(DPAConfig(**DPA_KW))))
+    env, finc = burst_envelope_codes(), burst_frequency_words()
+    g = datapath_golden(env, finc, luts["amp_code"], luts["ph_code"])
+    _write_text(os.path.join(outdir, "dpd_amp.memh"),
+                "\n".join(f"{c:03x}" for c in luts["amp_code"]) + "\n")
+    _write_text(os.path.join(outdir, "dpd_ph.memh"),
+                "\n".join(f"{c & 0x3fff:04x}" for c in luts["ph_code"]) + "\n")
+    for name in ("env", "finc"):
+        _write_ints(os.path.join(outdir, f"{name}.txt"), locals()[name])
+    for name in ("thermo", "bin", "dtc_code"):
+        _write_ints(os.path.join(outdir, f"{name}.txt"), g[name])
+    _dims(os.path.join(outdir, "datapath_dims.svh"), ENV_BITS=CFR_W, THRESHOLD=CFR_T,
+          ADDR_BITS=8, AMP_BITS=12, PH_BITS=14, DPA_BITS=DPA_KW["n_bits"],
+          N_THERMO=DPA_KW["n_thermo"], ACC_W=ACC_W, DTC_BITS=DTC_N_BITS, N_VEC=len(env))
+    meta = {"set": "datapath", "n": int(len(env)), "threshold": CFR_T,
+            "clip_fraction": float(np.mean(env > CFR_T)),
+            "addr_used": int(len(np.unique(g["addr"]))),
+            "dpa": {k: list(v) if isinstance(v, tuple) else v for k, v in DPA_KW.items()},
+            "stages": ("cfr_clip -> dpd amp LUT -> dpa thermo decode; phase_acc - dpd "
+                       "AM-PM correction -> efm1 (rtl_vectors.datapath_golden)"),
+            "command": "python -m polartx.export.rtl_vectors datapath OUTDIR"}
+    _write_meta(os.path.join(outdir, "datapath_meta.json"), meta)
+    return meta
+
+
+def write_set(name: str, outdir: str) -> dict:
+    if name == "dpd_lut":
+        return write_dpd_set(outdir)
+    if name in ("dtc_random", "dtc_ramp"):
+        return write_dtc_set(outdir, name.split("_", 1)[1])
+    if name == "cfr_clip":
+        return write_cfr_set(outdir)
+    if name == "phase_acc":
+        return write_phase_acc_set(outdir)
+    if name == "thermo":
+        return write_thermo_set(outdir)
+    if name == "datapath":
+        return write_datapath_set(outdir)
+    raise ValueError(f"unknown set {name!r}; one of {SETS}")
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("set", choices=SETS)
+    ap.add_argument("outdir")
+    args = ap.parse_args(argv)
+    meta = write_set(args.set, args.outdir)
+    print(json.dumps({k: meta[k] for k in ("set", "n")}))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
