@@ -164,20 +164,21 @@ def _pn_terms(cfg: Mmw60Config, fe: Frontend60, phy) -> dict:
     """This library's ICI term (to fs/2) next to wifitrx EvmBudget's
     (10 kHz–100 MHz IPN less the CPE-tracked share), both for the sides on."""
     out = {"n_lo": {"both": 2, "tx": 1, "rx": 1}.get(cfg.lo.phase_noise.apply, 0)}
-    if fe.lo.profile is None or not cfg.lo.phase_noise.enabled:
+    lo = fe.lo.at(cfg.lo_hz)              # topology A: the fixed LO at f_c − f_IF
+    if lo.profile is None or not cfg.lo.phase_noise.enabled:
         out.update(ici_rad2=0.0, budget_rad2=0.0, tracked_fraction=None, ipn_dbc=None)
         return out
     t_fft, fs = phy.t_fft_eff, phy.fs_eff
-    part = cpe_partition(fe.lo.profile.psd, t_fft, 1e3, fs / 2)
-    band = cpe_partition(fe.lo.profile.psd, t_fft, PN_BAND_HZ[0], PN_BAND_HZ[1])
+    part = cpe_partition(lo.profile.psd, t_fft, 1e3, fs / 2)
+    band = cpe_partition(lo.profile.psd, t_fft, PN_BAND_HZ[0], PN_BAND_HZ[1])
     # wifitrx's ipn_dbc is the single-sideband convention (phase power / 2): the phase
     # variance EvmBudget takes is twice 10^(dBc/10).  (Until A1 this line left the 2 out
     # and the budget's phase-noise term read 3.0 dB low — cairn/comparison-table.md §3.)
-    ipn_rad2 = 2 * 10 ** (fe.lo.lo_model().ipn_dbc(*PN_BAND_HZ) / 10)
+    ipn_rad2 = 2 * 10 ** (lo.lo_model().ipn_dbc(*PN_BAND_HZ) / 10)
     out.update(ici_rad2=out["n_lo"] * part["ici_rad2"],
                budget_rad2=out["n_lo"] * ipn_rad2 * (1 - band["tracked_fraction"]),
                tracked_fraction=float(band["tracked_fraction"]),
-               ipn_dbc=float(fe.lo.lo_model().ipn_dbc(*PN_BAND_HZ)), ipn_rad2=ipn_rad2)
+               ipn_dbc=float(lo.lo_model().ipn_dbc(*PN_BAND_HZ)), ipn_rad2=ipn_rad2)
     return out
 
 
@@ -186,7 +187,8 @@ def evm_budget_reconciliation(cfg: Mmw60Config, fe: Frontend60, a: dict, pa_evm_
     where it parts from the analytic floor (only the phase-noise term can)."""
     pn = _pn_terms(cfg, fe, phy)
     t = a["terms_db"]
-    kw = dict(lo_profile=fe.lo.profile if fe.lo.profile is not None else EvmBudget().lo_profile,
+    lo = fe.lo.at(cfg.lo_hz)
+    kw = dict(lo_profile=lo.profile if lo.profile is not None else EvmBudget().lo_profile,
               t_fft_s=phy.t_fft_eff, pn_band_hz=PN_BAND_HZ)
     if "iq_image" in t:
         kw["irr_db"] = -t["iq_image"]

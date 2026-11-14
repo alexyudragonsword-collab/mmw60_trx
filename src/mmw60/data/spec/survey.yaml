@@ -203,7 +203,7 @@ entries:
     unit: law
     source: assumed
     cite: "本库 impairments/phase_noise.py::profile_at_carrier；pll_simulator#71（d67043e 落地）"
-    note: "pllsim 剖面怎么到载频：只接受整数的 f_c / f0。带倍频器的文件（pllsim export --multiply-by N，f_in/2 以内 N²·S + 底噪，以上只有底噪）只在自己的 f0 上原样使用，不再平移；不带倍频器的文件按理想规律 20·log10(N) 平移，没有底噪项。非整数比（原先 6.253 GHz 到 60.48 GHz 的 ×9.672）与分频一律报错。更正（2026-11-11）：原先的值是 '20log10'，对任意比值都平移，那一行不对应可实现的倍频器，已由 ×10 剖面替换。"
+    note: "pllsim 剖面怎么到 LO 频率（零中频是载频，拓扑 A 是 f_c − f_IF，2026-11-14 起）：只接受整数的 f_LO / f0。带倍频器的文件（pllsim export --multiply-by N，f_in/2 以内 N²·S + 底噪，以上只有底噪）只在自己的 f0 上原样使用，不再平移；不带倍频器的文件按理想规律 20·log10(N) 平移，没有底噪项。非整数比（原先 6.253 GHz 到 60.48 GHz 的 ×9.672）与分频一律报错。更正（2026-11-11）：原先的值是 '20log10'，对任意比值都平移，那一行不对应可实现的倍频器，已由 ×10 剖面替换。"
 
   assumed.lo_multiplier_floor_dbchz:
     value: -150.0
@@ -245,7 +245,14 @@ entries:
     unit: pllsim clock profile
     source: survey
     cite: "pll_simulator@d67043e1197692dc203287b437613f7b9db83bb7：pllsim export bench_wu19_spll_frac_52m_6p253g --set fout=6.048G --set osc.f0=6.048G --clock-profile <file> --multiply-by 10 --floor-dbchz=<F> --spur-rejection-db 40（F = −150，灵敏度 −160 / −140 / −130）"
-    note: "未核实（姊妹库模型输出，不是实测）：Wu 2019 预设重调到 6.048 GHz 再过对方的 ×10 倍频器模型，510 点到 30.24 GHz。本库在本地检出的该 commit 上生成（对方 examples/out/ 不入库）；底噪与抑制度是 assumed.lo_multiplier_floor_dbchz / assumed.lo_multiplier_spur_rejection_db。同台表 'LO = pllsim wu19 x10' 各行用它。拓扑 A 的 ×3 / ×4（PLL 18.0 / 13.5 GHz）超出对方模型的 12 GHz 覆盖范围，没有对应文件。"
+    note: "未核实（姊妹库模型输出，不是实测）：Wu 2019 预设重调到 6.048 GHz 再过对方的 ×10 倍频器模型，510 点到 30.24 GHz。本库在本地检出的该 commit 上生成（对方 examples/out/ 不入库）；底噪与抑制度是 assumed.lo_multiplier_floor_dbchz / assumed.lo_multiplier_spur_rejection_db。同台表 'LO = pllsim wu19 x10' 各行用它。只用于零中频（拓扑 B，LO 在载频上）；拓扑 A 的固定 LO 在 54.0 GHz，用 survey.clock_profile_wu19_x9。"
+
+  survey.clock_profile_wu19_x9:
+    value: {file: "pllsim_wu19_x9_54p0g_floor150.yaml", f0_hz: 54.0e+9, f_in_hz: 6.0e+9, multiply_by: 9}
+    unit: pllsim clock profile
+    source: survey
+    cite: "pll_simulator@d67043e1197692dc203287b437613f7b9db83bb7：pllsim export bench_wu19_spll_frac_52m_6p253g --set fout=6.0G --set osc.f0=6.0G --clock-profile <file> --multiply-by 9 --floor-dbchz=-150 --spur-rejection-db 40"
+    note: "未核实（姊妹库模型输出，不是实测）：与 survey.clock_profile_wu19_x10 同一个预设、同一个 commit，重调到 6.0 GHz 再过 ×9，507 点到 27 GHz；IPN（10 kHz–100 MHz）−34.0 dBc。拓扑 A 的固定 LO（f_c − f_IF = 54.0 GHz，lo.scheme fixed_lo_x9）用它；×3 / ×4 的 PLL（18.0 / 13.5 GHz）超出对方模型的 12 GHz 覆盖范围（pll_simulator#71），所以 pllsim 行用 ×9。倍频器底噪只生成 −150 一档：底噪四档的灵敏度在 ×10 行上已经量过（埋在 PLL 远端 N²·S 下面）。"
 
   assumed.cal_capture_symbols:
     value: 8
@@ -400,7 +407,7 @@ entries:
     unit: scheme
     source: assumed
     cite: "本库；60 GHz 常见的 LO 生成方式之一（约 20 GHz 的 PLL 接三倍频）"
-    note: "固定 LO 的倍频数：×3（PLL 18.0 GHz）或 ×4（13.5 GHz）。相噪用参数化的 1 极 1 零剖面直接给在 LO 输出端，所以 N 只进频率规划与 PLL 频率，不改相噪数字；pllsim ×10 剖面那几行是零中频 60.48 GHz 的（survey.clock_profile_wu19_x10）；对方模型不覆盖 18.0 / 13.5 GHz，拓扑 A 没有 pllsim 推出来的行（pll_simulator#71）。"
+    note: "固定 LO 的倍频数：×3（PLL 18.0 GHz）、×4（13.5 GHz）或 ×9（6.0 GHz）。相噪用参数化的 1 极 1 零剖面直接给在 LO 输出端，所以 N 只进频率规划与 PLL 频率，不改相噪数字。pllsim 剖面（model profile）放在 LO 频率 54.0 GHz 上，不在载频上；对方模型不覆盖 18.0 / 13.5 GHz，所以 pllsim 行是 ×9（survey.clock_profile_wu19_x9），经过倍频器的剖面与 lo.scheme 的倍频数对不上时报错。"
 
   assumed.ifext_filter:
     value: {bandwidth_hz: 1.2e+9, order: 5, ripple_db: 0.5, center_hz: 6.525e+9}

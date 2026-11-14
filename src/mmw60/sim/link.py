@@ -116,7 +116,7 @@ class LinkSim:
         else:
             self.cfo = CfoModel(cfg.carrier_hz, cfg.xo_ppm_tx, cfg.xo_ppm_rx)
         pn = cfg.lo.phase_noise
-        self.pn_profile = make_profile(pn, cfg.carrier_hz)
+        self.pn_profile = make_profile(pn, cfg.lo_hz)
         self.pn_sides = pn.apply if pn.enabled else "off"
         self.channel = make_channel(cfg.channel.model, cfg.channel.rms_delay_ns,
                                     cfg.channel.los_k_db, cfg.channel.taps)

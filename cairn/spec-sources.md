@@ -17,7 +17,7 @@ authoring_mode: ai_generated
 一条一个数，`source` 四选一：`spec`（原文，必须带 quote + section）、`survey`（文献 / 搜索命中，一律"未核实"）、`assumed`（原文没说，本库定）、`derived`（公式推出）。
 代码只经 `mmw60.spec.value(key)` 取，`liu2025_table2()` 预设就是这样建的。
 
-**两张表（2026-11-13 起，mmw60_trx#21）**：关于外部世界的数——规范条文、论文与数据手册的数字、只由它们推出的 derived——在共享库 spec_sources 里，按完整 SHA（`d7b4d1e`）vendor 在 `src/mmw60/vendor/spec_sources/`（读取器加 6 张表：`liu2025`、`ieee80211`、`regulatory`、`frontend60`、`pa60`、`energy`）。本库自己的取舍与产出留在 `src/mmw60/data/spec/survey.yaml`：assumed 56、derived 3、survey 3。
+**两张表（2026-11-13 起，mmw60_trx#21）**：关于外部世界的数——规范条文、论文与数据手册的数字、只由它们推出的 derived——在共享库 spec_sources 里，按完整 SHA（`d7b4d1e`）vendor 在 `src/mmw60/vendor/spec_sources/`（读取器加 6 张表：`liu2025`、`ieee80211`、`regulatory`、`frontend60`、`pa60`、`energy`）。本库自己的取舍与产出留在 `src/mmw60/data/spec/survey.yaml`：assumed 56、derived 3、survey 3（2026-11-14 加 `survey.clock_profile_wu19_x9` 后 survey 4，共 63 条）。
 `mmw60.spec` 是一层薄垫片：`all_entries()` 把两张表合起来，同一个键出现两次直接报错；公开名字一个没少，另加 `ref()`。迁移前后 125 个旧键逐条相同（8 个字段的 `repr`），只多了共享库新增的 `isolation.tx_rx_tue2018_no_ebg_min_db`；数值指纹逐位不变。
 外部的数要改，回 spec_sources 提，不改副本（`tools/vendor_check.py --strict` 连 YAML 一起逐字核对）。每张表、四个标签都按 `grep -c "source: <标签>"` 核对（`tests/test_spec_sources.py`），所以表头与注释里不写“标签词 + 冒号”。迁移前本地表的 spec 计数是 11 而条目只有 10：D4 一段注释里的那句话被多数了一次，当时的守卫只数 survey 与 assumed，没发现。
 

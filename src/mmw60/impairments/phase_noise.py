@@ -108,7 +108,9 @@ _RATIO_TOL = 1e-6      # relative tolerance on "f_c / f0 is an integer"
 
 
 def profile_ratio(prof: dict, carrier_hz: float) -> int:
-    """The integer f_c / f0 a profile may be moved by, or ValueError.
+    """The integer f_LO / f0 a profile may be moved by, or ValueError
+    (``carrier_hz`` is where the LO runs: f_c for zero-IF, f_c − f_IF for
+    topology A's fixed LO).
 
     Only an integer ratio is a frequency multiplier that can be built
     (pll_simulator#71: the earlier 6.253 GHz → 60.48 GHz row was ×9.672).  A
@@ -119,9 +121,9 @@ def profile_ratio(prof: dict, carrier_hz: float) -> int:
     n = int(round(ratio))
     where = prof.get("path", "clock profile")
     if n < 1 or abs(ratio - n) > _RATIO_TOL * max(ratio, 1.0):
-        raise ValueError(f"{where}: carrier {float(carrier_hz):.6g} Hz is x{ratio:.4f} of the profile's f0 "
+        raise ValueError(f"{where}: LO {float(carrier_hz):.6g} Hz is x{ratio:.4f} of the profile's f0 "
                          f"{float(prof['f0_hz']):.6g} Hz, not an integer multiple; generate the profile at "
-                         "carrier / N (pllsim export --multiply-by N)")
+                         "f_LO / N (pllsim export --multiply-by N)")
     if prof.get("multiply_by", 1) > 1 and n != 1:
         raise ValueError(f"{where}: already multiplied by {prof['multiply_by']} to {float(prof['f0_hz']):.6g} Hz "
                          f"(floor {prof['floor_dbchz']} dBc/Hz included); it cannot be moved to "

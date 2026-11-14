@@ -3,6 +3,18 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-14 · 拓扑 A 的固定 LO：pllsim 剖面放在 54.0 GHz，加 ×9（feat/topology-a-lo-profile，ROADMAP A1）
+
+- 用户要 ROADMAP 排优先级，按建议顺序做：这条（小、是 bug）→ 芯片 PA 旁路 → 拓扑 A 消费接收前端。
+- **被推翻的判断**：`make_profile` 对两条拓扑都传载频。拓扑 A 的固定 LO 在 f_c − f_IF = 54.0 GHz；配 pllsim 剖面时读的是 60.48 GHz 的 ×10 文件：IPN −33.04 对 −33.99 dBc（高 0.95），L(1 MHz) −98.52 对 −99.45，11be 80 MHz 解析 ICI −27.17 对 −28.11 dB。
+- 修法：`Mmw60Config.lo_hz`（零中频 = 载频）；`Lo60.at(freq)` 对 1 极 1 零 / WiFi 7 剖面返回共享实例本身，对 pllsim 剖面重放。四处调用点（60 GHz 级、`compare._pn_terms`、`grid.analytic_floors`、`LinkSim.pn_profile`）读 LO 频率。
+- ROADMAP 的复现写法其实复现不了：`lo=LoConfig(...)` 把 scheme 重置成 zero_if、if_hz 成 0；要 `dc.replace(cfg.lo, phase_noise=...)`。新测试用后者。
+- ×9 剖面：pll_simulator@d67043e 本地检出（只读），`--set fout=6.0G --set osc.f0=6.0G --multiply-by 9 --floor-dbchz=-150 --spur-rejection-db 40`，507 点到 27 GHz。经过 ×N 的文件与 `lo.scheme` 倍频数不同时报错（×3 配 ×9 文件）。
+- 示例 06 §4 新行：L(1 MHz) −99.4、IPN −34.0、ICI 解析 / EvmBudget / 时域 −28.1 / −28.1 / −27.9、底板 −20.2、时域 −21.2、MCS3 / MCS6、324 Mb/s。同 L(1 MHz) 的 1 极 1 零（−100）ICI −29.1：形状差 1 dB。上限不动。
+- 验收：指纹逐位不变；示例 06 只多两行（example_drift：其余行全同）；三处调用点变异 → 红，还原 → 绿。
+- ROADMAP 清理：C4 删 0296r16（0.3.0 已读）、C5 删（结论在 topology-b.md）、C10 末条移 E（用户定不做）。
+- 下一步：芯片 PA 旁路（A1 第一条）。
+
 ## 2026-11-14 · spec_sources 0.4.0，重新 pin 到 8e5f2e2（feat/spec-sources-0.4.0，mmw60_trx#27）
 
 - #25 已由 spec_sources 验收并关闭。#27 发来，用户定“做吧”。动手前核过：8 个文件只变 2 个；130 → 137，新增 7 条全是 spec；其余条目值与单位全同；测试里没有写死总条数。都属实。

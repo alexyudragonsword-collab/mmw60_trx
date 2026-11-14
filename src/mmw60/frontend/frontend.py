@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from ..impairments.phase_noise import make_profile
+from ..impairments.phase_noise import load_clock_profile, make_profile
 from ..pa.rapp import ModifiedRappPA
 from ..vendor.wifitrx.chain.params import RxParams, TxParams, recommended_lpf_corner_hz
 from ..vendor.wifitrx.chain.rx import RxChain
@@ -82,8 +82,11 @@ class Frontend60:
     def from_config(cls, cfg) -> "Frontend60":
         fe = cfg.frontend
         pn = cfg.lo.phase_noise
-        lo = Lo60(carrier_hz=cfg.carrier_hz, profile=make_profile(pn, cfg.carrier_hz),
-                  tx_leak_dbc=fe.lo_leak_dbc, rx_dc_dbc=fe.rx_dc_dbc)
+        # a pllsim profile sits where the LO runs: f_c for zero-IF, f_c − f_IF for topology A
+        src = load_clock_profile(pn.profile_path) if pn.enabled and pn.model == "profile" else None
+        lo = Lo60(carrier_hz=cfg.carrier_hz, profile=make_profile(pn, cfg.lo_hz),
+                  tx_leak_dbc=fe.lo_leak_dbc, rx_dc_dbc=fe.rx_dc_dbc,
+                  profile_hz=None if src is None else cfg.lo_hz, profile_source=src)
         conv = ConverterLaw(enob_ref=fe.converters.enob_ref, fs_ref_hz=fe.converters.fs_ref_hz,
                             bits_per_octave=fe.converters.bits_per_octave,
                             backoff_db=fe.converters.backoff_db)

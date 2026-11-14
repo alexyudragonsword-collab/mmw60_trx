@@ -95,8 +95,9 @@ def analytic_floors(cfg: Mmw60Config, fe: Frontend60, pa_evm_db: float | None = 
         seen <= sim_phy.ltf_capture_hz if cfg.rx.cfo_estimation == "ltf" else True)
     terms = {}
     # phase noise: ICI after CPE, both LOs
-    if fe.lo.profile is not None and cfg.lo.phase_noise.enabled:
-        part = cpe_partition(fe.lo.profile.psd, t_fft, 1e3, fs / 2)
+    lo = fe.lo.at(cfg.lo_hz)              # topology A: the fixed LO at f_c − f_IF
+    if lo.profile is not None and cfg.lo.phase_noise.enabled:
+        part = cpe_partition(lo.profile.psd, t_fft, 1e3, fs / 2)
         n_lo = {"both": 2, "tx": 1, "rx": 1}.get(cfg.lo.phase_noise.apply, 0)
         terms["phase_noise"] = n_lo * part["ici_rad2"]
     # topology A: the chip's own share — its residual after its calibration (measured:
