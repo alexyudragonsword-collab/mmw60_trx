@@ -28,6 +28,8 @@ import sys
 import time
 from pathlib import Path
 
+import numpy as np
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
@@ -35,6 +37,9 @@ from mmw60 import ENGINE_BANNER, __version__                       # noqa: E402
 from mmw60.calcheck import compare_runs, run_cal_at                # noqa: E402
 from mmw60.config import zero_if_60ghz                             # noqa: E402
 from mmw60.frontend import Frontend60                              # noqa: E402
+
+#: training waveforms (``run_cal_at(waveform_seed=…)``) per cell of the capture-length table
+N_SEEDS = 24
 
 
 def main(argv=None) -> int:
@@ -82,6 +87,22 @@ def main(argv=None) -> int:
         v = no_dpd.final_views
         print(f"{no_dpd.n_symbols:>8} {no_dpd.capture_samples:>8} {'off':>7} {v['evm_modem_db']:9.1f} {v['tx_evm_modem_db']:9.1f} "
               f"{v['rx_evm_modem_db']:9.1f}")
+        print(f"the training waveform's random data, waveform_seed 0-{N_SEEDS - 1} (the rows above are seed 0), at the same "
+              "back-off: how often the DPD step writes a predistorter and what it gains at the PA output (dB, its own "
+              "readings)")
+        print(f"{'K':>3} {'symbols':>8} {'samples':>8} {'written':>8} {'gain mean':>10} {'median':>7} {'max':>6} {'>= 1 dB':>8}")
+        for kk in (1, k):
+            for n_sym in (runs[4].n_symbols, 32):
+                gains, wrote, smp = [], 0, 0
+                for s in range(N_SEEDS):
+                    r = run_cal_at(fe, kk, base, standard="11ac", n_symbols=n_sym, obo_db=fe.obo_db, waveform_seed=s)
+                    wrote += bool(r.dpd_kept)
+                    gains.append(r.dpd_before_db - r.dpd_after_db)
+                    smp = r.capture_samples
+                print(f"{kk:>3} {n_sym:>8} {smp:>8} {f'{wrote}/{N_SEEDS}':>8} {np.mean(gains):10.2f} {np.median(gains):7.2f} "
+                      f"{max(gains):6.2f} {sum(g >= 1.0 for g in gains):>8}", flush=True)
+        print("the capture length is not what decides the DPD step here: at this back-off it writes a predistorter for a "
+              "minority of training waveforms, at K = 1 as at K = 32")
     if not quick:
         k, base = 8, 20e6
         print(f"\n== sensitivity: wifitrx's default drive at K = {k}, base {base / 1e6:g} MHz (how this example ran "

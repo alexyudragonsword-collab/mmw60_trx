@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### C7 推翻：校准里 DPD 成不成看训练数据，不看采集长度（2026-11-14）—— 预设与指纹不变
+- `calcheck`：`scoring_config` / `upclocked_scoring_config` / `plain_config` 与 `run_cal_at` / `run_cal_on` 加 `waveform_seed`（训练与评分波形的随机数据，默认 0 = wifitrx 的默认，逐位不变）；`CalRun` 多 `dpd_kept`、`dpd_before_db`、`dpd_after_db`。
+- 示例 03 灵敏度节加一张表：K = 1 / 32 × 8 / 32 个符号，各 24 组训练数据，DPD 写入几次、PA 输出的增益（平均 / 中位 / 最大）。写入比例 5/24、6/24、2/24、6/24，平均 0.41 / 0.43 / 0.12 / 0.26 dB，中位 0。
+- ROADMAP：C7 “采集 8 个符号不够”删掉（只是 seed 0 的读数），统计并进 C8；C9 “预设还在用 WiFi 7 的梯子”按用户决定移到 E。`engineering-pitfalls.md`、`topology-b.md`、`assumed.cal_capture_symbols` 的说明加更正。
+- **验收**：指纹逐位不变；示例 03 只在灵敏度节多出新表。
+
 ### 拓扑 A 消费共享接收前端：芯片前的 60 GHz LNA / 混频（2026-11-14，ROADMAP C9）—— 预设不变
 - `ifext.MmwRxStage` 多一级 60 GHz LNA（`lna_gain_db` / `lna_nf_db` / `lna_iip3_dbm`）：共享前端的 `rx_front` 是 60 GHz 前端（`sourced`）时，取它的最高增益档当一级固定增益，芯片自己的梯子在后面做 AGC（`assumed.ifext_rx_front60`）。预设的 WiFi 7 梯子就是芯片自己那颗，不重复放，所以预设的数不动。
 - `LinkSim`：拓扑 A 的 AGC 看 LNA 之后的电平；灵敏度（`rx_input_dbm_for_snr`）与镜像带噪声用 Friis 级联 NF；时域里 LNA 加输入参考的 kT·(F1 − 1/G1)，与芯片其后的 kT·F2 合起来正好是 Friis。LNA 的 IIP3 用 wifitrx 接收链同一个无记忆三阶项。60 GHz 观测回环从混频器进，不过 LNA。

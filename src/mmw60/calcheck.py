@@ -94,26 +94,31 @@ class CalRun:
     pout_dbm: float | None = None                         # PA output power at the final EVM check
     passes: int = 1                                       # runs of the sequence it took to land on the asked back-off
     dpd_tap_spacing: int | None = None                    # the DPD step's GMP tap spacing, as the step recorded it
+    dpd_kept: int | None = None                           # the DPD step's kept pass (0 = nothing written)
+    dpd_before_db: float | None = None                    # PA-output EVM before / after the DPD step (its own readings)
+    dpd_after_db: float | None = None
 
     @property
     def label(self) -> str:
         return f"K={self.k} {self.bw_eff_hz / 1e6:g}M"
 
 
-def scoring_config(bw_eff_hz: float, oversampling: int = 2, n_symbols: int = 8) -> tuple[OFDMConfig | None, str]:
-    """A wifitrx OFDM config with a real pilot set at this bandwidth, if one exists."""
+def scoring_config(bw_eff_hz: float, oversampling: int = 2, n_symbols: int = 8,
+                   seed: int = 0) -> tuple[OFDMConfig | None, str]:
+    """A wifitrx OFDM config with a real pilot set at this bandwidth, if one
+    exists.  ``seed`` is the data's random seed (wifitrx's default 0)."""
     for scs, bws in STANDARD_SCS.items():
         if any(abs(bw_eff_hz - b) < 1 for b in bws):
             cp = 1 / 4 if scs == 312.5e3 else 1 / 16
             return (OFDMConfig(bandwidth_hz=bw_eff_hz, subcarrier_spacing_hz=scs, cp_fraction=cp,
                                qam_order=64, n_symbols=n_symbols, oversampling=oversampling,
-                               window_fraction=1 / 32 if scs == 78.125e3 else 1 / 16),
+                               window_fraction=1 / 32 if scs == 78.125e3 else 1 / 16, seed=int(seed)),
                     f"{'11ac' if scs == 312.5e3 else '11be'} {bw_eff_hz / 1e6:g} MHz (standard pilots)")
     return None, "no standard pilot set at this bandwidth"
 
 
 def upclocked_scoring_config(base_bw_hz: float, k: int, oversampling: int = 2, n_symbols: int = 8,
-                             standard: str | None = None) -> tuple[OFDMConfig | None, str]:
+                             standard: str | None = None, seed: int = 0) -> tuple[OFDMConfig | None, str]:
     """The base bandwidth's standard scoring waveform with the clock × K: the
     same active tones and the same pilot tones at K times the subcarrier
     spacing.  ``standard`` picks the numerology where the base bandwidth has
@@ -128,7 +133,7 @@ def upclocked_scoring_config(base_bw_hz: float, k: int, oversampling: int = 2, n
             cp = 1 / 4 if scs == 312.5e3 else 1 / 16
             base = OFDMConfig(bandwidth_hz=base_bw_hz, subcarrier_spacing_hz=scs, cp_fraction=cp, qam_order=64,
                               n_symbols=n_symbols, oversampling=oversampling,
-                              window_fraction=1 / 32 if scs == 78.125e3 else 1 / 16)
+                              window_fraction=1 / 32 if scs == 78.125e3 else 1 / 16, seed=int(seed))
             break
     if base is None:
         return None, "no standard pilot set at the base bandwidth"
@@ -143,11 +148,12 @@ def upclocked_scoring_config(base_bw_hz: float, k: int, oversampling: int = 2, n
                  f"{base.subcarrier_spacing_hz * k / 1e6:g} MHz, the base's {plan.pilots.size} pilots)")
 
 
-def plain_config(bw_eff_hz: float, k: int, oversampling: int = 2, n_symbols: int = 8) -> OFDMConfig:
+def plain_config(bw_eff_hz: float, k: int, oversampling: int = 2, n_symbols: int = 8, seed: int = 0) -> OFDMConfig:
     """Plain OFDM (no pilots) at the upclocked numerology: what the tone / OFDM
     stimuli steps can run on when no scoring waveform exists."""
     return OFDMConfig(bandwidth_hz=bw_eff_hz, subcarrier_spacing_hz=312.5e3 * k, cp_fraction=1 / 4,
-                      qam_order=64, n_symbols=n_symbols, oversampling=oversampling, window_fraction=1 / 16)
+                      qam_order=64, n_symbols=n_symbols, oversampling=oversampling, window_fraction=1 / 16,
+                      seed=int(seed))
 
 
 def _metric(res) -> tuple[str, float | None]:
@@ -176,7 +182,7 @@ def run_cal_at(fe: Frontend60, k: int, base_bw_hz: float = 20e6, oversampling: i
                profile: str = "poweron", with_dpd: bool = True, seed: int = 0,
                log=None, standard: str | None = None, n_symbols: int | None = None,
                pa=None, dpd_tap_spacing: int = 1, obo_db: float | None = None,
-               obo_tol_db: float = 0.1, drive_scale: float = 0.12) -> CalRun:
+               obo_tol_db: float = 0.1, drive_scale: float = 0.12, waveform_seed: int = 0) -> CalRun:
     """wifitrx's sequence on the front end's own chains at K.  ``pa`` swaps
     the transmit PA for another model in wifitrx's physical domain (the
     memory study: ``pamemory.memory_pa``); ``dpd_tap_spacing`` is the DPD
@@ -188,7 +194,8 @@ def run_cal_at(fe: Frontend60, k: int, base_bw_hz: float = 20e6, oversampling: i
     predistorter above all) moves the output power, the sequence is run
     again on fresh chains with the trim corrected by what the final check
     read, until that reading is within ``obo_tol_db``.  ``CalRun.passes``
-    counts the runs."""
+    counts the runs.  ``waveform_seed`` is the random data of the scoring
+    waveform every capture uses (the DPD step trains on it)."""
     bw_eff = base_bw_hz * k
     fs_eff = bw_eff * oversampling
     path = LoopbackPath(atten_db=recommended_loopback_atten_db(bw_eff), delay_ns=6.0)
@@ -200,9 +207,10 @@ def run_cal_at(fe: Frontend60, k: int, base_bw_hz: float = 20e6, oversampling: i
         if obo_db is not None:
             if trim_db is None:
                 n_sym = int(spec.value("assumed.cal_capture_symbols")) if n_symbols is None else int(n_symbols)
-                cfg, _ = scoring_config(bw_eff, oversampling, n_sym)
+                cfg, _ = scoring_config(bw_eff, oversampling, n_sym, seed=waveform_seed)
                 if cfg is None:
-                    cfg, _ = upclocked_scoring_config(base_bw_hz, k, oversampling, n_sym, standard=standard)
+                    cfg, _ = upclocked_scoring_config(base_bw_hz, k, oversampling, n_sym, standard=standard,
+                                                      seed=waveform_seed)
                 if cfg is None:
                     raise ValueError("obo_db needs a scoring waveform at this bandwidth")
                 _trim_drive(tx, scoring_frame(cfg)[0].x * drive_scale, fe.psat_dbm - obo_db)
@@ -211,7 +219,7 @@ def run_cal_at(fe: Frontend60, k: int, base_bw_hz: float = 20e6, oversampling: i
                 tx.params.vga_gain_db = trim_db
         run = run_cal_on(tx, rx, path, k, bw_eff, oversampling, profile, with_dpd, seed, log,
                          drive_scale=drive_scale, base_bw_hz=base_bw_hz, standard=standard, n_symbols=n_symbols,
-                         dpd_tap_spacing=dpd_tap_spacing)
+                         dpd_tap_spacing=dpd_tap_spacing, waveform_seed=waveform_seed)
         run.passes = n_pass
         if obo_db is None or run.pout_dbm is None:
             break
@@ -226,19 +234,20 @@ def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: 
                profile: str = "poweron", with_dpd: bool = True, seed: int = 0, log=None,
                drive_scale: float = 0.12, base_bw_hz: float | None = None,
                standard: str | None = None, n_symbols: int | None = None,
-               dpd_tap_spacing: int = 1) -> CalRun:
+               dpd_tap_spacing: int = 1, waveform_seed: int = 0) -> CalRun:
     """The step table on chains built elsewhere (topology A: the chip's own
     chains, observed on its coupler or through the 60 GHz loopback).
     ``n_symbols`` is the length of every capture in OFDM symbols (default
     data/spec: assumed.cal_capture_symbols)."""
     fs_eff = bw_eff * oversampling
     n_sym = int(spec.value("assumed.cal_capture_symbols")) if n_symbols is None else int(n_symbols)
-    cfg, waveform = scoring_config(bw_eff, oversampling, n_sym)
+    cfg, waveform = scoring_config(bw_eff, oversampling, n_sym, seed=waveform_seed)
     if cfg is None and base_bw_hz is not None and k > 1:
-        cfg, waveform = upclocked_scoring_config(base_bw_hz, k, oversampling, n_sym, standard=standard)
+        cfg, waveform = upclocked_scoring_config(base_bw_hz, k, oversampling, n_sym, standard=standard,
+                                                 seed=waveform_seed)
     full = cfg is not None
     if cfg is None:
-        cfg = plain_config(bw_eff, k, oversampling, n_sym)
+        cfg = plain_config(bw_eff, k, oversampling, n_sym, seed=waveform_seed)
     prof = PROFILES[profile]
     plan = planned_steps(prof, with_iip2=rx.params.im2.enabled, with_dpd=with_dpd)
     run = CalRun(k=k, bw_eff_hz=bw_eff, fs_eff_hz=fs_eff, waveform=waveform, n_symbols=n_sym,
@@ -271,6 +280,9 @@ def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: 
                                     (res.notes or "")[:80], MECHANISM.get(name, "")))
             if name == "dpd":                     # what the step itself recorded, not what was asked for
                 run.dpd_tap_spacing = int(res.estimated.get("tap_spacing", 1))
+                run.dpd_kept = int(res.estimated.get("kept_iteration", 0))
+                run.dpd_before_db = float(res.metrics_before.get("evm_db", np.nan))
+                run.dpd_after_db = float(res.metrics_after.get("evm_db", np.nan))
             if name == "final_loopback_evm":
                 run.evm_after_db = float(res.metrics_after.get("evm_db", np.nan))
                 run.final_views = {key: float(res.metrics_after[key]) for key in FINAL_VIEWS

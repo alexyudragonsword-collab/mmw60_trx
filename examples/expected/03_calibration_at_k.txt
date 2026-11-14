@@ -120,6 +120,13 @@ mmw60 0.1.0; full; profile poweron; front end rapp_11ad Pout 7.1 dBm, TX leak -3
        8     1280   -22.1     -21.0     -21.9     -29.8
       32     5120   -24.2     -25.7     -27.7     -30.7
        8     1280     off     -21.0     -21.9     -29.8
+the training waveform's random data, waveform_seed 0-23 (the rows above are seed 0), at the same back-off: how often the DPD step writes a predistorter and what it gains at the PA output (dB, its own readings)
+  K  symbols  samples  written  gain mean  median    max  >= 1 dB
+  1        8     1280     5/24       0.41    0.00   4.17        3
+  1       32     5120     6/24       0.43    0.00   3.84        3
+ 32        8     1280     2/24       0.12    0.00   1.72        2
+ 32       32     5120     6/24       0.26    0.00   2.65        3
+the capture length is not what decides the DPD step here: at this back-off it writes a predistorter for a minority of training waveforms, at K = 1 as at K = 32
 
 == sensitivity: wifitrx's default drive at K = 8, base 20 MHz (how this example ran until 2026-11-13) ==
 drive                    Pout  back-off  from P1dB     dpd  loopback  TX alone  RX alone

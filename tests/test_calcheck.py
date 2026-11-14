@@ -53,3 +53,25 @@ def test_law4_final_evm_is_scored_at_640mhz_not_skipped():
     assert run.n_symbols == spec.value("assumed.cal_capture_symbols") == 8 and run.capture_samples == 1280
     assert run_cal_at(fe, 32, 20e6, with_dpd=False, standard="11ac", n_symbols=16).capture_samples == 2560
     assert set(run.final_views) == set(FINAL_VIEWS) and all(np.isfinite(v) for v in run.final_views.values())
+
+
+def test_waveform_seed_changes_the_training_data_and_zero_is_the_default():
+    """ROADMAP C7 (overturned 2026-11-14): whether the DPD step writes a
+    predistorter at the preset back-off depends on the training waveform's
+    random data, so the check can be run on other data; seed 0 is wifitrx's
+    default and every earlier reading."""
+    a0, _ = upclocked_scoring_config(20e6, 32, standard="11ac")
+    a0s, _ = upclocked_scoring_config(20e6, 32, standard="11ac", seed=0)
+    a3, _ = upclocked_scoring_config(20e6, 32, standard="11ac", seed=3)
+    assert a0.seed == a0s.seed == 0 and a3.seed == 3
+    x0, x0s, x3 = (generate_ofdm_with_pilots(c)[0].x for c in (a0, a0s, a3))
+    assert np.array_equal(x0, x0s) and x0.shape == x3.shape and not np.allclose(x0, x3)
+    s0, _ = scoring_config(80e6)
+    assert s0.seed == 0 and scoring_config(80e6, seed=5)[0].seed == 5
+    fe = Frontend60.from_config(zero_if_60ghz(k=8))
+    runs = [run_cal_at(fe, 1, 20e6, standard="11ac", obo_db=fe.obo_db, waveform_seed=s) for s in (0, 1)]
+    for r in runs:
+        assert r.dpd_kept in (0, 1, 2) and r.dpd_before_db is not None and r.dpd_after_db is not None
+        same = r.dpd_after_db == pytest.approx(r.dpd_before_db)
+        assert (r.dpd_after_db < r.dpd_before_db) == bool(r.dpd_kept) or same
+    assert runs[0].rows[-1].value != runs[1].rows[-1].value             # different data, different final reading
