@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### 拓扑 A 消费共享接收前端：芯片前的 60 GHz LNA / 混频（2026-11-14，ROADMAP C9）—— 预设不变
+- `ifext.MmwRxStage` 多一级 60 GHz LNA（`lna_gain_db` / `lna_nf_db` / `lna_iip3_dbm`）：共享前端的 `rx_front` 是 60 GHz 前端（`sourced`）时，取它的最高增益档当一级固定增益，芯片自己的梯子在后面做 AGC（`assumed.ifext_rx_front60`）。预设的 WiFi 7 梯子就是芯片自己那颗，不重复放，所以预设的数不动。
+- `LinkSim`：拓扑 A 的 AGC 看 LNA 之后的电平；灵敏度（`rx_input_dbm_for_snr`）与镜像带噪声用 Friis 级联 NF；时域里 LNA 加输入参考的 kT·(F1 − 1/G1)，与芯片其后的 kT·F2 合起来正好是 Friis。LNA 的 IIP3 用 wifitrx 接收链同一个无记忆三阶项。60 GHz 观测回环从混频器进，不过 LNA。
+- 示例 08 §5 改写：拓扑 A 换上查到的前端，灵敏度 −92.52 → −89.92 dBm（差 2.60 dB），与拓扑 B 同一换法相同；此前拓扑 A 差 0.00 dB。
+- 铁律 2 的缺口（`architecture-invariants.md`）关掉；新测试 `test_law2_topology_a_consumes_the_shared_receive_front_end`：灵敏度随 NF 同拓扑 B、SNR 轴上 EVM 两种前端一致（去掉 LNA 噪声 → 红）、灵敏度用级联 NF（换回芯片 NF → 红）、观测回环不过 LNA。
+- **验收**：指纹逐位不变；示例 04 / 06 逐字不变，示例 08 只有 §5 变。
+
 ### 拓扑 A：芯片 PA 旁路一档（2026-11-14，ROADMAP A1）—— 预设不变，同台表多一行
 - `ifext.chip_pa_bypass`：IF 从芯片的混频器输出取，芯片 PA 断电（`assumed.ifext_chip_pa_bypass`；预设 False）。wifitrx 的交付序列在这条链上真跑（铁律 4）：校准耦合器跟着移到 PA 前，衰减减去实测的 PA 大信号增益（25.6 dB）；DPD 步不跑；tx_power 步只建表。只对 `chip: wifitrx` 有效，与 `chip_pout_dbm` 互斥。
 - 功率列：旁路时去掉芯片 PA 一块，在“没计”里说明。`chip_facts` 多了 `pa_bypass` / `pa_bypass_gain_db`，旁路时 `pa_dc_w` 为 0。

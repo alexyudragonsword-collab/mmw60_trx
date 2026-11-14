@@ -29,6 +29,8 @@ authoring_mode: ai_generated
   （2026-11-13 回退改成 7.5 dB 之前：沿用 Liu 的从 Psat 8 dB，Pout 6.6 dBm，P1dB 之下 3.4 dB，隔离 EVM −22.1 dB。`config.tgad_em_pa(cfg)` 那一行仍用 Liu 的 8 dB，Liu 自己的预设也没动。）
   （2026-11-12 预设换成测量的 PA 之前是 11ad 评估方法学的 Rapp：Psat 15 dBm（assumed）、增益 20 dB、峰值 PAE 20 %、p = 0.81（P1dB 比 Psat 低 9.5 dB），Pout 7.0 dBm，隔离 EVM −18.1 dB。`config.tgad_em_pa(cfg)` 换回它，作灵敏度行。）
 - 基带转换器、IQ、LO 泄漏、RX DC 是芯片自己的（wifitrx 的，已校准），所以拓扑 A 的预设里前端那几个开关是关的。
+- **接收前端**（2026-11-14，`assumed.ifext_rx_front60`）：共享前端的 `rx_front` 是 60 GHz 前端（`sourced`，如 `config.surveyed_frontend`）时，芯片前串一级固定增益的 60 GHz LNA / 混频：取它的最高增益档（增益、NF、IIP3），芯片自己的梯子在后面做 AGC。灵敏度用 Friis 级联 NF（`LinkSim._rx_nf_db`）；时域里这一级加输入参考的 kT·(F1 − 1/G1)，加上芯片在其后加的 kT·F2，总和正好是 Friis。预设的 WiFi 7 梯子就是芯片那颗 sub-7 梯子的替身，不在芯片前再放一份，所以预设的数不动。60 GHz 观测回环从混频器进，不过 LNA。
+  11be 80 MHz、MCS 0 的灵敏度：预设 −92.52 dBm（NF 3.50 dB）；查到的前端 −89.92 dBm（级联 NF 6.10 dB：LNA 6.1 dB、增益 27 dB，芯片 3.5 dB 只加 0.0025 dB）。差 2.60 dB，与拓扑 B 同一换法相同（示例 08 §5）。SNR 10 dB 处两者的链路 EVM −9.31 / −9.38 dB：LNA 的噪声在时域里按级联 NF 加进去了。无噪声的链路 EVM −20.46 → −20.27 dB：芯片输入高了 27 dB，AGC 从第 0 档退到第 4 档。**更正**：此前这一级是单位增益、不加噪声，换上查到的前端时拓扑 A 的灵敏度不动（差 0.00 dB），拓扑 B 动 2.6 dB（ROADMAP C9 原第三条）。
 - `ifext.chip` 另有一档 `frontend`：把共享前端自己在 1× 的链当芯片（PA 旁路、未校准，像拓扑 B）。`ideal()` 选它，铁律 2 的理想对比靠它。
 - 只有拓扑 A 有的项：芯片校准后的残差（实测）、芯片自己的 LO、IF 滤波器、镜像带噪声。只有拓扑 B 有的项：未校准的基带 IQ 镜像、ENOB(fs_eff) 的转换器、LO 泄漏与 RX DC。同台表逐行标出。
 
