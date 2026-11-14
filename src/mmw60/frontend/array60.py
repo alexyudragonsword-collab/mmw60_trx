@@ -76,7 +76,8 @@ class Array60:
         for side, g in (("tx", tx), ("rx", rx)):
             gain = 10.0 ** (rng.normal(0.0, float(a.gain_err_db_rms), g.n) / 20.0)
             phase = np.deg2rad(rng.normal(0.0, float(a.phase_err_deg_rms), g.n))
-            err[side] = gain * np.exp(1j * phase)
+            # one element is the front end itself: its gain is the operating point, nothing to mismatch
+            err[side] = gain * np.exp(1j * phase) if g.n > 1 else np.ones(1, dtype=complex)
         return cls(tx=tx, rx=rx, phase_bits=a.phase_bits, steering=a.steering,
                    element_gain_tx_dbi=fe.antenna_gain_tx_dbi, element_gain_rx_dbi=fe.antenna_gain_rx_resolved_dbi,
                    scan_max_deg=float(a.scan_max_deg), sector_oversampling=float(a.sector_oversampling), err=err)
