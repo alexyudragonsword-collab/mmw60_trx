@@ -173,7 +173,7 @@
     s_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (the presets) {*} {} {*} {*} {*} {*} {*} {*}"}
     s_comm: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz comm. transceiver, 65 nm {*} {} {*} {*} {*} {*} {*} {*}"}
   quotes:
-    - {doc: ROADMAP.md, text: "拓扑 B 同一换法从 {s_w7} 变 {s_comm} dBm（差 {s_comm - s_w7} dB）"}
+    - {doc: cairn/topology-a.md, text: "拓扑 B 同一换法从 {s_w7} 变 {s_comm} dBm（差 {s_comm - s_w7} dB）"}
     - {doc: cairn/topology-b.md, text: "拓扑 A 的灵敏度不动（−92.5 dBm，差 0.00 dB），拓扑 B 动 {s_comm - s_w7} dB"}
 
 - name: ex09 the 11be 80 MHz K = 4 row with the 11ad EM PA (the presets' until 2026-11-12) and the measured one (decoder cap rate and pJ/bit)

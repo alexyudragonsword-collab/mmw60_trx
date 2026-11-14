@@ -54,8 +54,9 @@ the isolation figures are isolation.tx_rx_tue2018 [spec]: one abstract; the 20 a
   6.0      13.1        26.9         19.9      103.5   antenna60.okada2013_dbi [survey, unverified]
 (dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.4 dBm, the surveyed receive front end; one element each end, no array gain — milestone 2)
 
-== 5. where the receive face is not consumed ==
-topology A (11be 80 MHz): sensitivity at MCS 0, preset -92.5 dBm, surveyed front end -92.5 dBm, difference 0.00 dB
-its 60 GHz receive stage is unit gain and adds no noise of its own (the image band's folding aside): the noise figure on its SNR axis is the WiFi 7 chip's ladder, which is what the chip is.  A 60 GHz LNA / mixer in front of it is not modelled (ROADMAP)
+== 5. topology A's receive face: the 60 GHz LNA / mixer ahead of the chip (assumed.ifext_rx_front60) ==
+topology A (11be 80 MHz): sensitivity at MCS 0, preset -92.5 dBm (noise figure 3.50 dB), surveyed front end -89.9 dBm (6.10 dB), difference 2.60 dB
+topology B (this example's 11ac 20 MHz x 8): preset -87.0 dBm, surveyed front end -84.4 dBm, difference 2.60 dB
+with a 60 GHz front end, topology A puts its maximum-gain state ahead of the chip (gain 27 dB, NF 6.1 dB, IIP3 -20 dBm) and cascades the chip's ladder behind it (Friis); the preset's WiFi 7 ladder is the chip's own and is not put in front of it twice
 
 [~s]
