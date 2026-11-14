@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### spec_sources 0.4.0：Asada Table I 读了 7 行原文，重新 pin（2026-11-14，mmw60_trx#27）—— 数不变，示例输出不变
+- 重新 pin spec_sources @ `8e5f2e26bc2084d324aaaabea49fab18174ecaf8`（0.4.0，它的 PR #21）。8 个文件里只有 `__init__.py`（版本号）和 `data/pa60.yaml`（新增 7 条 spec，`pa60.eumc2011_table1` 只改 note）变了，其余 6 个只换出处头里的 SHA。
+- 合并后的表 130 → 137 条，多的就是 7 条 `pa60.*`（Table I 的 [1] [2] [6] [9] [11] [13] [15] 行，读了原文）；其余条目的值与单位不变。
+- 文档：`comparison-table.md` §8 补充“14 颗里只有一颗（9.0 dB）接近 11ad Rapp”的那颗是偏置不当（原作者自述），另有一行是 48 / 52 GHz 的数；`spec-sources.md` 改成 7 行已读原文、6 行仍二手；ROADMAP C10 把“汇编表是二手的”改成剩 6 行，并新记一条：示例 09 的“汇编中位形状”灵敏度行把这两行也算进了中位，要不要重算待定。
+- **验收**：指纹逐位不变；`vendor_check --strict` 114 个全 verbatim；示例 02 / 04 / 08 / 09 逐字相同。
+
 ### spec_sources 0.3.0：TGad 评估方法学读成原文、别名退役，重新 pin（2026-11-13，mmw60_trx#25）—— 数不变，示例 09 一个标签变
 - 重新 pin spec_sources @ `9a443ba73655591665df003bd9a863769cf81bdf`（0.3.0，它的 PR #8）。8 个文件里变了 6 个：`__init__.py` 版本号，`ieee80211.yaml`（9 条 `tgad_em.*` 由 survey 改成 spec、新增 4 条），另 4 张表删掉 `aliases:`；`reader.py`、`regulatory.yaml` 没变。
 - 合并后的表 126 → 130 条，值与单位一个不变，9 条标签 survey → spec，未核实条目 51 → 42。示例 09 第 15 行打印的 `tgad_em.pa_rapp_p` 标签从 `[survey, unverified]` 变成 `[spec]`。

@@ -1,4 +1,4 @@
-# Vendored from spec_sources@9a443ba73655591665df003bd9a863769cf81bdf: src/spec_sources/data/energy.yaml
+# Vendored from spec_sources@8e5f2e26bc2084d324aaaabea49fab18174ecaf8: src/spec_sources/data/energy.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # energy —— 电路能耗与转换器的品质因数：运算能耗、ADC FoM 调查、工艺节点缩放。
 #

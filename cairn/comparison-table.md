@@ -258,10 +258,11 @@ Halo ADC 校准接入（要 vendor halo 的 adc 模块，现在转换器列是 E
 | Asada，3 级差分（基准档；**现在的预设**） | 14.6 | 10.0 | 4.6 | 23.2 | 16.3 |
 | Wu，末级 1.0 V / 0.7 V | 13.2 / 10.1 | 10.2 / 5.8 | 3.0 / 4.3 | — | 15.0 / 8.1 |
 | Li，并联 A / AB | 11.7 | 9.4 | 2.3 | 9.8 | 14.3 |
-| Asada 那篇 Table I 汇编的 14 颗（二手） | 8.0 … 19.9（中位 12.4） | | 1.0 … 9.0（中位 3.3） | | 4.9 … 16.3 |
+| Asada 那篇 Table I 汇编的 14 颗（二手；其中 7 行 2026-11-14 由 spec_sources 读了原文） | 8.0 … 19.9（中位 12.4） | | 1.0 … 9.0（中位 3.3） | | 4.9 … 16.3 |
 | **11ad EM**（2026-11-12 之前的预设） | 15.0 | 5.5 | **9.5** | 20.0 | 20.0 |
 
-**11ad EM 那颗的 Psat 在测量范围里，偏的是形状。** 它的 Rapp（p = 0.81）P1dB 在 Psat 下 9.5 dB，测量的中位是 3.3 dB，14 颗里只有一颗（9.0 dB）接近。所以“从 Psat 回退 8 dB”让 11ad EM 的 PA 跑在自己 P1dB 之上 1.5 dB，现在预设的测量形状（p = 1.286，由 Asada 的 4.6 dB 算出）同一个回退在 P1dB 之下 3.4 dB。预设现在的 7.5 dB 在 P1dB 之下 2.9 dB。
+**11ad EM 那颗的 Psat 在测量范围里，偏的是形状。** 它的 Rapp（p = 0.81）P1dB 在 Psat 下 9.5 dB，测量的中位是 3.3 dB，14 颗里只有一颗（9.0 dB）接近。
+（补充，2026-11-14，mmw60_trx#27：spec_sources 0.4.0 读了 Table I 里 7 行的原文。那颗 9.0 dB 的（`pa60.chan_isscc2009`），原作者自己说 P1dB 偏低“may be due to premature compression caused by non-optimal biasing of the individual stages”，所以它不能当“9.5 dB 这种软膝点有实测支撑”的证据。去掉它，偏置正常的 PA 里压缩最平缓的是 `pa60.martineau_isscc2010` 的 5.6 dB（1.8 V 时 6.6 dB，而且是下限：Psat 读在扫描终点，曲线还在升）和 `pa60.kuo_mwcl2009` 3 V 档的 6.0 dB。另有一行（`pa60.jin_esscirc2007`）是 48 / 52 GHz 的数，不该算进 60 GHz 的分布。这些只加强“偏的是形状”这个结论，表里的数一个不变。）所以“从 Psat 回退 8 dB”让 11ad EM 的 PA 跑在自己 P1dB 之上 1.5 dB，现在预设的测量形状（p = 1.286，由 Asada 的 4.6 dB 算出）同一个回退在 P1dB 之下 3.4 dB。预设现在的 7.5 dB 在 P1dB 之下 2.9 dB。
 
 PA 单独的 EVM（dB）：
 

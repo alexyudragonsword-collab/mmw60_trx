@@ -96,7 +96,8 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 - **旧预设回退上 DPD 拿不回东西，原因是形状**：示例 09 §4，K = 8 回退 8 dB 上 wifitrx 的 DPD 步对 11ad 形状拿回 0.8 dB（−18.8 → −19.6），对测量形状（现在的预设）拿回 2.0 dB（−22.2 → −24.2）；回退 10 dB 时 4.5 / 2.6 dB。11ad 形状在 8 dB 处已在 P1dB 之上 1.5 dB。
 - **AM/PM 没有出处**：三篇都不给，测量形状一档仍用 11ad 的 AM/PM。去掉 AM/PM，PA 单独的 EVM 在回退 4–12 dB 上好 0.2–0.5 dB（11ad 形状）/ 0.3–1.7 dB（测量形状），复现：`pa_isolated_evm_db(ModifiedRappPA(p=…, ampm=False), obo, "psat")` 对 `ampm=True`。AM/PM 在测量形状上分量更大，因为 AM/AM 的失真小了。它也直接进了工作点：去掉 AM/PM，规则给 7.06 dB 而不是 7.46 dB。
 - **峰值 PAE**：预设现在取测量的 16.3 %（旧的假设 20 % 偏高）；同组三颗 14.3–16.3 %，汇编的中位 8.5 %。功耗列的 B 类回退规律对一颗偏乐观（P1dB 处测 7.9 %、折出 9.6 %），对另一颗偏保守（测 12.0 %、折出 11.0 %）。
-- **汇编表是二手的**：`pa60.eumc2011_table1` 的 13 行别人的数是那篇论文转引的，本库没读各自原文；只用来看分布。
+- **汇编表还有 6 行是二手的**：`pa60.eumc2011_table1` 的 13 行别人的数是那篇论文转引的。2026-11-14 spec_sources 0.4.0 读了其中 7 行的原文（mmw60_trx#27），剩下 [5] [7] [8] [10] [12] [14] 只在别篇的对比表里出现过，数字相符但没逐篇读。只用来看分布。
+- **示例 09 的“汇编中位形状”灵敏度行把两行不该算的数也算进去了**：`python examples/09_pa_against_the_literature.py` §2 的 “compiled median gap (p 1.57)” 一行用的是 Table I 全部 14 行的 Psat − P1dB 中位（3.3 dB）。其中 [1]（9.0 dB）原作者归因于偏置不当，[11] 是 48 / 52 GHz 的数（spec_sources 0.4.0 读原文得出）。去掉这两行中位会变，这一行的 p 与工作点规则在它上面的读数（6.74 dB）跟着变，示例输出会动，所以 #27 只改了文档没动它。要不要按“偏置正常、60 GHz”重算，待定。
 
 ### C11. 规范表迁到 spec_sources 时留下的（见 `cairn/LOG.md` 2026-11-13 两条、`cairn/spec-sources.md` §制度，mmw60_trx#21 / #23）
 - **留在本地的 3 条 survey 不是文献**：`survey.clock_profile_wu19`、`survey.clock_profile_wu19_x10` 的值是本仓库 `data/clock_profiles/` 里的文件名（pll_simulator 的模型输出），`survey.dsp_ip_dpd_poly_p4` 是姊妹库 dsp_ip 的综合估计。标的是 survey，但“未核实的文献数字”这个意思对它们不成立；spec_sources 不收（`tests/test_extraction.py::MMW60_STAYS`），标签由本库定。改标签就得改键名（`survey.` 前缀），示例 04 打印这三个键名，期望输出会动，所以搬家（#21）和 0.2.0 的改名（#23）都没有动它们；共享库改名用的别名机制只在它自己的表里，本地表要改名得自己留旧名的读法。复现：`python -c "from mmw60 import spec; print(sorted(spec.load_table()))"` 里的三条 `survey.`。
