@@ -10,7 +10,8 @@
 - `LO_SCHEMES` 加 `fixed_lo_x9`（PLL 6.0 GHz）；pll_simulator@d67043e 的 ×9 剖面 `pllsim_wu19_x9_54p0g_floor150.yaml` 入库，本地表新增 `survey.clock_profile_wu19_x9`（本地 survey 3 → 4，合并表 137 → 138 条）。剖面经过的 ×N 与 `lo.scheme` 的倍频数不同时报错。
 - 示例 06 §4 加一行：pllsim wu19 6.0 GHz ×9 到 54.0 GHz 的固定 LO。
 - ROADMAP 清理：A1 的 pllsim 条目做完删掉；C4 删去已由 spec_sources 0.3.0 读到的 11-09/0296r16；C5 两条是结论不是待办，删掉（正文在 `cairn/topology-b.md` §被推翻的判断 2 / 3）；C10 末条（示例 09 汇编中位行重算）移到 E（用户定不做）。
-- **验收**：指纹逐位不变（预设与 `configs/*.yaml` 都是 1 极 1 零剖面）；新测试的三处调用点（60 GHz 级、同台表解析项、网格解析项）各变异一次都红、还原都绿。
+- 示例 06 §4 的 pllsim 行：L(1 MHz) −99.4 dBc/Hz、IPN −34.0 dBc、相噪 ICI −28.1 dB（同 L(1 MHz) 的 1 极 1 零 −29.1，形状差 1 dB），上限 MCS6、324 Mb/s，与 −100 一行相同。
+- **验收**：指纹逐位不变（预设与 `configs/*.yaml` 都是 1 极 1 零剖面）；新测试的三处调用点（60 GHz 级、同台表解析项、网格解析项）各变异一次都红、还原都绿；示例 06 只多两行，02 / 04 / 08 逐字相同。
 
 ### spec_sources 0.4.0：Asada Table I 读了 7 行原文，重新 pin（2026-11-14，mmw60_trx#27）—— 数不变，示例输出不变
 - 重新 pin spec_sources @ `8e5f2e26bc2084d324aaaabea49fab18174ecaf8`（0.4.0，它的 PR #21）。8 个文件里只有 `__init__.py`（版本号）和 `data/pa60.yaml`（新增 7 条 spec，`pa60.eumc2011_table1` 只改 note）变了，其余 6 个只换出处头里的 SHA。

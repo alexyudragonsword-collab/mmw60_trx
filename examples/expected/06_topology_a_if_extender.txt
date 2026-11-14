@@ -80,6 +80,8 @@ L(1MHz)   IPN 10k-100M   ICI analytic   EvmBudget PN   TD, LO only   budget-TD  
    -100          -35.1          -29.1          -29.1         -29.0      -0.10   -20.4    -21.4      MCS3      MCS6        324
    -105          -40.1          -34.1          -34.1         -34.0      -0.13   -20.8    -21.9      MCS3      MCS6        324
    -110          -45.1          -39.1          -39.1         -38.9      -0.23   -21.0    -22.1      MCS3      MCS6        324
+  -99.4          -34.0          -28.1          -28.1         -27.9      -0.21   -20.2    -21.2      MCS3      MCS6        324   <- pllsim wu19 6 GHz x9 = 54 GHz (survey.clock_profile_wu19_x9, lo.scheme fixed_lo_x9)
+the pllsim row: L(1MHz) read off its profile; the profile sits at the LO frequency, not the carrier (20*log10(60.48/54) = 1.0 dB less than at 60.48 GHz)
 ICI analytic = this library's term (cpe_partition to fs/2, both LOs); EvmBudget PN = wifitrx's budget term (IPN 10 kHz-100 MHz less the CPE-tracked share, both LOs); TD, LO only = the time-domain chain with nothing else on. floor / TD all / caps: the whole link at OBO 7.5 dB (PA isolated EVM -21.1 dB, chip residual and chip LO included).
 per step of the LO level: -85->-90: analytic 5.00, budget 5.00, TD 5.06 dB; -90->-95: analytic 5.00, budget 5.00, TD 5.02 dB; -95->-100: analytic 5.00, budget 5.00, TD 5.00 dB; -100->-105: analytic 5.00, budget 5.00, TD 4.97 dB; -105->-110: analytic 5.00, budget 5.00, TD 4.89 dB
 
