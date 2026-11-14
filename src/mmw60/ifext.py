@@ -29,11 +29,13 @@ linearised time-domain engine and endorses no spur conclusion (iron rule 6)
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 from scipy import signal as sig
 
 from . import spec
+from .config import LO_SCHEMES
 from .vendor.wifitrx.chain.rx import RxChain
 from .vendor.wifitrx.chain.tx import TxChain
 from .vendor.wifitrx.impairments.phase_noise import NoiseSource, synth_from_psd
@@ -348,15 +350,23 @@ class IfExtender:
     @classmethod
     def build(cls, cfg, fe, bandwidth_hz: float, fs_hz: float, drive_scale: float = 0.15) -> "IfExtender":
         """From the config and the **shared** front end (iron rule 2): the 60 GHz
-        PA is ``fe``'s Rapp, the fixed LO's phase noise is ``fe.lo.profile`` (the
-        same objects topology B's chains use)."""
+        PA is ``fe``'s Rapp, the fixed LO's phase noise is ``fe.lo``'s profile at
+        f_LO = f_c − f_IF (the same objects topology B's chains use; a pllsim
+        clock profile is the same synthesizer design placed at f_LO)."""
         if cfg.lo.scheme == "zero_if":
-            raise ValueError("topology A needs lo.scheme fixed_lo_x3 | fixed_lo_x4 (the fixed LO's multiplication)")
+            raise ValueError("topology A needs lo.scheme "
+                             + " | ".join(s for s in LO_SCHEMES if s != "zero_if")
+                             + " (the fixed LO's multiplication)")
         ix = cfg.ifext
         plan = if_plan(cfg.carrier_hz, cfg.lo.if_hz, cfg.lo.n_mult, bandwidth_hz)
+        src = fe.lo.profile_source
+        if src is not None and src["multiply_by"] > 1 and src["multiply_by"] != plan["n_mult"]:
+            raise ValueError(f"{Path(src['path']).name}: the clock profile went through a x{src['multiply_by']} "
+                             f"multiplier, lo.scheme {cfg.lo.scheme} is x{plan['n_mult']} "
+                             f"(PLL {plan['pll_hz'] / 1e9:.4g} GHz)")
         flt = IfFilter(bandwidth_hz=ix.filter_bw_hz, order=ix.filter_order, ripple_db=ix.filter_ripple_db,
                        offset_hz=cfg.lo.if_hz - ix.filter_center_hz, enabled=ix.filter_enabled)
-        lo_prof = fe.lo.profile if cfg.lo.phase_noise.enabled else None
+        lo_prof = fe.lo.at(plan["lo_hz"]).profile if cfg.lo.phase_noise.enabled else None
         sides = cfg.lo.phase_noise.apply
         tx_stage = MmwTxStage(pa=fe.scaled_pa() if fe.pa_enabled else None,
                               lo_profile=lo_prof if sides in ("tx", "both") else None,

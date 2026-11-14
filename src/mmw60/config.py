@@ -39,7 +39,7 @@ CHANNELS = ("flat", "tdl_exp", "tap_table")
 #: stage after / before them (``mmw60.ifext``)
 FRONTEND_MODELS = ("behavioural", "zero_if_chain", "if_extender_chain")
 #: LO scheme -> the multiplication from the PLL to the LO (zero_if: the LO is the carrier)
-LO_SCHEMES = {"zero_if": 1, "fixed_lo_x3": 3, "fixed_lo_x4": 4}
+LO_SCHEMES = {"zero_if": 1, "fixed_lo_x3": 3, "fixed_lo_x4": 4, "fixed_lo_x9": 9}
 #: topology A's chip: wifitrx = wifitrx's own transceiver, randomised and run
 #: through its calibration sequence (the WiFi 7 chip as delivered); frontend =
 #: the shared ``Frontend60``'s chain at 1× with its PA bypassed (the K = 1 row
@@ -95,7 +95,7 @@ class PhaseNoiseConfig:
 
 @dataclass(frozen=True)
 class LoConfig:
-    scheme: str = "zero_if"           # zero_if (topology B) | fixed_lo_x3 | fixed_lo_x4 (topology A)
+    scheme: str = "zero_if"           # zero_if (topology B) | fixed_lo_x3 | fixed_lo_x4 | fixed_lo_x9 (topology A)
     phase_noise: PhaseNoiseConfig = field(default_factory=PhaseNoiseConfig)
     #: topology A: the intermediate frequency the chip's channel sits at; the
     #: fixed LO is f_c − if_hz, from a PLL at (f_c − if_hz) / N (data/spec: assumed.ifext_if_hz)
@@ -344,6 +344,15 @@ class Mmw60Config:
         """(ppm_tx + ppm_rx) × f_c; exactly 0.0 when both are zero (iron rule 3)."""
         ppm = float(self.xo_ppm_tx) + float(self.xo_ppm_rx)
         return 0.0 if ppm == 0.0 else ppm * 1e-6 * float(self.carrier_hz)
+
+    @property
+    def lo_hz(self) -> float:
+        """The frequency the 60 GHz LO runs at: the carrier for zero-IF
+        (topology B), f_c − f_IF for topology A's fixed LO (``ifext.if_plan``).
+        A pllsim clock profile is placed here, not at the carrier."""
+        if self.topology == "if_extender":
+            return float(self.carrier_hz) - float(self.lo.if_hz)
+        return float(self.carrier_hz)
 
     def base_ofdm(self, n_symbols: int = 1) -> OFDMConfig:
         """The wifitrx config of the base numerology.  VHT 20 MHz has 56

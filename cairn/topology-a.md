@@ -34,9 +34,11 @@ authoring_mode: ai_generated
 
 ## 2. 频率规划（示例 06 §1；位置而已，本引擎不背书杂散电平）
 
-载频 60.48 GHz = IF 6.48 GHz + 固定 LO 54.00 GHz；×3 方案 PLL 在 18.0 GHz，×4 在 13.5 GHz（`assumed.ifext_lo_scheme`）。
+载频 60.48 GHz = IF 6.48 GHz + 固定 LO 54.00 GHz；×3 方案 PLL 在 18.0 GHz，×4 在 13.5 GHz，×9 在 6.0 GHz（`assumed.ifext_lo_scheme`；×9 是 2026-11-14 为 pllsim 行加的，见 §5）。
 镜像边带 47.52 GHz、LO 馈通 54.00 GHz，都在 57–71 GHz 之外。换信道靠芯片在 6 GHz 段内调 IF，固定 LO 不动。
 相噪直接给在 LO 输出端（1 极 1 零剖面），所以 N 只进规划和 PLL 频率，不改相噪数字。
+pllsim 剖面（`model: profile`）放在 LO 频率 54.0 GHz 上，不在载频上（`Mmw60Config.lo_hz`、`Lo60.at`）；剖面经过 pllsim 的 ×N 块时，N 要等于 `lo.scheme` 的倍频数，否则报错。
+**更正（2026-11-14）**：此前 `make_profile` 对两条拓扑都传载频，拓扑 A 配 pllsim 剖面时用的是 60.48 GHz 的 ×10 文件，IPN 比 54.0 GHz 的 ×9 文件高 0.95 dB（理想规律 20·log10(60.48/54) = 0.98 dB）。预设与已有的表都用 1 极 1 零剖面，没有一行受影响（指纹逐位不变）。
 
 IF 带通：Chebyshev-I 5 阶、0.5 dB 纹波、通带 1.2 GHz（`assumed.ifext_filter`）。80 MHz 信道离通带中心 −45 MHz 时带内纹波 0.22 dB、群时延展宽 61 ps；
 挪到通带边缘是 0.50 dB、1231 ps。它是线性的，接收机的信道估计把它均衡掉：链路 EVM 只动 ≤ 0.02 dB（2026-11-13 回退改成 7.5 dB 之前 ≤ 0.01 dB；换 PA 之前 ≤ 0.02 dB）。

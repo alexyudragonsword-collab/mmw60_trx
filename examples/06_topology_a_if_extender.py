@@ -217,8 +217,8 @@ def main(argv=None) -> int:
     print("L(1MHz)   IPN 10k-100M   ICI analytic   EvmBudget PN   TD, LO only   budget-TD   floor   TD all   conf cap   dec cap   Mb/s@dec")
     pa_evm = pa_isolated_evm_db(fe.pa_model, fe.obo_db, fe.obo_reference)
     lo_rows = []
-    for lvl in (LO_AT_1MHZ[1::3] if quick else LO_AT_1MHZ):
-        c = with_lo_at_1mhz(cfg, lvl)
+
+    def lo_row(c):
         f2 = Frontend60.from_config(c)
         prof = f2.lo.profile
         t_fft = phy.t_fft_eff
@@ -235,9 +235,25 @@ def main(argv=None) -> int:
         conf = max_mcs_for_floor(a_["floor_db"], STD)
         dcap = decoder_cap(decoder_floor_db(a_["floor_db"], td, a_["cfo_captured"]), STD, BW)
         rate = None if dcap["mcs"] is None else data_rate_bps(STD, BW, dcap["mcs"], phy.t_symbol_eff) / 1e6
-        lo_rows.append((lvl, 10 * np.log10(ici), b_pn, td_lo, conf, dcap["mcs"]))
-        print(f"{lvl:7.0f}  {ipn_dbc:13.1f}  {10 * np.log10(ici):13.1f}  {b_pn:13.1f}  {td_lo:12.1f}  {b_pn - td_lo:+9.2f}  "
-              f"{a_['floor_db']:6.1f}  {td:7.1f}   {fmt(conf, 'MCS{}'):>7}   {fmt(dcap['mcs'], 'MCS{}'):>7}   {fmt(rate, '{:.0f}'):>8}")
+        cols = (f"{ipn_dbc:13.1f}  {10 * np.log10(ici):13.1f}  {b_pn:13.1f}  {td_lo:12.1f}  {b_pn - td_lo:+9.2f}  "
+                f"{a_['floor_db']:6.1f}  {td:7.1f}   {fmt(conf, 'MCS{}'):>7}   {fmt(dcap['mcs'], 'MCS{}'):>7}   {fmt(rate, '{:.0f}'):>8}")
+        return (10 * np.log10(ici), b_pn, td_lo, conf, dcap["mcs"]), cols, f2
+
+    for lvl in (LO_AT_1MHZ[1::3] if quick else LO_AT_1MHZ):
+        vals, cols, _ = lo_row(with_lo_at_1mhz(cfg, lvl))
+        lo_rows.append((lvl, *vals))
+        print(f"{lvl:7.0f}  {cols}")
+    # the pllsim synthesizer at the fixed LO: wu19 retuned to 6.0 GHz through pllsim's x9 block to
+    # f_c - f_IF = 54.0 GHz (its model stops at 12 GHz, so not the preset's x3 from 18.0 GHz)
+    x9 = spec.value("survey.clock_profile_wu19_x9")
+    c9 = dc.replace(cfg, lo=dc.replace(cfg.lo, scheme="fixed_lo_x9", phase_noise=dc.replace(
+        cfg.lo.phase_noise, model="profile", profile_path=x9["file"])))
+    _, cols, f9 = lo_row(c9)
+    l1m = 10 * np.log10(f9.lo.profile.psd(np.array([1e6]))[0] / 2)
+    print(f"{l1m:7.1f}  {cols}   <- pllsim wu19 {x9['f_in_hz'] / 1e9:g} GHz x{x9['multiply_by']} = "
+          f"{f9.lo.profile_hz / 1e9:g} GHz (survey.clock_profile_wu19_x9, lo.scheme fixed_lo_x9)")
+    print("the pllsim row: L(1MHz) read off its profile; the profile sits at the LO frequency, not the carrier "
+          "(20*log10(60.48/54) = 1.0 dB less than at 60.48 GHz)")
     print("ICI analytic = this library's term (cpe_partition to fs/2, both LOs); EvmBudget PN = wifitrx's budget term (IPN 10 kHz-100 MHz "
           "less the CPE-tracked share, both LOs); TD, LO only = the time-domain chain with nothing else on. floor / TD all / caps: "
           f"the whole link at OBO {fe.obo_db:g} dB (PA isolated EVM {pa_evm:.1f} dB, chip residual and chip LO included).")

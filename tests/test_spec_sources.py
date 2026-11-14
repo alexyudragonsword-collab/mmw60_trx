@@ -53,13 +53,14 @@ def test_grep_counts_every_tag_in_every_table():
 def test_the_local_table_keeps_only_this_librarys_choices_and_outputs():
     """What stays in ``data/spec/survey.yaml`` after the move to spec_sources:
     the assumed entries, three derived ones that use them or an example's
-    reading, and three survey entries spec_sources does not take (file names
+    reading, and four survey entries spec_sources does not take (file names
     in this repository, a sibling's synthesis estimate)."""
     local = spec.load_table()
     assert {e.source for e in local.values()} == {"assumed", "derived", "survey"}
     assert sorted(k for k, e in local.items() if e.source != "assumed") == [
         "derived.irr_after_cal_measured_db", "derived.isi_beyond_gi_k16_db", "derived.pa60_obo_at_evm_limit_db",
-        "survey.clock_profile_wu19", "survey.clock_profile_wu19_x10", "survey.dsp_ip_dpd_poly_p4"]
+        "survey.clock_profile_wu19", "survey.clock_profile_wu19_x10", "survey.clock_profile_wu19_x9",
+        "survey.dsp_ip_dpd_poly_p4"]
     shared = ss.load_table(SHARED_DATA)
     assert not set(local) & set(shared)
     assert set(spec.all_entries()) == set(local) | set(shared)

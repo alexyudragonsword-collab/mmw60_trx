@@ -11,7 +11,6 @@
   整套序列搬到 60 GHz 观测上，IQ 校准的 IRR 从 55.7 掉到 47.5 dB，芯片自己输出端的 TX EVM 掉到 −14.2 dB（§2）。（2026-11-13 回退改成 7.5 dB 之前：48.4 dB、−15.8 dB。2026-11-12 预设换成测量的 PA 之前：6 dB 上 −16.0 / −14.6，8 dB 上 +1.2；IRR 掉到 37.9 dB，芯片输出 −11.9 dB。）挑哪一轮现在由 wifitrx 的 DPD 步自己做（0.7.39），本库只再和芯片上原有的比（`train_dpd_mmw`）。
   待做：这类 PA 上换直接学习，或目标增益按可达的峰值输出折算（PA_DPD 有 `dpd/direct.py`，针对样条预失真器；已在 PA_DPD#4 上问对方要不要单开 issue）；
   或在观测通路里先把第二级 PA 的失真建模扣掉再做 IQ 校准。
-- **拓扑 A 没有 pllsim 推出来的 LO 行**：pll_simulator 的模型只覆盖到 12 GHz，拓扑 A 的 18.0 GHz（×3）/ 13.5 GHz（×4）它不出（pll_simulator#71 的答复）；可行的是 6.0 GHz × 9 = 54.0 GHz（对方 CLI 能出，IPN −33.99 dBc）。现在的 LO 扫描用 1 极 1 零剖面直接给在 LO 输出端。待做：`LO_SCHEMES` 加 ×9 一档并生成该剖面；`make_profile` 现在对两条拓扑都传载频（60.48 GHz），拓扑 A 要改成传 LO 频率（54.0 GHz）才接得上，复现：`Frontend60.from_config(dc.replace(if_extender_60ghz(mcs=4), lo=LoConfig(phase_noise=PhaseNoiseConfig(model='profile', profile_path='pllsim_wu19_x10_60p48g_floor150.yaml'))))` 不报错，用的是 60.48 GHz 的剖面，比 54.0 GHz 的高 20·log10(60.48/54) = 1.0 dB。
 - 没建的：60 GHz 级自己的 LNA 噪声系数（SNR 轴仍按芯片 LNA 的 NF 定义，与拓扑 B 同口径）、混频器的非线性、IF 滤波器的温漂、采样钟偏差（两条拓扑都没建）；MLO 的 sub-7 链路只有 AWGN（没有它自己的相噪和多径）。
 - 11ac 20 MHz 的拓扑 A 行 pJ/bit 是 22419：26 Mb/s 的分母，不是硬件差（与 `comparison-table.md` §6 ① 同理）。（2026-11-13 回退改成 7.5 dB 之前 22259；2026-11-12 预设换成测量的 PA 之前：29291、20 Mb/s。）
 
@@ -47,11 +46,7 @@ ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、�
 ## C. 里程碑 0 过程中发现的问题
 
 ### C4. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
-Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 原文。
-
-### C5. 里程碑 1-B 发现的（见 `cairn/LOG.md` 2026-11-07）
-- 60.48 GHz 上 40 ppm = 2.42 MHz，K = 4 的 L-STF 范围 ±2.5 MHz 刚好接住——Liu 的 K > 4.7 门槛是 73.44 GHz 的；通式 K > 2·Δf_max / 1.25 MHz。
-- 回环定时：wifitrx `align_delay` 对复波形互相关，2.94 MHz CFO 下 1 µs 内去相关；本库用包络互相关定时（`sim/link.py::envelope_lag`）。
+Liu 2025 的 Rapp 参数与 OBO 定义（TGad 原文 2026-11-13 已读：回退从 Psat 算、推荐 8 dB；Liu 本人用的哪颗 PA 仍不知道）；11ad CR 信道 tap 表。
 
 ### C6. C1–C3 过程中发现的（见 `cairn/LOG.md` 2026-11-11）
 - **门限表自己还没用上 C3 的逼近**：`tools/measure_thresholds.py` 仍是每点 ≤ 200 包 / 15 错、0.5 dB 步。同一格（11be 80 MHz MCS4 理想链）门限表读 11.40、示例 05 读 11.09；
@@ -97,10 +92,9 @@ Liu 2025 的 Rapp 参数与 OBO 定义；11ad CR 信道 tap 表；11-09/0296r16 
 - **AM/PM 没有出处**：三篇都不给，测量形状一档仍用 11ad 的 AM/PM。去掉 AM/PM，PA 单独的 EVM 在回退 4–12 dB 上好 0.2–0.5 dB（11ad 形状）/ 0.3–1.7 dB（测量形状），复现：`pa_isolated_evm_db(ModifiedRappPA(p=…, ampm=False), obo, "psat")` 对 `ampm=True`。AM/PM 在测量形状上分量更大，因为 AM/AM 的失真小了。它也直接进了工作点：去掉 AM/PM，规则给 7.06 dB 而不是 7.46 dB。
 - **峰值 PAE**：预设现在取测量的 16.3 %（旧的假设 20 % 偏高）；同组三颗 14.3–16.3 %，汇编的中位 8.5 %。功耗列的 B 类回退规律对一颗偏乐观（P1dB 处测 7.9 %、折出 9.6 %），对另一颗偏保守（测 12.0 %、折出 11.0 %）。
 - **汇编表还有 6 行是二手的**：`pa60.eumc2011_table1` 的 13 行别人的数是那篇论文转引的。2026-11-14 spec_sources 0.4.0 读了其中 7 行的原文（mmw60_trx#27），剩下 [5] [7] [8] [10] [12] [14] 只在别篇的对比表里出现过，数字相符但没逐篇读。只用来看分布。
-- **示例 09 的“汇编中位形状”灵敏度行把两行不该算的数也算进去了**：`python examples/09_pa_against_the_literature.py` §2 的 “compiled median gap (p 1.57)” 一行用的是 Table I 全部 14 行的 Psat − P1dB 中位（3.3 dB）。其中 [1]（9.0 dB）原作者归因于偏置不当，[11] 是 48 / 52 GHz 的数（spec_sources 0.4.0 读原文得出）。去掉这两行中位会变，这一行的 p 与工作点规则在它上面的读数（6.74 dB）跟着变，示例输出会动，所以 #27 只改了文档没动它。要不要按“偏置正常、60 GHz”重算，待定。
 
 ### C11. 规范表迁到 spec_sources 时留下的（见 `cairn/LOG.md` 2026-11-13 两条、`cairn/spec-sources.md` §制度，mmw60_trx#21 / #23）
-- **留在本地的 3 条 survey 不是文献**：`survey.clock_profile_wu19`、`survey.clock_profile_wu19_x10` 的值是本仓库 `data/clock_profiles/` 里的文件名（pll_simulator 的模型输出），`survey.dsp_ip_dpd_poly_p4` 是姊妹库 dsp_ip 的综合估计。标的是 survey，但“未核实的文献数字”这个意思对它们不成立；spec_sources 不收（`tests/test_extraction.py::MMW60_STAYS`），标签由本库定。改标签就得改键名（`survey.` 前缀），示例 04 打印这三个键名，期望输出会动，所以搬家（#21）和 0.2.0 的改名（#23）都没有动它们；共享库改名用的别名机制只在它自己的表里，本地表要改名得自己留旧名的读法。复现：`python -c "from mmw60 import spec; print(sorted(spec.load_table()))"` 里的三条 `survey.`。
+- **留在本地的 4 条 survey 不是文献**：`survey.clock_profile_wu19`、`survey.clock_profile_wu19_x10`、`survey.clock_profile_wu19_x9`（2026-11-14 加，拓扑 A 的 54.0 GHz LO）的值是本仓库 `data/clock_profiles/` 里的文件名（pll_simulator 的模型输出），`survey.dsp_ip_dpd_poly_p4` 是姊妹库 dsp_ip 的综合估计。标的是 survey，但“未核实的文献数字”这个意思对它们不成立；spec_sources 不收（`tests/test_extraction.py::MMW60_STAYS`），标签由本库定。改标签就得改键名（`survey.` 前缀），示例 04 / 06 打印这些键名，期望输出会动，所以搬家（#21）和 0.2.0 的改名（#23）都没有动它们；共享库改名用的别名机制只在它自己的表里，本地表要改名得自己留旧名的读法。复现：`python -c "from mmw60 import spec; print(sorted(spec.load_table()))"` 里的四条 `survey.`。
 
 ## D. 报回上游
 本库不动这三个库；需求各开一个 issue 交给对方，对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。
@@ -111,6 +105,7 @@ D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）已落地并由对方关�
 
 ## E. 明确不做
 MAC / MLO 调度、多用户、信道模型本身（用 11ad CR 现成表）、D-band、雷达（另开 fmcw_radar）；EIRP / 谱模板只做趋势比较，不替代认证测试；不把 vendor 变成 fork。
+示例 09 “汇编中位形状”灵敏度行按“偏置正常、60 GHz”重算中位（原 C10 末条；2026-11-14 用户定不做）：那一行的中位含 Table I 的 [1]（偏置不当）与 [11]（48 / 52 GHz），只用来看分布，说明在 `cairn/comparison-table.md` §8。
 
 ## 怎么用这份文件
 改动落地后，把对应条目从这里删掉、在 `CHANGELOG.md` 里记一笔、在 `cairn/LOG.md` 顶部加一条带原始数字的记录。

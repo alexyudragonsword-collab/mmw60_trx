@@ -9,9 +9,11 @@ import numpy as np
 import pytest
 
 from mmw60 import compare
-from mmw60.config import ChannelConfig, Mmw60Config, if_extender_60ghz, zero_if_60ghz
+from mmw60 import spec
+from mmw60.config import ChannelConfig, Mmw60Config, PhaseNoiseConfig, if_extender_60ghz, zero_if_60ghz
 from mmw60.frontend import Frontend60
 from mmw60.frontend.grid import analytic_floors
+from mmw60.impairments.phase_noise import load_clock_profile
 from mmw60.ifext import (IfFilter, MmwRxStage, MmwTxStage, build_chip_wifitrx,
                          calibrated_chip, chip_facts, if_plan)
 from mmw60.impairments.cfo import CfoModel, MloCfo
@@ -73,6 +75,62 @@ def test_law2_topology_a_runs_on_the_shared_front_end_instance():
     # same operating point of the same PA: Psat − OBO within the trim tolerance
     assert a.pout_dbm == pytest.approx(fe.target_pout_dbm(), abs=0.05)
     assert b.pout_dbm == pytest.approx(fe.target_pout_dbm(), abs=0.05)
+
+
+def with_profile(cfg, path, scheme=None):
+    lo = dc.replace(cfg.lo, phase_noise=PhaseNoiseConfig(model="profile", profile_path=str(path)))
+    return dc.replace(cfg, lo=lo if scheme is None else dc.replace(lo, scheme=scheme))
+
+
+def test_the_fixed_lo_noise_sits_at_the_lo_frequency_not_the_carrier(tmp_path):
+    """A pllsim clock profile is placed where topology A's fixed LO runs,
+    f_c − f_IF = 54.0 GHz, also when the front end was built for topology B
+    (the shared instance of the comparison table); a profile given at the LO
+    output (pole-zero) is the same object at either frequency."""
+    a, b = small(), zero_if_60ghz(k=8)
+    assert a.lo_hz == a.carrier_hz - a.lo.if_hz == 54.0e9 and b.lo_hz == b.carrier_hz
+    fe_b = Frontend60.from_config(b)
+    assert fe_b.lo.at(a.lo_hz) is fe_b.lo                                   # pole-zero: no frequency in it
+    # the x9 file: pllsim's x9 block to 54.0 GHz, topology A's LO scheme fixed_lo_x9
+    x9 = spec.value("survey.clock_profile_wu19_x9")
+    src = load_clock_profile(x9["file"])
+    assert (src["multiply_by"], src["f0_hz"], src["f_in_hz"]) == (9, x9["f0_hz"], x9["f_in_hz"])
+    assert "d67043e" in src["source"] and "d67043e" in spec.survey("survey.clock_profile_wu19_x9").cite
+    c9 = with_profile(a, x9["file"], scheme="fixed_lo_x9")
+    fe9 = Frontend60.from_config(c9)
+    s9 = LinkSim(c9, frontend=fe9)
+    assert s9.ifx.plan["pll_hz"] == 6.0e9 and fe9.lo.profile_hz == 54.0e9
+    assert s9.ifx.tx.stage.lo_profile is fe9.lo.profile and s9.ifx.rx.stage.lo_profile is fe9.lo.profile
+    ssb = 10 * np.log10(fe9.lo.profile.psd(np.array(src["f_hz"])) / 2)
+    assert np.allclose(ssb, src["l_dbc_hz"])                                # used as written, no second shift
+    assert fe9.lo.ipn_dbc(*PN_BAND_HZ) == pytest.approx(-34.0, abs=0.1)
+    # what topology A read before: the x10 file at the carrier, 0.95 dB more IPN; it is now refused
+    x10 = spec.value("survey.clock_profile_wu19_x10")["file"]
+    old = Frontend60.from_config(with_profile(zero_if_60ghz(k=1), x10)).lo.ipn_dbc(*PN_BAND_HZ)
+    assert old - fe9.lo.ipn_dbc(*PN_BAND_HZ) == pytest.approx(0.95, abs=0.05)
+    with pytest.raises(ValueError, match="not an integer multiple"):
+        Frontend60.from_config(with_profile(a, x10))
+    with pytest.raises(ValueError, match="x9 multiplier, lo.scheme fixed_lo_x3 is x3"):
+        LinkSim(with_profile(a, x9["file"]))
+    # one front end for both topologies: a profile without a multiplier at 1.08 GHz moves by
+    # x56 to the carrier and by x50 to topology A's LO; the analytic terms and the stage use the latter
+    raw = tmp_path / "raw_1p08g.yaml"
+    raw.write_text("f0_hz: 1.08e9\nf_hz: [1.0e3, 1.0e9]\nl_dbc_hz: [-120.0, -150.0]\n", encoding="utf-8")
+    fe = Frontend60.from_config(with_profile(b, raw))
+    ca = with_profile(a, raw)
+    lo_a = fe.lo.at(ca.lo_hz)
+    assert lo_a is not fe.lo and lo_a.profile_hz == 54.0e9 and fe.lo.profile_hz == b.carrier_hz
+    f = np.array([1e4, 1e6, 1e8])
+    assert np.allclose(10 * np.log10(fe.lo.profile.psd(f) / lo_a.profile.psd(f)), 20 * np.log10(56 / 50))
+    sa = LinkSim(ca, frontend=fe)
+    assert np.array_equal(sa.ifx.tx.stage.lo_profile.psd(f), lo_a.profile.psd(f))
+    pa_, pb_ = compare._pn_terms(ca, fe, ca.upclocked()), compare._pn_terms(with_profile(b, raw), fe, b.upclocked())
+    assert pb_["ipn_dbc"] - pa_["ipn_dbc"] == pytest.approx(20 * np.log10(56 / 50), abs=1e-6)
+    fl = analytic_floors(ca, fe)["terms_db"]["phase_noise"]
+    ici = 2 * cpe_partition(lo_a.profile.psd, ca.upclocked().t_fft_eff, 1e3, ca.upclocked().fs_eff / 2)["ici_rad2"]
+    assert fl == pytest.approx(10 * np.log10(ici), abs=1e-9)
+    with pytest.raises(ValueError, match="already multiplied|integer multiple"):
+        fe9.lo.at(b.carrier_hz)                                             # a multiplied file stays at its f0
 
 
 def test_config_names_topology_a_and_round_trips(tmp_path):
