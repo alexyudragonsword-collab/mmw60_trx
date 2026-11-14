@@ -6,7 +6,6 @@
 
 ### A1. 拓扑 A 的剩余项（主体已落地：`src/mmw60/ifext.py`、示例 06、`cairn/topology-a.md`）
 - **芯片 PA 旁路这一档留下的**（2026-11-14 已建：`ifext.chip_pa_bypass`，预设不开；`cairn/topology-a.md` §6b）：320 MHz 解码器口径 765 → 538 pJ/bit，拓扑 B 487；合规口径 1712 → 1200，比 B 的 1268 省。
-  - **IIP2 校准在旁路链上不收敛**：wifitrx 序列里 IIP2 一步的耦合器衰减是 `max(主路 − 10, 30)` dB，30 dB 是绝对下限，按 PA 输出电平的双音定的。耦合器在 PA 前时主路只有 14.4 dB（11be 80 MHz），下限顶住，双音低约 25.6 dB：`rx_iip2` 判失败、IIP2 74.5 → 42.9 dBm。复现：`python examples/06_topology_a_if_extender.py` §5b，或 `tests/test_ifext.py::test_law4_a_bypassed_chip_pa_is_calibrated_on_its_own_chain`。链路仿真里没有阻塞信号，不进链路 EVM。要上游改（下限随 TX 输出电平走）就报 wifi_trx_cal，待定。
   - 另一种做法没建：带着 PA 按交付方式校准、链路上再旁路（IIP2 照常，IQ 估计里混进 PA 失真，残差要在旁路模式下另量）。
   - 旁路后剩下的差：每端两个频综（芯片的 + 固定 LO）与 4 倍过采样的转换器。
 - **间接学习越迭代越差，靠近饱和时 1 轮也不够**：60 GHz 观测回环的 DPD 在回退 6 dB 上每一轮都不如不加（观测读数 不加 −18.41、第 1 轮 −16.27 dB），留芯片上的；8 dB 上值 +1.63 dB（示例 06 §3）。换成压缩更陡的测量形状之后，第 2、3 轮照样越来越差。
@@ -107,6 +106,7 @@ D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）已落地并由对方关�
 
 ## E. 明确不做
 MAC / MLO 调度、多用户、信道模型本身（用 11ad CR 现成表）、D-band、雷达（另开 fmcw_radar）；EIRP / 谱模板只做趋势比较，不替代认证测试；不把 vendor 变成 fork。
+芯片 PA 旁路链上 IIP2 校准不收敛这件不报 wifi_trx_cal（2026-11-14 用户定）：wifitrx 序列里 IIP2 耦合器衰减的 30 dB 绝对下限按 PA 电平的双音定，耦合器在 PA 前时下限顶住、`rx_iip2` 判失败（74.5 → 42.9 dBm）；链路仿真里没有阻塞信号，不进链路 EVM。发现记在 `cairn/topology-a.md` §6b，`tests/test_ifext.py::test_law4_a_bypassed_chip_pa_is_calibrated_on_its_own_chain` 守着。
 示例 09 “汇编中位形状”灵敏度行按“偏置正常、60 GHz”重算中位（原 C10 末条；2026-11-14 用户定不做）：那一行的中位含 Table I 的 [1]（偏置不当）与 [11]（48 / 52 GHz），只用来看分布，说明在 `cairn/comparison-table.md` §8。
 
 ## 怎么用这份文件
