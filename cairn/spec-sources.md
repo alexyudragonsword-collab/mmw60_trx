@@ -56,6 +56,7 @@ MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B
 - `pa60.wu_asscc2012`：末级 1.0 V 时 Psat 13.2 / P1dB 10.2 dBm / PAE 15.0 %，0.7 V 时 10.1 / 5.8 / 8.1 %。
 - `pa60.ning_elex2011`：IEICE ELEX 2011，增益 9.8 dB、P1dB 9.4、Psat 11.7 dBm、PAE 14.3 % / P1dB 处 12.0 %。
 - `pa60.eumc2011_table1`：Asada 那篇的 Table I，14 颗 60 GHz CMOS PA 的汇编。是那篇转引的，各行原文本库没读，只用来看分布。
+  更正（2026-11-14，mmw60_trx#27）：spec_sources 0.4.0 逐篇读了其中 7 行的原文，新增 7 条 spec（`pa60.chan_isscc2009`、`pa60.lai_isscc2010`、`pa60.law_isscc2010`、`pa60.kuo_mwcl2009`、`pa60.jin_esscirc2007`、`pa60.tanomura_isscc2008`、`pa60.martineau_isscc2010`），这 7 行的 P1dB、Psat、峰值 PAE 与原文相同，表的值不动。读原文得出三点：[1] 的 9.0 dB 原作者归因于偏置不当；[11] 是 48 / 52 GHz 的数；[13] 那行的增益是 0.7 V 的值、其余三格是 1.0 V 的。剩下 6 行（[5] [7] [8] [10] [12] [14]）仍是二手。表重新 pin 到 `8e5f2e2`（0.4.0）后合并表 137 条。
 - `rx60.comm_asada2011` 补了发射侧（变频增益 16 dB、P1dB 5.4、Psat 6.5 dBm）：那是收发机的发射输出，没有单独 PA 级。
 - `pa60.asada_eumc2011_rapp_p` = 1.286：使 Rapp 的 Psat − P1dB 等于 4.6 dB 的平滑度，`tests/test_pa60.py` 复算。`assumed.pa60_surveyed_pick` 说基准档取哪一篇。
 - 没出处的：AM/PM（三篇都不给，仍用 11ad 的）。`assumed.pa60_psat_dbm` / `assumed.pa60_pae_max` 的备注里加了与测量值的对照。
