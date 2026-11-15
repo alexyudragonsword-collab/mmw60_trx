@@ -94,7 +94,7 @@
 
 - name: ex04 topology A against topology B on the same 320 MHz (decoder cap, pJ/bit)
   values:
-    a_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be 11be 320M IF extender @60.48 GHz {*} MCS{*} MCS6 {*} {*} {*} MCS{*} {*} {}"}
+    a_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be 11be 320M IF extender @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} MCS{*} {*} {}"}
     b_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} MCS{*} {*} {}"}
   quotes:
     - {doc: cairn/topology-a.md, text: "拓扑 A（11be 320 MHz，K = 1）{a_pj} pJ/bit，拓扑 B（80 MHz × 4）{b_pj} pJ/bit"}
