@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### Liu 2025 的 MCS4 平台：示例 12（信道 K 因子扫描）、读 [15]、spec_sources#26（2026-11-15）—— 引擎、预设与指纹不变
+- spec_sources#26：请它按刊出版重读 `liu2025.*`（Table I 的 16× 列、接收机那句、Table II 可升 spec 的各行），并收 IEEE 802.15-06-0477 / 0396 的相噪与 PA 模型条目。本库发起，验收后由本库关。
+- 读了 Liu 的 [15] IEEE 802.15-06-0477-01-003c 与它的 PA 文件 15-06-0396-01-003c（公开）：修正 Rapp 没给数；回退是相对 Psat 的输出回退，与本库一致；相噪建议 PSD(0) −87 dBc/Hz，−93 是示例之一；0396 的 Ghorbani 拟合与 TGad EM 参数量级相近。记在 `cairn/spec-sources.md`、ROADMAP C4。
+- 示例 12（新）：K = 8、MCS 0 / 1 / 4，Table II 的损伤全开，CR 信道的 LOS K 因子 flat / 10 / 6 / 3 / 0 dB / 纯 Rayleigh，原文列从 `liu2025_fig4.yaml` 算；再在两条衰落信道上逐项关 PA / 相噪。
+- 结论：没有哪个 K 因子同时给出“MCS0 / 1 陡、MCS4 停平台”——Rayleigh 的 MCS4 平台 0.106 与原文 0.105 对上，但 MCS0 / 1 从 0.5 到 0.05 要 7 dB 以上（原文约 1 dB）。衰落信道上的平台主要是 PA 的（理想 PA 时能到 1e-2）。**被推翻的判断**：同一天写的“原文 MCS4 的出入更像是信道 / 接收机”，改为 PA 的有效工作点在前（ROADMAP C12）。
+
 ### Liu 2025 刊出版：对外校验改对刊出版 Fig. 3（2026-11-15）—— 引擎、示例输出与指纹不变
 - 用户提供了刊出版 PDF（IEEE Commun. Mag. 63(3) 69–75，doi 10.1109/MCOM.002.2400059；授权下载件，不进仓库）。**被推翻的判断**：本库按 arXiv v1 读、当作“有损伤”的 9 条曲线，在刊出版 Fig. 3 里是虚线的 ideal 组；实线的有损伤组另画（MCS0 约 4.6 dB、MCS1 约 7.9–8.1 dB，MCS4 到 31 dB 仍停在 PER 0.05–0.1）。
 - `liu2025_fig4.yaml` 改成两组（`set: impaired | ideal`，MCS4 有损伤记 `floor_per`）；`tools/external_check.py` 本库四组对原文有损伤组、本库 ideal 对原文 ideal（K = 8 / 16；原文的 ideal 带着 CFO）；原文到不了 1e-2 的曲线只有本库也到不了才算一致。
