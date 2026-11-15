@@ -68,7 +68,7 @@ python examples/08_frontend_faces.py                      # 全量约 15 秒；-
 python examples/09_pa_against_the_literature.py           # 全量约 2 分钟；--quick 冒烟
 ```
 
-结论见 `cairn/comparison-table.md` §8：换 PA 让同台表里 K ≤ 4 与拓扑 A 的行升一到两档 MCS，K ≥ 8 的行不动（受 IQ 镜像限）。回退从 8 dB 改成 7.5 dB 后 PA 项从 −22.1 变成 −21.1 dB：合规上限下 11be 80 MHz × 4 从 MCS3 降到 MCS2，解码器上限下 K = 1 @6 GHz 从 MCS6 降到 MCS5，其余行的上限不动；校准后的列只有 2.56 GHz 一行降一档（合规 MCS3 → 2、解码器 MCS6 → 5）。7.5 dB 正好在 wifitrx DPD 的崖口：K = 8 上 DPD 拿回 0.0 dB，8 dB 上拿回 2.0 dB（ROADMAP C8、C10）。
+结论见 `cairn/comparison-table.md` §8：换 PA 让同台表里 K ≤ 4 与拓扑 A 的行升一档 MCS（2026-11-15 门限加逼近之前拓扑 A 升两档），K ≥ 8 的行不动（受 IQ 镜像限）。回退从 8 dB 改成 7.5 dB 后 PA 项从 −22.1 变成 −21.1 dB：合规上限下 11be 80 MHz × 4 从 MCS3 降到 MCS2，解码器上限下 K = 1 @6 GHz 从 MCS6 降到 MCS5，其余行的上限不动；校准后的列只有 2.56 GHz 一行降一档（合规 MCS3 → 2、解码器 MCS6 → 5）。7.5 dB 正好在 wifitrx DPD 的崖口：K = 8 上 DPD 拿回 0.0 dB，8 dB 上拿回 2.0 dB（ROADMAP C8、C10）。
 
 ## 里程碑 1 · A1：拓扑 A，IF 延伸（示例 06）
 
