@@ -82,7 +82,8 @@ def test_law2_report_hands_one_instance_to_every_row_and_the_k1_row_is_the_ancho
     rep = compare.build(compare.scheme_matrix(ks=(1, 8)), fe, time_domain=True)
     assert rep["frontend_ids"]["frontend"] == id(fe) and rep["frontend_ids"]["eirp"] == id(fe.eirp)
     labels = [r["label"] for r in rep["rows"]]
-    # rows: A be, A be_upclocked K=8 (the chip's 160 MHz channel), B be K=1, B be_upclocked K=1 / 8; not built: ay x 2 x 2
+    # rows: A be, A be_upclocked K=8 (the chip's 160 MHz channel), B be K=1, B be_upclocked K=1 / 8;
+    # not built: the two ay waveforms on both topologies
     assert len(labels) == 5 and len(rep["pending"]) == 4 and len(rep["matrix"]) == 8
     # the K = 1 chain row reads what evm_at reads for the same config on the same instance
     k1 = next(r for r in rep["rows"] if r["waveform"] == "be" and r["topology"] == "upclock_zero_if")
