@@ -104,7 +104,7 @@ python tools/budget_report.py --base 11be:80e6 --k 4,8,16,32 --sensitivity -o ta
 
 网格和同台表里的“MCS 上限”有两个口径并排：**合规口径**（EVM 底板比规范的 TX EVM 要求低 3 dB——发射机过不过认证）和**解码器口径**
 （底板当一层噪声，对着本库接收机实测的 ideal 门限 `data/spec/per_thresholds.yaml`——链路带不带得动）。后者高 1–3 档，示例 05 逐格用 PER 复核。未校准的解码器上限从解析底板与该格时域 EVM 中较差的一个起算。
-改了接收机要重量门限：`python tools/measure_thresholds.py --jobs 4`（约 16 分钟），`--check` 只比对不写。
+改了接收机要重量门限：`python tools/measure_thresholds.py --jobs 4 --cache DIR`（4 核约 2.3 小时；夹住 1e-2 的两点续跑到 60 个错包，每个门限的 95 % 区间写进文件的 `ci_db`；`--cache` 让被停掉的一次接着跑），`--check` 只比对不写。
 
 ## 接收机两档与 PER 的置信区间（C1–C3）
 

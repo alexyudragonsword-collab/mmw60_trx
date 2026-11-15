@@ -126,7 +126,7 @@ A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 的 B
 
 ## 本库自己量的（derived）
 
-- `data/spec/per_thresholds.yaml`：各 MCS 的 ideal PER 门限（`tools/measure_thresholds.py`）。不是规范数，是这份代码的接收机的性质（C1–C3 后是改进的那一档，比里程碑 0 的接收机低 0.1–2.8 dB）；`tests/test_thresholds.py` 复量一个点守着它不与代码漂开。
+- `data/spec/per_thresholds.yaml`：各 MCS 的 ideal PER 门限（`tools/measure_thresholds.py`）。不是规范数，是这份代码的接收机的性质（C1–C3 后是改进的那一档，比里程碑 0 的接收机低 0.1–2.8 dB）；`tests/test_thresholds.py` 复量一个点守着它不与代码漂开。2026-11-15 起（C6）夹住 1e-2 的两点续跑到 60 错包 / 3000 包，每个门限旁记 95 % 自助区间 `ci_db`（`spec.per_threshold_ci_db`；中位宽 0.12 dB），测试守着“有门限就有区间、门限在区间里、宽度上限”。
 - `derived.irr_after_cal_measured_db`：示例 03 实测的校准后 IRR，同台表的 IQcal 列读它。2026-11-13 按校准跑在预设 PA 工作点（从 Psat 7.5 dB）上的示例 03 重导：20 / 80 / 160 / 320 / 640 / 2560 MHz 为 57.3 / 55.9 / 53.4 / 51.9 / 48.1 / 40.2 dB（2026-11-12 默认驱动、测量的 PA：56.3 / 56.8 / 52.9 / 50.9 / 47.6 / 38.5；换 PA 之前 55.3 / 55.2 / 50.4 / 51.1 / 46.5 / 37.9）。
 
 ## 要原文才能关掉的问题
