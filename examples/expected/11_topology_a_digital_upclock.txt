@@ -29,6 +29,38 @@ A 11ac 20M x8          8     5.000 MHz      0.97             yes      -19.80    
 A 11ac 20M x4          4     2.500 MHz      1.94             yes      -19.44       -19.70       11.8 kHz
 MLO on: the sub-7 estimate x f_c / f_sub7 is taken out first (the preset); MLO off: the raw offset reaches the chip's L-STF / L-LTF.  K = 4 at 60.48 GHz leaves 3 % of range (2.50 against 2.42 MHz); at Liu's 73.44 GHz (2.94 MHz) it would need K >= 8
 
+== 2b. how often the CFO is lost (K = 4 / 8; 400 packets of 64 B per cell; lost = |CFO error| beyond half a subcarrier, which the L-LTF cannot take back) ==
+scheme                 K channel         offset    margin  SNR  beyond range  95 % upper  hand-off  rms err (kept)
+A 11be 80M x4          4 flat          2.42 MHz    81 kHz    0     4/400        2.54 %    0/400          2.2 kHz
+A 11be 80M x4          4 flat          2.42 MHz    81 kHz    3     0/400        0.92 %    0/400          1.8 kHz
+A 11be 80M x4          4 flat          2.42 MHz    81 kHz   10     0/400        0.92 %    0/400          1.3 kHz
+A 11be 80M x4          4 flat          0.00 MHz  2500 kHz    0     0/400        0.92 %    0/400          2.3 kHz
+A 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz    0     3/400        2.18 %    0/400          2.3 kHz
+A 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz    3     0/400        0.92 %    0/400          1.7 kHz
+A 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz   10     0/400        0.92 %    0/400          1.3 kHz
+A 11be 40M x8          8 flat          2.42 MHz  2581 kHz    0     0/400        0.92 %    2/400          6.3 kHz
+A 11be 40M x8          8 flat          2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400          4.7 kHz
+A 11be 40M x8          8 flat          2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400          3.5 kHz
+A 11be 40M x8          8 flat          0.00 MHz  5000 kHz    0     0/400        0.92 %    1/400          6.6 kHz
+A 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400          6.9 kHz
+A 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400          4.8 kHz
+A 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400          3.7 kHz
+A 11ac 20M x8          8 flat          2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400         72.1 kHz
+A 11ac 20M x8          8 flat          2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400         45.8 kHz
+A 11ac 20M x8          8 flat          2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400         23.9 kHz
+A 11ac 20M x8          8 flat          0.00 MHz  5000 kHz    0     0/400        0.92 %    0/400         73.6 kHz
+A 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400         71.8 kHz
+A 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400         45.6 kHz
+A 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400         26.6 kHz
+A 11ac 20M x4          4 flat          2.42 MHz    81 kHz    0    46/400       15.04 %    0/400         35.3 kHz
+A 11ac 20M x4          4 flat          2.42 MHz    81 kHz    3     2/400        1.79 %    0/400         23.6 kHz
+A 11ac 20M x4          4 flat          2.42 MHz    81 kHz   10     0/400        0.92 %    0/400         11.1 kHz
+A 11ac 20M x4          4 flat          0.00 MHz  2500 kHz    0     0/400        0.92 %    0/400         36.9 kHz
+A 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz    0    27/400        9.67 %    0/400         33.0 kHz
+A 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz    3     4/400        2.54 %    0/400         22.5 kHz
+A 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz   10     0/400        0.92 %    0/400         11.9 kHz
+offset = what reaches the chip without the multi-link pre-compensation (40 ppm at 60.48 GHz; 0.00 = the estimators on no offset at all, as behind a perfect pre-compensation); margin = the L-STF's range (+-625 kHz x K) minus it; beyond range = the L-STF folded the offset (95 % upper: Clopper-Pearson on those counts); hand-off = the L-STF's noisy coarse estimate missed by more than half a subcarrier and the L-LTF locked one subcarrier off — STF and LTF scale together with K, so that is the estimator pair's low-SNR behaviour at any K
+
 == 3. the hardware is the native channel's (iron rules 2 and 4): one calibrated chip per channel ==
 A 11be 320M          channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB
 A 11be 80M x4        channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB; chip output and calibration identical to the first row on this channel

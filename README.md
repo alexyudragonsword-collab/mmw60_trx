@@ -79,10 +79,10 @@ CFO 靠多链路的 sub-7 估计乘频率比预补偿（`impairments/cfo.py::Mlo
 python examples/06_topology_a_if_extender.py --jobs 4     # 全量约 4 分钟；--quick 冒烟
 ```
 
-只改数字基带的升频（A × be_upclocked，示例 11）：芯片的模拟与校准不动，数字跑基准 PHY、时钟 ×K，K × 基准带宽要落在芯片的信道上（≤ 320 MHz）。上限不变（PA 限），换来的是 K ≥ 4 时芯片自己的 L-STF 接住 60 GHz 的 CFO，不靠 MLO。
+只改数字基带的升频（A × be_upclocked，示例 11）：芯片的模拟与校准不动，数字跑基准 PHY、时钟 ×K，K × 基准带宽要落在芯片的信道上（≤ 320 MHz）。上限不变（PA 限），换来的是 K ≥ 8 时芯片自己的 L-STF 接住 60 GHz 的 CFO，不靠 MLO（K = 4 余量 3 %，低 SNR 下按包丢）。
 
 ```bash
-python examples/11_topology_a_digital_upclock.py           # 全量约 2.5 分钟；--quick 冒烟
+python examples/11_topology_a_digital_upclock.py           # 全量约 17 分钟（多半是 §2b 的失锁统计）；--quick 冒烟
 ```
 
 结论见 `cairn/topology-a.md`（§7b 是只改数字基带的升频）。

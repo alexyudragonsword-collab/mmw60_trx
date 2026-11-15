@@ -1,0 +1,70 @@
+engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
+mmw60 0.1.0; full size; Liu 2025 Table II on a flat channel: PA rapp_11ad OBO 8 dB from psat, PN -93 dBc/Hz at both, CFO 2.94 MHz with the L-STF / L-LTF estimators
+
+== 1. what the receiver sees with no noise (data-tone EVM after equalisation, 4 packets, MCS4 frames) ==
+K = 8   all on  -17.74 dB   PA only  -18.30   PN only  -26.90   CFO only < -100
+K = 16  all on  -17.94 dB   PA only  -18.30   PN only  -28.70   CFO only < -100
+PA only against its back-off from Psat (K-independent: the PA has no memory):
+  OBO [dB]      10       8       7       6       5       4       3
+  EVM [dB]  -21.23  -18.30  -16.89  -15.52  -14.16  -12.80  -11.42
+  sensitivity: the PA applied at 1x sampling (its intermodulation folded into the band) at OBO 8 dB: -16.10 dB, +2.20 dB against 2x
+all on, K = 8, against the PA's back-off:  OBO 8: -17.74   OBO 7: -16.48   OBO 6: -15.21   OBO 5: -13.93
+
+== 2. the paper's MCS4 floor read through its own 'ideal' curves (impaired points at SNR >= 25 dB; liu2025_fig4.yaml) ==
+K   SNR [dB]  impaired PER  -> SINR on its ideal curve  -> impairments' share [dB]
+8       25         0.180             17.27                   -18.07
+8       27         0.155             17.39                   -17.90
+8       29         0.135             17.51                   -17.83
+8       31         0.105             17.71                   -17.92
+16      25         0.093             17.51                   -18.36
+16      27         0.070             17.70                   -18.24
+16      29         0.064             17.76                   -18.10
+16      31         0.053             17.89                   -18.10
+
+K   implied share   ours, all on (section 1)   diff   -> the PA's share (minus our PN)   -> our OBO for it
+8       -17.93 dB          -17.74 dB           -0.19        -18.52 dB                     8.1 dB
+16      -18.20 dB          -17.94 dB           -0.26        -18.61 dB                     8.2 dB
+
+the same share moves the paper's MCS0 / 1 by (its ideal -> predicted impaired, against its drawn impaired; SNR at PER 1e-2 [dB]):
+  K = 8  MCS0: ideal 4.2 -> predicted 4.39  (+0.19); drawn impaired 4.66 (+0.46)
+  K = 8  MCS1: ideal 7.5 -> predicted 7.91  (+0.41); drawn impaired 8.1 (+0.60)
+  K = 16 MCS0: ideal 4.2 -> predicted 4.38  (+0.18); drawn impaired 4.61 (+0.41)
+  K = 16 MCS1: ideal 7.5 -> predicted 7.89  (+0.39); drawn impaired 7.91 (+0.41)
+
+== 3. the same mapping in this engine: K = 8, flat channel, its own ideal curves plus section 1's no-noise EVM, against the simulated impaired curves (up to 300 packets or 20 errors per point) ==
+MCS0 ideal                         SNR@1e-2   4.86 dB   0:1 1:1 2:1 3:0.741 4:0.118 5:0.00667 6:0
+MCS0 all on, OBO 8                 SNR@1e-2   5.06 dB   0:1 1:1 2:1 3:0.909 4:0.233 5:0.04 6:0
+MCS0 all on, OBO 7                 SNR@1e-2   5.57 dB   0:1 1:1 2:1 3:0.952 4:0.25 5:0.0433 6:0.00333 7:0
+MCS0 all on, OBO 6                 SNR@1e-2   5.59 dB   0:1 1:1 2:1 3:0.952 4:0.267 5:0.05 6:0.00333 7:0
+MCS0 all on, OBO 5                 SNR@1e-2   5.66 dB   0:1 1:1 2:1 3:1 4:0.4 5:0.0823 6:0.00333 7:0
+MCS1 ideal                         SNR@1e-2   8.21 dB   3:1 4:1 5:1 6:0.69 7:0.16 8:0.0133 9:0.00333 10:0
+MCS1 all on, OBO 8                 SNR@1e-2   8.08 dB   3:1 4:1 5:1 6:0.833 7:0.278 8:0.0787 9:0
+MCS1 all on, OBO 7                 SNR@1e-2   8.67 dB   3:1 4:1 5:1 6:0.952 7:0.333 8:0.0893 9:0.00333 10:0
+MCS1 all on, OBO 6                 SNR@1e-2   9.01 dB   3:1 4:1 5:1 6:0.952 7:0.435 8:0.144 9:0.0133 10:0
+MCS1 all on, OBO 5                 SNR@1e-2   9.05 dB   3:1 4:1 5:1 6:0.952 7:0.5 8:0.157 9:0.0333 10:0
+MCS4 ideal                         SNR@1e-2  16.00 dB   12:1 13:1 14:0.5 15:0.0533 16:0.01 17:0
+MCS4 all on, OBO 8                 SNR@1e-2  19.77 dB   13:1 15:0.645 17:0.175 19:0.02 21:0.00333 23:0.00667 25:0
+MCS4 all on, OBO 7                 SNR@1e-2  21.13 dB   13:1 15:0.909 17:0.426 19:0.125 21:0.0467 23:0
+MCS4 all on, OBO 6                 SNR@1e-2     never   13:1 15:1 17:0.87 19:0.364 21:0.182 23:0.118 25:0.084 27:0.0333 29:0.0467 31:0.0467
+MCS4 all on, OBO 5                 SNR@1e-2     never   13:1 15:1 17:1 19:0.833 21:0.714 23:0.392 25:0.323 27:0.392 29:0.235 31:0.274
+
+MCS  OBO   no-noise EVM   SNR@1e-2 predicted / simulated     PER at 31 dB predicted / simulated
+0    ideal                              4.86
+0      8      -17.74 dB        5.09 / 5.06                          /
+0      7      -16.48 dB        5.17 / 5.57                          /
+0      6      -15.21 dB        5.28 / 5.59                          /
+0      5      -13.93 dB        5.43 / 5.66                          /
+1    ideal                              8.21
+1      8      -17.74 dB        8.72 / 8.08                          /
+1      7      -16.48 dB        8.91 / 8.67                          /
+1      6      -15.21 dB        9.17 / 9.01                          /
+1      5      -13.93 dB        9.56 / 9.05                          /
+4    ideal                             16.00
+4      8      -17.74 dB       20.81 / 19.77                   never / —
+4      7      -16.48 dB       25.80 / 21.13                 0.00554 / —
+4      6      -15.21 dB       never / never                  0.0453 / 0.0467
+4      5      -13.93 dB       never / never                   0.556 / 0.274
+predicted = the ideal curve read at SINR = 1 / (1/SNR + EVM²); 'never' = the floor sits above 1e-2; '—' = the sweep stopped early below 1e-3
+the paper's 8x MCS4: floor PER 0.105 at 31 dB; its ideal needs 19.7 dB, this engine's flat ideal 16.00 dB
+
+[~s]
