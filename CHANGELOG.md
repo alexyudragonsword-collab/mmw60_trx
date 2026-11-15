@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### A2：拓扑 B 在 K = 4 的 CFO 丢包（2026-11-15）—— 引擎、预设与指纹不变；示例 11 多 B 行
+- 示例 11 §2b：每个拓扑 A 的 K = 4 / 8 块后面加拓扑 B 同基准 × K 的行（同一前端实例、同样两种信道、每格 400 包），B 没有 MLO 预补偿。
+- 数：B 11ac 20 × 4 在 3 dB 丢 0.5 / 1.0 %（flat / CR 替身），0 dB 丢 11 %；11be 80 × 4 只在 0 dB 丢 0.25–0.5 %；K = 8 不丢——与 A 关 MLO 同量。上限 MCS 在 10 dB 以上不丢，同台表与网格不动；付的是 MCS0 的灵敏度边。
+- **被推翻的猜测**：A 在 0 dB 上 CR 替身少丢（27 对 46）不是估计器的性质，B 两种信道同是 45；记进 ROADMAP A1。
+- `examples/derived.yaml` 加 A / B 两行丢包数的引用；ROADMAP 删优先级第 1 条与 A2 的对应待办，修 A3 里门限重量的耗时。
+
 ### C6：门限表加逼近，每个门限带 95 % 区间（2026-11-15）—— 引擎与指纹不变；门限、解码器上限与示例输出动
 - `tools/measure_thresholds.py`：夹住 PER 1e-2 的两点续跑到 60 个错包或 3000 包（`--refine-errors` / `--refine-max-packets`，默认开），每个门限的 95 % 自助区间（`snr_at_per_ci`）写进 `per_thresholds.yaml` 的 `ci_db`；`--cache DIR` 按曲线落盘，被停的一次接着跑。全量 4 核约 2.3 小时（第一次在 2 小时后台上限处停在 70 / 79 条，从缓存跑完剩下 9 条）。
 - `spec.per_threshold_ci_db(standard, bandwidth_hz, mcs)`（新）。**schema**：`per_thresholds.yaml` 多一个顶层键 `ci_db`，`cite` 写明逼近与区间。
