@@ -1,19 +1,40 @@
-# Liu 2025 (arXiv:2309.16813 v1, p. 5, Fig. 4 "Simulation results for different MCSs") 的读图值。
-# PER–SNR 曲线，横轴 SNR (dB) 0–30，纵轴 PER 1e-3–1。只有"有损伤"（CFO + PN + PA）一组；
-# v2 正文提到的"无损伤"曲线不在任何可得版本里。读图精度约 ±0.3 dB（网格 1 dB，300 dpi 渲染）。
+# Liu 2025 的 PER–SNR 曲线读图值：刊出版 Fig. 3 "Simulation results for different MCSs"（arXiv v1 里是 Fig. 4，v2 删图）。
+# 横轴 SNR (dB) 0–35，纵轴 PER 1e-3–1。两组，各 9 条（K = 4 / 8 / 16 × MCS 0 / 1 / 4）：
+#   impaired —— 实线，"considering hardware impairments (CFO, PN and PA)"；
+#   ideal    —— 虚线，图例标 ", ideal"，正文 "without considering these non-idealities"。但 4× 的 ideal 也是 PER = 1，
+#               所以它还带着 CFO（4.7 的门槛在 ideal 组照样起作用），去掉的只是相噪与 PA。本库的 ideal 组连 CFO 也关，
+#               K = 4 两边不可比。
+# 更正（2026-11-15）：2026-11-06 起这个文件只有一组，按 arXiv v1 读、当作"有损伤"；刊出版里那 9 条曲线逐点就是虚线的
+# ideal 组（如 8× MCS4：17 dB 0.25、19 dB 0.022、21 dB 0.002），刊出版另画了实线的有损伤组。旧读数原样保留在 ideal 组。
+# 读图：刊出版 PDF 第 6 页 400 dpi 渲染（ideal 组的 v1 读数是 300 dpi），精度约 ±0.2 dB；MCS4 有损伤两条在 31 dB 处仍在
+# PER 0.05–0.1，读成平台（floor_per），不是"PER = 1"。
 # tools/external_check.py 读这里，不读代码里的数。
 source: survey
-cite: "Liu 2025, arXiv:2309.16813v1 Fig. 4（v2 删图）；读图者：本库，2026-11-06"
-note: "未核实：读图值，非原文数字表。"
+cite: "Liu 2025, IEEE Commun. Mag. vol. 63 no. 3 pp. 69–75 (Mar. 2025), doi 10.1109/MCOM.002.2400059, Fig. 3（用户 2026-11-15 提供的刊出版 PDF，读图者：本库）；ideal 组与 arXiv:2309.16813 v1 Fig. 4 逐点相同（本库 2026-11-06 读）"
+note: "未核实：读图值，非原文数字表（刊出版原图读的，但仍是读图）。"
 per_target: 1.0e-2
+sets:
+  impaired: "solid lines: CFO + PN + PA (Table II)"
+  ideal: "dashed lines (', ideal'): without PN and PA; the CFO stays (4x is PER = 1 here too)"
 
 curves:
-  - {k: 4,  mcs: 0, per_at_1e-2_snr_db: null, points: [[0, 1.0], [10, 1.0]],  note: "PER = 1 for all SNR 0..10 dB"}
-  - {k: 4,  mcs: 1, per_at_1e-2_snr_db: null, points: [[0, 1.0], [10, 1.0]],  note: "PER = 1 for all SNR 0..10 dB"}
-  - {k: 4,  mcs: 4, per_at_1e-2_snr_db: null, points: [[13, 1.0], [29, 1.0]], note: "PER = 1 for all SNR 13..29 dB"}
-  - {k: 8,  mcs: 0, per_at_1e-2_snr_db: 4.2,  points: [[2.0, 1.0], [2.3, 0.75], [3.0, 0.27], [3.5, 0.07], [4.0, 0.016], [4.5, 0.003], [5.0, 0.002]]}
-  - {k: 16, mcs: 0, per_at_1e-2_snr_db: 4.2,  points: [[2.0, 1.0], [2.3, 0.75], [3.0, 0.27], [3.5, 0.065], [4.0, 0.016], [4.5, 0.006], [5.0, 0.002]]}
-  - {k: 8,  mcs: 1, per_at_1e-2_snr_db: 7.5,  points: [[5.0, 1.0], [6.0, 0.37], [7.0, 0.045], [8.0, 0.001]]}
-  - {k: 16, mcs: 1, per_at_1e-2_snr_db: 7.5,  points: [[5.0, 1.0], [6.0, 0.37], [7.0, 0.045]]}
-  - {k: 8,  mcs: 4, per_at_1e-2_snr_db: 19.7, points: [[15.0, 1.0], [17.0, 0.25], [19.0, 0.022], [21.0, 0.002]]}
-  - {k: 16, mcs: 4, per_at_1e-2_snr_db: 19.0, points: [[15.0, 1.0], [17.0, 0.20], [19.0, 0.010]]}
+  # ---------------------------------------------------------------- impaired（实线，刊出版新给）
+  - {set: impaired, k: 4,  mcs: 0, per_at_1e-2_snr_db: null, points: [[0, 1.0], [5, 1.0]],  note: "PER = 1 at every drawn point"}
+  - {set: impaired, k: 4,  mcs: 1, per_at_1e-2_snr_db: null, points: [[0, 1.0], [10, 1.0]], note: "PER = 1 at every drawn point (behind the other squares)"}
+  - {set: impaired, k: 4,  mcs: 4, per_at_1e-2_snr_db: null, points: [[15, 1.0], [31, 1.0]], note: "PER = 1 at every drawn point"}
+  - {set: impaired, k: 8,  mcs: 0, per_at_1e-2_snr_db: 4.66, points: [[2.5, 0.9], [3.0, 0.38], [3.5, 0.12], [4.0, 0.029], [4.5, 0.0115], [5.0, 0.0075], [5.5, 0.0025], [6.0, 0.003]]}
+  - {set: impaired, k: 16, mcs: 0, per_at_1e-2_snr_db: 4.61, points: [[2.5, 0.85], [3.0, 0.37], [3.5, 0.10], [4.0, 0.034], [4.5, 0.013], [5.0, 0.004], [5.5, 0.0035], [6.0, 0.0035]]}
+  - {set: impaired, k: 8,  mcs: 1, per_at_1e-2_snr_db: 8.1,  points: [[5.0, 1.0], [6.0, 0.58], [7.0, 0.095], [8.0, 0.012]], note: "the last drawn point is 0.012 at 8 dB: 1e-2 extrapolated ~0.1 dB on"}
+  - {set: impaired, k: 16, mcs: 1, per_at_1e-2_snr_db: 7.91, points: [[6.0, 0.53], [7.0, 0.09], [8.0, 0.008], [9.0, 0.0035]]}
+  - {set: impaired, k: 8,  mcs: 4, per_at_1e-2_snr_db: null, floor_per: 0.105, points: [[17, 1.0], [19, 0.8], [21, 0.45], [23, 0.26], [25, 0.18], [27, 0.155], [29, 0.135], [31, 0.105]], note: "a floor: never reaches 1e-2 by 31 dB"}
+  - {set: impaired, k: 16, mcs: 4, per_at_1e-2_snr_db: null, floor_per: 0.053, points: [[17, 0.99], [19, 0.6], [21, 0.28], [23, 0.15], [25, 0.093], [27, 0.07], [29, 0.064], [31, 0.053]], note: "a floor: never reaches 1e-2 by 31 dB"}
+  # ---------------------------------------------------------------- ideal（虚线；= 2026-11-06 按 v1 读的那一组）
+  - {set: ideal, k: 4,  mcs: 0, per_at_1e-2_snr_db: null, points: [[0, 1.0], [10, 1.0]],  note: "PER = 1 for all SNR 0..10 dB (the CFO is still in)"}
+  - {set: ideal, k: 4,  mcs: 1, per_at_1e-2_snr_db: null, points: [[0, 1.0], [10, 1.0]],  note: "PER = 1 for all SNR 0..10 dB (the CFO is still in)"}
+  - {set: ideal, k: 4,  mcs: 4, per_at_1e-2_snr_db: null, points: [[13, 1.0], [29, 1.0]], note: "PER = 1 for all SNR 13..29 dB (the CFO is still in)"}
+  - {set: ideal, k: 8,  mcs: 0, per_at_1e-2_snr_db: 4.2,  points: [[2.0, 1.0], [2.3, 0.75], [3.0, 0.27], [3.5, 0.07], [4.0, 0.016], [4.5, 0.003], [5.0, 0.002]]}
+  - {set: ideal, k: 16, mcs: 0, per_at_1e-2_snr_db: 4.2,  points: [[2.0, 1.0], [2.3, 0.75], [3.0, 0.27], [3.5, 0.065], [4.0, 0.016], [4.5, 0.006], [5.0, 0.002]]}
+  - {set: ideal, k: 8,  mcs: 1, per_at_1e-2_snr_db: 7.5,  points: [[5.0, 1.0], [6.0, 0.37], [7.0, 0.045], [8.0, 0.001]]}
+  - {set: ideal, k: 16, mcs: 1, per_at_1e-2_snr_db: 7.5,  points: [[5.0, 1.0], [6.0, 0.37], [7.0, 0.045]]}
+  - {set: ideal, k: 8,  mcs: 4, per_at_1e-2_snr_db: 19.7, points: [[15.0, 1.0], [17.0, 0.25], [19.0, 0.022], [21.0, 0.002]]}
+  - {set: ideal, k: 16, mcs: 4, per_at_1e-2_snr_db: 19.0, points: [[15.0, 1.0], [17.0, 0.20], [19.0, 0.010]]}

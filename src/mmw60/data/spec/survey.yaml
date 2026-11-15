@@ -287,7 +287,7 @@ entries:
     unit: procedure
     source: assumed
     cite: "本库 arraylink.py（MLO 触发的扇区扫描，用户 2026-11-14 选定）"
-    note: "802.11be 没有毫米波波束训练，按 MLO 触发来算：sub-7 链路排定扫描时刻（定时已知，不靠 L-STF 检测），60 GHz 上每个扇区发一段升频后的基准 L-LTF（GI2 + 2 个符号），先 TX 扫（对端单个单元接收）、再 RX 扫。接收端按已知 LTF 逐音做两符号相干、跨音非相干累加估功率，取最大；选到的扇区增益与最佳差 1 dB 以内算成功，要求 99 %。扇区切换 100 ns 是假设。示例 10 有跨音相干累加与“必须选中最佳扇区”两行灵敏度。平坦信道（视距），不建多径下的扇区选择；氧吸收（60 GHz 约 15 dB/km）在 20 m 内不到 0.3 dB，不计。更正（2026-11-14）：N ≥ 16 的距离到了百米、千米，氧吸收不能不计，另立 assumed.oxygen_absorption，距离按它算（路径损耗不含它）。"
+    note: "802.11be 没有毫米波波束训练，按 MLO 触发来算：sub-7 链路排定扫描时刻（定时已知，不靠 L-STF 检测），60 GHz 上每个扇区发一段升频后的基准 L-LTF（GI2 + 2 个符号），先 TX 扫（对端单个单元接收）、再 RX 扫。接收端按已知 LTF 逐音做两符号相干、跨音非相干累加估功率，取最大；选到的扇区增益与最佳差 1 dB 以内算成功，要求 99 %。扇区切换 100 ns 是假设。示例 10 有跨音相干累加与“必须选中最佳扇区”两行灵敏度。“MLO 触发”这一选择有出处：Liu 2025 刊出版 §Integrated Millimeter Wave Technology “sector sweep is performed in the 60 GHz band, but the sequences can be triggered or scheduled from a sub-7 GHz band”（2026-11-15 读）；训练场、估计器与门限仍是本库的。平坦信道（视距），不建多径下的扇区选择；氧吸收（60 GHz 约 15 dB/km）在 20 m 内不到 0.3 dB，不计。更正（2026-11-14）：N ≥ 16 的距离到了百米、千米，氧吸收不能不计，另立 assumed.oxygen_absorption，距离按它算（路径损耗不含它）。"
 
   assumed.oxygen_absorption:
     value: 15.0

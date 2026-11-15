@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### Liu 2025 刊出版：对外校验改对刊出版 Fig. 3（2026-11-15）—— 引擎、示例输出与指纹不变
+- 用户提供了刊出版 PDF（IEEE Commun. Mag. 63(3) 69–75，doi 10.1109/MCOM.002.2400059；授权下载件，不进仓库）。**被推翻的判断**：本库按 arXiv v1 读、当作“有损伤”的 9 条曲线，在刊出版 Fig. 3 里是虚线的 ideal 组；实线的有损伤组另画（MCS0 约 4.6 dB、MCS1 约 7.9–8.1 dB，MCS4 到 31 dB 仍停在 PER 0.05–0.1）。
+- `liu2025_fig4.yaml` 改成两组（`set: impaired | ideal`，MCS4 有损伤记 `floor_per`）；`tools/external_check.py` 本库四组对原文有损伤组、本库 ideal 对原文 ideal（K = 8 / 16；原文的 ideal 带着 CFO）；原文到不了 1e-2 的曲线只有本库也到不了才算一致。
+- 结论：MCS0 / 1 上 flat 组最近（+0.5 … +0.7 dB），字面 +1.7 … +2.1，改进接收机 −1.3 … −2.5；MCS4 本库每组都到 1e-2、原文到不了——新的最大出入（ROADMAP C12）。更正前的“原文 PA 温和得多”“原文 = 近 AWGN + 字面 OBO”两条推翻（`cairn/external-validation.md` §4）。
+- 刊出版与 arXiv 的其他差别记在 `cairn/spec-sources.md`（Table I 的 16× 列改 11ac 基准、接收机那句、PN / PA 模型引 802.15-06-0477、MLO 触发扇区扫描的原话）；spec_sources 的 `liu2025.*` 未改（要不要开 issue 等用户定）。
+- 测试：读图两组的覆盖与平台、判决三态 + 平台 + ideal 的 K = 4 不比。示例 00 全量重跑，期望输出逐字不变。
+
 ### 拓扑 A × be_upclocked：只改数字基带的升频（2026-11-15）—— 已有的行与指纹不变
 - 用户定：拓扑 A 只改数字基带也可以升频。芯片的 DAC / ADC、模拟、6 GHz 射频与它的 14 步校准都是原生信道的那一套，数字跑基准 PHY、时钟 ×K；K × 基准带宽必须是芯片的信道（20 … 320 MHz，取 `ieee80211be.n_sd` 的键）。`assumed.ifext_upclock`。
 - 配置：`if_extender_60ghz(..., k=K)`；`Mmw60Config` 拒绝拓扑 A 的 `be` 配 K > 1 与越出芯片信道的 `be_upclocked`；`LinkSim` 去掉“拓扑 A 只能 K = 1”那一条。**行为变化**：拓扑 A 配 `be_upclocked` 现在能跑（之前一律拒绝）。

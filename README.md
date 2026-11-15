@@ -13,7 +13,7 @@
 pip install -e ".[test,jit]"          # numba 可选；MMW60_NO_JIT=1 走纯 numpy，结果逐位相同
 pytest -q -m "not slow"               # 约 5 分钟
 python examples/00_liu2025_per_vs_snr.py --quick     # 冒烟；去掉 --quick 全量约 80 分钟（4 核）
-python tools/external_check.py        # 与 Liu 2025 Fig. 4 读图值对表
+python tools/external_check.py        # 与 Liu 2025 刊出版 Fig. 3 的读图值对表（有损伤 / ideal 两组）
 python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_cal
 ```
 
@@ -22,7 +22,7 @@ python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_
 ## 里程碑 0：对外校验（示例 00 / 01）
 
 按 Liu 2025 Table II 配置拓扑 B：VHT 20 MHz × K、MCS 0 / 1 / 4、4096 B、73.44 GHz、40 ppm、相噪 −93 dBc/Hz（1 MHz / 100 MHz）、modified Rapp OBO 8 dB，K = 4 / 8 / 16 的 PER–SNR 曲线。
-结果、与原文 Fig. 4 的逐条差值、以及原文没说而本库自己定的每一个假设（`grep "source: assumed" src/mmw60/data/spec/survey.yaml`；外部的数在 vendored 的共享库 spec_sources，`src/mmw60/vendor/spec_sources/data/`）见 `cairn/external-validation.md` 与 `examples/expected/`。
+结果、与原文 Fig. 3（刊出版；arXiv v1 的 Fig. 4）的逐条差值、以及原文没说而本库自己定的每一个假设（`grep "source: assumed" src/mmw60/data/spec/survey.yaml`；外部的数在 vendored 的共享库 spec_sources，`src/mmw60/vendor/spec_sources/data/`）见 `cairn/external-validation.md` 与 `examples/expected/`。
 
 示例 01 回答原文没问的问题：把 L-LTF 的整数子载波模糊解开后，K = 4 能不能活。
 

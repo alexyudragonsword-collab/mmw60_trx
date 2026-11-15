@@ -33,9 +33,16 @@ authoring_mode: ai_generated
 |---|---|---|
 | arXiv 2309.16813 **v1** | 2023-09-28 | Table I / II、**Fig. 4 PER 曲线**（只有"有损伤"一组）、§V-A 设定 |
 | arXiv **v2** | 2024-07-08 | 同样的正文，加了"without considering these non-idealities"的描述，但**图被删了**，正文 "Fig." 引用悬空 |
-| IEEE Commun. Mag. 2025-03 | — | 刊出版，**未取得** |
+| IEEE Commun. Mag. **63**(3) 69–75，2025-03，doi 10.1109/MCOM.002.2400059 | — | 刊出版，2026-11-15 由用户提供 PDF（华为授权的下载件，不进本仓库）。**Fig. 3 PER 曲线有两组**：实线有损伤、虚线 "ideal"；Table I 的 16× 一列改成 802.11ac 基准；接收机那句话改了；PN 与 PA 模型都引 [15] |
 
-本库的读图值（`liu2025_fig4.yaml`）来自 v1 第 5 页 300 dpi 渲染，精度约 ±0.3 dB。v2 正文说的"无损伤"曲线在任何可得版本里都没有，所以示例 00 的 ideal 组没有外部参照。
+本库的读图值（`liu2025_fig4.yaml`）原来来自 v1 第 5 页 300 dpi 渲染，精度约 ±0.3 dB，当作“有损伤”一组。
+**更正（2026-11-15）**：刊出版的 Fig. 3 里，v1 那 9 条曲线逐点是虚线的 ideal 组；实线的有损伤组是另画的（MCS0 约 4.6 dB、MCS1 约 7.9–8.1 dB，MCS4 到 31 dB 仍停在 PER 0.05–0.1）。读图文件改成两组，有损伤组从刊出版第 6 页 400 dpi 渲染读。上一句“v2 正文说的无损伤曲线在任何可得版本里都没有”不成立：刊出版里有，而且就是 v1 那一组。
+刊出版与 v1 / v2 的其他差别（spec_sources 的 `liu2025.*` 仍按 arXiv 记，还没改；要不要给它开 issue 等用户定）：
+- Table I：16× 一列是 “16x 802.11ac”，子载波间隔 5 MHz、IDFT 周期 200 ns、带宽 320 / 640 / 1280 / 2560 MHz、点数 64–512（arXiv 是 11be 基准 1.25 MHz、800 ns、到 5120 MHz）。动 `liu2025.table1_scs_hz`、`liu2025.table1_bandwidth_hz`。
+- 接收机：“we refrained from using estimation and compensation algorithms for CFO and used phase tracking only on the receiving end”（arXiv 是 “for CFO and PN”）；Discussion 补了 “the CFO can be estimated and compensated, but this is an algorithmic issue”。动 `liu2025.receiver_cfo_statement`。CFO 那处矛盾照旧：同一段仍用 L-STF 自相关的捕获范围推出 K > 4.7。
+- Table II 多了 “Total oscillator inaccuracy 40 ppm”“PN PSD0 −93 dBc/Hz”“PA backoff 8 dB” 等行：这些 survey 条目可以凭表格原文升成 spec。
+- 相噪模型与 modified Rapp 都引 [15] C.-S. Choi et al., “RF Impairment Models for 60GHz-Band SYS/PHY Simulation”, IEEE 802.15-06-0477-01-003c, 2006-11（802.15.3c 的文件），不是本库 Rapp 参数所取的 TGad 评估方法学 11-09/0296。
+- §“Integrated mmWave”：“sector sweep is performed in the 60 GHz band, but the sequences can be triggered or scheduled from a sub-7 GHz band, and feedback can be provided in sub-7 GHz band as well”——阵列层 MLO 触发训练（`assumed.array_training`）的出处。
 
 ## 原文给了的（survey）
 
@@ -121,7 +128,7 @@ A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 的 B
 
 ## 要原文才能关掉的问题
 
-1. Liu 2025 的 Rapp 参数与 OBO 定义（刊出版或作者）。
+1. Liu 2025 的 Rapp 参数与 OBO 定义：刊出版（2026-11-15 读）也没给数，只引 [15] IEEE 802.15-06-0477-01-003c（Choi 等，802.15.3c 的 60 GHz 射频损伤模型）。要关掉得读 [15]。
 2. 11ad CR 信道的 tap 表（Maltsev 11-09/0334；拿到后 `TapTableChannel` 直接接，`cairn/Reference/` 放原文）。
 3. ~~IEEE 802.11-09/0296r16 原文：把 `tgad_em.*` 从 survey 改成 spec。~~ 已由 spec_sources 0.3.0 关掉（2026-11-13，mmw60_trx#25）。
 4. 前端三个面还剩三条 survey（上面“前端的三个面”一条）：ISCAS 2015 与 Okada 2013 要 IEEE Xplore 的访问权或 PDF；802.11ad 灵敏度表的前提与最大输入电平要标准条文。另外两处读了原文仍没有答案：Asada 2011 的 IIP3 对应哪一档增益；TU/e 2018 正文里不加隔离结构时的隔离度到底给没给（只读了摘要）；通信接收前端的带外压缩点（基带高通之前）没有任何出处。

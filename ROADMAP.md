@@ -53,7 +53,12 @@ ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、�
 ## C. 里程碑 0 过程中发现的问题
 
 ### C4. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
-Liu 2025 的 Rapp 参数与 OBO 定义（TGad 原文 2026-11-13 已读：回退从 Psat 算、推荐 8 dB；Liu 本人用的哪颗 PA 仍不知道）；11ad CR 信道 tap 表。
+Liu 2025 的 Rapp 参数与 OBO 定义（TGad 原文 2026-11-13 已读：回退从 Psat 算、推荐 8 dB；刊出版 2026-11-15 已读：也没给数，PN 与 PA 模型都引 [15] IEEE 802.15-06-0477-01-003c，下一步读它）；11ad CR 信道 tap 表。
+spec_sources 的 `liu2025.*` 仍按 arXiv 记，与刊出版有三处不同（Table I 的 16× 一列、接收机那句话、Table II 的几行可以升 spec；`cairn/spec-sources.md` “Liu 2025 的版本”一节）。改要回 spec_sources 提，是否开 issue 等用户定。
+
+### C12. Liu 刊出版对外校验发现的（2026-11-15，`cairn/external-validation.md` §3–§4）
+- **原文 MCS4 有损伤到不了 1e-2，本库每一组都到得了**：刊出版 Fig. 3 的 8× / 16× MCS4 到 31 dB 仍停在 PER 0.105 / 0.053，本库字面 21.82 / 22.14、flat 20.64 / 20.27、改进接收机 17.0 … 19.1 dB。复现：`python examples/00_liu2025_per_vs_snr.py --jobs 4`（约 85 分钟）后 `python tools/external_check.py`。候选三个：PA（原文引 [15] IEEE 802.15-06-0477 的 Rapp，不是 TGad EM；OBO 参考点没说）、逐包衰落的 CR 信道（本库纯 Rayleigh 的 MCS4 在 26 dB 仍 PER 0.21）、接收机。原文 ideal 的 MCS4 也比本库 ideal 差 2–3 dB（MCS0 / 1 反而好 1.6–2.2 dB），偏向信道 / 接收机。待做：读 [15]；示例 00 加一组“Rayleigh / 更低 K 因子的 CR 信道 + 字面 PA”的灵敏度行；不调参数凑。
+- **原文的 ideal 带着 CFO**：4× 在 ideal 组也是 PER = 1。本库没有“CFO 开、相噪 / PA 关”这一组，所以 K = 4 的 ideal 不可比；要比得加这组（约多跑 15 分钟）。
 
 ### C6. C1–C3 过程中发现的（见 `cairn/LOG.md` 2026-11-11）
 - **门限表自己还没用上 C3 的逼近**：`tools/measure_thresholds.py` 仍是每点 ≤ 200 包 / 15 错、0.5 dB 步。同一格（11be 80 MHz MCS4 理想链）门限表读 11.40、示例 05 读 11.09；

@@ -1,12 +1,19 @@
-"""External validation against Liu 2025 Fig. 4 (Halo_Serdes ``external_check`` method).
+"""External validation against Liu 2025's PER–SNR figure (Halo_Serdes ``external_check`` method).
 
-The reference is the paper's own PER–SNR figure, read off by hand into
-``src/mmw60/data/spec/liu2025_fig4.yaml`` (source survey; ±0.3 dB reading
-precision).  This tool takes the sweeps example 00 wrote (or re-runs the
-impaired curves) and prints, per curve, our SNR at PER 1e-2, the paper's,
-and the difference; the acceptance (< 1 dB, K = 4 at PER 1 everywhere) is
-stated, not enforced by retuning — a miss is investigated and recorded in
-cairn/LOG.md.
+The reference is the paper's own PER–SNR figure — Fig. 3 of the published
+version (IEEE Commun. Mag., Mar. 2025; Fig. 4 of arXiv v1) — read off by
+hand into ``src/mmw60/data/spec/liu2025_fig4.yaml`` (source survey; ±0.3 dB
+reading precision).  It has two sets: the solid impaired curves (CFO + PN +
+PA) and the dashed "ideal" ones (PN and PA off; the CFO stays, so 4x is
+PER = 1 there too).  This tool takes the sweeps example 00 wrote (or re-runs
+the impaired curves) and prints, per curve, our SNR at PER 1e-2, the
+paper's, and the difference: our impaired / flat / improved-receiver sets
+against the paper's impaired curves, our ideal set against its ideal ones
+(K = 8 / 16 only: ours switches the CFO off as well).  The acceptance
+(< 1 dB, K = 4 at PER 1 everywhere) is stated, not enforced by retuning — a
+miss is investigated and recorded in cairn/LOG.md.  A paper curve that
+floors above 1e-2 (MCS4 impaired) agrees with ours only if ours never
+reaches it either.
 
 What is independent on the two sides: everything (the paper's simulator is
 unknown; nothing is shared).  What is *not* known on the paper's side and
@@ -37,39 +44,58 @@ TOLERANCE_DB = 1.0
 READING_DB = 0.3            # reading precision of the Fig. 4 read-offs (liu2025_fig4.yaml)
 
 
+def paper_curves(ref_set: str = "impaired") -> list[dict]:
+    return [c for c in spec.fig4_readings()["curves"] if c["set"] == ref_set]
+
+
 def cases() -> list[CurveSpec]:
     out = []
-    for c in spec.fig4_readings()["curves"]:
+    for c in paper_curves("impaired"):
         cfg = liu2025_table2(k=c["k"], mcs=c["mcs"])
         out.append(CurveSpec(f"K={c['k']:<2} MCS{c['mcs']} impaired", cfg, GRIDS[c["mcs"]],
                              tags={"k": c["k"], "mcs": c["mcs"], "set": "impaired"}))
     return out
 
 
-def compare(results: list[dict], which: str = "impaired") -> int:
+def compare(results: list[dict], which: str = "impaired", ref_set: str = "impaired") -> int:
     ref = spec.fig4_readings()
     target = float(ref["per_target"])
+    curves = paper_curves(ref_set)
     ours = {(r["tags"]["k"], r["tags"]["mcs"]): r for r in results
             if r["tags"].get("set") == which}
     label = {"impaired": "Table II read literally (LOS/diffuse channel, OBO from Psat)",
              "flat": "same impairments on a flat channel",
              "flat_rx": "flat channel, improved receiver (milestone-0 findings C1 / C2)",
-             "impaired_rx": "Table II read literally, improved receiver"}.get(which, which)
-    print(f"\n== Liu 2025 Fig. 4 (arXiv v1) vs example 00 set '{which}': {label}; SNR at PER {target:g} ==")
+             "impaired_rx": "Table II read literally, improved receiver",
+             "ideal": "no CFO, no PN, no PA"}.get(which, which)
+    print(f"\n== Liu 2025 Fig. 3 '{ref_set}' ({ref['sets'][ref_set]}) vs example 00 set '{which}': {label}; "
+          f"SNR at PER {target:g} ==")
     print(f"reference: {ref['cite']}")
     print("K   MCS   paper [dB]   ours [dB]   diff [dB]   diff interval    verdict")
     print(f"(diff interval = our 95 % bootstrap interval of the crossing, widened by the figure's ±{READING_DB:g} dB "
           "reading precision; a curve is OUTSIDE only if the whole interval is)")
-    bad = undecided = 0
-    for c in ref["curves"]:
+    bad = undecided = skipped = 0
+    for c in curves:
         key = (c["k"], c["mcs"])
         r = ours.get(key)
+        if ref_set == "ideal" and which == "ideal" and c["k"] == 4:
+            print(f"{c['k']:<3} {c['mcs']:<5} {'PER=1':>10}   {_f(None if r is None else r['snr_at_target']):>9}   "
+                  f"{'':>9}   not comparable: the paper's ideal keeps the CFO (PER = 1), ours switches it off")
+            skipped += 1
+            continue
         if r is None:
             print(f"{c['k']:<3} {c['mcs']:<5} {_f(c['per_at_1e-2_snr_db']):>10}   {'missing':>9}")
             bad += 1
             continue
         paper = c["per_at_1e-2_snr_db"]
         mine = r["snr_at_target"]
+        if paper is None and c.get("floor_per") is not None:
+            ok = mine is None
+            verdict = (f"neither reaches {target:g}" if ok else
+                       f"ours reaches {target:g}; the paper floors at PER {c['floor_per']:g} -> investigate (LOG)")
+            print(f"{c['k']:<3} {c['mcs']:<5} {'floor':>10}   {_f(mine):>9}   {'':>9}   {verdict}")
+            bad += 0 if ok else 1
+            continue
         if paper is None:
             per_min = min(r["sweep"]["per"]) if r["sweep"]["per"] else float("nan")
             ok = mine is None and per_min >= 0.999
@@ -99,9 +125,9 @@ def compare(results: list[dict], which: str = "impaired") -> int:
             undecided += 1
         print(f"{c['k']:<3} {c['mcs']:<5} {paper:10.1f}   {mine:9.2f}   {diff:+9.2f}   [{d_lo:+5.2f}, {d_hi:+5.2f}]   {verdict}")
         bad += is_bad
-    n = len(ref["curves"])
+    n = len(curves) - skipped
     print(f"\n{n - bad - undecided} of {n} curves agree, {undecided} cannot be told from the tolerance at this "
-          f"precision, {bad} to investigate")
+          f"precision, {bad} to investigate" + (f" ({skipped} not comparable)" if skipped else ""))
     return 1 if bad else 0
 
 
@@ -130,9 +156,9 @@ def main(argv=None) -> int:
                   file=sys.stderr)
             return 2
         results = load_results(a.sweeps)
-    sets = [s for s in ("impaired", "flat", "flat_rx", "impaired_rx")
-            if any(r["tags"].get("set") == s for r in results)]
-    codes = [compare(results, s) for s in sets]
+    pairs = [(s, "impaired") for s in ("impaired", "flat", "flat_rx", "impaired_rx")] + [("ideal", "ideal")]
+    pairs = [(s, r) for s, r in pairs if any(x["tags"].get("set") == s for x in results)]
+    codes = [compare(results, s, r) for s, r in pairs]
     return max(codes) if codes else 2
 
 

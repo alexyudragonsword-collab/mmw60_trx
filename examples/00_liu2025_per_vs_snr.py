@@ -19,7 +19,7 @@ the 95 % bootstrap interval of its own counting statistics (finding C3).
     python examples/00_liu2025_per_vs_snr.py [--quick] [--jobs N]
 
 Writes examples/output/00_per_vs_snr.png and 00_sweeps.json (what
-tools/external_check.py compares with the Fig. 4 read-offs).
+tools/external_check.py compares with the read-offs of the published Fig. 3, arXiv v1's Fig. 4).
 """
 from __future__ import annotations
 
