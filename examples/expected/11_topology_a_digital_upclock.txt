@@ -3,8 +3,8 @@ mmw60 0.1.0; full size; topology A changes digital baseband only: the analog is 
 
 == 1. one analog channel, the subcarrier spacing set by the base PHY (flat channel; floor / TD in dB; caps: 802.11ad TX-EVM limit / the decoder) ==
 scheme               chan[M]   SCS[k]  pn ICI  floor     TD   cap   Mb/s   pJ/b   dec   Mb/s   pJ/b  dominant
-A 11be 320M              320     78.1   -25.0  -19.5  -20.0  MCS3    576   1712  MCS6   1297    765  pa
-A 11be 80M x4            320    312.5   -25.3  -19.6  -20.5  MCS3    576   1708  MCS6   1297    764  pa
+A 11be 320M              320     78.1   -25.0  -19.5  -20.0  MCS3    576   1712  MCS5   1153    862  pa
+A 11be 80M x4            320    312.5   -25.3  -19.6  -20.5  MCS3    576   1708  MCS5   1153    860  pa
 B 11be 80M x4            320    312.5   -25.4  -18.5  -18.9  MCS2    432    926  MCS5   1153    358  pa
 A 11be 40M x8            320    625.0   -25.7  -19.7  -20.5  MCS3    551   1786  MCS6   1239    798  pa
 B 11be 40M x8            320    625.0   -25.8  -18.7  -19.1  MCS2    413    966  MCS5   1101    374  pa

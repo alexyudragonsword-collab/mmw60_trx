@@ -65,10 +65,19 @@ The floor-as-noise prediction is the one to compare with the impaired / no-PA co
 
 == the decoder cap (frontend/grid.py::decoder_cap, thresholds from data/spec/per_thresholds.yaml), checked: impaired PER at the cap MCS and one MCS above it ==
 K   BW[MHz]  floor   cap    T[dB]  SNR needed (predicted)  measured @ PER 1e-2   one MCS above: predicted  measured
-4       320  -18.5   MCS5   15.02       17.61                 17.62              MCS6:    20.88      20.00
-8       640  -16.2   MCS4   11.40       13.16                 13.19              MCS5:    21.37      23.00
-16     1280  -11.3   MCS3    7.51        9.86                  9.92              MCS4:    never      never
-32     2560   -4.7   MCS0   -0.96        0.40                  0.56              MCS1:     5.41       6.31
+4       320  -18.5   MCS5   15.11       17.77                 17.60              MCS6:    21.19      21.07
+8       640  -16.2   MCS4   11.25       12.94                 13.00              MCS5:    21.77      22.43
+16     1280  -11.3   MCS3    7.53        9.89                 10.14              MCS4:    30.61      never
+32     2560   -4.7   MCS0   -0.80        0.62                  1.26              MCS1:     5.86       6.33
 floor = the worse of the analytic floor and the time-domain EVM of the cell (frontend/grid.py::decoder_floor_db); 'never' above the cap means the floor is over that MCS's ideal threshold or the sweep's 4 dB over the prediction was not enough.
+measured: 1 dB grid round the prediction, the two points bracketing PER 1e-2 run on to 60 errors or 3000 packets; 95 % bootstrap interval of each measured crossing (the threshold's own interval is spec.per_threshold_ci_db):
+  x4  MCS5  measured  17.60 [17.50, 17.70]   threshold 15.11 [15.06, 15.17]
+  x4  MCS6  measured  21.07 [20.94, 21.17]   threshold 16.63 [16.59, 16.70]
+  x8  MCS4  measured  13.00 [13.00, 13.32]   threshold 11.25 [11.20, 11.32]
+  x8  MCS5  measured  22.43 [22.26, 22.71]   threshold 15.11 [15.06, 15.17]
+  x16 MCS3  measured  10.14 [10.05, 10.28]   threshold 7.53 [7.53, 7.67]
+  x16 MCS4  measured  never [29.15, 30.59]   threshold 11.25 [11.20, 11.32]
+  x32 MCS0  measured   1.26 [1.15, 1.38]     threshold -0.80 [-0.86, -0.72]
+  x32 MCS1  measured   6.33 [6.22, 6.48]     threshold 2.25 [2.20, 2.32]
 
 wrote examples/output/05_sweeps.json  [~s]

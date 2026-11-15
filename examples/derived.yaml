@@ -110,10 +110,10 @@
 
 - name: ex06 the decoder cap of topology A checked with PER
   values:
-    pred: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS6 {*} {} {*} MCS7: {*} {*}"}
-    meas: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS6 {*} {*} {} MCS7: {*} {*}"}
+    pred: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS5 {*} {} {*} MCS6: {*} {*}"}
+    meas: {example: "06", after: "== 8. the decoder cap", line: "{*} MCS5 {*} {*} {} MCS6: {*} {*}"}
   quotes:
-    - {doc: cairn/topology-a.md, text: "MCS6 预测 {pred} dB、实测 {meas} dB"}
+    - {doc: cairn/topology-a.md, text: "上限 MCS5 预测 {pred} dB、实测 {meas} dB"}
 
 - name: ex06 the 60 GHz-observed DPD at 8 dB of back-off (the preset until 2026-11-13; 7.5 dB is not on the sweep grid) (chip-only vs the programmed one)
   values:

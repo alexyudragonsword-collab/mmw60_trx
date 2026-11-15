@@ -56,9 +56,9 @@ presets           10    4.6      -25.0    -27.7    2.6     -31.1
 == 5. the comparison table's 11be 80 MHz rows with each PA (decoder cap, uncalibrated IQ) ==
 row                                            PA         floor  MCS    rate  pJ/bit   EIRP   limited by
 be 11be 80M IF extender @60.48 GHz             11ad EM    -17.3    4     216    3153   33.0   pa
-                                               presets    -19.6    6     324    2143   32.9   pa
+                                               presets    -19.6    5     288    2411   32.9   pa
 be_upclocked 11be 80M K=4 IF extender @60.48 GHz 11ad EM    -17.3    4     865    1125   33.0   pa
-                                               presets    -19.6    6    1297     764   32.9   pa
+                                               presets    -19.6    5    1153     860   32.9   pa
 be 11be 80M K=1 @6 GHz (WiFi 7 chain)          11ad EM    -17.1    4     216    1033      —   pa
                                                presets    -19.4    5     288     821      —   pa
 be_upclocked 11be 80M K=4 @60.48 GHz           11ad EM    -16.6    4     865     457   33.0   pa

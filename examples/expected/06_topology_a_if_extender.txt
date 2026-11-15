@@ -105,8 +105,8 @@ final_loopback_evm     tx_evm_db           -43.17    -45.18
 final_loopback_evm     rx_evm_db           -40.39    -40.41
 interstage to the 60 GHz PA: -28.50 dB with the chip PA in, -2.65 dB bypassed (an attenuation either way: no driver needed); 60 GHz PA out 7.08 / 7.10 dBm
                             floor     TD  dec cap   Mb/s  pJ/bit of it chip PA
-chip PA in (the preset)     -19.6  -20.4     MCS6    324    2143           907
-chip PA bypassed            -19.6  -20.3     MCS6    324    1122             —
+chip PA in (the preset)     -19.6  -20.4     MCS5    288    2411          1020
+chip PA bypassed            -19.6  -20.3     MCS5    288    1263             —
 the 320 MHz pair against topology B's 80 MHz x 4 is in example 04 (tables 4 / 4b)
 
 == 6. CFO (iron rule 3): crystals x carrier against the chip's estimators, and the multi-link pre-compensation ==
@@ -134,10 +134,13 @@ sub-7 SNR[dB]   sub-7 estimate rms error[Hz]   60 GHz residual rms / max[kHz]   
   image rejection   20 dB -> noise-figure penalty 0.043 dB (sensitivity, not EVM)
   image rejection   10 dB -> noise-figure penalty 0.414 dB (sensitivity, not EVM)
   image rejection    0 dB -> noise-figure penalty 3.010 dB (sensitivity, not EVM)
-  the widest WiFi 7 channel, 11be 320 MHz: EVM -20.04 dB, in-channel ripple 0.50 dB, chip residual -38.9 dB, decoder cap MCS6 (1297 Mb/s)
+  the widest WiFi 7 channel, 11be 320 MHz: EVM -20.04 dB, in-channel ripple 0.50 dB, chip residual -38.9 dB, decoder cap MCS5 (1153 Mb/s)
 
 == 8. the decoder cap checked with PER (impaired link, flat channel) ==
 floor   cap    T[dB]  SNR needed (predicted)  measured @ PER 1e-2   one MCS above: predicted  measured
--19.6   MCS6   16.52       19.48                 18.61              MCS7:    25.05      23.08
+-19.6   MCS5   15.11       17.03                 16.71              MCS6:    19.70      19.28
+measured: 1 dB grid round the prediction, the two points bracketing PER 1e-2 run on to 60 errors or 3000 packets; 95 % bootstrap intervals (threshold's: spec.per_threshold_ci_db):
+  MCS5  measured  16.71 [16.60, 16.81]   threshold 15.11 [15.06, 15.17]
+  MCS6  measured  19.28 [19.16, 19.40]   threshold 16.63 [16.59, 16.70]
 
 wrote examples/output/06_sweeps.json  [~s]

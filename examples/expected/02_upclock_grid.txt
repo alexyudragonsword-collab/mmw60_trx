@@ -38,7 +38,7 @@ std    base   K    BW[GHz] SCS[MHz] floor   TD-EVM  maxMCS IQcal  no-PA   maxMCS
 11be    160 x32    5.12   2.50     3.1    4.4    —     MCS2     3.0    —      —     MCS5 不能   IQ 不平衡                 pn:-27 iq:8 conv:-35 pa:-22 cfo:-54
 11be    320 x4     1.28   0.31   -11.7  -11.4   MCS0   MCS3   -12.2   MCS0   MCS3   MCS6 能    IQ 不平衡 限 MCS           pn:-25 iq:-9 conv:-41 pa:-22 cfo:-57
 11be    320 x8     2.56   0.62    -5.7   -5.0    —     MCS3    -5.8    —     MCS0   MCS6 不能   IQ 不平衡                 pn:-25 iq:-0 conv:-41 pa:-22 cfo:-57
-11be    320 x16    5.12   1.25     3.1    9.6    —     MCS3     3.0    —      —     MCS6 不能   IQ 不平衡                 pn:-26 iq:9 conv:-35 pa:-22 cfo:-57
+11be    320 x16    5.12   1.25     3.1    9.6    —     MCS3     3.0    —      —     MCS5 不能   IQ 不平衡                 pn:-26 iq:9 conv:-35 pa:-22 cfo:-57
 11be    320 x32   10.24   2.50    22.6   13.4    —     MCS2    22.6    —      —     MCS5 不能   频率规划, IQ 不平衡           pn:-26 iq:7 conv:-35 pa:-22 cfo:-57
 
 == analytic terms per cell [dB] ==

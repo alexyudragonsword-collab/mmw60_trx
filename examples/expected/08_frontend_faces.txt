@@ -18,14 +18,14 @@ TX-RX isolation            not specified              20.0 dB                   
 the surveyed IIP3 happens to equal the WiFi 7 ladder's top state's: the compression rows are the same for both, by coincidence of the two figures
 
 == 2. what the receive noise figure moves (IIP3 kept at -20 dBm) ==
-sensitivity = the receiver input for the measured PER 1e-2 threshold of this receiver (MCS 0: 2.01 dB, MCS 4: 14.5 dB per active tone; no implementation loss added)
+sensitivity = the receiver input for the measured PER 1e-2 threshold of this receiver (MCS 0: 2.16 dB, MCS 4: 14.33 dB per active tone; no implementation loss added)
 link EVM = time-domain, flat channel, SNR 10 dB per active tone; calibration = wifitrx's sequence, profile poweron, final check at the preset PA back-off (7.5 dB from psat)
 receive front end                        NF  sens MCS0  sens MCS4  link EVM  cal RX NF  loopback  TX alone  RX alone   figure from
-WiFi 7 chip ladder (the presets)        3.5      -87.0      -74.5     -9.26       11.1     -22.1     -21.4     -27.5   wifitrx DEFAULT_LNA_STATES
-60 GHz comm. transceiver, 65 nm         6.1      -84.4      -71.9     -9.26       13.4     -22.0     -21.4     -27.5   rx60.comm_asada2011 [spec]
-60 GHz comm. receiver, 90 nm            7.1      -83.4      -70.9     -9.26       14.3     -21.9     -21.4     -27.4   rx60.comm_iscas2015 [survey, unverified]
-802.11ad sensitivity-table receiver    10.0      -80.5      -68.0     -9.26       17.1     -21.6     -21.4     -27.4   dmg.sensitivity_assumptions [survey, unverified]
-60 GHz radar chip                      12.0      -78.5      -66.0     -9.26       19.0     -21.3     -21.4     -27.3   rx60.radar_iwr6843 [spec]
+WiFi 7 chip ladder (the presets)        3.5      -86.9      -74.7     -9.26       11.1     -22.1     -21.4     -27.5   wifitrx DEFAULT_LNA_STATES
+60 GHz comm. transceiver, 65 nm         6.1      -84.3      -72.1     -9.26       13.4     -22.0     -21.4     -27.5   rx60.comm_asada2011 [spec]
+60 GHz comm. receiver, 90 nm            7.1      -83.3      -71.1     -9.26       14.3     -21.9     -21.4     -27.4   rx60.comm_iscas2015 [survey, unverified]
+802.11ad sensitivity-table receiver    10.0      -80.4      -68.2     -9.26       17.1     -21.6     -21.4     -27.4   dmg.sensitivity_assumptions [survey, unverified]
+60 GHz radar chip                      12.0      -78.4      -66.2     -9.26       19.0     -21.3     -21.4     -27.3   rx60.radar_iwr6843 [spec]
 (dBm, dBm, dB, dB, dB, dB, dB)  [~s]
 sensitivity against noise figure, first to last row: 1.00 dB per dB
 link EVM on the SNR axis, spread over the rows: 0.00 dB (the axis is SNR, so the noise figure sets the input level, not the EVM)
@@ -49,14 +49,14 @@ the isolation figures are isolation.tx_rx_tue2018 [spec]: one abstract; the 20 a
 
 == 4. antenna gains (the same on both ends): EIRP limit and the path loss the link takes at MCS 0 ==
  gain  EIRP avg  margin avg  margin peak  path loss   figure from
-  0.0       7.1        32.9         25.9       91.5   the presets (not specified)
-  2.0       9.1        30.9         23.9       95.5   rx60.comm_asada2011 [spec], the pick
-  6.0      13.1        26.9         19.9      103.5   antenna60.okada2013_dbi [survey, unverified]
-(dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.4 dBm, the surveyed receive front end; one element each end, no array gain — milestone 2)
+  0.0       7.1        32.9         25.9       91.4   the presets (not specified)
+  2.0       9.1        30.9         23.9       95.4   rx60.comm_asada2011 [spec], the pick
+  6.0      13.1        26.9         19.9      103.4   antenna60.okada2013_dbi [survey, unverified]
+(dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.3 dBm, the surveyed receive front end; one element each end, no array gain — milestone 2)
 
 == 5. topology A's receive face: the 60 GHz LNA / mixer ahead of the chip (assumed.ifext_rx_front60) ==
-topology A (11be 80 MHz): sensitivity at MCS 0, preset -92.5 dBm (noise figure 3.50 dB), surveyed front end -89.9 dBm (6.10 dB), difference 2.60 dB
-topology B (this example's 11ac 20 MHz x 8): preset -87.0 dBm, surveyed front end -84.4 dBm, difference 2.60 dB
+topology A (11be 80 MHz): sensitivity at MCS 0, preset -92.4 dBm (noise figure 3.50 dB), surveyed front end -89.8 dBm (6.10 dB), difference 2.60 dB
+topology B (this example's 11ac 20 MHz x 8): preset -86.9 dBm, surveyed front end -84.3 dBm, difference 2.60 dB
 with a 60 GHz front end, topology A puts its maximum-gain state ahead of the chip (gain 27 dB, NF 6.1 dB, IIP3 -20 dBm) and cascades the chip's ladder behind it (Friis); the preset's WiFi 7 ladder is the chip's own and is not put in front of it twice
 
 [~s]
