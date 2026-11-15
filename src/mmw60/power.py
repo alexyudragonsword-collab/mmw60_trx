@@ -19,8 +19,15 @@ What it counts, per link direction (one transmitter and one receiver):
   receiver, each at ``P = FoM_W · 2^ENOB(fs_eff) · fs_eff`` with the same
   ENOB law the EVM floor uses (``ConverterLaw``) — the K× rate enters
   twice, through fs and through the ENOB it leaves;
-- ``dpd``: dsp_ip's P = 4 polynomial DPD (``DpdCost``) at
-  ``assumed.dpd_rate_over_bw × BW_eff``, counted only when the PA is on;
+- ``chip_dpd``: a predistorter is counted only where the floor has one
+  (ROADMAP C8, user's decision 2026-11-15).  The analytic floor takes the
+  60 GHz PA without predistortion (``pa_isolated_evm_db``), so no scheme
+  pays for a DPD on it; it is listed under "not counted" instead (example
+  02 still prices one per cell).  Topology A's chip runs its own DPD in its
+  calibration and the floor's chip residual is read after it, so that one
+  is counted: dsp_ip's P = 4 polynomial DPD (``DpdCost``) at
+  ``assumed.dpd_rate_over_bw × BW_eff`` (the chip's channel), unless the
+  chip PA is bypassed or ``ifext.with_dpd`` is off;
 - ``fft``: the transmitter's IFFT and the receiver's FFT at the **base**
   size (the digital PHY is unchanged, its clock is ×K): (N/2)·log2 N
   radix-2 butterflies per symbol, each a complex multiply (4 mult + 2 add)
@@ -53,6 +60,9 @@ from .vendor.wifitrx.units import dbm_to_mw
 BCC_STATES = 64
 #: per state and information bit: two branch-metric adds and one compare
 VITERBI_OPS_PER_STATE = 3
+#: what the "not counted" list says for the 60 GHz PA's predistorter: the floor
+#: takes that PA without one, so no scheme pays for it (ROADMAP C8)
+NO_MMW_DPD = "DPD on the 60 GHz PA (the floor takes the PA without predistortion)"
 #: a radix-2 butterfly: one complex multiply (4 real mult + 2 add) + two complex adds (4 add)
 BUTTERFLY_MULT, BUTTERFLY_ADD = 4, 6
 
@@ -199,13 +209,17 @@ def power_report(cfg, fe, bit_rate_bps: float, coeffs: PowerCoefficients | None 
                                  f"2 DAC + 2 ADC at {fs / 1e9:.2f} GS/s, ENOB {enob:.1f}, Walden {k.walden_fom_j * 1e15:.0f} fJ"))
     else:
         omitted.append("converters ideal")
-    # DPD
+    # DPD: counted only where the floor has a predistorter (ROADMAP C8)
     if fe.pa_enabled and cfg.frontend.pa.enabled:
+        omitted.append(NO_MMW_DPD)
+    if topo_a and cfg.ifext.chip == "wifitrx" and cfg.ifext.with_dpd and not cfg.ifext.chip_pa_bypass:
         m = dsp_ip_models()[k.dpd_model]
         rate = float(spec.value("assumed.dpd_rate_over_bw")) * bw
         e_sample = m.terms * (k.mult_j() + k.add_j())
-        blocks.append(PowerBlock("dpd", e_sample * rate,
-                                 f"{m.terms} terms at {rate / 1e9:.2f} GS/s ({m.instances_for(rate):.1f} P=4 datapaths)"))
+        blocks.append(PowerBlock("chip_dpd", e_sample * rate,
+                                 f"the chip's DPD (its calibration runs it on the chip PA; the floor's chip residual is "
+                                 f"read after it): {m.terms} terms at {rate / 1e9:.2f} GS/s "
+                                 f"({m.instances_for(rate):.1f} P=4 datapaths)"))
     # FFT / IFFT at the base size, symbol rate × K
     n = int(phy.base.fft_size)
     sym_rate = 1.0 / phy.t_symbol_eff

@@ -19,7 +19,8 @@ from mmw60.impairments.phase_noise import load_clock_profile
 from mmw60.ifext import (IfFilter, MmwRxStage, MmwTxStage, build_chip_wifitrx,
                          calibrated_chip, chip_facts, if_plan)
 from mmw60.impairments.cfo import CfoModel, MloCfo
-from mmw60.power import power_report
+from mmw60.frontend.dpd_cost import dsp_ip_models
+from mmw60.power import NO_MMW_DPD, PowerCoefficients, power_report
 from mmw60.sim.link import LinkSim, evm_at
 from mmw60.vendor.wifitrx.cal.deps import validate_order
 from mmw60.vendor.wifitrx.chain.rx import RxChain
@@ -342,7 +343,7 @@ def test_law4_a_bypassed_chip_pa_is_calibrated_on_its_own_chain():
     runs on that chain — no "calibrated" by hand: the coupler sits ahead of the
     PA with its attenuation lowered by the PA's measured gain, the DPD step is
     not run, tx_power only builds its table.  The 60 GHz PA runs at the same
-    operating point; the power column loses the chip PA."""
+    operating point; the power column loses the chip PA and its DPD."""
     a = small()
     b = dc.replace(a, ifext=dc.replace(a.ifext, chip_pa_bypass=True))
     fe = Frontend60.from_config(zero_if_60ghz(k=8))
@@ -372,7 +373,9 @@ def test_law4_a_bypassed_chip_pa_is_calibrated_on_its_own_chain():
     ra, rb = power_report(a, fe, 100e6), power_report(b, fe, 100e6)
     assert "chip_pa" in [x.name for x in ra.blocks] and "chip_pa" not in [x.name for x in rb.blocks]
     assert any("bypassed" in o for o in rb.omitted)
-    assert rb.total_w == pytest.approx(ra.total_w - ra.watts("chip_pa"))
+    # its DPD step is not run either, so the chip's DPD is not paid for (ROADMAP C8)
+    assert "chip_dpd" in [x.name for x in ra.blocks] and "chip_dpd" not in [x.name for x in rb.blocks]
+    assert rb.total_w == pytest.approx(ra.total_w - ra.watts("chip_pa") - ra.watts("chip_dpd"))
     for bad in (dc.replace(b.ifext, chip="frontend"), dc.replace(b.ifext, chip_pout_dbm=13.0)):
         with pytest.raises(ValueError, match="chip_pa_bypass"):
             dc.replace(b, ifext=bad)
@@ -469,6 +472,27 @@ def test_evm_budget_reconciliation_uses_the_double_sideband_phase_variance():
 
 
 # ---------------------------------------------------------------- the comparison-table row
+def test_power_counts_the_chip_dpd_only_when_the_chip_runs_it():
+    """A predistorter is paid for only where the floor has one (ROADMAP C8):
+    the chip's own DPD while its calibration runs it, never one on the 60 GHz
+    PA (the floor takes that PA without predistortion)."""
+    cfg = if_extender_60ghz()
+    fe = Frontend60.from_config(cfg)
+    k = PowerCoefficients.from_spec()
+    rep = power_report(cfg, fe, 1e9, k)
+    phy = cfg.upclocked()
+    m = dsp_ip_models()["ddr_r1_w16"]
+    rate = float(spec.value("assumed.dpd_rate_over_bw")) * phy.bandwidth_eff
+    assert rep.pj("chip_dpd") == pytest.approx(m.pj_per_bit(rate, 1e9))
+    assert NO_MMW_DPD in rep.omitted
+    assert power_report(cfg, fe, 1e9, k.with_(node_scale=0.175)).watts("chip_dpd") == pytest.approx(
+        0.175 * rep.watts("chip_dpd"))
+    for ix in (dc.replace(cfg.ifext, with_dpd=False), dc.replace(cfg.ifext, chip_pa_bypass=True)):
+        r = power_report(dc.replace(cfg, ifext=ix), fe, 1e9, k)
+        assert "chip_dpd" not in [b.name for b in r.blocks] and NO_MMW_DPD in r.omitted
+        assert r.total_w == pytest.approx(sum(b.watts for b in r.blocks))
+
+
 def test_comparison_table_has_the_topology_a_row_with_its_own_terms_and_blocks():
     fe = Frontend60.from_config(zero_if_60ghz(k=8))
     sch = compare.scheme_matrix(ks=(8,), standard="11be", bandwidth_hz=BW)
@@ -480,7 +504,7 @@ def test_comparison_table_has_the_topology_a_row_with_its_own_terms_and_blocks()
     assert {"chip", "chip_lo", "phase_noise", "pa"} <= set(row["terms_db"]) and "iq_image" not in row["terms_db"]
     assert row["cfo_captured"] and row["max_mcs"] is not None and row["dec_mcs"] >= row["max_mcs"]
     blocks = row["power"]["blocks"]
-    assert {"pa", "chip_pa", "lo", "converters", "dpd", "fft", "decoder"} <= set(blocks)
+    assert {"pa", "chip_pa", "lo", "converters", "chip_dpd", "fft", "decoder"} <= set(blocks)
     b = next(r for r in rep["rows"] if r["topology"] == "upclock_zero_if" and r["waveform"] == "be_upclocked")
     assert "chip_pa" not in b["power"]["blocks"]
     assert blocks["pa"]["watts"] == pytest.approx(b["power"]["blocks"]["pa"]["watts"])      # the same 60 GHz PA

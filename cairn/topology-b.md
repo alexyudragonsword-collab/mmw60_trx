@@ -57,7 +57,7 @@ OBO 是 7.5 dB（Pout 7.1 dBm，P1dB 之下 2.9 dB）：PA 单独在 OFDM 式包
 - 相噪项随 K 变好（T_FFT 变短，CPE 份额变大）：11ac 20 MHz 基准 −26.7（K=4）→ −31.6 dB（K=32）；11be 同带宽下比 11ac 差 1–2 dB（T_FFT 长 4 倍）。
 - GI 外 ISI：7 ns 散射尾在 K=32 的 25 ns GI 外是 −25.9 dB，开始与 IQ 同量级。
 - 转换器：按 −0.5 bit/octave，20 GS/s 处 7.8 bit → −34 dB，不是任何格的瓶颈；按 −1 bit/octave（Walden）11be 160×32 处 6.6 bit → −29.9 dB，仍非瓶颈。
-- DPD 代价（dsp_ip dpd_poly P=4 DDR r=1 140 项，Horowitz 45 nm 运算能耗）：11ac 20×8 MCS3 208 Mb/s → 355 pJ/bit；11be 20×32 MCS2 826 Mb/s → 358 pJ/bit（换 PA 之前 MCS2 156 Mb/s → 474、MCS1 551 Mb/s → 537 pJ/bit）；2.56 GHz 带宽需 3.8 个 P=4 数据通路（2727 MSPS 各）。这是记账不是测量。
+- DPD 代价（dsp_ip dpd_poly P=4 DDR r=1 140 项，Horowitz 45 nm 运算能耗）：11ac 20×8 MCS3 208 Mb/s → 355 pJ/bit；11be 20×32 MCS2 826 Mb/s → 358 pJ/bit（换 PA 之前 MCS2 156 Mb/s → 474、MCS1 551 Mb/s → 537 pJ/bit）；2.56 GHz 带宽需 3.8 个 P=4 数据通路（2727 MSPS 各）。这是记账不是测量。网格这一列只是“加一个 DPD 要花多少”；2026-11-15 起同台表（示例 04）不把它计进零中频各行的总数，因为底板取的是未预失真的 PA（`comparison-table.md` §5）。
   掉到 MCS2 的四个 0.32 GHz 格每比特贵了 1.3 倍左右：11be 80×4 MCS2 432 Mb/s → 342 pJ/bit，11be 20×16 与 40×8 MCS2 413 Mb/s → 358，11ac 80×4 MCS2 351 Mb/s → 421（2026-11-13 回退改成 7.5 dB 之前都是 MCS3：576 → 256、551 → 269、468 Mb/s → 316 pJ/bit）。
 
 ## 3. 校准：wifitrx 序列在每个 K 上（示例 03，`examples/expected/03_calibration_at_k.txt`）

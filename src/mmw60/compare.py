@@ -402,7 +402,7 @@ def to_markdown(rep: dict) -> str:
                      f"{_f(t.get('pa'))} | {_f(t.get('isi'))} | {r['floor_db']:.1f} | {_f(b.get('predicted_evm_db'))} | "
                      f"{_f(b.get('delta_vs_floor_db'), '{:+.1f}')} |")
     lines += ["", "## power blocks per bit at the MCS cap [pJ/bit] (ratios, not totals)", "",
-              "| scheme | rate | pa | lo | converters | dpd | fft | decoder | total | not counted |", "|---|---|---|---|---|---|---|---|---|---|"]
+              "| scheme | rate | pa | lo | converters | chip DPD (A) | fft | decoder | total | not counted |", "|---|---|---|---|---|---|---|---|---|---|"]
     for r in rep["rows"]:
         p = r["power"]
         if not p:
@@ -411,7 +411,7 @@ def to_markdown(rep: dict) -> str:
         bl = p["blocks"]
         cell = lambda n: _f(bl[n]["pj_per_bit"], "{:.0f}") if n in bl else "—"  # noqa: E731
         lines.append(f"| {r['label']} | {p['bit_rate_bps'] / 1e6:.0f} Mb/s | {cell('pa')} | {cell('lo')} | {cell('converters')} | "
-                     f"{cell('dpd')} | {cell('fft')} | {cell('decoder')} | {p['pj_per_bit']:.0f} | {'; '.join(p['omitted']) or '—'} |")
+                     f"{cell('chip_dpd')} | {cell('fft')} | {cell('decoder')} | {p['pj_per_bit']:.0f} | {'; '.join(p['omitted']) or '—'} |")
     c = rep["coefficients"]
     lines += ["", f"coefficients: Walden {c['walden_fom_fj']:.0f} fJ/step, Horowitz {c['mult32_pj']:g} / {c['add32_pj']:g} pJ "
               f"(32-bit mult / add, 45 nm) × node scale {c['node_scale']:g}, {c['word_bits']} bit; synthesizers "

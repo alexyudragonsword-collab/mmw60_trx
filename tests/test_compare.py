@@ -15,10 +15,9 @@ from mmw60 import compare, spec
 from mmw60.config import (PN_MODELS, TOPOLOGIES, WAVEFORMS, WAVEFORMS_BUILT, ChannelConfig, LoConfig, Mmw60Config,
                           PhaseNoiseConfig, if_extender_60ghz, wifi7_baseline_k1, wifi7_chain_k1, zero_if_60ghz)
 from mmw60.frontend import Frontend60
-from mmw60.frontend.dpd_cost import dsp_ip_models
 from mmw60.impairments.phase_noise import (PoleZeroPhase, load_clock_profile, make_profile, profile_at_carrier,
                                             profile_ratio)
-from mmw60.power import PowerCoefficients, power_report
+from mmw60.power import NO_MMW_DPD, PowerCoefficients, power_report
 from mmw60.sim.link import LinkSim, evm_at
 from mmw60.vendor.wifitrx.impairments.phase_noise import DEFAULT_WIFI7_LO_PROFILE
 
@@ -167,19 +166,17 @@ def test_power_model_bookkeeping_matches_its_coefficients():
     k = PowerCoefficients.from_spec()
     rep = power_report(cfg, fe, 156e6, k)
     names = [b.name for b in rep.blocks]
-    assert names == ["pa", "lo", "converters", "dpd", "fft", "decoder"]
+    assert names == ["pa", "lo", "converters", "fft", "decoder"]
+    # no predistorter in the floor (the 60 GHz PA is taken without one), so none is paid for (ROADMAP C8)
+    assert NO_MMW_DPD in rep.omitted
     assert rep.total_w == pytest.approx(sum(b.watts for b in rep.blocks))
     assert rep.pj_per_bit == pytest.approx(rep.total_w / 156e6 * 1e12)
     phy = cfg.upclocked()
     enob = fe.converters.enob(phy.fs_eff)
     assert rep.watts("converters") == pytest.approx(4 * 70e-15 * 2 ** enob * phy.fs_eff)
     assert rep.watts("lo") == pytest.approx(2 * 40e-3)
-    # the DPD block is dpd_cost.py's number (example 02's column) at node scale 1
-    m = dsp_ip_models()["ddr_r1_w16"]
-    assert rep.pj("dpd") == pytest.approx(m.pj_per_bit(4 * phy.bandwidth_eff, 156e6))
     # one more ENOB bit doubles the converters (Walden), the digital blocks follow the node scale
     rep7 = power_report(cfg, fe, 156e6, k.with_(node_scale=0.175))
-    assert rep7.watts("dpd") == pytest.approx(0.175 * rep.watts("dpd"))
     assert rep7.watts("fft") == pytest.approx(0.175 * rep.watts("fft"))
     assert rep7.watts("converters") == rep.watts("converters") and rep7.watts("pa") == rep.watts("pa")
     fe_more = dc.replace(fe, converters=dc.replace(fe.converters, enob_ref=fe.converters.enob_ref + 1))
@@ -188,7 +185,7 @@ def test_power_model_bookkeeping_matches_its_coefficients():
     be = zero_if_60ghz(k=8, standard="11be", bandwidth_hz=80e6)
     r_be = power_report(be, fe, 1e9, k)
     dec = next(b for b in r_be.blocks if b.name == "decoder")
-    assert "LDPC" in dec.note and not r_be.omitted
+    assert "LDPC" in dec.note and r_be.omitted == (NO_MMW_DPD,)
     from mmw60.phy.eht import ldpc_decoder_ops_per_info_bit
     assert dec.watts == pytest.approx(ldpc_decoder_ops_per_info_bit("1/2") * k.add_j() * 1e9)
     # the EVM-only 11ac 40 MHz base has none and says so
@@ -197,7 +194,7 @@ def test_power_model_bookkeeping_matches_its_coefficients():
     # ideal PA: no PA and no DPD block
     r_ideal = power_report(cfg.ideal(), Frontend60.from_config(cfg.ideal()), 156e6, k)
     assert {b.name for b in r_ideal.blocks} == {"lo", "fft", "decoder"}
-    assert "class-B" in rep.blocks[0].note and rep.table().count("pJ/b") >= 7
+    assert "class-B" in rep.blocks[0].note and rep.table().count("pJ/b") == len(rep.blocks) + 1
 
 
 def test_pa_pae_knob_flows_from_config_to_the_shared_pa():
