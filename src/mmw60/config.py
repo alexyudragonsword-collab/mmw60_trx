@@ -159,10 +159,45 @@ class PaConfig:
         return self.model != "ideal"
 
 
+ARRAY_ELEMENT_PATTERNS = ("isotropic", "cos")
+ARRAY_STEERING = ("phase", "ttd")
+
+
 @dataclass(frozen=True)
 class ArrayConfig:
-    """Placeholder until milestone 2 (array_tx vendored then)."""
-    n_elements: int = 1
+    """The array at each link end (milestone 2; ``frontend.array60``, data/spec:
+    assumed.array_*).  Every element is the shared front end's (iron rule 2):
+    the same PA, receive face and antenna element gain.  One element at each
+    end is the preset and every earlier result: the link does not change.
+
+    Rectangular grids, row-major, the scan plane along x (arraytx's
+    ``ArrayGeometry``); spacing in wavelengths at the carrier."""
+    tx_nx: int = 1
+    tx_ny: int = 1
+    rx_nx: int = 1
+    rx_ny: int = 1
+    spacing_lambda: float = 0.5
+    #: arraytx's element factor, as a field amplitude: isotropic, or cos(theta)
+    element_pattern: str = "isotropic"
+    #: phase-shifter resolution in bits; None = continuous
+    phase_bits: int | None = None
+    steering: str = "phase"                 # phase shifters (squint) | true time delay
+    #: per-element static errors (1 sigma), drawn once from error_seed
+    gain_err_db_rms: float = 0.0
+    phase_err_deg_rms: float = 0.0
+    error_seed: int = 0
+    #: the training codebook: sectors uniform in sin(theta) over +-scan_max_deg,
+    #: sector_oversampling x the TX columns of them
+    scan_max_deg: float = 60.0
+    sector_oversampling: float = 1.0
+
+    @property
+    def n_tx(self) -> int:
+        return int(self.tx_nx) * int(self.tx_ny)
+
+    @property
+    def n_rx(self) -> int:
+        return int(self.rx_nx) * int(self.rx_ny)
 
 
 @dataclass(frozen=True)
@@ -342,6 +377,17 @@ class Mmw60Config:
         if rxf.model == "wifi7_ladder" and (rxf.nf_db, rxf.iip3_dbm, rxf.gain_db, rxf.p1db_oob_dbm) != (None,) * 4:
             raise ValueError("frontend.rx_front: nf_db / iip3_dbm / gain_db / p1db_oob_dbm only apply to "
                              "model 'anchored'")
+        ar = self.frontend.array
+        if min(int(ar.tx_nx), int(ar.tx_ny), int(ar.rx_nx), int(ar.rx_ny)) < 1:
+            raise ValueError("frontend.array: every dimension needs at least one element")
+        if ar.element_pattern not in ARRAY_ELEMENT_PATTERNS:
+            raise ValueError(f"frontend.array.element_pattern must be one of {ARRAY_ELEMENT_PATTERNS}")
+        if ar.steering not in ARRAY_STEERING:
+            raise ValueError(f"frontend.array.steering must be one of {ARRAY_STEERING}")
+        if ar.phase_bits is not None and int(ar.phase_bits) < 1:
+            raise ValueError("frontend.array.phase_bits must be >= 1 or None (continuous)")
+        if not 0.0 < float(ar.scan_max_deg) < 90.0 or float(ar.sector_oversampling) <= 0.0:
+            raise ValueError("frontend.array: scan_max_deg in (0, 90), sector_oversampling > 0")
         if self.frontend.tx_rx_isolation_db is not None and float(self.frontend.tx_rx_isolation_db) < 0:
             raise ValueError("frontend.tx_rx_isolation_db is an isolation in dB (positive)")
 
@@ -607,6 +653,23 @@ def surveyed_frontend(cfg: Mmw60Config) -> Mmw60Config:
         tx_rx_isolation_db=float(pick["tx_rx_isolation_db"]),
         antenna_gain_dbi=float(pick["antenna_gain_tx_dbi"]), antenna_gain_rx_dbi=float(pick["antenna_gain_rx_dbi"]))
     return dataclasses.replace(cfg, frontend=fe, label=(cfg.label + " surveyed front end").strip())
+
+
+def array_frontend(cfg: Mmw60Config, n_tx: int, n_rx: int | None = None) -> Mmw60Config:
+    """``cfg`` with an n-element linear array at each end (milestone 2;
+    data/spec: assumed.array_*): half-wave spacing, arraytx's cos element
+    factor, 3-bit phase shifters, the per-element errors arraytx defaults to
+    and a codebook over +-60 deg.  The presets keep one element."""
+    geo = spec.value("assumed.array_geometry")
+    err = spec.value("assumed.array_element_errors")
+    cb = spec.value("assumed.array_codebook")
+    a = dataclasses.replace(
+        cfg.frontend.array, tx_nx=int(n_tx), tx_ny=1, rx_nx=int(n_tx if n_rx is None else n_rx), rx_ny=1,
+        spacing_lambda=float(geo["spacing_lambda"]), element_pattern=str(geo["element_pattern"]),
+        phase_bits=int(spec.value("assumed.array_phase_bits")),
+        gain_err_db_rms=float(err["gain_db_rms"]), phase_err_deg_rms=float(err["phase_deg_rms"]),
+        scan_max_deg=float(cb["scan_max_deg"]), sector_oversampling=float(cb["sector_oversampling"]))
+    return dataclasses.replace(cfg, frontend=dataclasses.replace(cfg.frontend, array=a))
 
 
 def wifi7_chain_k1(mcs: int = 0, standard: str = "11ac", bandwidth_hz: float = 20e6,

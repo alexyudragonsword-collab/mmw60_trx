@@ -254,6 +254,48 @@ entries:
     cite: "pll_simulator@d67043e1197692dc203287b437613f7b9db83bb7：pllsim export bench_wu19_spll_frac_52m_6p253g --set fout=6.0G --set osc.f0=6.0G --clock-profile <file> --multiply-by 9 --floor-dbchz=-150 --spur-rejection-db 40"
     note: "未核实（姊妹库模型输出，不是实测）：与 survey.clock_profile_wu19_x10 同一个预设、同一个 commit，重调到 6.0 GHz 再过 ×9，507 点到 27 GHz；IPN（10 kHz–100 MHz）−34.0 dBc。拓扑 A 的固定 LO（f_c − f_IF = 54.0 GHz，lo.scheme fixed_lo_x9）用它；×3 / ×4 的 PLL（18.0 / 13.5 GHz）超出对方模型的 12 GHz 覆盖范围（pll_simulator#71），所以 pllsim 行用 ×9。倍频器底噪只生成 −150 一档：底噪四档的灵敏度在 ×10 行上已经量过（埋在 PLL 远端 N²·S 下面）。"
 
+  assumed.array_geometry:
+    value: {layout: "linear", spacing_lambda: 0.5, element_pattern: "cos"}
+    unit: geometry
+    source: assumed
+    cite: "本库 config.array_frontend；arraytx ArrayGeometry（element_pattern 是场幅度因子：isotropic 或 cos θ）"
+    note: "里程碑 2 的阵列：每端一排 N 个单元（n × 1，扫描面沿 x），间距半波长（60.48 GHz 上 2.48 mm）。单元方向图取 arraytx 的 cos θ（场幅度），扫描到 45° 损失 3 dB、60° 损失 6 dB；单元的视轴增益用共享前端的 antenna_gain_dbi（预设 0 dBi，即未指定）。没有查具体的 60 GHz 天线阵；示例 10 有 isotropic 的灵敏度行。"
+
+  assumed.array_phase_bits:
+    value: 3
+    unit: bit
+    source: assumed
+    cite: "本库 config.array_frontend；frontend/array60.py::quantise_phase"
+    note: "移相器分辨率，以第一个单元为相位参考、四舍五入。扫描角平均的量化损失（N = 64）4 / 3 / 2 / 1 bit 为 0.05 / 0.22 / 0.88 / 3.81 dB，与 sinc(π/2^B) 理论 0.06 / 0.22 / 0.91 / 3.92 dB 相符。没有查具体器件；示例 10 有各 bit 数与连续相位的灵敏度行。"
+
+  assumed.array_element_errors:
+    value: {gain_db_rms: 0.5, phase_deg_rms: 5.0}
+    unit: 1 sigma
+    source: assumed
+    cite: "array_tx@5815c5a config.py::ElementErrorsCfg 的默认值（它自己的取值，没有外部出处）"
+    note: "每个单元一次抽取的静态增益 / 相位误差（error_seed），校准后的残差量级。阵列只在束向上损失一点增益、旁瓣抬高；示例 10 有不加误差的灵敏度行。"
+
+  assumed.array_codebook:
+    value: {scan_max_deg: 60.0, sector_oversampling: 1.0}
+    unit: codebook
+    source: assumed
+    cite: "本库 frontend/array60.py::Array60.codebook_deg"
+    note: "训练码本：扇区在 sin θ 上均匀分布于 ±60°，个数 = 阵列列数 × 过采样（1 = 每个波束宽度约一个）。示例 10 有过采样 2 的灵敏度行。"
+
+  assumed.array_training:
+    value: {field: "GI2 + 2 L-LTF symbols of the base PHY, upclocked", estimator: "noncoherent_tones", success_within_db: 1.0, p_target: 0.99, timing: "mlo", sector_switch_s: 1.0e-7}
+    unit: procedure
+    source: assumed
+    cite: "本库 arraylink.py（MLO 触发的扇区扫描，用户 2026-11-14 选定）"
+    note: "802.11be 没有毫米波波束训练，按 MLO 触发来算：sub-7 链路排定扫描时刻（定时已知，不靠 L-STF 检测），60 GHz 上每个扇区发一段升频后的基准 L-LTF（GI2 + 2 个符号），先 TX 扫（对端单个单元接收）、再 RX 扫。接收端按已知 LTF 逐音做两符号相干、跨音非相干累加估功率，取最大；选到的扇区增益与最佳差 1 dB 以内算成功，要求 99 %。扇区切换 100 ns 是假设。示例 10 有跨音相干累加与“必须选中最佳扇区”两行灵敏度。平坦信道（视距），不建多径下的扇区选择；氧吸收（60 GHz 约 15 dB/km）在 20 m 内不到 0.3 dB，不计。更正（2026-11-14）：N ≥ 16 的距离到了百米、千米，氧吸收不能不计，另立 assumed.oxygen_absorption，距离按它算（路径损耗不含它）。"
+
+  assumed.oxygen_absorption:
+    value: 15.0
+    unit: dB/km
+    source: assumed
+    cite: "本库 arraylink.py::path_loss_db / range_m；估算值，没有查原文（ITU-R P.676 未核对）"
+    note: "60 GHz 附近海平面氧吸收峰的常用整数估算，按载频不变用在所有载频上：它是峰值，57 / 66 GHz 两侧更小，偏离 60 GHz 的载频上偏保守（73.44 GHz 远在吸收带外，这个数不适用；示例 10 只在 60.48 GHz 上用它）。只进距离，不进路径损耗：阵列层的结论以路径损耗为准。示例 10 §3b 有 0 / 10 / 20 dB/km 的灵敏度行。原文（ITU-R P.676，经 spec_sources）待补：用户 2026-11-14 定先用估算、不开 issue，记 ROADMAP B。"
+
   assumed.cal_capture_symbols:
     value: 8
     unit: OFDM symbols

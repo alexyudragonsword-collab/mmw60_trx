@@ -10,8 +10,10 @@ from conftest import REPO
 
 PIN = "7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02"
 SPEC_SOURCES_PIN = "8e5f2e26bc2084d324aaaabea49fab18174ecaf8"
-PINS = {"wifi_trx_cal": PIN, "spec_sources": SPEC_SOURCES_PIN}
+ARRAY_TX_PIN = "5815c5a7ea43143fd58502d4894ac840b5b5fb86"
+PINS = {"wifi_trx_cal": PIN, "spec_sources": SPEC_SOURCES_PIN, "array_tx": ARRAY_TX_PIN}
 SPEC_SOURCES_SIB = Path("/home/user/alexyudragonsword-collab/spec_sources")
+ARRAY_TX_SIB = Path("/home/user/alexyudragonsword-collab/array_tx")
 
 
 def test_every_vendored_file_has_the_header():
@@ -26,6 +28,10 @@ def test_every_vendored_file_has_the_header():
     ss = sorted(str(f.relative_to(vc.VENDOR)) for f in files if f.relative_to(vc.VENDOR).parts[0] == "spec_sources")
     assert ss == ["spec_sources/__init__.py", *(f"spec_sources/data/{n}.yaml" for n in
                   ("energy", "frontend60", "ieee80211", "liu2025", "pa60", "regulatory")), "spec_sources/reader.py"]
+    # array_tx: the whole arraytx package, code only (its data/ and webui/ assets are not copied)
+    at = [f for f in files if f.relative_to(vc.VENDOR).parts[0] == "arraytx"]
+    assert len(at) == 135 and all(f.suffix == ".py" for f in at)
+    assert {"beam.py", "geometry.py", "coupling.py", "sim.py"} <= {f.name for f in at}
 
 
 def test_manifest_matches_tree_and_pin():
@@ -51,7 +57,8 @@ def test_classify_distinguishes_import_rehoming_from_logic_edits():
 
 def test_check_without_sibling_skips_and_fail_on_skip_is_red(tmp_path, capsys):
     results = vc.check(vc.Siblings({"wifi_trx_cal": str(tmp_path / "nowhere"),
-                                    "spec_sources": str(tmp_path / "nowhere")}), {"files": {}})
+                                    "spec_sources": str(tmp_path / "nowhere"),
+                                    "array_tx": str(tmp_path / "nowhere")}), {"files": {}})
     assert results and all(r.status == "skip" for r in results)
     assert vc.report(results, strict=False, fail_on_skip=True) == 1
     assert vc.report(results, strict=False, fail_on_skip=False) == 0
@@ -63,11 +70,15 @@ def test_no_drift_against_sibling_and_injected_drift_is_caught(tmp_path, monkeyp
     roots = {"wifi_trx_cal": "/home/user/wifi_trx_cal"}
     if (SPEC_SOURCES_SIB / ".git").exists():
         roots["spec_sources"] = str(SPEC_SOURCES_SIB)
+    if (ARRAY_TX_SIB / ".git").exists():
+        roots["array_tx"] = str(ARRAY_TX_SIB)
     sib = vc.Siblings(roots)
     results = vc.check(sib, json.loads((REPO / "tools" / "vendor_manifest.json").read_text()))
     assert not [r for r in results if r.status == "DRIFT"]
     assert all(r.status in ("verbatim", "skip") for r in results)
     assert all(r.status == "verbatim" for r in results if r.repo == "wifi_trx_cal")
+    if "array_tx" in roots:
+        assert all(r.status == "verbatim" for r in results if r.repo == "array_tx")
     # inject: copy one file into a temporary vendor tree and edit a logic line
     tree = tmp_path / "vendor" / "wifitrx" / "waveform"
     tree.mkdir(parents=True)

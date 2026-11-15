@@ -104,6 +104,13 @@ jobs:
           repository: alexyudragonsword-collab/spec_sources
           ref: 8e5f2e26bc2084d324aaaabea49fab18174ecaf8
           path: _siblings/spec_sources
+      # array_tx is public: no token (milestone 2, the array layer)
+      - name: Checkout array_tx (pinned)
+        uses: actions/checkout@v4
+        with:
+          repository: alexyudragonsword-collab/array_tx
+          ref: 5815c5a7ea43143fd58502d4894ac840b5b5fb86
+          path: _siblings/array_tx
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -113,6 +120,7 @@ jobs:
           python tools/vendor_check.py --strict --fail-on-skip
           --siblings wifi_trx_cal=${{ github.workspace }}/_siblings/wifi_trx_cal
           spec_sources=${{ github.workspace }}/_siblings/spec_sources
+          array_tx=${{ github.workspace }}/_siblings/array_tx
 
   # Iron rule 7: a change that is not meant to move a number must not move
   # one.  Base and head are fingerprinted on the same runner and compared;

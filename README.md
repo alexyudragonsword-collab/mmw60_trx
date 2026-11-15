@@ -114,6 +114,16 @@ python tools/budget_report.py --base 11be:80e6 --k 4,8,16,32 --sensitivity -o ta
 python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 5 分钟（4 核）；--quick 冒烟
 ```
 
+## 里程碑 2：阵列层（示例 10）
+
+每端 N 个单元，每个都是共享的 `Frontend60`（同一颗 PA、同一个接收面），几何与阵列因子来自 vendored 的 array_tx（`arraytx` @ `5815c5a`，只用线性部分），移相器量化、训练码本、EIRP 与接收阵列增益在本库（`frontend/array60.py`、`arraylink.py`）。
+示例 10：阵列的增益 / 扫描损失 / 量化损失；EIRP 上限下的逐单元工作点（N = 64 时每单元退到 3.9 dBm，PA 更线性，解码器上限升一档）；数据链路能承受的最大路径损耗；MLO 触发的扇区扫描训练所需的 SNR、TX 扫与 RX 扫的预算和扫描时长；移相器斜视。
+结论在 `cairn/array-layer.md`：N ≥ 16 时“对端单个单元接收”的 TX 扫到不了 MCS0 的边，上限 MCS 的范围内训练都够。结论以路径损耗为准；换成距离时加了 15 dB/km 的氧吸收估算（没有原文），N ≥ 16 的距离对它很敏感。
+
+```bash
+python examples/10_array_link_and_training.py    # 全量约 1 分钟；--quick 冒烟
+```
+
 ## 读什么
 
 - `AGENTS.md`：规则与七条铁律（每条有测试守着）。

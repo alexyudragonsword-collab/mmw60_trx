@@ -112,6 +112,8 @@ A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 的 B
 
 前端三个面的一组（示例 08）：`assumed.rx60_ladder_shape`（原文只给高 / 低两档增益与一个 NF、一个 IIP3，八档梯子是 wifitrx 的整体平移，换档电平按 wifitrx 的平衡点规则）、`assumed.rx60_p1db_from_iip3_db`（9.6 dB）、`assumed.frontend_faces_pick`（基准档各取哪个数：接收机与天线取同一颗通信收发机，隔离取减出来的下端 20 dB）。预设不用这一档；示例 08 每张表都是灵敏度行。
 
+阵列层的一组（示例 10，2026-11-14）：`assumed.array_geometry` / `array_phase_bits` / `array_element_errors` / `array_codebook` / `array_training`（`cairn/array-layer.md`），以及 `assumed.oxygen_absorption`——60 GHz 氧吸收取 15 dB/km 的估算值，没有查原文（用户 2026-11-14 定先用估算、不向 spec_sources 开 issue），只进距离、不进路径损耗；示例 10 §3b 有 0 / 10 / 20 dB/km 的灵敏度行。
+
 ## 本库自己量的（derived）
 
 - `data/spec/per_thresholds.yaml`：各 MCS 的 ideal PER 门限（`tools/measure_thresholds.py`）。不是规范数，是这份代码的接收机的性质（C1–C3 后是改进的那一档，比里程碑 0 的接收机低 0.1–2.8 dB）；`tests/test_thresholds.py` 复量一个点守着它不与代码漂开。
@@ -123,3 +125,4 @@ A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 的 B
 2. 11ad CR 信道的 tap 表（Maltsev 11-09/0334；拿到后 `TapTableChannel` 直接接，`cairn/Reference/` 放原文）。
 3. ~~IEEE 802.11-09/0296r16 原文：把 `tgad_em.*` 从 survey 改成 spec。~~ 已由 spec_sources 0.3.0 关掉（2026-11-13，mmw60_trx#25）。
 4. 前端三个面还剩三条 survey（上面“前端的三个面”一条）：ISCAS 2015 与 Okada 2013 要 IEEE Xplore 的访问权或 PDF；802.11ad 灵敏度表的前提与最大输入电平要标准条文。另外两处读了原文仍没有答案：Asada 2011 的 IIP3 对应哪一档增益；TU/e 2018 正文里不加隔离结构时的隔离度到底给没给（只读了摘要）；通信接收前端的带外压缩点（基带高通之前）没有任何出处。
+5. 60 GHz 氧吸收（ITU-R P.676，海平面、按载频）：现在是 `assumed.oxygen_absorption` 的估算 15 dB/km（ROADMAP B）；有原文后进 spec_sources，本库删掉这条 assumed。

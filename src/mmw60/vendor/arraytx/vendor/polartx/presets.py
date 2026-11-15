@@ -1,0 +1,583 @@
+# Vendored from array_tx@5815c5a7ea43143fd58502d4894ac840b5b5fb86: src/arraytx/vendor/polartx/presets.py
+# Adapted-copy policy: see src/mmw60/vendor/__init__.py
+# Vendored from polar_tx@b007e60: src/polartx/presets.py
+# Adapted-copy policy: see src/arraytx/vendor/__init__.py
+"""End-to-end transmitter presets: technology-plausible defaults wired
+into ready-to-run PolarTX chains (pllsim.presets convention)."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable
+
+from .chain import ChainConfig, PolarTX
+from .cartesian import CartesianTX
+from .dpa.combiner import OutphasingCombiner
+from .dpa.dpa import DPA, DPAConfig
+from .outphasing import OutphasingTX
+from .rfdac import RFDAC, RFDACConfig
+from .phasemod.adpll_tp import ADPLLTwoPoint
+from .phasemod.dtc_openloop import DTCPhaseModulator, DTCPMConfig
+from .vendor.pllsim.arch.adpll import ADPLL, ADPLLConfig, DLFConfig
+from .vendor.pllsim.blocks.oscillator import OscConfig
+from .vendor.pllsim.blocks.tdc import TDCConfig
+from .vendor.pllsim.synth import design_adpll_dlf
+from .waveforms.base import Waveform
+from .waveforms.ble import gfsk_ble
+
+if TYPE_CHECKING:
+    # Typing only, so .fir import stays lazy (it is taken inside the factory
+    # below).  The annotation says what the trailing comment used to.
+    from .fir import FIRDualTapTX
+
+
+@dataclass
+class TxPreset:
+    """A ready-to-run chain plus the waveform generator that matches it.
+
+    The pairing is the point: ``tx`` and ``make_waveform`` share a
+    coherent frequency plan (sample rate, numerology, carrier), so a
+    preset cannot be run against a waveform it was not designed for by
+    accident.  The idiom everywhere in this package is::
+
+        p = wifi_dtc(bw=160e6, qam=1024)
+        res = p.tx.run(p.make_waveform(n_symbols=8), seed=1)
+
+    ``make_waveform``'s keyword arguments vary by standard (OFDM presets
+    take ``n_symbols``, EDGE/EDR take ``n_syms``, BLE takes ``n_bits``),
+    which is why the report layer dispatches by signature inspection.
+    """
+
+    tx: PolarTX
+    fs_bb: float
+    make_waveform: Callable[..., Waveform]
+
+
+def _tdc_bits_for_period(t_res: float, fout: float) -> int:
+    """Flash-TDC bits for a range of at least one DCO period.
+
+    The counter-assisted ADPLL counts whole DCO cycles and reads only the
+    fraction with the TDC, so the TDC must span one period; a shorter
+    range saturates on every cycle whose fraction lands past it and the
+    loop loses phase information.  That is what B1 was: LTE-20 kept the
+    7-bit default at a 1 ps LSB, 127 ps against 513 ps."""
+    import math
+    return max(1, math.ceil(math.log2(1.0 / (fout * t_res) + 1.0)))
+
+
+def ble_adpll(rate: float = 1e6, *, mode: str = "response",
+              dp_gain: float = 1.0, kdco_est_error: float = 0.0,
+              loop_bw: float = 100e3, fref: float = 32e6,
+              fout: float = 2.440e9, dpa: DPAConfig | None = None,
+              chain: ChainConfig | None = None,
+              env_skew_s: float = 0.0,
+              settle_cycles: int = 40_000,
+              dp_range_hz: float | None = None) -> TxPreset:
+    """BLE LE-1M/LE-2M polar TX: ADPLL two-point PM + DPA at fixed code.
+
+    Baseband runs on the fref grid (fs_bb = fref, 32/16 samples per
+    symbol) so event mode needs no resampling.  BLE-class DCO
+    (-112 dBc/Hz @ 1 MHz on 2.44 GHz), 10 ps TDC, loop BW ~100 kHz.
+
+    env_skew_s is accepted for interface symmetry with the other presets,
+    but GFSK is constant-envelope: the envelope path is a constant, so
+    skewing it against the phase path changes nothing at all (verified
+    bit-identical out to 20 ns).  It only bites once the payload has
+    envelope variation — see bt_edr_adpll (quasi-constant: 10 ns costs
+    0.13% DEVM) and lte20_adpll (OFDM: 1 ns already fails the mask).
+    """
+    alpha, rho = design_adpll_dlf(fref, loop_bw, 60.0)
+    osc = OscConfig(f0=fout, gain=20e3, pn_dbchz=-112.0, pn_foffset=1e6,
+                    pn_f1f3=200e3, pn_floor_dbchz=-150.0)
+    pll = ADPLL(ADPLLConfig(
+        fref=fref, fout=fout, osc=osc, dlf=DLFConfig(alpha=alpha, rho=rho),
+        mode="tdc", tdc=TDCConfig(t_res=10e-12),
+        kdco_est_error=kdco_est_error, int_band=(1e3, fref / 2)))
+    pm = ADPLLTwoPoint(pll, dp_gain=dp_gain, mode=mode,
+                       settle_cycles=settle_cycles, dp_range_hz=dp_range_hz)
+    dpa_ = DPA(dpa or DPAConfig(n_bits=8))
+    tx = PolarTX(chain or ChainConfig(env_skew_s=env_skew_s), pm, dpa_)
+
+    def make_waveform(n_bits: int = 800, pattern: str = "prbs",
+                      seed: int = 1) -> Waveform:
+        """GFSK burst of ``n_bits`` bits on the fref grid."""
+        return gfsk_ble(n_bits, fref, rate, pattern=pattern, seed=seed)
+
+    return TxPreset(tx=tx, fs_bb=fref, make_waveform=make_waveform)
+
+
+def bt_edr_adpll(dpsk: str = "8dpsk", *, mode: str = "response",
+                 dp_gain: float = 1.0, loop_bw: float = 100e3,
+                 env_skew_s: float = 0.0, dpa: DPAConfig | None = None,
+                 dp_range_hz: float | None = None,
+                 settle_cycles: int = 40_000, **kw) -> TxPreset:
+    """BT EDR2/EDR3 polar TX: same ADPLL two-point phase path as BLE, but
+    the DPSK payload is NOT constant-envelope (SRRC, PAPR ~2-3 dB) — the
+    envelope path and DPA amplitude codes are genuinely exercised.
+
+    dpsk selects the payload ("8dpsk"/"pi4dqpsk").  The commonly swept
+    knobs are named explicitly (mode= still selects the response/event
+    phase-modulator engine); ``**kw`` forwards the rest to ble_adpll."""
+    p = ble_adpll(mode=mode, dp_gain=dp_gain, loop_bw=loop_bw,
+                  env_skew_s=env_skew_s, dpa=dpa, dp_range_hz=dp_range_hz,
+                  settle_cycles=settle_cycles, **kw)
+
+    def make_waveform(n_syms: int = 800, seed: int = 1) -> Waveform:
+        """EDR DPSK burst of ``n_syms`` symbols (SRRC pulse shaped)."""
+        from .waveforms.edr import edr_dpsk
+        return edr_dpsk(n_syms, p.fs_bb, mode=dpsk, seed=seed)
+
+    return TxPreset(tx=p.tx, fs_bb=p.fs_bb, make_waveform=make_waveform)
+
+
+def ble_1m_adpll(**kw) -> TxPreset:
+    """BLE LE-1M (1 Mb/s GFSK); ``ble_adpll`` with ``rate=1e6``."""
+    return ble_adpll(rate=1e6, **kw)
+
+
+def ble_2m_adpll(**kw) -> TxPreset:
+    """BLE LE-2M (2 Mb/s GFSK); ``ble_adpll`` with ``rate=2e6``."""
+    return ble_adpll(rate=2e6, **kw)
+
+
+def lte20_adpll(qam: int = 64, *, mode: str = "response",
+                dp_gain: float = 1.0, loop_bw: float = 1e6,
+                fref: float = 122.88e6, fout: float = 1.95e9,
+                dpa: DPAConfig | None = None,
+                chain: ChainConfig | None = None,
+                env_skew_s: float = 0.0, env_floor: float = 0.05,
+                cfr_papr_db: float | None = None,
+                dpd: bool = True, oversampling: int = 4,
+                dp_range_hz: float | None = None,
+                settle_cycles: int = 60_000) -> TxPreset:
+    """LTE 20 MHz narrowband polar TX: ADPLL two-point + DPA.
+
+    Baseband = fref = 122.88 MS/s (30.72 M grid x4, 1:1 with the event
+    engine).  Cellular-class DCO (-121 dBc/Hz @ 1 MHz on 1.95 GHz, band-1
+    uplink), 1 ps TDC spanning a full DCO period (10 bits at 1.95 GHz),
+    ~1 MHz loop.  The envelope path runs a mildly
+    compressive 10-bit DPA; dpd=True pre-links the exact PolarDPD LUTs
+    (factory cal) - set False to see the raw DPA nonlinearity.
+    AM/PM path skew matters here despite the narrow channel — the OFDM
+    envelope is what makes a polar TX skew-sensitive, not the phase path.
+    It is simply ~8x more tolerant than the 160 MHz wideband chain, in
+    proportion to bandwidth: 1 ns already fails the spectral mask
+    (EVM -53.3 -> -34.7 dB, ACLR -62 -> -42 dBc), where WiFi 160 MHz
+    fails at 0.2 ns.  Constant-envelope BLE is immune outright.
+
+    Default chain: 5% hole punching, NO phase-slew limit — unlike the
+    quasi-constant-envelope EDR case (ex05), OFDM polar phase slews at
+    several x the channel BW everywhere (LTE20: P99 = 39 MHz, tail to
+    fs/2), so the direct DAC must simply cover it; slew-limiting below
+    ~2x BW destroys the signal.  Use dp_range_hz to study the tradeoff."""
+    alpha, rho = design_adpll_dlf(fref, loop_bw, 60.0)
+    osc = OscConfig(f0=fout, gain=60e3, pn_dbchz=-121.0, pn_foffset=1e6,
+                    pn_f1f3=300e3, pn_floor_dbchz=-155.0)
+    pll = ADPLL(ADPLLConfig(
+        fref=fref, fout=fout, osc=osc, dlf=DLFConfig(alpha=alpha, rho=rho),
+        mode="tdc",
+        tdc=TDCConfig(t_res=1e-12, n_bits=_tdc_bits_for_period(1e-12, fout)),
+        int_band=(1e3, fref / 2)))
+    pm = ADPLLTwoPoint(pll, dp_gain=dp_gain, mode=mode,
+                       settle_cycles=settle_cycles, dp_range_hz=dp_range_hz)
+    dpa_ = DPA(dpa or DPAConfig(n_bits=10, n_thermo=6, sigma_cell=0.002,
+                                amam=("rapp", 2.5, 1.1),
+                                ampm_deg_poly=(0.0, 2.0, 3.0)))
+    dpd_ = None
+    if dpd:
+        from .cal.polar_dpd import PolarDPD
+        dpd_ = PolarDPD.from_dpa(dpa_)
+    tx = PolarTX(chain or ChainConfig(env_floor=env_floor,
+                                      env_skew_s=env_skew_s,
+                                      cfr_papr_db=cfr_papr_db),
+                 pm, dpa_, dpd=dpd_)
+
+    def make_waveform(n_symbols: int = 28, seed: int = 0,
+                      sc_fdma: bool = True) -> Waveform:
+        """LTE-20 burst.  ``sc_fdma=True`` (the default) is real uplink:
+        DFT-precoded, ~1.7 dB lower PAPR, and the QAM lattice only exists
+        after the inverse DFT."""
+        # uplink SC-FDMA by default: what a handset polar TX transmits
+        from .waveforms.ofdm import lte_waveform
+        return lte_waveform(20e6, qam, n_symbols=n_symbols,
+                            oversampling=oversampling, seed=seed,
+                            sc_fdma=sc_fdma)
+
+    return TxPreset(tx=tx, fs_bb=fref, make_waveform=make_waveform)
+
+
+def wifi_dtc(bw: float = 160e6, qam: int = 1024, *, n_bits: int = 11,
+             range_ui: float = 1.0, fout: float = 5.9e9,
+             oversampling: int = 4, dither: bool = True,
+             jitter_rms_s: float = 50e-15, lo_pn: OscConfig | None = None,
+             lo_loop_bw: float = 400e3, inl_poly: tuple = (),
+             inl_sin: tuple = (),
+             cfr_papr_db: float | None = 8.5, env_floor: float = 0.02,
+             env_skew_s: float = 0.0, dpa: DPAConfig | None = None,
+             dpd: bool = False) -> TxPreset:
+    """WiFi 6/7 wideband polar TX: open-loop DTC phase modulator + DPA.
+
+    Baseband at bw x oversampling (up to 1.28 GS/s at 320 MHz); the DTC
+    covers one carrier UI with n_bits resolution.  Defaults: 11-bit
+    dithered DTC, 50 fs jitter, WiFi-class fixed LO (-108 dBc/Hz @ 1 MHz
+    on 5.9 GHz), CFR to 8.5 dB PAPR, 2% envelope hole punching, 10-bit
+    DPA with mild Rapp compression.  dpd=True pre-links the exact
+    PolarDPD LUTs (AM-AM/AM-PM inverse), modeling a factory-calibrated
+    predistorter — matters when the DPA is compressive.
+    """
+    if lo_pn is None:
+        # WiFi-7-class synthesizer: -115 dBc/Hz @ 1 MHz on ~6 GHz,
+        # ~3 mrad integrated inside a 400 kHz loop
+        lo_pn = OscConfig(f0=fout, gain=1.0, pn_dbchz=-115.0,
+                          pn_foffset=1e6, pn_f1f3=200e3,
+                          pn_floor_dbchz=-155.0)
+    pm = DTCPhaseModulator(DTCPMConfig(
+        n_bits=n_bits, range_ui=range_ui, dither=dither,
+        jitter_rms_s=jitter_rms_s, fout=fout, lo_pn=lo_pn,
+        lo_loop_bw=lo_loop_bw, inl_poly=inl_poly, inl_sin=inl_sin))
+    dpa_ = DPA(dpa or DPAConfig(n_bits=10, n_thermo=6, sigma_cell=0.002))
+    dpd_ = None
+    if dpd:
+        from .cal.polar_dpd import PolarDPD
+        dpd_ = PolarDPD.from_dpa(dpa_)
+    tx = PolarTX(ChainConfig(cfr_papr_db=cfr_papr_db, env_floor=env_floor,
+                             env_skew_s=env_skew_s), pm, dpa_, dpd=dpd_)
+    fs_bb = bw * oversampling
+
+    def make_waveform(n_symbols: int = 8, seed: int = 0) -> Waveform:
+        """802.11 OFDM burst at this preset's bandwidth and constellation."""
+        from .waveforms.ofdm import wifi_waveform
+        return wifi_waveform(bw, qam, n_symbols=n_symbols,
+                             oversampling=oversampling, seed=seed)
+
+    return TxPreset(tx=tx, fs_bb=fs_bb, make_waveform=make_waveform)
+
+
+# ------------------------------------------------------------ benchmarks
+# Literature-class configurations (pllsim ex14 convention): land in the
+# published performance CLASS with technology-plausible assumptions —
+# order-of-magnitude anchors, not chip reproductions.
+
+def bench_edge_polar_staszewski05() -> TxPreset:
+    """Staszewski JSSC'05-class EDGE digital polar TX: the first
+    all-digital polar transmitter.  fref = 26 MHz (GSM crystal), ADPLL
+    two-point, ~40 kHz loop, 3pi/8-8PSK at 270.833 ksym/s.  Published
+    class: rms EVM ~2-3% (spec limit 9%)."""
+    fref, fout = 26e6, 1.85e9
+    alpha, rho = design_adpll_dlf(fref, 40e3, 60.0)
+    # their normalized-DCO phase noise was excellent (-165 dBc/Hz @ 20 MHz
+    # on the low band scales to ~-120 @ 1 MHz here)
+    osc = OscConfig(f0=fout, gain=23e3, pn_dbchz=-120.0, pn_foffset=1e6,
+                    pn_f1f3=200e3, pn_floor_dbchz=-152.0)
+    pll = ADPLL(ADPLLConfig(
+        fref=fref, fout=fout, osc=osc, dlf=DLFConfig(alpha=alpha, rho=rho),
+        mode="tdc", tdc=TDCConfig(t_res=20e-12), int_band=(1e3, fref / 2)))
+    pm = ADPLLTwoPoint(pll, mode="response")
+    tx = PolarTX(ChainConfig(), pm, DPA(DPAConfig(n_bits=8)))
+
+    def make_waveform(n_syms: int = 400, seed: int = 1) -> Waveform:
+        """EDGE 8PSK burst using the numerically extracted linearized
+        GMSK C0 pulse."""
+        from .waveforms.edr import edge_waveform
+        return edge_waveform(n_syms, fref, seed=seed)
+
+    return TxPreset(tx=tx, fs_bb=fref, make_waveform=make_waveform)
+
+
+def bench_lte20_polar_madoglio14() -> TxPreset:
+    """Madoglio ISSCC'14-class 32nm LTE-20 digital polar: published
+    class EVM ~ -30 dB / E-UTRA ACLR ~ -33 dBc at 64-QAM.  Modeled with
+    a 9-bit DPA, 1% residual two-point mismatch and a noisier cellular
+    DCO than the lte20_adpll default."""
+    return lte20_adpll(
+        qam=64, dp_gain=1.01,
+        dpa=DPAConfig(n_bits=9, n_thermo=6, sigma_cell=0.004,
+                      amam=("rapp", 2.5, 1.1), ampm_deg_poly=(0.0, 2.0, 3.0)))
+
+
+def bench_wifi6_polar_benbassat20(dpd: bool = True) -> TxPreset:
+    """Ben Bassat et al.-class.  Conference: ISSCC 2020, 10.5.  Journal
+    (full version): "A Fully Integrated 27-dBm Dual-Band All-Digital
+    Polar Transmitter Supporting 160 MHz for Wi-Fi 6 Applications",
+    IEEE JSSC 2020 (28 nm CMOS, switched-capacitor digital PA with
+    transformer combining).  Published class: 160 MHz MCS11 1024-QAM,
+    raw EVM ~ -30.5/-29 dB (low/high band) at 6 dB backoff, and EVM as
+    low as -40 dB with DPD at 7-8 dB backoff over 20-160 MHz.
+
+    Modeled here on the open-loop-DTC + SCPA wideband flavor at the
+    5 GHz high band: a compressive Rapp DPA with AM-PM gives the ~-29 dB
+    raw EVM; dpd=True (default) links the factory PolarDPD LUTs, landing
+    in the -40 dB class (LO-PN-limited toward the top of the band)."""
+    lo = OscConfig(f0=5.2e9, gain=1.0, pn_dbchz=-122.0, pn_foffset=1e6,
+                   pn_f1f3=200e3, pn_floor_dbchz=-158.0)
+    return wifi_dtc(
+        bw=160e6, qam=1024, fout=5.2e9, n_bits=13, jitter_rms_s=30e-15,
+        lo_pn=lo, cfr_papr_db=8.0, dpd=dpd,
+        dpa=DPAConfig(n_bits=11, n_thermo=7, sigma_cell=0.0015,
+                      amam=("rapp", 2.5, 1.15),
+                      ampm_deg_poly=(0.0, 2.0, 3.5)))
+
+
+def bench_wifi7_polar_degani24(dpd: bool = True) -> TxPreset:
+    """Shay / Degani et al., RFIC 2024: "A Watt-level, 5-7 GHz all-
+    digital polar TX based on a 3.3 V switched-capacitor digital PA in
+    16 nm FinFET for Wi-Fi 7" (transistor stacking + capacitive feedback
+    so the SC-DPA runs directly off 3.3 V).  Published: 320 MHz /
+    4096-QAM (MCS13) at 5-7 GHz; P_max/PE 30.15 dBm / 34.7% at 5.2 GHz;
+    EVM -38 dB at 6.1 GHz, 9 dB backoff, meeting MCS13.
+
+    Modeled on the open-loop-DTC + SC-DPA wideband flavor at the 6.1 GHz
+    top band: watt-level SCPA efficiency law (34.7% peak), compressive
+    DPA linearized by the factory PolarDPD (dpd=True) into the -38 dB
+    class; at 320 MHz the last dB is LO-phase-noise-limited."""
+    lo = OscConfig(f0=6.1e9, gain=1.0, pn_dbchz=-123.0, pn_foffset=1e6,
+                   pn_f1f3=180e3, pn_floor_dbchz=-159.0)
+    return wifi_dtc(
+        bw=320e6, qam=4096, fout=6.1e9, n_bits=13, jitter_rms_s=25e-15,
+        lo_pn=lo, cfr_papr_db=8.0, dpd=dpd,
+        dpa=DPAConfig(n_bits=11, n_thermo=7, sigma_cell=0.0012,
+                      amam=("rapp", 2.5, 1.12), ampm_deg_poly=(0.0, 2.0, 3.0),
+                      eff=("scpa", 0.55, 0.35)))
+
+
+@dataclass
+class FIRTxPreset:
+    """A FIRDualTapTX plus its baseband waveform factory and the single-
+    tap baseline (for OOC-noise-suppression measurement).
+
+    ``.tx`` aliases the dual-tap chain so this preset is interchangeable
+    with TxPreset anywhere the ordinary chain/report layer is used (the
+    GUI preset registry included); ``.single_tx`` stays available for the
+    baseline the OOC-suppression measurement needs."""
+    fir_tx: FIRDualTapTX        # the dual-tap chain
+    single_tx: PolarTX          # one tap alone (baseline)
+    fs_bb: float
+    make_waveform: Callable[..., Waveform]
+
+    @property
+    def tx(self) -> FIRDualTapTX:
+        """The dual-tap chain, aliased so this preset is drop-in compatible
+        with ``TxPreset`` throughout the report and GUI layers."""
+        return self.fir_tx
+
+
+def bench_wifi7_mlo_fir_borokhovich26(bw: float = 40e6, *,
+                                      notch_offset_hz: float = 500e6,
+                                      osr: int = 50) -> FIRTxPreset:
+    """Borokhovich, Socher & Degani, RFIC 2026, Mo1C-3: "+28.5 dBm
+    5-7 GHz FIR and Doherty Polar DTX Achieving -155 dBc/Hz OOC Noise
+    for Wi-Fi MLO Applications" (14 nm FinFET, two DPA arrays + DTC
+    phase modulators, transformer-combined 2-tap mixed-domain FIR with
+    digital-Doherty load modulation).
+
+    Published: 40/80/160 MHz 802.11be, EVM -40.7/-41.7/-40.6 dB; the FIR
+    notch drops the OOC noise floor from ~-135 to -155 dBc/Hz (40/80) /
+    -145 (160) at a programmable offset; P_max +28.5 dBm, Doherty
+    efficiency bump at 6 dB backoff.
+
+    Returned as a FIRTxPreset: .fir_tx (dual-tap, notch at
+    notch_offset_hz), .single_tx (one tap, the -135 dBc/Hz baseline),
+    and make_waveform.  The baseband oversampling (osr) is deliberately
+    high so the notch offset (hundreds of MHz) sits inside the sim
+    Nyquist band."""
+    from .fir import FIRDualTapTX
+    # clean DPLL LO (the OOC floor is the DETERMINISTIC quantization/DPD
+    # residual, which the FIR notches; the random LO floor sits below it)
+    lo = OscConfig(f0=6.025e9, gain=1.0, pn_dbchz=-135.0, pn_foffset=1e6,
+                   pn_f1f3=200e3, pn_floor_dbchz=-178.0)
+    dpa = DPAConfig(n_bits=11, n_thermo=8, sigma_cell=0.0015,
+                    amam=("rapp", 2.5, 1.12), ampm_deg_poly=(0.0, 2.0, 3.0),
+                    eff=("doherty", 0.55, 0.35, 6.0))
+    base = wifi_dtc(bw=bw, qam=4096, fout=6.025e9, n_bits=13,
+                    # 9 dB, not the 8 dB the other WiFi benchmarks use: at
+                    # 4096-QAM the CFR clipping residual IS the EVM floor
+                    # (identical with noise on and off), and 8 dB clips the
+                    # chain to ~-35 dB, 5 dB below this paper's published
+                    # class.  9 dB lands at -40.6 dB vs the published -40.7.
+                    jitter_rms_s=8e-15, lo_pn=lo, cfr_papr_db=9.0,
+                    dpd=True, dpa=dpa, oversampling=osr)
+    fir_tx = FIRDualTapTX(base.tx, notch_offset_hz=notch_offset_hz)
+
+    # 16 symbols, not 4: the EVM here is CFR-clipping-limited, and clipping
+    # events are bursty, so a 4-symbol record swings ~15 dB seed to seed.
+    # 16 settles to ~4 dB spread around the published class (and still
+    # runs in ~1 s despite osr=50).
+    def make_waveform(n_symbols: int = 16, seed: int = 0) -> Waveform:
+        """802.11be 4096-QAM burst; 16 symbols by default because this
+        preset's EVM is CFR-clipping-limited and clipping is bursty."""
+        from .waveforms.ofdm import wifi_waveform
+        return wifi_waveform(bw, 4096, n_symbols=n_symbols,
+                             oversampling=osr, seed=seed)
+
+    return FIRTxPreset(fir_tx=fir_tx, single_tx=base.tx,
+                       fs_bb=base.fs_bb, make_waveform=make_waveform)
+
+
+@dataclass
+class OutphasingTxPreset:
+    """An OutphasingTX plus its waveform factory and the polar chain it was
+    derived from — the same frequency plan, phase modulator, DPA and CFR,
+    decomposed polar instead of outphasing — so the two topologies can be
+    A/B'd on one waveform.
+
+    ``.tx`` aliases the outphasing chain so this preset is interchangeable
+    with ``TxPreset`` anywhere the report and GUI layers are used (the
+    preset registry included); ``.polar_tx`` stays available for the
+    comparison."""
+    outphasing_tx: OutphasingTX  # the two-branch chain
+    polar_tx: PolarTX            # same plan, polar decomposition (A/B reference)
+    fs_bb: float
+    make_waveform: Callable[..., Waveform]
+
+    @property
+    def tx(self) -> OutphasingTX:
+        """The outphasing chain, aliased so this preset is drop-in compatible
+        with ``TxPreset`` throughout the report and GUI layers."""
+        return self.outphasing_tx
+
+
+def wifi_outphasing(bw: float = 160e6, qam: int = 1024, *,
+                    combiner: OutphasingCombiner | None = None,
+                    **kw) -> OutphasingTxPreset:
+    """WiFi 6/7 outphasing TX on the ``wifi_dtc`` frequency plan.
+
+    Every keyword ``wifi_dtc`` accepts is forwarded unchanged (n_bits,
+    jitter, LO, CFR target, DPA, ...), so the outphasing and polar chains
+    are built from one description and differ only in the decomposition.
+    ``combiner`` selects the combining network; the default is a Chireix
+    combiner compensated at 60° with 0.4 dB insertion loss, no imbalance.
+    Envelope-path knobs passed here (``env_skew_s``, ``env_floor``) reach
+    the polar reference chain only — outphasing has no envelope path, see
+    ``outphasing`` module docstring.
+    """
+    base = wifi_dtc(bw=bw, qam=qam, **kw)
+    if combiner is None:
+        combiner = OutphasingCombiner(mode="chireix")
+    return OutphasingTxPreset(outphasing_tx=OutphasingTX(base.tx, combiner),
+                              polar_tx=base.tx, fs_bb=base.fs_bb,
+                              make_waveform=base.make_waveform)
+
+
+@dataclass
+class CartesianTxPreset:
+    """A CartesianTX plus its waveform factory and the polar chain built
+    from the same description — same frequency plan, same CFR — so the
+    two topologies can be A/B'd on one waveform.
+
+    ``.tx`` aliases the Cartesian chain so this preset is interchangeable
+    with ``TxPreset`` anywhere the report and GUI layers are used;
+    ``.polar_tx`` stays available for the comparison."""
+    cartesian_tx: CartesianTX    # the I/Q chain
+    polar_tx: PolarTX            # same plan, polar decomposition (A/B reference)
+    fs_bb: float
+    make_waveform: Callable[..., Waveform]
+
+    @property
+    def tx(self) -> CartesianTX:
+        """The Cartesian chain, aliased so this preset is drop-in compatible
+        with ``TxPreset`` throughout the report and GUI layers."""
+        return self.cartesian_tx
+
+
+def wifi_rfdac(bw: float = 160e6, qam: int = 1024, *, n_bits: int = 12,
+               rfdac: RFDACConfig | None = None, **kw) -> CartesianTxPreset:
+    """WiFi 6/7 digital I/Q (RF-DAC) TX on the ``wifi_dtc`` frequency plan.
+
+    ``n_bits`` is the RF-DAC's per-axis magnitude resolution (12 by
+    default; the GUI's shared "n_bits" knob lands here, where it means DAC
+    bits rather than DTC bits).  ``rfdac`` supplies the full RF-DAC
+    configuration — mismatch, I/Q imbalance, LO leakage, jitter — and
+    overrides ``n_bits``; the default is a 12-bit, 6-thermometer-bit array
+    with 0.2 % cell mismatch, 50 fs clock jitter on the plan's ``fout``
+    and no I/Q imbalance or leakage (impairments are opt-in, so a number
+    in the comparison table is attributable to a knob someone set).
+
+    Every other keyword is forwarded to ``wifi_dtc`` to build the polar
+    reference chain from the same description.  The Cartesian chain is
+    handed only the architecture-agnostic part of that chain's
+    ``ChainConfig`` (``cfr_papr_db``) plus ``env_skew_s`` — so a skew
+    someone passes here is warned about by ``CartesianTX`` rather than
+    silently dropped, while the polar preset's own envelope defaults
+    (hole punching) are not carried across.
+    """
+    base = wifi_dtc(bw=bw, qam=qam, **kw)
+    c = base.tx.cfg
+    if rfdac is None:
+        # the plan's RF frequency lives on the DTC config; the protocol type
+        # does not promise one, hence the getattr
+        pm_cfg = getattr(base.tx.phasemod, "cfg", None)
+        rfdac = RFDACConfig(n_bits=n_bits, n_thermo=6, sigma_cell=0.002,
+                            jitter_rms_s=50e-15,
+                            fout=float(getattr(pm_cfg, "fout", 5.9e9)),
+                            # the same LO as the polar plan: its phase noise
+                            # multiplies the RF-DAC output exactly as it
+                            # multiplies the DTC's
+                            lo_pn=getattr(pm_cfg, "lo_pn", None),
+                            lo_loop_bw=float(getattr(pm_cfg, "lo_loop_bw", 200e3)))
+    ctx = CartesianTX(ChainConfig(cfr_papr_db=c.cfr_papr_db,
+                                  env_skew_s=c.env_skew_s), RFDAC(rfdac))
+    return CartesianTxPreset(cartesian_tx=ctx, polar_tx=base.tx,
+                             fs_bb=base.fs_bb, make_waveform=base.make_waveform)
+
+
+def bench_wifi11n_polar() -> TxPreset:
+    """802.11n-era 20 MHz digital polar (Intel-class, ~2010): published
+    class EVM ~ -28 dB at 64-QAM (spec -25 dB).  9-bit DTC, 500 fs
+    jitter, a -100 dBc/Hz-class 2000s-era LO, 8-bit DPA.  Kept as a
+    historical anchor — see bench_wifi6_polar_benbassat20 for the modern
+    (ISSCC/JSSC 2020) Intel Wi-Fi 6 result.  The follow-on 16 nm 4-core
+    +28 dBm Wi-Fi 6E work (Khamaisi et al.) is ISSCC 2022-only; no JSSC
+    extension is known, so it is not modeled as a preset."""
+    return wifi_dtc(
+        bw=20e6, qam=64, n_bits=9, jitter_rms_s=500e-15,
+        lo_pn=OscConfig(f0=5.9e9, gain=1.0, pn_dbchz=-100.0,
+                        pn_foffset=1e6, pn_f1f3=200e3,
+                        pn_floor_dbchz=-148.0),
+        dpa=DPAConfig(n_bits=8, n_thermo=5, sigma_cell=0.004))
+
+
+def nr_dtc(bw: float = 100e6, *, scs: float | None = None,
+           qam: int | None = None, fout: float | None = None,
+           lo_pn: OscConfig | None = None,
+           n_bits: int = 11, oversampling: int = 4,
+           jitter_rms_s: float = 50e-15,
+           cfr_papr_db: float | None = 8.5, env_floor: float = 0.02,
+           env_skew_s: float = 0.0, dpa: DPAConfig | None = None,
+           dpd: bool = False, **kw) -> TxPreset:
+    """5G NR wideband polar TX: open-loop DTC + DPA (wifi_dtc machinery).
+
+    Defaults by band: 100 MHz -> FR1 n78 (3.5 GHz, 30 kHz SCS, 256-QAM,
+    WiFi-7-class LO); 200 MHz -> FR2 n257 (28 GHz, 120 kHz SCS, 64-QAM,
+    -100 dBc/Hz @ 1 MHz mmWave LO).  NR EVM limits: 256-QAM 3.5%
+    (-29 dB), 64-QAM 8% (-22 dB).
+
+    The commonly swept knobs are named explicitly (so the signature is
+    self-documenting and completes in an editor); ``**kw`` remains an
+    escape hatch onto the rest of wifi_dtc's parameters.  Defaults here
+    mirror wifi_dtc's — test_preset_forwarding pins that."""
+    fr2 = bw > 100e6
+    scs = scs or (120e3 if fr2 else 30e3)
+    qam = qam or (64 if fr2 else 256)
+    fout = fout or (28e9 if fr2 else 3.5e9)
+    if lo_pn is None and fr2:
+        lo_pn = OscConfig(f0=fout, gain=1.0, pn_dbchz=-100.0,
+                          pn_foffset=1e6, pn_f1f3=300e3,
+                          pn_floor_dbchz=-140.0)
+    p = wifi_dtc(bw=bw, qam=qam, fout=fout, lo_pn=lo_pn, n_bits=n_bits,
+                 oversampling=oversampling, jitter_rms_s=jitter_rms_s,
+                 cfr_papr_db=cfr_papr_db, env_floor=env_floor,
+                 env_skew_s=env_skew_s, dpa=dpa, dpd=dpd, **kw)
+
+    def make_waveform(n_symbols: int = 8, seed: int = 0) -> Waveform:
+        """5G NR burst at this preset's SCS, bandwidth and constellation."""
+        from .waveforms.ofdm import nr_waveform
+        return nr_waveform(bw, scs, qam, n_symbols=n_symbols, seed=seed)
+
+    # The NR waveform runs on the FFT grid (fft * scs * oversampling), not on
+    # bw * oversampling like the WiFi plan: 100 MHz @ 30 kHz is 491.52 MS/s,
+    # not 400.  Report the rate the waveform actually has, and fail here --
+    # not inside make_waveform -- for a (bw, scs) the table does not carry.
+    from .waveforms.ofdm import NR_NUMEROLOGY
+    if (bw, scs) not in NR_NUMEROLOGY:
+        raise ValueError(f"nr_dtc: (bw, scs) must be one of {sorted(NR_NUMEROLOGY)}")
+    fs_bb = NR_NUMEROLOGY[(bw, scs)][0] * scs * oversampling
+    return TxPreset(tx=p.tx, fs_bb=fs_bb, make_waveform=make_waveform)
