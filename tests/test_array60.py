@@ -160,3 +160,80 @@ def test_training_needs_less_snr_than_mcs0_but_the_transmit_sweep_loses_the_rece
     assert pl[0] - pl[1] == pytest.approx(b.g_rx_db - one, abs=1e-9)
     assert al.sweep_time_s(ar, c.upclocked()) == pytest.approx(
         16 * (al._ltf_field_s(c.upclocked()) + spec.value("assumed.array_training")["sector_switch_s"]))
+
+
+def test_repeating_the_training_field_lowers_the_snr_the_transmit_sweep_needs():
+    """ROADMAP B (user's pick 2026-11-15): R repetitions summed
+    non-coherently are n R tones' worth of statistics (about 1.5 dB per
+    doubling with hundreds of tones), coherently 2R symbols per tone (3 dB
+    per doubling); R = 1 is the field as it is; the sweep lasts R times as
+    long."""
+    cfg = dc.replace(zero_if_60ghz(k=4, standard="11be", bandwidth_hz=80e6), channel=FLAT)
+    fe = Frontend60.from_config(cfg)
+    c = array_frontend(cfg, 8)
+    ar = Array60.from_config(c, fe)
+    n = LinkSim(c, frontend=fe).n_active
+    kw = dict(trials=400, n_users=5, seed=3)
+    base = al.required_training_snr_db(ar, "tx", n, **kw)
+    one_coh = al.required_training_snr_db(ar, "tx", n, repetitions=1, combining="coherent", **kw)
+    assert one_coh["snr_db"] == base["snr_db"]
+    assert al.required_training_snr_db(ar, "tx", n, repetitions=1, **kw)["snr_db"] == base["snr_db"]
+    nc = al.required_training_snr_db(ar, "tx", n, repetitions=4, **kw)
+    co = al.required_training_snr_db(ar, "tx", n, repetitions=4, combining="coherent", **kw)
+    assert nc["combining"] == spec.value("assumed.array_training_repetition")["combining"] == "noncoherent"
+    assert 2.0 <= base["snr_db"] - nc["snr_db"] <= 4.0, (base["snr_db"], nc["snr_db"])
+    assert 5.0 <= base["snr_db"] - co["snr_db"] <= 7.0, (base["snr_db"], co["snr_db"])
+    # the non-coherent statistic is the closed form over n R tones
+    g = ar.sector_gains_db("tx", 10.0)
+    assert al.selection_success(g, -12.0, n * 4, np.random.default_rng(1)) == pytest.approx(
+        al.selection_success(g, -12.0, n * 4, np.random.default_rng(1), n_sym=2))
+    with pytest.raises(ValueError):
+        al.required_training_snr_db(ar, "tx", n, repetitions=0, **kw)
+    with pytest.raises(ValueError, match="combining"):
+        al.required_training_snr_db(ar, "tx", n, repetitions=2, combining="sometimes", **kw)
+    phy = c.upclocked()
+    assert al.sweep_time_s(ar, phy, "tx", 4) - al.sweep_time_s(ar, phy, "tx") == pytest.approx(
+        3 * 8 * al._ltf_field_s(phy))
+    # the search: the fewest repetitions that reach a path loss, None when even the largest falls short
+    b = al.array_budget(c, fe, ar)
+    pl1 = al.transmit_sweep_reach_db(b, ar, base["snr_db"])
+    got = al.repetitions_to_reach(b, ar, n, pl1 + 2.0, **kw)
+    assert got["repetitions"] in (2, 4) and got["pl_db"] >= pl1 + 2.0 and got["margin_db"] >= 0
+    assert al.repetitions_to_reach(b, ar, n, pl1 - 1.0, **kw)["repetitions"] == 1
+    assert al.repetitions_to_reach(b, ar, n, pl1 + 40.0, max_repetitions=4, **kw)["repetitions"] is None
+
+
+def test_the_array_power_column_is_the_single_element_one_at_n1_and_counts_n_pas_and_phase_shifters():
+    """ROADMAP B (user's pick 2026-11-15): N_tx PAs at the per-element
+    output the EIRP limit leaves, one phase shifter per element and side
+    (assumed.array_phase_shifter_power_mw), nothing else per element."""
+    from mmw60.frontend.grid import data_rate_bps
+    from mmw60.power import PowerCoefficients, power_report
+    cfg = dc.replace(zero_if_60ghz(k=4, standard="11be", bandwidth_hz=80e6), channel=FLAT)
+    fe = Frontend60.from_config(cfg)
+    k = PowerCoefficients.from_spec()
+    assert k.phase_shifter_w > 0
+    assert k.phase_shifter_w == pytest.approx(1e-3 * spec.value("assumed.array_phase_shifter_power_mw"))
+    reps = {}
+    for n in (1, 16, 64):
+        c = array_frontend(cfg, n)
+        ar = Array60.from_config(c, fe)
+        b = al.array_budget(c, fe, ar)
+        reps[n] = (b, al.array_power_report(c, fe, ar, b, k))
+    b1, r1 = reps[1]
+    rate = data_rate_bps("11be", 80e6, b1.dec_mcs, cfg.upclocked().t_symbol_eff)
+    single = power_report(array_frontend(cfg, 1), fe, rate, k, mcs_index=b1.dec_mcs)
+    assert r1.blocks == single.blocks and r1.pj_per_bit == single.pj_per_bit and r1.omitted == single.omitted
+    one_pa = r1.watts("pa")
+    b16, r16 = reps[16]
+    assert b16.p_elem_dbm == pytest.approx(fe.target_pout_dbm())
+    assert r16.watts("pa") == pytest.approx(16 * one_pa)
+    assert r16.watts("phase_shifters") == pytest.approx(32 * k.phase_shifter_w)
+    others = lambda r: r.total_w - r.watts("pa") - r.watts("phase_shifters")  # noqa: E731
+    assert others(r16) == pytest.approx(others(r1)) and r16.bit_rate == r1.bit_rate
+    assert any("LNA" in o for o in r16.omitted)
+    # N = 64 hits the EIRP limit: every element backs off, so each PA draws less than at the operating point
+    b64, r64 = reps[64]
+    assert b64.p_elem_dbm < fe.target_pout_dbm() and r64.watts("pa") < 64 * one_pa
+    assert al.array_power_report(array_frontend(cfg, 16), fe, Array60.from_config(array_frontend(cfg, 16), fe), b16,
+                                 k.with_(phase_shifter_w=0.0)).watts("phase_shifters") == 0.0

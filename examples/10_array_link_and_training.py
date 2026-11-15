@@ -14,11 +14,15 @@ array for both topologies (iron rule 2).  What the tables answer:
    the distance it means over line of sight: free space plus the oxygen
    absorption, an estimate (data/spec: assumed.oxygen_absorption; 3b: the
    distance at other absorptions — the path loss is the answer, the
-   distance follows the estimate);
+   distance follows the estimate); 3c: the power per bit at the decoder
+   cap with N PAs and one phase shifter per element (data/spec:
+   assumed.array_phase_shifter_power_mw);
 4. the beam training, MLO-triggered (data/spec: assumed.array_training):
    the per-tone SNR a sector sweep needs, the path loss the transmit sweep
    (far end on one element) and the receive sweep take against the data
-   link's, and how long the sweeps last;
+   link's, and how long the sweeps last; 4b: how many repetitions of the
+   training field the transmit sweep needs to reach the MCS0 edge (data/
+   spec: assumed.array_training_repetition) and what that costs in time;
 5. the squint of phase-shifter steering across the occupied band (arraytx's
    beam response), against true time delay;
 6. the assumed inputs, one at a time.
@@ -44,6 +48,7 @@ from mmw60 import arraylink as al                                           # no
 from mmw60.config import ChannelConfig, array_frontend, if_extender_60ghz, zero_if_60ghz  # noqa: E402
 from mmw60.frontend import Frontend60                                       # noqa: E402
 from mmw60.frontend.array60 import Array60                                  # noqa: E402
+from mmw60.power import PowerCoefficients                                   # noqa: E402
 from mmw60.sim.link import LinkSim                                          # noqa: E402
 from mmw60.vendor.arraytx.beam import beam_response, beamwidth_3db_deg      # noqa: E402
 
@@ -145,6 +150,32 @@ def main(argv=None) -> int:
     print(f"0 dB/km = free space alone; {al.oxygen_db_per_km():g} dB/km is the preset (the round figure for the "
           "absorption peak near 60 GHz at sea level, no original consulted: ROADMAP B)")
 
+    # ---------------------------------------------------------------- 3c. power per bit
+    coeffs = PowerCoefficients.from_spec()
+    ps_alt = (0.0, 30e-3)
+    print(f"\n== 3c. power per link direction at the decoder cap: N PAs at the per-element output, one phase shifter "
+          f"per element and side ({1e3 * coeffs.phase_shifter_w:g} mW, assumed; none at N = 1), the rest as the "
+          "single-element column ==")
+    print(f"{'scheme':<26} {'N':>3} {'Pe':>6} {'PAE %':>6} {'PA mW':>7} {'PS mW':>7} {'rest mW':>8} {'total mW':>9} "
+          f"{'cap':>5} {'Mb/s':>6} {'pJ/b':>6} " + " ".join(f"{f'PS {1e3 * w:g} mW':>9}" for w in ps_alt))
+    for lab, _ in schemes():
+        for n in sizes:
+            c, ar, b = budgets[(lab, n)]
+            rp = al.array_power_report(c, fe, ar, b, coeffs)
+            if rp is None:
+                print(f"{lab:<26} {n:>3}   no decoder cap")
+                continue
+            pae = 100 * float(fe.scaled_pa().pae(b.p_elem_dbm))
+            alt = [al.array_power_report(c, fe, ar, b, coeffs.with_(phase_shifter_w=w)).pj_per_bit for w in ps_alt]
+            pa_w, ps_w = rp.watts("pa"), rp.watts("phase_shifters")
+            print(f"{lab:<26} {n:>3} {b.p_elem_dbm:6.1f} {pae:6.1f} {1e3 * pa_w:7.0f} {1e3 * ps_w:7.0f} "
+                  f"{1e3 * (rp.total_w - pa_w - ps_w):8.0f} {1e3 * rp.total_w:9.0f} {fmt(b.dec_mcs, 'MCS{}'):>5} "
+                  f"{rp.bit_rate / 1e6:6.0f} {rp.pj_per_bit:6.0f} " + " ".join(f"{v:9.0f}" for v in alt), flush=True)
+    print("PA = N_tx x Pout / PAE(Pout) at the per-element output (class-B law; the EIRP limit backs every element off "
+          "together from some N on, and PAE drops with it); PS = (N_tx + N_rx) phase shifters; rest = synthesizers, "
+          "converters, FFT, decoder (and topology A's chip PA and DPD) as in the comparison table; LNA / mixer per "
+          "receive element not counted, as in the single-element column; N = 1 is the comparison table's own column")
+
     # ---------------------------------------------------------------- 4. training
     print(f"\n== 4. beam training, MLO-triggered: training field {tr['field']}, estimator {tr['estimator']}, "
           f"a pick within "
@@ -178,6 +209,34 @@ def main(argv=None) -> int:
           "the far end on one element, PL RXSS = the receive sweep behind the chosen transmit beam; TXSS - MCS0 / cap: "
           "positive = the training reaches further than that data rate; sweep = transmit + receive sweep, "
           "one direction")
+
+    # ---------------------------------------------------------------- 4b. repetitions to the MCS0 edge
+    rep_cfg = spec.value("assumed.array_training_repetition")
+    print(f"\n== 4b. the transmit sweep's training field repeated R times per sector until it reaches the MCS0 edge "
+          f"(R a power of two up to {rep_cfg['max_repetitions']}; {rep_cfg['combining']} across repetitions = the "
+          "preset, coherent = a sensitivity, an optimistic bound) ==")
+    print(f"{'scheme':<26} {'N':>3} {'R':>4} {'req TX':>7} {'TXSS-MCS0':>10} {'TX sweep [us]':>14} | "
+          f"{'R coh':>5} {'req TX':>7} {'TXSS-MCS0':>10} {'TX sweep [us]':>14}")
+    for lab, _ in schemes():
+        for n in sizes:
+            if n == 1:
+                continue
+            c, ar, b = budgets[(lab, n)]
+            if 0 not in b.sens_by_mcs:
+                continue
+            n_tones = LinkSim(c, frontend=fe).n_active
+            pl0 = b.eirp_dbm + b.g_rx_db - b.sens_by_mcs[0]
+            cells = []
+            for comb in (rep_cfg["combining"], "coherent"):
+                r = al.repetitions_to_reach(b, ar, n_tones, pl0, combining=comb, trials=trials, n_users=users)
+                t_tx = None if r["repetitions"] is None else al.sweep_time_s(ar, c.upclocked(), "tx", r["repetitions"])
+                cells.append(f"{fmt(r['repetitions'], '{:d}'):>{4 if not cells else 5}} {fmt(r['req_db']):>7} "
+                             f"{fmt(r['margin_db'], '{:+.1f}'):>10} {fmt(None if t_tx is None else 1e6 * t_tx):>14}")
+            print(f"{lab:<26} {n:>3} " + " | ".join(cells), flush=True)
+    print("R = the fewest repetitions at which the transmit sweep (far end on one element) takes at least the MCS0 "
+          "data link's path loss (1 = the field as it is); TXSS - MCS0 at that R; TX sweep = every sector's R fields "
+          "plus the switch (the receive sweep stays at one field).  Non-coherent: the R powers summed, nR tones' worth "
+          "of statistics, no phase needed across repetitions; coherent: 2R symbols per tone, needs the phase to hold")
 
     # ---------------------------------------------------------------- 5. squint
     print(f"\n== 5. squint across the occupied band at a {SCAN_DEG:g} deg beam (phase shifters vs true time "

@@ -42,6 +42,22 @@ A 11be 80M (IF extender)    16    135.6       2389        874        706        
 A 11be 80M (IF extender)    64    150.3      12966       1743       1322       1080
 0 dB/km = free space alone; 15 dB/km is the preset (the round figure for the absorption peak near 60 GHz at sea level, no original consulted: ROADMAP B)
 
+== 3c. power per link direction at the decoder cap: N PAs at the per-element output, one phase shifter per element and side (15 mW, assumed; none at N = 1), the rest as the single-element column ==
+scheme                       N     Pe  PAE %   PA mW   PS mW  rest mW  total mW   cap   Mb/s   pJ/b   PS 0 mW  PS 30 mW
+B 11be 80M x4 (320 MHz)      1    7.1    6.9      75       0      339       413  MCS5   1153    358       358       358
+B 11be 80M x4 (320 MHz)      4    7.1    6.9     298     120      339       757  MCS5   1153    657       553       761
+B 11be 80M x4 (320 MHz)     16    7.1    6.9    1194     480      339      2012  MCS5   1153   1745      1329      2162
+B 11be 80M x4 (320 MHz)     64    3.9    4.7    3290    1920      338      5548  MCS6   1297   4277      2797      5757
+B 11ac 20M x8 (160 MHz)      1    7.1    6.9      75       0      248       322  MCS4    312   1033      1033      1033
+B 11ac 20M x8 (160 MHz)      4    7.1    6.9     298     120      248       666  MCS4    312   2135      1751      2520
+B 11ac 20M x8 (160 MHz)     16    7.1    6.9    1194     480      248      1922  MCS4    312   6159      4621      7697
+B 11ac 20M x8 (160 MHz)     64    3.9    4.7    3290    1920      249      5459  MCS6    468  11665      7562     15767
+A 11be 80M (IF extender)     1    7.1    6.9      75       0      620       695  MCS5    288   2411      2411      2411
+A 11be 80M (IF extender)     4    7.1    6.9     298     120      620      1039  MCS5    288   3604      3188      4021
+A 11be 80M (IF extender)    16    7.1    6.9    1194     480      620      2294  MCS5    288   7960      6294      9625
+A 11be 80M (IF extender)    64    3.9    4.7    3290    1920      620      5830  MCS7    360  16180     10851     21509
+PA = N_tx x Pout / PAE(Pout) at the per-element output (class-B law; the EIRP limit backs every element off together from some N on, and PAE drops with it); PS = (N_tx + N_rx) phase shifters; rest = synthesizers, converters, FFT, decoder (and topology A's chip PA and DPD) as in the comparison table; LNA / mixer per receive element not counted, as in the single-element column; N = 1 is the comparison table's own column
+
 == 4. beam training, MLO-triggered: training field GI2 + 2 L-LTF symbols of the base PHY, upclocked, estimator noncoherent_tones, a pick within 1 dB of the best sector in 99 % of sweeps ==
 scheme                       N  tones  req TX  req RX  PL TXSS  PL RXSS  TXSS-MCS0  TXSS-cap  sweep [us]
 B 11be 80M x4 (320 MHz)      1    996       —       —        —        —          —         —           —   (one sector: no sweep)
@@ -57,6 +73,19 @@ A 11be 80M (IF extender)     4    996    -9.5   -10.0    120.3    126.5       +3
 A 11be 80M (IF extender)    16    996   -10.5   -10.5    133.1    145.4       -2.5     +15.3       873.6
 A 11be 80M (IF extender)    64    996   -10.0   -10.0    141.6    159.6       -8.8     +12.2      3494.4
 req = per-tone SNR of the best sector the sweep needs (dB); PL TXSS = the path loss the transmit sweep takes with the far end on one element, PL RXSS = the receive sweep behind the chosen transmit beam; TXSS - MCS0 / cap: positive = the training reaches further than that data rate; sweep = transmit + receive sweep, one direction
+
+== 4b. the transmit sweep's training field repeated R times per sector until it reaches the MCS0 edge (R a power of two up to 256; noncoherent across repetitions = the preset, coherent = a sensitivity, an optimistic bound) ==
+scheme                       N    R  req TX  TXSS-MCS0  TX sweep [us] | R coh  req TX  TXSS-MCS0  TX sweep [us]
+B 11be 80M x4 (320 MHz)      4    1    -9.5       +3.1           27.6 |     1    -9.5       +3.1           27.6
+B 11be 80M x4 (320 MHz)     16    4   -13.5       +0.5          436.8 |     2   -13.5       +0.5          219.2
+B 11be 80M x4 (320 MHz)     64   64   -19.5       +0.7        27859.2 |     8   -19.0       +0.2         3488.0
+B 11ac 20M x8 (160 MHz)      4    2    -3.5       +0.0            8.4 |     2    -4.5       +1.0            8.4
+B 11ac 20M x8 (160 MHz)     16   16   -10.5       +0.5          257.6 |     8   -12.5       +2.5          129.6
+B 11ac 20M x8 (160 MHz)     64  256   -16.0       +0.2        16390.4 |    32   -17.5       +1.7         2054.4
+A 11be 80M (IF extender)     4    1    -9.5       +3.1          109.2 |     1    -9.5       +3.1          109.2
+A 11be 80M (IF extender)    16    4   -13.5       +0.5         1742.4 |     2   -13.5       +0.5          872.0
+A 11be 80M (IF extender)    64   64   -19.5       +0.7       111417.6 |     8   -19.0       +0.2        13932.8
+R = the fewest repetitions at which the transmit sweep (far end on one element) takes at least the MCS0 data link's path loss (1 = the field as it is); TXSS - MCS0 at that R; TX sweep = every sector's R fields plus the switch (the receive sweep stays at one field).  Non-coherent: the R powers summed, nR tones' worth of statistics, no phase needed across repetitions; coherent: 2R symbols per tone, needs the phase to hold
 
 == 5. squint across the occupied band at a 45 deg beam (phase shifters vs true time delay; dB) ==
 occupied band                        N  phase: mean    edge  TTD: mean    edge

@@ -32,6 +32,21 @@ N ~ CN(0, 1), rho_s the per-tone SNR), and over n tones and two symbols
 
 so a sweep is sampled from the non-central chi-square directly
 (``tests/test_arraylink.py`` checks it against tone-by-tone noise).
+
+Where the transmit sweep falls short of the MCS0 edge, each sector repeats
+the training field R times (data/spec: assumed.array_training_repetition,
+the user's pick 2026-11-15): summing the R powers non-coherently is the
+same statistic over n R tones, chi'^2(2nR, 4nR rho); summing them
+coherently (a sensitivity: it needs the phase to hold across repetitions)
+is 2R symbols per tone, chi'^2(2n, 4nR rho).  The sweep lasts R times as
+long.
+
+The array's power (``array_power_report``): the single-element power
+column with the PA taken N_tx times at the per-element output the EIRP
+limit leaves, and one phase shifter per element on each side (data/spec:
+assumed.array_phase_shifter_power_mw; none at N = 1, where the element is
+the front end itself) — the user's pick 2026-11-15.  The LNA / mixer stay
+uncounted as in the single-element column.
 """
 from __future__ import annotations
 
@@ -42,8 +57,9 @@ from scipy.optimize import brentq
 
 from . import spec
 from .frontend.array60 import Array60
-from .frontend.grid import analytic_floors, decoder_cap, pa_isolated_evm_db
-from .vendor.wifitrx.units import KT_DBM_HZ
+from .frontend.grid import analytic_floors, data_rate_bps, decoder_cap, pa_isolated_evm_db
+from .power import PowerBlock, PowerCoefficients, PowerReport, power_report
+from .vendor.wifitrx.units import KT_DBM_HZ, dbm_to_mw
 
 C0 = 299_792_458.0
 
@@ -112,25 +128,46 @@ def selection_success(gains_db: np.ndarray, snr_best_db: float, n_tones: int, rn
 def required_training_snr_db(array: Array60, side: str, n_tones: int, seed: int = 0, trials: int = 2000,
                              estimator: str | None = None, within_db: float | None = None,
                              p_target: float | None = None, n_users: int = 25,
-                             grid_db=np.arange(-20.0, 20.01, 0.5)) -> dict:
+                             grid_db=None, repetitions: int = 1, combining: str | None = None) -> dict:
     """The lowest per-tone SNR of the best sector at which a sweep of
     ``side``'s codebook picks a good sector with probability ``p_target``,
-    averaged over stations spread uniformly in sin(theta) across the scan."""
+    averaged over stations spread uniformly in sin(theta) across the scan.
+    ``repetitions`` R > 1 repeats the training field per sector, combined
+    ``combining`` = "noncoherent" (powers summed: n R tones) or "coherent"
+    (2 R symbols per tone); default assumed.array_training_repetition."""
     tr = spec.value("assumed.array_training")
     est = tr["estimator"] if estimator is None else estimator
     within = float(tr["success_within_db"]) if within_db is None else float(within_db)
     p_t = float(tr["p_target"]) if p_target is None else float(p_target)
+    reps = int(repetitions)
+    if reps < 1:
+        raise ValueError("repetitions must be >= 1")
+    comb = spec.value("assumed.array_training_repetition")["combining"] if combining is None else combining
+    if comb == "noncoherent":
+        n_eff, n_sym = n_tones * reps, 2
+    elif comb == "coherent":
+        n_eff, n_sym = n_tones, 2 * reps
+    else:
+        raise ValueError(f"unknown combining {comb!r}")
+    if grid_db is None:
+        # R repetitions buy up to 10 log10 R dB: start the walk that much lower (R = 1: the original grid)
+        grid_db = np.arange(-20.0 - 0.5 * np.ceil(20.0 * np.log10(reps)), 20.01, 0.5)
     smax = np.sin(np.deg2rad(array.scan_max_deg))
     users = np.rad2deg(np.arcsin(np.linspace(-smax, smax, n_users)))
     gains = [array.sector_gains_db(side, float(u)) for u in users]
     rng = np.random.default_rng(seed)
     curve = []
     for snr in grid_db:
-        p = float(np.mean([selection_success(g, float(snr), n_tones, rng, trials, est, within) for g in gains]))
+        p = float(np.mean([selection_success(g, float(snr), n_eff, rng, trials, est, within, n_sym) for g in gains]))
         curve.append((float(snr), p))
         if p >= p_t:
-            return {"snr_db": float(snr), "p": p, "curve": curve, "sectors": int(gains[0].size), "estimator": est}
-    return {"snr_db": None, "p": curve[-1][1], "curve": curve, "sectors": int(gains[0].size), "estimator": est}
+            if len(curve) == 1:
+                raise ValueError(f"the sweep already succeeds at the grid's first point ({float(snr):g} dB): "
+                                 "start the grid lower")
+            return {"snr_db": float(snr), "p": p, "curve": curve, "sectors": int(gains[0].size), "estimator": est,
+                    "repetitions": reps, "combining": comb}
+    return {"snr_db": None, "p": curve[-1][1], "curve": curve, "sectors": int(gains[0].size), "estimator": est,
+            "repetitions": reps, "combining": comb}
 
 
 # ---------------------------------------------------------------- one scheme's budget
@@ -202,11 +239,70 @@ def training_ranges(budget: ArrayBudget, array: Array60, req_tx_db: float | None
     return out
 
 
-def sweep_time_s(array: Array60, phy, side: str = "tx") -> float:
+def sweep_time_s(array: Array60, phy, side: str = "tx", repetitions: int = 1) -> float:
     """One sweep: every sector sends the training field (GI2 + 2 LTF symbols
-    of the base PHY at the upclocked rate) plus the sector switch."""
+    of the base PHY at the upclocked rate) ``repetitions`` times, plus the
+    sector switch."""
     tr = spec.value("assumed.array_training")
-    return float(array.codebook_deg(side).size * (_ltf_field_s(phy) + float(tr["sector_switch_s"])))
+    return float(array.codebook_deg(side).size * (int(repetitions) * _ltf_field_s(phy) + float(tr["sector_switch_s"])))
+
+
+def transmit_sweep_reach_db(budget: "ArrayBudget", array: Array60, req_db: float, theta_deg: float = 0.0) -> float:
+    """The path loss the transmit sweep takes (far end on one element) at a
+    required per-tone SNR ``req_db``."""
+    g_one = float(array.element_factor_db("rx", theta_deg)[0] + array.element_gain_rx_dbi)
+    return float(budget.eirp_dbm + g_one - (budget.noise_dbm + req_db))
+
+
+def repetitions_to_reach(budget: "ArrayBudget", array: Array60, n_tones: int, target_pl_db: float,
+                         combining: str | None = None, max_repetitions: int | None = None, **kw) -> dict:
+    """The smallest R (a power of two, up to ``max_repetitions``) at which
+    the transmit sweep takes at least ``target_pl_db`` of path loss (the MCS0
+    edge of the data link): ``{"repetitions", "req_db", "pl_db", "margin_db"}``,
+    ``repetitions`` None when even the largest R falls short."""
+    rep = spec.value("assumed.array_training_repetition")
+    r_max = int(rep["max_repetitions"]) if max_repetitions is None else int(max_repetitions)
+    r, last = 1, None
+    while r <= r_max:
+        rt = required_training_snr_db(array, "tx", n_tones, repetitions=r, combining=combining, **kw)
+        if rt["snr_db"] is not None:
+            pl = transmit_sweep_reach_db(budget, array, rt["snr_db"])
+            last = {"repetitions": r, "req_db": rt["snr_db"], "pl_db": pl, "margin_db": pl - target_pl_db}
+            if pl >= target_pl_db:
+                return last
+        r *= 2
+    return {**(last or {"req_db": None, "pl_db": None, "margin_db": None}), "repetitions": None}
+
+
+def array_power_report(cfg, fe, array: Array60, budget: "ArrayBudget",
+                       coeffs: PowerCoefficients | None = None) -> PowerReport | None:
+    """The array link's power per link direction, priced per bit at its
+    decoder cap (None without one): the single-element column
+    (``power.power_report``) with the PA taken N_tx times at the per-element
+    output ``budget.p_elem_dbm`` and one phase shifter per element on each
+    side when N > 1.  At N = 1 it is ``power_report`` itself."""
+    if budget.dec_mcs is None:
+        return None
+    k = coeffs or PowerCoefficients.from_spec()
+    phy = cfg.upclocked()
+    rate = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, budget.dec_mcs, phy.t_symbol_eff)
+    rep = power_report(cfg, fe, rate, k, phy=phy, mcs_index=budget.dec_mcs)
+    n_tx, n_rx = array.n("tx"), array.n("rx")
+    blocks = []
+    for b in rep.blocks:
+        if b.name == "pa" and (n_tx > 1 or budget.p_elem_dbm != float(fe.target_pout_dbm())):
+            pae = float(fe.scaled_pa().pae(budget.p_elem_dbm))
+            w = n_tx * dbm_to_mw(budget.p_elem_dbm) * 1e-3 / max(pae, 1e-6)
+            b = PowerBlock("pa", w, f"{n_tx} x Pout {budget.p_elem_dbm:.1f} dBm, PAE {100 * pae:.1f} % each")
+        blocks.append(b)
+    n_ps = (n_tx if n_tx > 1 else 0) + (n_rx if n_rx > 1 else 0)
+    omitted = list(rep.omitted)
+    if n_ps:
+        blocks.append(PowerBlock("phase_shifters", n_ps * k.phase_shifter_w,
+                                 f"{n_tx} TX + {n_rx} RX at {1e3 * k.phase_shifter_w:g} mW each"))
+        omitted.append("the LNA / mixer of each receive element and the 1:N / N:1 splitter / combiner "
+                       "(as in the single-element column)")
+    return PowerReport(tuple(blocks), rep.bit_rate, tuple(omitted))
 
 
 def _ltf_field_s(phy) -> float:
@@ -223,4 +319,4 @@ def noise_dbm_per_tone(nf_db: float, scs_hz: float) -> float:
 __all__ = ["fspl_db", "oxygen_db_per_km", "path_loss_db", "range_m", "required_snr_db", "sweep_statistic",
            "selection_success",
            "required_training_snr_db", "ArrayBudget", "array_budget", "training_ranges", "sweep_time_s",
-           "noise_dbm_per_tone", "C0"]
+           "transmit_sweep_reach_db", "repetitions_to_reach", "array_power_report", "noise_dbm_per_tone", "C0"]
