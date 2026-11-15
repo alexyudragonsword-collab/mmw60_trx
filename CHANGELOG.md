@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### B：阵列的功率列按 N 计，重复训练场补到 MCS0 的边（2026-11-15）—— 同台表、预设与指纹不变；示例 10 多 §3c 与 §4b
+- `arraylink.array_power_report`（新）：N_tx 颗 PA 按 EIRP 上限留下的每单元输出计直流，TX / RX 每单元一个移相器（`assumed.array_phase_shifter_power_mw`，新，15 mW），其余同单元件列；N = 1 逐位等于同台表的列。`PowerCoefficients.phase_shifter_w`（新字段，只有阵列行用）。
+- `arraylink.required_training_snr_db(repetitions=, combining=)`、`repetitions_to_reach`、`transmit_sweep_reach_db`（新）；`sweep_time_s(repetitions=)`。`assumed.array_training_repetition`（新）：非相干累加，R 取 2 的幂到 256。R = 1 与原来逐位相同。
+- 数：B 11be 80 × 4 的 pJ/bit 在 N = 4 / 16 / 64 是单元件的 ×1.8 / ×4.9 / ×11.9（358 → 4277）；EIRP 上限之后 PA 总直流保持约 3.3 W，N = 64 多出来的主要是移相器。TX 扫够到 MCS0 要 R = 4–16（N = 16）、64–256（N = 64，一个方向 16–111 ms）。
+- ROADMAP：删优先级第 1 条与 B 的“功率列不知道阵列”，“训练到不了 MCS0 的边”换成“N = 64 的训练太长”（分层训练待做）。
+
 ### A2：拓扑 B 在 K = 4 的 CFO 丢包（2026-11-15）—— 引擎、预设与指纹不变；示例 11 多 B 行
 - 示例 11 §2b：每个拓扑 A 的 K = 4 / 8 块后面加拓扑 B 同基准 × K 的行（同一前端实例、同样两种信道、每格 400 包），B 没有 MLO 预补偿。
 - 数：B 11ac 20 × 4 在 3 dB 丢 0.5 / 1.0 %（flat / CR 替身），0 dB 丢 11 %；11be 80 × 4 只在 0 dB 丢 0.25–0.5 %；K = 8 不丢——与 A 关 MLO 同量。上限 MCS 在 10 dB 以上不丢，同台表与网格不动；付的是 MCS0 的灵敏度边。
