@@ -80,6 +80,7 @@ class PowerCoefficients:
     node_scale: float = 1.0        # 1.0 = 45 nm as published; deepscale.node_scale_45_to_7nm for 7 nm
     dpd_model: str = "ddr_r1_w16"  # survey.dsp_ip_dpd_poly_p4 key
     mmwave_above_hz: float = 10e9  # which synthesizer figure a carrier takes
+    phase_shifter_w: float = 0.0   # assumed.array_phase_shifter_power_mw (array rows only, arraylink.array_power_report)
 
     @classmethod
     def from_spec(cls, **over) -> "PowerCoefficients":
@@ -89,7 +90,8 @@ class PowerCoefficients:
                   add32_j=float(s("horowitz2014.add32_pj")) * 1e-12,
                   pll60_w=float(s("assumed.pll60_power_mw")) * 1e-3,
                   pll_sub7_w=float(s("assumed.pll_sub7_power_mw")) * 1e-3,
-                  word_bits=int(s("assumed.dsp_word_bits")))
+                  word_bits=int(s("assumed.dsp_word_bits")),
+                  phase_shifter_w=float(s("assumed.array_phase_shifter_power_mw")) * 1e-3)
         kw.update(over)
         return cls(**kw)
 
@@ -113,7 +115,8 @@ class PowerCoefficients:
         return {"walden_fom_fj": self.walden_fom_j * 1e15, "mult32_pj": self.mult32_j * 1e12,
                 "add32_pj": self.add32_j * 1e12, "pll60_mw": self.pll60_w * 1e3,
                 "pll_sub7_mw": self.pll_sub7_w * 1e3, "word_bits": self.word_bits,
-                "node_scale": self.node_scale, "dpd_model": self.dpd_model}
+                "node_scale": self.node_scale, "dpd_model": self.dpd_model,
+                "phase_shifter_mw": self.phase_shifter_w * 1e3}
 
 
 @dataclass(frozen=True)

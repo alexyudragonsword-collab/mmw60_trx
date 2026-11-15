@@ -289,6 +289,20 @@ entries:
     cite: "本库 arraylink.py（MLO 触发的扇区扫描，用户 2026-11-14 选定）"
     note: "802.11be 没有毫米波波束训练，按 MLO 触发来算：sub-7 链路排定扫描时刻（定时已知，不靠 L-STF 检测），60 GHz 上每个扇区发一段升频后的基准 L-LTF（GI2 + 2 个符号），先 TX 扫（对端单个单元接收）、再 RX 扫。接收端按已知 LTF 逐音做两符号相干、跨音非相干累加估功率，取最大；选到的扇区增益与最佳差 1 dB 以内算成功，要求 99 %。扇区切换 100 ns 是假设。示例 10 有跨音相干累加与“必须选中最佳扇区”两行灵敏度。“MLO 触发”这一选择有出处：Liu 2025 刊出版 p. 72 的原话（liu2025.mlo_bf_training_statement，spec；2026-11-15 读，spec_sources#26 收）；训练场、估计器与门限仍是本库的。平坦信道（视距），不建多径下的扇区选择；氧吸收（60 GHz 约 15 dB/km）在 20 m 内不到 0.3 dB，不计。更正（2026-11-14）：N ≥ 16 的距离到了百米、千米，氧吸收不能不计，另立 assumed.oxygen_absorption，距离按它算（路径损耗不含它）。"
 
+  assumed.array_phase_shifter_power_mw:
+    value: 15.0
+    unit: mW
+    source: assumed
+    cite: "本库 arraylink.py::array_power_report；用户 2026-11-15 选定阵列功率计 PA × N 与每单元一个移相器"
+    note: "每个单元每一侧一个移相器（TX 阵 N_tx 个、RX 阵 N_rx 个），没有查具体器件：取 60 GHz CMOS 有源移相器（带增益补偿）的功耗量级；无源反射型自身近 0，但要多一级放大补插损。N = 1 不计（那个单元就是前端自己）。LNA / 混频与单元件口径一样不计，1:N 分路与 N:1 合路的插损由前后级增益补，不另计。只进阵列行的 pJ/bit；示例 10 §3c 有 0 / 30 mW 的灵敏度列。"
+
+  assumed.array_training_repetition:
+    value: {combining: "noncoherent", max_repetitions: 256}
+    unit: procedure
+    source: assumed
+    cite: "本库 arraylink.py::required_training_snr_db(repetitions=)、repetitions_to_reach；用户 2026-11-15 选定重复 L-LTF、非相干累加"
+    note: "TX 扫够不到 MCS0 的边时，每个扇区把训练场（GI2 + 2 个 L-LTF 符号）重复 R 次，跨重复按功率非相干累加：统计量仍是闭式的非中心卡方（自由度 ×R），不怕 CFO 残差与重复之间的相位漂移，代价是 TX 扫的时长 ×R。R 取 2 的幂，取 TX 扫的路径损耗不小于 MCS0 数据链路的最小 R（上限 256）。跨重复相干累加（每倍少要 3 dB 而不是约 1.5 dB，但要求重复之间相位稳定）是示例 10 §4b 的灵敏度列，算乐观上界。"
+
   assumed.oxygen_absorption:
     value: 15.0
     unit: dB/km
