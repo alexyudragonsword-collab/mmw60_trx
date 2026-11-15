@@ -33,12 +33,13 @@ Pins:
 
 * ``wifitrx`` — wifi_trx_cal, the SHA in every file's first line.
 * ``spec_sources`` — ``alexyudragonsword-collab/spec_sources`` @
-  ``8e5f2e26bc2084d324aaaabea49fab18174ecaf8`` (0.4.0, its PR #21;
-  mmw60_trx#27; before: 9a443ba for #25, e573d4d for #23, d7b4d1e for
-  #21): ``src/spec_sources/__init__.py``, ``reader.py`` and six
-  of its data tables (``liu2025``, ``ieee80211``, ``regulatory``,
-  ``frontend60``, ``pa60``, ``energy``; not ``ucie``, not
-  ``legacy_keys/``).  The numbers about the outside world that this
+  ``7aae87681dcbacb8c0a369d7d2d922d21d56b5da`` (its PR #27, answering
+  spec_sources#26; before: 8e5f2e2 for mmw60_trx#27, 9a443ba for #25,
+  e573d4d for #23, d7b4d1e for #21): ``src/spec_sources/__init__.py``,
+  ``reader.py`` and seven of its data tables (``liu2025``,
+  ``ieee802153c``, ``ieee80211``, ``regulatory``, ``frontend60``,
+  ``pa60``, ``energy``; not ``ucie``, ``radar_targets``, ``windows``,
+  not ``legacy_keys/``).  The numbers about the outside world that this
   library reads; ``mmw60.spec`` merges them with this library's own table.
   The YAML files carry the same two-line header as ``#`` comments and are
   checked by ``tools/vendor_check.py`` like the code.

@@ -19,7 +19,7 @@ entries:
 
   # ------------------------------------------------------------ 本库自己定的（原文没说）
   # Liu 2025、11ad 评估方法学、规管、802.11 的条目在 vendored spec_sources 的 data/liu2025.yaml、
-  # data/ieee80211.yaml、data/regulatory.yaml。
+  # data/ieee80211.yaml、data/regulatory.yaml；Liu 引的 [15]（802.15.3c 的相噪与 PA 模型）在 data/ieee802153c.yaml。
   assumed.base_bandwidth_hz:
     value: 20.0e+6
     unit: Hz
@@ -39,7 +39,7 @@ entries:
     unit: text
     source: assumed
     cite: "本库"
-    note: "Liu 2025 未说相噪加在哪一侧。本库 TX、RX 各一份独立实现、同一 PSD（总相噪功率 +3 dB）；示例给 rx-only 灵敏度行。2026-11-13（mmw60_trx#25）：TGad 评估方法学原文就是两侧各加一份（tgad_em.pn_sides，spec），Liu 用的正是它的相噪模型形状，本库的取法与之一致；仍是本库的取舍，因为 Liu 本人没说。"
+    note: "Liu 2025 未说相噪加在哪一侧。本库 TX、RX 各一份独立实现、同一 PSD（总相噪功率 +3 dB）；示例给 rx-only 灵敏度行。2026-11-13（mmw60_trx#25）：TGad 评估方法学原文就是两侧各加一份（tgad_em.pn_sides，spec），Liu 用的正是它的相噪模型形状，本库的取法与之一致；仍是本库的取舍，因为 Liu 本人没说。更正（2026-11-15，spec_sources#26）：Liu 刊出版的相噪模型引的是 [15] IEEE 802.15-06-0477（tg3c.pn_model），不是 TGad；两者同形（1 极 1 零），[15] 提出的 PSD(0) 是 −87 dBc/Hz，Liu 的 −93 是它的示例档之一（tg3c.pn_psd0_examples_dbchz）。"
 
   assumed.cr_rms_delay_ns:
     value: 7.0
@@ -67,7 +67,7 @@ entries:
     unit: text
     source: assumed
     cite: "本库"
-    note: "Liu 2025 只说 'OBO 8 dB'。字面 OBO 是相对饱和输出功率 Psat；但 11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB（tgad_em.rapp_p1db_below_psat_db），相对 Psat 回退 8 dB 等于平均功率在 P1dB 之上 1.5 dB，孤立 EVM 只有 −17 dB。主结果按字面 psat；示例另给 p1db 口径的灵敏度行。2026-11-13（mmw60_trx#25）：TGad 评估方法学原文把回退定义为相对饱和输出功率（tgad_em.pa_backoff_definition，spec），并推荐 OFDM 8 dB（tgad_em.pa_backoff_recommended_db）——psat 口径与 Liu 的 8 dB 都有了出处；仍是本库的取舍，因为 Liu 本人没说参考点。"
+    note: "Liu 2025 只说 'OBO 8 dB'。字面 OBO 是相对饱和输出功率 Psat；但 11ad EM 的 CMOS Rapp（p = 0.81）P1dB 在 Psat 以下 9.5 dB（tgad_em.rapp_p1db_below_psat_db），相对 Psat 回退 8 dB 等于平均功率在 P1dB 之上 1.5 dB，孤立 EVM 只有 −17 dB。主结果按字面 psat；示例另给 p1db 口径的灵敏度行。2026-11-13（mmw60_trx#25）：TGad 评估方法学原文把回退定义为相对饱和输出功率（tgad_em.pa_backoff_definition，spec），并推荐 OFDM 8 dB（tgad_em.pa_backoff_recommended_db）——psat 口径与 Liu 的 8 dB 都有了出处；仍是本库的取舍，因为 Liu 本人没说参考点。2026-11-15（spec_sources#26）：Liu 的 PA 模型引的 [15] IEEE 802.15-06-0477 只给修正 Rapp 的公式、不给参数，回退也是相对 Psat 的输出回退（tg3c.pa_modified_rapp_shape 的 note，转引 802.11n IM1）。"
 
   assumed.rx_timing:
     value: "genie (frame start known)"
@@ -287,7 +287,7 @@ entries:
     unit: procedure
     source: assumed
     cite: "本库 arraylink.py（MLO 触发的扇区扫描，用户 2026-11-14 选定）"
-    note: "802.11be 没有毫米波波束训练，按 MLO 触发来算：sub-7 链路排定扫描时刻（定时已知，不靠 L-STF 检测），60 GHz 上每个扇区发一段升频后的基准 L-LTF（GI2 + 2 个符号），先 TX 扫（对端单个单元接收）、再 RX 扫。接收端按已知 LTF 逐音做两符号相干、跨音非相干累加估功率，取最大；选到的扇区增益与最佳差 1 dB 以内算成功，要求 99 %。扇区切换 100 ns 是假设。示例 10 有跨音相干累加与“必须选中最佳扇区”两行灵敏度。“MLO 触发”这一选择有出处：Liu 2025 刊出版 §Integrated Millimeter Wave Technology “sector sweep is performed in the 60 GHz band, but the sequences can be triggered or scheduled from a sub-7 GHz band”（2026-11-15 读）；训练场、估计器与门限仍是本库的。平坦信道（视距），不建多径下的扇区选择；氧吸收（60 GHz 约 15 dB/km）在 20 m 内不到 0.3 dB，不计。更正（2026-11-14）：N ≥ 16 的距离到了百米、千米，氧吸收不能不计，另立 assumed.oxygen_absorption，距离按它算（路径损耗不含它）。"
+    note: "802.11be 没有毫米波波束训练，按 MLO 触发来算：sub-7 链路排定扫描时刻（定时已知，不靠 L-STF 检测），60 GHz 上每个扇区发一段升频后的基准 L-LTF（GI2 + 2 个符号），先 TX 扫（对端单个单元接收）、再 RX 扫。接收端按已知 LTF 逐音做两符号相干、跨音非相干累加估功率，取最大；选到的扇区增益与最佳差 1 dB 以内算成功，要求 99 %。扇区切换 100 ns 是假设。示例 10 有跨音相干累加与“必须选中最佳扇区”两行灵敏度。“MLO 触发”这一选择有出处：Liu 2025 刊出版 p. 72 的原话（liu2025.mlo_bf_training_statement，spec；2026-11-15 读，spec_sources#26 收）；训练场、估计器与门限仍是本库的。平坦信道（视距），不建多径下的扇区选择；氧吸收（60 GHz 约 15 dB/km）在 20 m 内不到 0.3 dB，不计。更正（2026-11-14）：N ≥ 16 的距离到了百米、千米，氧吸收不能不计，另立 assumed.oxygen_absorption，距离按它算（路径损耗不含它）。"
 
   assumed.oxygen_absorption:
     value: 15.0

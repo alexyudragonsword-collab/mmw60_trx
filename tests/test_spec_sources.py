@@ -39,7 +39,7 @@ def test_grep_counts_every_tag_in_every_table():
     "tag word + colon" would be counted; ``audit_tags`` names it)."""
     tables = [(spec.SURVEY_FILE, spec.load_table()),
               *((f, ss.load_table(f)) for f in ss.data_files(SHARED_DATA))]
-    assert len(tables) == 7
+    assert len(tables) == 8          # the local table + the seven vendored ones
     for path, table in tables:
         for tag in spec.SOURCES:
             assert _grep_count(tag, path) == sum(e.source == tag for e in table.values()), (path.name, tag)
@@ -83,7 +83,7 @@ def test_spec_source_needs_a_quote_and_survey_needs_unverified():
     with pytest.raises(ValueError, match="未核实"):
         spec.SpecNumber("x", 1, "u", "survey", "cite", note="fine")
     ok = spec.SpecNumber("x", 1, "u", "spec", "cite", quote="the text", section="3.1")
-    assert ok.verified and not spec.survey("liu2025.carrier_hz").verified
+    assert ok.verified and not spec.survey("liu2025.per_target").verified
 
 
 def test_derived_entries_follow_their_formulas():

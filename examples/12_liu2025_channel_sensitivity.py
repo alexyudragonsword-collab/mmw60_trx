@@ -5,11 +5,13 @@ two features at once: the impaired MCS0 / MCS1 curves fall from PER 1 to
 1e-2 within about 2 dB (4.7 / 8.1 dB at 8x), while the impaired MCS4 curves
 never reach 1e-2 — they flatten at PER 0.105 (8x) / 0.053 (16x) by 31 dB;
 even the paper's "ideal" MCS4 (no PN, no PA) needs 19–19.7 dB.  Every set of
-example 00 reaches 1e-2 at MCS4.  The PA candidate is weak: the paper's PA
-model reference (IEEE 802.15-06-0477, read 2026-11-15) gives no numbers and
-defines the back-off as this library does (output, from Psat), and the PA
-fits in its companion 15-06-0396 sit next to the TGad numbers used here.  So
-this sweeps the one assumed input that can bend high-order curves without
+example 00 reaches 1e-2 at MCS4.  The PA looked the weaker candidate when
+this was written: the paper's PA model reference (IEEE 802.15-06-0477, read
+2026-11-15; spec_sources tg3c.pa_modified_rapp_shape) gives no numbers and
+defines the back-off as this library does (output, from Psat).  Its
+companion 15-06-0396 fits a different, GaAs PA (tg3c.pa_ghorbani_nec_gaas),
+so it says nothing about Liu's; section 2 below points at the PA after all.
+So this sweeps the one assumed input that can bend high-order curves without
 flattening the low-order ones: the conference-room stand-in channel's LOS
 K-factor (data/spec: assumed.cr_los_k_db), 7 ns rms throughout.  Nothing
 here changes a preset or tunes a parameter (AGENTS: no tuning to match).

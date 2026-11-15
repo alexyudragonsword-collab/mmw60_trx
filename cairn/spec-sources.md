@@ -44,9 +44,12 @@ authoring_mode: ai_generated
 - 相噪模型与 modified Rapp 都引 [15] C.-S. Choi et al., “RF Impairment Models for 60GHz-Band SYS/PHY Simulation”, IEEE 802.15-06-0477-01-003c, 2006-11（802.15.3c 的文件），不是本库 Rapp 参数所取的 TGad 评估方法学 11-09/0296。
 - §“Integrated mmWave”：“sector sweep is performed in the 60 GHz band, but the sequences can be triggered or scheduled from a sub-7 GHz band, and feedback can be provided in sub-7 GHz band as well”——阵列层 MLO 触发训练（`assumed.array_training`）的出处。
 
-## 原文给了的（survey）
+更正（2026-11-15，spec_sources#26）：上面“`liu2025.*` 仍按 arXiv 记”已不成立。spec_sources 在 `7aae876` 按刊出版重读，本库重新 pin：18 条值不变、survey 改 spec；`liu2025.table1_scs_hz`（16× = 5 MHz）、`liu2025.table1_bandwidth_hz`（16× 到 2560 MHz）、`liu2025.receiver_cfo_statement`（“…for CFO and used phase tracking only on the receiving end”）3 条改值并改 spec；新收 `liu2025.table1_idft_period_s`、`liu2025.table1_idft_size`、`liu2025.cfo_algorithm_statement`（Discussion 那句）、`liu2025.mlo_bf_training_statement`（上一条的原话）。仍是 survey 的只剩 `liu2025.per_target`：刊出版正文没有 “specified PER (10^-2)” 那句。本库代码读的 12 个键值都没变（指纹逐位相同）。
+
+## 原文给了的（2026-11-15 起除 PER 目标外都是 spec）
 
 MCS 0/1/4、VHT、11ad CR 信道、1T1R、73.44 GHz（11ay channel 8）、4096 B、20 + 20 ppm → ±2.94 MHz、相噪 1 极 1 零（1 MHz / 100 MHz / −93 dBc/Hz）、modified Rapp OBO 8 dB、STF/LTF 捕获 ±625 / ±156.25 kHz、门槛 5.88 MHz 与 4.7、PER 目标 1e-2、"refrained from using estimation and compensation algorithms for CFO and PN"。
+更正（2026-11-15，spec_sources `7aae876`）：这些条目按刊出版对过原文，除 PER 目标 1e-2（`liu2025.per_target`，刊出版没有那句）外都改成 spec；接收机那句按刊出版是 “…for CFO and used phase tracking only on the receiving end”。
 
 ## 读过原文的（spec，带 quote 与 section；2026-11-12 起）
 
@@ -129,6 +132,7 @@ A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 的 B
 ## 要原文才能关掉的问题
 
 1. Liu 2025 的 Rapp 参数与 OBO 定义：刊出版（2026-11-15 读）也没给数，只引 [15] IEEE 802.15-06-0477-01-003c（Choi 等，802.15.3c 的 60 GHz 射频损伤模型）。**[15] 2026-11-15 已读**（公开，`mentor.ieee.org/802.15/dcn/06/15-06-0477-01-003c-rf-impairment-models-60ghz-band-sysphy-simulation.pdf`）：修正 Rapp 只给公式、没给数（slide 13：“Without fixing parameters in proposed model, we cannot match these models to actual 60GHz component measurement results”）；回退是相对 Psat 的输出回退（slide 15 转引 802.11n IM1 “PA Backoff = -10 log10(Average TX Power/Psat)”），与本库字面读法一致；相噪一极一零，建议值 PSD(0) = −87 dBc/Hz、1 MHz / 100 MHz（slide 9），Liu 的 −93 是 slide 10 四档示例之一。它引的 PA 文件 15-06-0396-01-003c（slide 10）给的是 NEC GaAs pHEMT 60 GHz PA 的 Ghorbani 拟合：x1 = 10、x2 = 0.71、x3 = 4.66、x4 = 0，y1 = −5.4×10⁴、y2 = 4、y3 = 2980、y4 = 0.11，与 TGad EM 的 g = 4.65、α = 2560、β = 0.114 量级很近，像是同一颗 PA 的拟合（未核实）。所以 Liu 的 PA 参数仍是未知，但“与本库不是一个量级”的可能性变小。这些数已请 spec_sources 收（spec_sources#26）。
+   **更正（2026-11-15，spec_sources#26 复算）**：“同一颗 PA”不成立。4.65 / 4.66、2560 / 2980、0.114 / 0.11 在两个模型里是不同位置的参数，曲线也不同：TGad 那颗 CMOS PA 约 0.58 V 饱和、AM-PM 为正（u = 0.3 V 时 +13.9°），0396 那颗 NEC GaAs pHEMT 约 1.5 V 饱和、AM-PM −17.4°。所以上一句“与本库不是一个量级的可能性变小”也撤回：0396 给不出 Liu 那颗 PA 的任何约束。另：0396 slide 10 印的公式分子少了指数，要按 x1·u^x2 / (1 + x3·u^x2) + x4·u（AM-PM 同理）用，照印出来的算 u = 0.3 V 处 AM-PM 是 −644°。四条已在 `tg3c.*`（`data/ieee802153c.yaml`，本库随 `7aae876` vendor）：`tg3c.pn_model`、`tg3c.pn_psd0_examples_dbchz`、`tg3c.pa_modified_rapp_shape`、`tg3c.pa_ghorbani_nec_gaas`。
 2. 11ad CR 信道的 tap 表（Maltsev 11-09/0334；拿到后 `TapTableChannel` 直接接，`cairn/Reference/` 放原文）。
 3. ~~IEEE 802.11-09/0296r16 原文：把 `tgad_em.*` 从 survey 改成 spec。~~ 已由 spec_sources 0.3.0 关掉（2026-11-13，mmw60_trx#25）。
 4. 前端三个面还剩三条 survey（上面“前端的三个面”一条）：ISCAS 2015 与 Okada 2013 要 IEEE Xplore 的访问权或 PDF；802.11ad 灵敏度表的前提与最大输入电平要标准条文。另外两处读了原文仍没有答案：Asada 2011 的 IIP3 对应哪一档增益；TU/e 2018 正文里不加隔离结构时的隔离度到底给没给（只读了摘要）；通信接收前端的带外压缩点（基带高通之前）没有任何出处。

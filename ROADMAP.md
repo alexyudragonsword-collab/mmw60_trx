@@ -53,8 +53,8 @@ ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、�
 ## C. 里程碑 0 过程中发现的问题
 
 ### C4. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
-Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、推荐 8 dB；刊出版与 [15] IEEE 802.15-06-0477-01-003c 2026-11-15 已读：都没给数，[15] 定义回退为相对 Psat 的输出回退，与本库一致；[15] 的 PA 文件 15-06-0396 给的 Ghorbani 参数与 TGad EM 量级很近）；11ad CR 信道 tap 表。
-spec_sources 的 `liu2025.*` 仍按 arXiv 记，与刊出版有三处不同（Table I 的 16× 一列、接收机那句话、Table II 的几行可以升 spec；`cairn/spec-sources.md` “Liu 2025 的版本”一节）。2026-11-15 已开 spec_sources#26（连同 [15] / 0396 的相噪与 PA 模型条目）；对方发版后本库重新 pin、验收后关 issue。
+Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、推荐 8 dB；刊出版与 [15] IEEE 802.15-06-0477-01-003c 2026-11-15 已读：都没给数，[15] 定义回退为相对 Psat 的输出回退，与本库一致；[15] 的 PA 文件 15-06-0396 拟合的是另一颗 GaAs PA，与 TGad EM 的参数只是数字相近，spec_sources#26 复算曲线不同，对 Liu 的 PA 没有约束；`tg3c.*`）；11ad CR 信道 tap 表。
+spec_sources#26：本库已重新 pin 到 `7aae876`（`liu2025.*` 按刊出版、`tg3c.*` 新表）；对方复核 `consumers.yaml` 后由本库关 issue。
 
 ### C12. Liu 刊出版对外校验发现的（2026-11-15，`cairn/external-validation.md` §3–§4）
 - **原文 MCS4 有损伤到不了 1e-2，本库每一组都到得了**：刊出版 Fig. 3 的 8× / 16× MCS4 到 31 dB 仍停在 PER 0.105 / 0.053，本库字面 21.82 / 22.14、flat 20.64 / 20.27、改进接收机 17.0 … 19.1 dB。复现：`python examples/00_liu2025_per_vs_snr.py --jobs 4`（约 85 分钟）后 `python tools/external_check.py`。

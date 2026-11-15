@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### spec_sources#26：重新 pin 到 7aae876，`liu2025.*` 按刊出版、新表 `tg3c.*`（2026-11-15）—— 引擎、预设、示例输出与指纹不变
+- 重新 pin spec_sources @ `7aae87681dcbacb8c0a369d7d2d922d21d56b5da`（它的 PR #27，答复本库发起的 spec_sources#26）。原来 8 个文件里只有 `data/liu2025.yaml` 变了，其余 7 个只换出处头里的 SHA；另 vendor 新表 `data/ieee802153c.yaml`（`tg3c.*`，Liu 的 [15] 与它的 PA 文件，4 条 spec），本库文档里点名的键可以由守卫核对。
+- `liu2025.*`：18 条值不变、survey 改 spec；3 条按刊出版改值（Table I 的 16× 列 5 MHz、带宽到 2560 MHz；接收机那句 “…for CFO and used phase tracking only on the receiving end”）；新收 4 条。只有 `liu2025.per_target` 仍是 survey。本库代码读的 12 个键值不变。共享表 75 → 83 条（survey 39 → 18，spec 30 → 59，derived 6）。
+- **被推翻的判断**：本节下面一条写的“0396 的 Ghorbani 拟合与 TGad EM 参数量级相近”（以及 `cairn/spec-sources.md` 里“像是同一颗 PA”）。spec_sources 复算：两组数在各自模型里位置不同，两颗 PA 的曲线也不同，0396 对 Liu 的 PA 没有约束。改在 `cairn/spec-sources.md`、`cairn/external-validation.md` §4 第 2 条、ROADMAP C4、示例 12 的说明文字（追加更正，不覆盖）。
+- 本地表：`assumed.array_training` 改引 `liu2025.mlo_bf_training_statement`；`assumed.pn_apply_sides`、`assumed.pa_obo_reference` 补 [15] 的出处（`tg3c.pn_model`、`tg3c.pa_modified_rapp_shape`）。测试：vendored 表 6 → 7、“未核实”示例键换成仍是 survey 的 `liu2025.per_target`。
+
 ### Liu 2025 的 MCS4 平台：示例 12（信道 K 因子扫描）、读 [15]、spec_sources#26（2026-11-15）—— 引擎、预设与指纹不变
 - spec_sources#26：请它按刊出版重读 `liu2025.*`（Table I 的 16× 列、接收机那句、Table II 可升 spec 的各行），并收 IEEE 802.15-06-0477 / 0396 的相噪与 PA 模型条目。本库发起，验收后由本库关。
 - 读了 Liu 的 [15] IEEE 802.15-06-0477-01-003c 与它的 PA 文件 15-06-0396-01-003c（公开）：修正 Rapp 没给数；回退是相对 Psat 的输出回退，与本库一致；相噪建议 PSD(0) −87 dBc/Hz，−93 是示例之一；0396 的 Ghorbani 拟合与 TGad EM 参数量级相近。记在 `cairn/spec-sources.md`、ROADMAP C4。
