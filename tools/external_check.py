@@ -67,7 +67,8 @@ def compare(results: list[dict], which: str = "impaired", ref_set: str = "impair
              "flat": "same impairments on a flat channel",
              "flat_rx": "flat channel, improved receiver (milestone-0 findings C1 / C2)",
              "impaired_rx": "Table II read literally, improved receiver",
-             "ideal": "no CFO, no PN, no PA"}.get(which, which)
+             "ideal": "no CFO, no PN, no PA",
+             "ideal_cfo": "no PN, no PA; the CFO and the estimators kept (the paper's 'ideal')"}.get(which, which)
     print(f"\n== Liu 2025 Fig. 3 '{ref_set}' ({ref['sets'][ref_set]}) vs example 00 set '{which}': {label}; "
           f"SNR at PER {target:g} ==")
     print(f"reference: {ref['cite']}")
@@ -156,7 +157,8 @@ def main(argv=None) -> int:
                   file=sys.stderr)
             return 2
         results = load_results(a.sweeps)
-    pairs = [(s, "impaired") for s in ("impaired", "flat", "flat_rx", "impaired_rx")] + [("ideal", "ideal")]
+    pairs = ([(s, "impaired") for s in ("impaired", "flat", "flat_rx", "impaired_rx")]
+             + [("ideal", "ideal"), ("ideal_cfo", "ideal")])
     pairs = [(s, r) for s, r in pairs if any(x["tags"].get("set") == s for x in results)]
     codes = [compare(results, s, r) for s, r in pairs]
     return max(codes) if codes else 2

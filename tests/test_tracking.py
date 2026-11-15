@@ -197,7 +197,8 @@ def test_external_check_verdict_has_three_states(capsys):
     interval straddling the tolerance is reported as undecided, not as a miss.
     A paper curve that floors above 1e-2 agrees only with one of ours that
     never reaches it; the paper's ideal set keeps the CFO, so its 4x curves
-    are not compared with ours (which switch it off)."""
+    are not compared with our ideal (which switches it off) but are with our
+    ideal+CFO set (ROADMAP C12)."""
     import sys
 
     from conftest import REPO
@@ -236,6 +237,16 @@ def test_external_check_verdict_has_three_states(capsys):
     assert external_check.compare(fake("ideal", "ideal", {}), "ideal", "ideal") == 0
     out = capsys.readouterr().out
     assert out.count("not comparable: ") == 3 and "6 of 6 curves agree" in out and "(3 not comparable)" in out
+    # ours with the CFO kept (ideal_cfo) is the paper's condition: every K is compared, 4x must be PER = 1
+    assert external_check.compare(fake("ideal", "ideal_cfo", {}), "ideal_cfo", "ideal") == 0
+    out = capsys.readouterr().out
+    assert "not comparable" not in out and "9 of 9 curves agree" in out and out.count("PER = 1 everywhere") == 3
+    lost = fake("ideal", "ideal_cfo", {})
+    for r in lost:
+        if (r["tags"]["k"], r["tags"]["mcs"]) == (4, 0):
+            r["sweep"] = {"per": [1.0, 0.4]}          # ours catches the CFO at 4x where the paper does not
+    assert external_check.compare(lost, "ideal_cfo", "ideal") == 1
+    assert "paper PER = 1; ours min PER 0.4" in capsys.readouterr().out
 
 
 def test_auto_span_does_not_give_up_smoothing_when_it_sees_no_noise():

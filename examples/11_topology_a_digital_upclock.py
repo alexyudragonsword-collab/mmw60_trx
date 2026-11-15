@@ -13,7 +13,9 @@ ones (iron rule 2).  What the tables answer:
    pJ/bit, next to topology B on the same occupied band;
 2. the CFO (iron rule 3): the preamble is upclocked too, so the chip's own
    L-STF reaches +-625 kHz x K — with and without the multi-link
-   pre-compensation;
+   pre-compensation; and (2b) how often it loses the offset without the
+   multi-link estimate at K = 4 / 8, at low SNR, on the flat and the
+   conference-room stand-in channels;
 3. that the hardware is the native channel's: the same calibrated chip,
    the same calibration results (iron rule 4).
 
@@ -42,6 +44,10 @@ from mmw60.sim.link import LinkSim, evm_at                                      
 
 FLAT = ChannelConfig(model="flat")
 SNR_CFO_DB = 30.0
+#: section 2b: SNRs per tone (MCS0 lives near 3 dB), packets per cell, payload (only the preamble matters)
+LOCK_SNRS_DB = (0.0, 3.0, 10.0)
+LOCK_PACKETS = 400
+LOCK_PAYLOAD_BYTES = 64
 #: (standard, base bandwidth, K) on topology A; K = 1 is the chip's own waveform
 FULL = (("11be", 320e6, 1), ("11be", 80e6, 4), ("11be", 40e6, 8), ("11be", 20e6, 16),
         ("11ac", 20e6, 16), ("11ac", 20e6, 8), ("11ac", 20e6, 4))
@@ -119,6 +125,54 @@ def main(argv=None) -> int:
     print("MLO on: the sub-7 estimate x f_c / f_sub7 is taken out first (the preset); MLO off: the raw offset reaches "
           "the chip's L-STF / L-LTF.  K = 4 at 60.48 GHz leaves 3 % of range (2.50 against 2.42 MHz); at Liu's "
           "73.44 GHz (2.94 MHz) it would need K >= 8")
+
+    # ---------------------------------------------------------------- 2b. lock rate without MLO
+    from scipy.stats import beta
+    n_lock = 3 if quick else LOCK_PACKETS
+    snrs = LOCK_SNRS_DB[1:2] if quick else LOCK_SNRS_DB
+    print(f"\n== 2b. how often the CFO is lost (K = 4 / 8; {n_lock} packets of {LOCK_PAYLOAD_BYTES} B per cell; "
+          "lost = |CFO error| beyond half a subcarrier, which the L-LTF cannot take back) ==")
+    print(f"{'scheme':<20} {'K':>3} {'channel':<12} {'offset':>9} {'margin':>9} {'SNR':>4} {'beyond range':>13} "
+          f"{'95 % upper':>11} {'hand-off':>9} {'rms err (kept)':>15}")
+
+    def lock_row(c, ch_name, snr):
+        sim = LinkSim(c, frontend=fe)
+        rng = np.random.default_rng(1100 + int(snr))
+        err = np.empty(n_lock)
+        for i in range(n_lock):
+            r = sim.packet(snr, rng)
+            err[i] = r.rx.cfo_hat_hz - r.cfo_true_hz
+        rng_hz, half = sim.phy.stf_capture_hz, sim.phy.scs_eff / 2
+        alias = np.abs(err) > rng_hz                        # the L-STF folded the offset by 2 x its range
+        handoff = (np.abs(err) > half) & ~alias             # the coarse error crossed half a subcarrier
+        n_a, n_h = int(alias.sum()), int(handoff.sum())
+        upper = float(beta.ppf(0.975, n_a + 1, n_lock - n_a))
+        kept = err[~(alias | handoff)]
+        rms = float(np.sqrt(np.mean(kept ** 2))) if kept.size else float("nan")
+        margin = rng_hz - abs(c.cfo_hz)
+        print(f"{label('A', c.phy.standard, c.phy.bandwidth_hz, c.upclock_k):<20} {c.upclock_k:>3} {ch_name:<12} "
+              f"{c.cfo_hz / 1e6:5.2f} MHz {margin / 1e3:5.0f} kHz {snr:4.0f} "
+              f"{n_a:>5}/{n_lock:<5}  {100 * upper:8.2f} % {n_h:>4}/{n_lock:<4} {rms / 1e3:11.1f} kHz", flush=True)
+
+    for std, bw, k in cases:
+        if k not in (4, 8):
+            continue
+        preset_channel = if_extender_60ghz(standard=std, bandwidth_hz=bw, k=k).channel   # LOS 10 dB, 7 ns rms
+        for ch_name, ch in (("flat", FLAT), ("CR stand-in", preset_channel)):
+            c = dc.replace(a_cfg(std, bw, k), channel=ch, phy=dc.replace(a_cfg(std, bw, k).phy,
+                                                                          packet_bytes=LOCK_PAYLOAD_BYTES))
+            off = dc.replace(c, ifext=dc.replace(c.ifext, mlo_enabled=False))
+            for snr in snrs:
+                lock_row(off, ch_name, snr)
+            if ch_name == "flat":
+                # no offset at all: the estimators alone, as behind a perfect multi-link pre-compensation
+                lock_row(dc.replace(off, xo_ppm_tx=0.0, xo_ppm_rx=0.0), ch_name, snrs[0])
+    print("offset = what reaches the chip without the multi-link pre-compensation (40 ppm at 60.48 GHz; 0.00 = the "
+          "estimators on no offset at all, as behind a perfect pre-compensation); margin = the L-STF's range "
+          "(+-625 kHz x K) minus it; beyond range = the L-STF folded the offset (95 % upper: Clopper-Pearson on those "
+          "counts); hand-off = the L-STF's noisy coarse estimate missed by more than half a subcarrier and the L-LTF "
+          "locked one subcarrier off — STF and LTF scale together with K, so that is the estimator pair's low-SNR "
+          "behaviour at any K")
 
     # ---------------------------------------------------------------- 3. the same hardware
     print("\n== 3. the hardware is the native channel's (iron rules 2 and 4): one calibrated chip per channel ==")
