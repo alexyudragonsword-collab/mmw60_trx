@@ -381,16 +381,27 @@ def main(argv=None) -> int:
         lin = 10 ** (-t_above / 10) - 10 ** (floor / 10)
         pred_above = None if lin <= 0 else float(-10 * np.log10(lin))
         mp, me = (6, 2) if quick else (150, 10)
+        # the bracketing points run on as the threshold table's do (ROADMAP C6)
+        rf = {} if quick else {"refine_errors": 60, "refine_max_packets": 3000}
         specs = []
         for mcs, centre in ((cap["mcs"], cap["required_snr_db"]), (above, pred_above if pred_above is not None else t_above + 6)):
             grid = [round(centre - 2 + i, 2) for i in range(0, 2 if quick else 7, 3 if quick else 1)]
             specs.append(CurveSpec(f"A {STD} {BW / 1e6:g}M MCS{mcs}", dc.replace(cfg, phy=dc.replace(cfg.phy, mcs=mcs)),
-                                   grid, mp, me, tags={"mcs": mcs}))
+                                   grid, mp, me, tags={"mcs": mcs}, **rf))
         results = run_curves(specs, TARGET, a.jobs, log=lambda s: None)
         got = {r["tags"]["mcs"]: r["snr_at_target"] for r in results}
+        cis = {r["tags"]["mcs"]: r.get("ci") or {} for r in results}
         print("floor   cap    T[dB]  SNR needed (predicted)  measured @ PER 1e-2   one MCS above: predicted  measured")
         print(f"{floor:5.1f}   MCS{cap['mcs']:<2}  {cap['threshold_db']:5.2f}  {cap['required_snr_db']:10.2f}              "
               f"{fmt(got.get(cap['mcs'])):>8}              MCS{above}: {fmt(pred_above):>8}   {fmt(got.get(above)):>8}")
+        if rf:
+            print(f"measured: 1 dB grid round the prediction, the two points bracketing PER 1e-2 run on to {rf['refine_errors']} "
+                  f"errors or {rf['refine_max_packets']} packets; 95 % bootstrap intervals (threshold's: spec.per_threshold_ci_db):")
+            for mcs in (cap["mcs"], above):
+                c, t_ci = cis.get(mcs, {}), spec.per_threshold_ci_db(STD, BW, mcs)
+                iv = "—" if c.get("lo_db") is None else f"[{c['lo_db']:.2f}, {c['hi_db']:.2f}]"
+                print(f"  MCS{mcs:<2} measured {fmt(got.get(mcs)):>6} {iv:<16} threshold {fmt(spec.per_threshold_db(STD, BW, mcs))} "
+                      f"{'—' if t_ci is None else f'[{t_ci[0]:.2f}, {t_ci[1]:.2f}]'}")
     OUT.mkdir(exist_ok=True)
     save_results(results, OUT / "06_sweeps.json")
     print(f"\nwrote {(OUT / '06_sweeps.json').relative_to(HERE.parent)}  [{time.time() - t0:.0f}s]")
