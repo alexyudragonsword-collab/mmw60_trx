@@ -15,7 +15,8 @@ ones (iron rule 2).  What the tables answer:
    L-STF reaches +-625 kHz x K — with and without the multi-link
    pre-compensation; and (2b) how often it loses the offset without the
    multi-link estimate at K = 4 / 8, at low SNR, on the flat and the
-   conference-room stand-in channels;
+   conference-room stand-in channels — next to topology B on the same
+   base x K, which always runs without it;
 3. that the hardware is the native channel's: the same calibrated chip,
    the same calibration results (iron rule 4).
 
@@ -135,7 +136,7 @@ def main(argv=None) -> int:
     print(f"{'scheme':<20} {'K':>3} {'channel':<12} {'offset':>9} {'margin':>9} {'SNR':>4} {'beyond range':>13} "
           f"{'95 % upper':>11} {'hand-off':>9} {'rms err (kept)':>15}")
 
-    def lock_row(c, ch_name, snr):
+    def lock_row(c, ch_name, snr, topo="A"):
         sim = LinkSim(c, frontend=fe)
         rng = np.random.default_rng(1100 + int(snr))
         err = np.empty(n_lock)
@@ -150,7 +151,7 @@ def main(argv=None) -> int:
         kept = err[~(alias | handoff)]
         rms = float(np.sqrt(np.mean(kept ** 2))) if kept.size else float("nan")
         margin = rng_hz - abs(c.cfo_hz)
-        print(f"{label('A', c.phy.standard, c.phy.bandwidth_hz, c.upclock_k):<20} {c.upclock_k:>3} {ch_name:<12} "
+        print(f"{label(topo, c.phy.standard, c.phy.bandwidth_hz, c.upclock_k):<20} {c.upclock_k:>3} {ch_name:<12} "
               f"{c.cfo_hz / 1e6:5.2f} MHz {margin / 1e3:5.0f} kHz {snr:4.0f} "
               f"{n_a:>5}/{n_lock:<5}  {100 * upper:8.2f} % {n_h:>4}/{n_lock:<4} {rms / 1e3:11.1f} kHz", flush=True)
 
@@ -167,8 +168,18 @@ def main(argv=None) -> int:
             if ch_name == "flat":
                 # no offset at all: the estimators alone, as behind a perfect multi-link pre-compensation
                 lock_row(dc.replace(off, xo_ppm_tx=0.0, xo_ppm_rx=0.0), ch_name, snrs[0])
+        # topology B on the same base x K: the same estimator pair, the same front end instance and the same
+        # channels; B has no multi-link estimate, the full 40 ppm always reaches its L-STF (ROADMAP A2)
+        for ch_name, ch in (("flat", FLAT), ("CR stand-in", preset_channel)):
+            cb = zero_if_60ghz(k=k, standard=std, bandwidth_hz=bw)
+            cb = dc.replace(cb, channel=ch, phy=dc.replace(cb.phy, packet_bytes=LOCK_PAYLOAD_BYTES))
+            for snr in snrs:
+                lock_row(cb, ch_name, snr, topo="B")
+            if ch_name == "flat":
+                lock_row(dc.replace(cb, xo_ppm_tx=0.0, xo_ppm_rx=0.0), ch_name, snrs[0], topo="B")
     print("offset = what reaches the chip without the multi-link pre-compensation (40 ppm at 60.48 GHz; 0.00 = the "
-          "estimators on no offset at all, as behind a perfect pre-compensation); margin = the L-STF's range "
+          "estimators on no offset at all, as behind a perfect pre-compensation; B rows: what reaches topology B's "
+          "receiver, which has no pre-compensation, on the shared front end); margin = the L-STF's range "
           "(+-625 kHz x K) minus it; beyond range = the L-STF folded the offset (95 % upper: Clopper-Pearson on those "
           "counts); hand-off = the L-STF's noisy coarse estimate missed by more than half a subcarrier and the L-LTF "
           "locked one subcarrier off — STF and LTF scale together with K, so that is the estimator pair's low-SNR "

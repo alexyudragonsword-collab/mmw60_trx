@@ -35,7 +35,7 @@
 
 ### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
 - WiFi 7 全链路四条整合：PA_DPD 的 PA / DPD 进 wifitrx 链在 K > 1 上已作为灵敏度研究接通（`pamemory.py`、示例 07：参考 PA 带记忆、wifitrx 的 DPD 步、抽头间隔透传），但预设与同台表的 PA 仍是无记忆的 Rapp（2026-11-12 起是测量 PA 的幅度与压缩形状），带记忆的 PA 没有进任何一行（C8）。还没做的一条：Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（A1 更正单边带换算后每行差 0.0 dB，相噪项差 0.1–1.3 dB）。
-- 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；示例 04 §6 的灵敏度从解析底板起算（每个旋钮不跑时域），2.56 GHz 行在那一节的基线是 MCS1、§4b 用时域底板是 MCS0；`per_thresholds.yaml` 是本库接收机的测量值，接收机再改要 `python tools/measure_thresholds.py --jobs 4` 重量（约 16 分钟）。
+- 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；示例 04 §6 的灵敏度从解析底板起算（每个旋钮不跑时域），2.56 GHz 行在那一节的基线是 MCS1、§4b 用时域底板是 MCS0；`per_thresholds.yaml` 是本库接收机的测量值，接收机再改要 `python tools/measure_thresholds.py --jobs 4 --cache DIR` 重量（2026-11-15 起夹点续跑到 60 错包，4 核约 2.3 小时，可分段）。
 - 校准列现在是示例 03 实测 IRR 的查表，`calcheck.run_cal_at` 实跑进表要几分钟一列，留给需要它的那次。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
 
