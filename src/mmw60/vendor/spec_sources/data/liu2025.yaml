@@ -1,4 +1,4 @@
-# Vendored from spec_sources@8e5f2e26bc2084d324aaaabea49fab18174ecaf8: src/spec_sources/data/liu2025.yaml
+# Vendored from spec_sources@7aae87681dcbacb8c0a369d7d2d922d21d56b5da: src/spec_sources/data/liu2025.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # liu2025 —— Liu 2025（Wi-Fi 8 毫米波 upclocking）论文里的数，与只由它们推出的 derived。
 #
@@ -13,8 +13,11 @@
 # assumed.* 是它本地表里的条目；这些写法在条目下一次因核实而改动时改成明确的库名（ROADMAP）。
 #
 # Liu 2025 = X. Liu, T. Chen, Y. Dong, Z. Mao, M. Gan, X. Yang, J. Lu, "Wi-Fi 8: Embracing the
-# Millimeter-Wave Era", IEEE Commun. Mag., Mar. 2025; 读的是 arXiv:2309.16813 v1 (2023-09-28,
-# 含 PER 图 Fig. 4) 与 v2 (2024-07-08, 图被删、正文仍引用)。刊出版未取得。
+# Millimeter-Wave Era", IEEE Commun. Mag., vol. 63, no. 3, pp. 69–75, Mar. 2025, doi 10.1109/MCOM.002.2400059。
+# 迁入时读的是 arXiv:2309.16813 v1 (2023-09-28, 含 PER 图 Fig. 4) 与 v2 (2024-07-08, 图被删、正文仍引用)；
+# 2026-11-15 读了刊出版（用户从 IEEE Xplore 下载，PDF 只放本地；mmw60_trx 在本库 #26 里请求）：
+# 21 条对上原文改成 spec，其中 3 条的值随刊出版改了（tests/test_extraction.py 的 VERIFIED 与 CORRECTED），
+# per_target 刊出版没有那句、仍是 survey；另新收 4 条。
 # 前缀：liu2025.*。
 
 entries:
@@ -23,156 +26,235 @@ entries:
   liu2025.mcs_list:
     value: [0, 1, 4]
     unit: MCS index
-    source: survey
-    cite: "Liu 2025, Table II 'MCS: MCS 0, MCS 1 and MCS 4'; Sec. V-A 'BPSK, QPSK, and 16-QAM respectively'"
-    note: "未核实：刊出版未读到；arXiv v1/v2 一致。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'MCS' 一行"
+    quote: "The modulation and coding scheme (MCS) is set to 0, 1, and 4, indicating binary phase shift keying (BPSK), quadrature phase shift keying (QPSK), and 16-QAM respectively. [...] TABLE 2: MCS | MCS 0, MCS 1 and MCS 4"
+    note: "arXiv v1 / v2 与刊出版相同。"
 
   liu2025.ppdu_format:
     value: "VHT"
     unit: text
-    source: survey
-    cite: "Liu 2025, Table II 'PPDU type: VHT format'; Sec. V-A 'very high throughput (VHT) format, which is used in IEEE 802.11ac'"
-    note: "未核实：原文未说基准带宽 / FFT 点数；见 assumed.base_bandwidth_hz。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'PPDU type' 一行；TABLE 1 'An upclocked PPDU version'（p. 72）"
+    quote: "The simulation discussed the upclocked PPDU based on IEEE 802.11ac [...] The PPDU type is very high throughput (VHT) format, which is used in IEEE 802.11ac. [...] TABLE 2: PPDU type | VHT format"
+    note: "刊出版 TABLE 1 写明了 upclocking 的基准：802.11ac 的 20/40/80/160 MHz 与 312.5 kHz 子载波间距乘 K、子载波个数与编号不变（liu2025.table1_*）。但 TABLE 2 没写仿真用的是哪一档带宽，mmw60_trx 的 assumed.base_bandwidth_hz 仍是它自己的取舍。"
 
   liu2025.channel_model:
     value: "802.11ad conference room (CR)"
     unit: text
-    source: survey
-    cite: "Liu 2025, Table II '802.11ad channel model'; Sec. V-A 'the conference room (CR) channel model in IEEE 802.11ad standard'"
-    note: "未核实：CR 模型（Maltsev, IEEE 802.11-09/0334）的 tap 表本库没有；见 assumed.cr_rms_delay_ns。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'Channel model' 一行"
+    quote: "We consider the conference room (CR) channel model in IEEE 802.11ad standard [...] TABLE 2: Channel model | 802.11ad channel mode"
+    note: "TABLE 2 原文写作 'channel mode'（少一个 l）。CR 模型（Maltsev, IEEE 802.11-09/0334）的 tap 表 spec_sources 没有；mmw60_trx 的 assumed.cr_rms_delay_ns 是它自己的取舍。"
 
   liu2025.antennas:
     value: "1T1R, no beamforming"
     unit: text
-    source: survey
-    cite: "Liu 2025, Table II 'TX/RX: 1T1R'; Sec. V-A 'single-antenna system without utilizing beamformed transmission'"
-    note: "未核实。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'TX/RX' 一行"
+    quote: "This simulation employs a single-antenna system without utilizing beamformed transmission. [...] the number of transmitters (TX) and receivers (RX) is 1. [...] TABLE 2: TX/RX | 1T1R"
+    note: "arXiv v1 / v2 与刊出版相同。"
 
   liu2025.carrier_hz:
     value: 73.44e+9
     unit: Hz
-    source: survey
-    cite: "Liu 2025, Table II 'fc: 73.44 GHz'; Sec. V-A 'the channel 8 defined in IEEE 802.11ay'"
-    note: "未核实：11ay channel 8 中心频率值未与 802.11ay 原文核对。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'fc' 一行"
+    quote: "fc is center frequency of the carrier, which is the channel 8 defined in IEEE 802.11ay. [...] TABLE 2: fc | 73.44 GHz"
+    note: "73.44 GHz 是原文的数；它说这是 802.11ay 的 channel 8，spec_sources 没有对 802.11ay 原文核过这个中心频率。"
 
   liu2025.packet_bytes:
     value: 4096
     unit: byte
-    source: survey
-    cite: "Liu 2025, Table II 'Packet size: 4096 bytes'"
-    note: "未核实。本库当 PSDU 长度用（APEP_LENGTH）。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'Packet size' 一行"
+    quote: "The packet size is 4096 bytes. [...] TABLE 2: Packet size | 4096 bytes"
+    note: "原文没说是 PSDU 还是 MPDU 的长度；mmw60_trx 把它当 PSDU 长度（APEP_LENGTH）用，是它的读法。"
 
   liu2025.xo_ppm_tx:
     value: 20
     unit: ppm
-    source: survey
-    cite: "Liu 2025, Sec. V-A 'the oscillator inaccuracy on both TX and RX sides are 20 part per million (ppm)'"
-    note: "未核实。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'Total oscillator inaccuracy' 一行"
+    quote: "In our simulation, the oscillator inaccuracy on both TX and RX sides are 20 part per million (ppm), so the system should compensate for a total of 40 ppm CFO. [...] TABLE 2: Total oscillator inaccuracy | 40 ppm"
+    note: "两侧各 20 ppm，合计 40 ppm（TABLE 2 只写合计）。"
 
   liu2025.xo_ppm_rx:
     value: 20
     unit: ppm
-    source: survey
-    cite: "Liu 2025, Sec. V-A（同上）"
-    note: "未核实。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'Total oscillator inaccuracy' 一行"
+    quote: "In our simulation, the oscillator inaccuracy on both TX and RX sides are 20 part per million (ppm), so the system should compensate for a total of 40 ppm CFO. [...] TABLE 2: Total oscillator inaccuracy | 40 ppm"
+    note: "同 liu2025.xo_ppm_tx。"
 
   liu2025.cfo_max_hz:
     value: 2.94e+6
     unit: Hz
-    source: survey
-    cite: "Liu 2025, Sec. V-A 'the system should compensate for a total of 40 ppm CFO. For a 73.44 GHz system we set up, the CFO is up to ± 2.94 MHz'"
-    note: "未核实。40e-6 × 73.44e9 = 2.9376 MHz，原文四舍五入到 2.94。本库仿真用 ppm × fc 现算（铁律 3），不用这个数。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）"
+    quote: "In our simulation, the oscillator inaccuracy on both TX and RX sides are 20 part per million (ppm), so the system should compensate for a total of 40 ppm CFO. For a 73.44 GHz system we set up, the CFO is up to ± 2.94 MHz."
+    note: "40e-6 × 73.44e9 = 2.9376 MHz，原文四舍五入到 2.94；未取整的数是 liu2025.cfo_from_ppm_hz。"
 
   liu2025.stf_capture_hz:
     value: 625.0e+3
     unit: Hz
-    source: survey
-    cite: "Liu 2025, Sec. V-A 'the short training field (STF) and long training field (LTF) sequences in sub-7 GHz can resolve a frequency offset up to ± 625 KHz and ± 156.25 KHz, respectively'"
-    note: "未核实（原文数字）。本库在 cairn/upclocking.md 自己推：L-STF 周期 0.8 µs → ±1/(2·0.8 µs) = ±625 kHz。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）"
+    quote: "A larger subcarrier spacing will reduce the impact of CFO. If an auto-correlation detector is used, the short training field (STF) and long training field (LTF) sequences in sub-7 GHz can resolve a frequency offset up to ± 625 KHz and ± 156.25 KHz, respectively."
+    note: "原文的数。mmw60_trx 在它的 cairn/upclocking.md 里由 L-STF 周期 0.8 µs 推出同一个数：±1/(2·0.8 µs) = ±625 kHz。"
 
   liu2025.ltf_capture_hz:
     value: 156.25e+3
     unit: Hz
-    source: survey
-    cite: "Liu 2025, Sec. V-A（同上）"
-    note: "未核实（原文数字）。L-LTF 周期 3.2 µs → ±156.25 kHz = ±SCS/2。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）"
+    quote: "If an auto-correlation detector is used, the short training field (STF) and long training field (LTF) sequences in sub-7 GHz can resolve a frequency offset up to ± 625 KHz and ± 156.25 KHz, respectively."
+    note: "原文的数。L-LTF 周期 3.2 µs → ±156.25 kHz = ±SCS/2。"
 
   liu2025.scs_threshold_hz:
     value: 5.88e+6
     unit: Hz
-    source: survey
-    cite: "Liu 2025, Sec. V-A 'the subcarrier spacing of at least one training field should be larger than 5.88 MHz'; Sec. V-B 'dividing the minimum subcarrier spacing 5.88 MHz by the 1250 KHz ... only a larger upclocking version than 4.7 can rectify the CFO correctly'"
-    note: "未核实（原文数字）。= 2 × 2.94 MHz，即 L-STF 有效子载波间距（4 × SCS）要大于两倍最大 CFO。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；Performance Evaluation of mmWave — Simulation Results（p. 73）"
+    quote: "For a 73.44 GHz system we set up, the CFO is up to ± 2.94 MHz. Therefore, the subcarrier spacing of at least one training field should be larger than 5.88 MHz. [...] the threshold for CFO correction can be obtained by dividing the minimum subcarrier spacing 5.88 MHz by the 1250 KHz."
+    note: "原文的数，= 2 × 2.94 MHz：L-STF 的有效子载波间距（4 × SCS）要大于两倍最大 CFO。"
 
   liu2025.k_threshold:
     value: 4.7
     unit: upclocking factor
-    source: survey
-    cite: "Liu 2025, Sec. V-B（同上）"
-    note: "未核实（原文数字）。5.88 MHz / 1.25 MHz = 4.704。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Results（p. 73）"
+    quote: "The conventional subcarrier spacing of Non-HT STF (L-STF) is 4 × 312.5 KHz, so the threshold for CFO correction can be obtained by dividing the minimum subcarrier spacing 5.88 MHz by the 1250 KHz. Therefore, only a larger upclocking version than 4.7 can rectify the CFO correctly, which is also reflected in Fig. 3, because both 8× upclocking and 16× upclocking achieve better performance under each MCS."
+    note: "5.88 MHz / 1.25 MHz = 4.704。刊出版明写了 L-STF 的间距是 4 × 312.5 kHz（arXiv 版只写'the 1250 KHz'）。"
 
   liu2025.pn_f_pole_hz:
     value: 1.0e+6
     unit: Hz
-    source: survey
-    cite: "Liu 2025, Sec. V-A 'we use 1 pole, 1 zero phase noise model. The pole frequency fp and the zero frequency fz is set to 1 MHz and 100 MHz, respectively'"
-    note: "未核实。原文无公式；PSD 形状见 tgad_em.pn_model_shape。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'PN model'、'PN pole frequency fp' 两行"
+    quote: "Ignoring the flicker noise and the reference oscillator noise, we use 1 pole, 1 zero phase noise model [15]. The pole frequency fp and the zero frequency fz is set to 1 MHz and 100 MHz, respectively and the zero point of power spectral density (PSD0) is –93 dBc/Hz. [...] TABLE 2: PN model | Single zero-pole model; PN pole frequency fp | 1 MHz"
+    note: "原文没有公式。[15] 是 IEEE 802.15-06-0477，公式与它提出的参数在 tg3c.pn_model（同样是 1 MHz / 100 MHz）。"
 
   liu2025.pn_f_zero_hz:
     value: 100.0e+6
     unit: Hz
-    source: survey
-    cite: "Liu 2025, Sec. V-A（同上）"
-    note: "未核实。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'PN zero frequency fz' 一行"
+    quote: "The pole frequency fp and the zero frequency fz is set to 1 MHz and 100 MHz, respectively [...] TABLE 2: PN zero frequency fz | 100 MHz"
+    note: "同 liu2025.pn_f_pole_hz。"
 
   liu2025.pn_psd0_dbchz:
     value: -93.0
     unit: dBc/Hz
-    source: survey
-    cite: "Liu 2025, Sec. V-A 'the zero point of power spectral density (PSD) is -93 dBc/Hz'; 'Ignoring the flicker noise and the reference oscillator noise'"
-    note: "未核实。原文未说相噪加在 TX、RX 还是两侧；见 assumed.pn_apply_sides。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'PN PSD0' 一行"
+    quote: "Ignoring the flicker noise and the reference oscillator noise, we use 1 pole, 1 zero phase noise model [15]. [...] the zero point of power spectral density (PSD0) is –93 dBc/Hz. [...] TABLE 2: PN PSD0 | –93 dBc/Hz"
+    note: "−93 不是 [15]（IEEE 802.15-06-0477）提出的值：它在 slide 9 提出 −87 dBc/Hz（tg3c.pn_model），−93 是它 slide 10 四档示例之一（tg3c.pn_psd0_examples_dbchz）。TGad 评估方法学用 −90（tgad_em.pn_params）。原文没说相噪加在 TX、RX 还是两侧；mmw60_trx 的 assumed.pn_apply_sides 是它自己的取舍。"
 
   liu2025.pa_obo_db:
     value: 8.0
     unit: dB
-    source: survey
-    cite: "Liu 2025, Sec. V-A 'PA OBO is set to 8 dB and the PA non-linearity model is modified Rapp model'"
-    note: "未核实。原文无 Rapp 参数；参数取 tgad_em.*（11ad 评估方法学的 CMOS PA）。OBO 口径：平均输出功率低于饱和输出功率的 dB 数。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；TABLE 2 'Simulation parameters for performance verification'（p. 73） 'PA model'、'PA backoff' 两行"
+    quote: "The saturation region of the power amplifier will affect the output signal, and the output backoff (OBO) can be used to mitigate the impact. In this work, PA OBO is set to 8 dB and the PA non-linearity model is modified Rapp model [15], which can describe HPA nonlinear relationship between output power and input power (AM-AM effect) and output phase and input power (AM-PM effect). [...] TABLE 2: PA model | Modified Rapp model; PA backoff | 8 dB"
+    note: "原文没有 Rapp 参数，它引的 [15]（IEEE 802.15-06-0477）也没有（tg3c.pa_modified_rapp_shape 的 note）。mmw60_trx 取 TGad 评估方法学那颗 CMOS PA 的参数（tgad_em.*），是它的选择；8 dB 也正是 TGad 给 OFDM 推荐的回退（tgad_em.pa_backoff_recommended_db）。OBO 指平均输出功率低于饱和输出功率的 dB 数。"
 
   liu2025.table1_scs_hz:
-    value: {4: 1.25e+6, 8: 2.5e+6, 16: 1.25e+6}
+    value: {4: 1.25e+6, 8: 2.5e+6, 16: 5.0e+6}
     unit: Hz per upclocking factor
-    source: survey
-    cite: "Liu 2025, Table I 'Subcarrier spacing: 1.25 MHz / 2.5 MHz / 1.25 MHz (802.11be part)'"
-    note: "未核实。16× 一列按 802.11be 基准（78.125 kHz × 16），与 4×/8× 的 11ac 基准不是同一尺度；本库 Fig. 4 复现按 11ac 基准 312.5 kHz × K（16× = 5 MHz），因为 V-B 的 4.7 论证以 1.25 MHz(=4×312.5k) 为基。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "TABLE 1 'An upclocked PPDU version'（p. 72）'Subcarrier spacing' 一行；Integrated Millimeter Wave Technology（p. 72）"
+    quote: "TABLE 1: | 4x 802.11ac | 8x 802.11ac | 16x 802.11ac — Subcarrier spacing | 1.25 MHz | 2.5 MHz | 5 MHz. [...] Taking the example of 8× 802.11ac as shown in Table 1, it is only necessary to increase the channel bandwidth (20/40/80/160 MHz) and subcarrier spacing (312.5 KHz) of 802.11ac by a factor of 8, while keeping the same number and index of subcarriers as 802.11ac"
+    note: "刊出版改了：三列都以 802.11ac（312.5 kHz）为基准，16× 一列是 5 MHz。迁入时的 1.25 MHz 来自 arXiv 版，那一列表头是 802.11be（78.125 kHz × 16），与 4× / 8× 不是同一尺度；mmw60_trx 当时就按 11ac 基准（16× = 5 MHz）复现，现在与原文一致。"
 
   liu2025.table1_bandwidth_hz:
-    value: {4: [80.0e+6, 160.0e+6, 320.0e+6, 640.0e+6], 8: [160.0e+6, 320.0e+6, 640.0e+6, 1280.0e+6], 16: [320.0e+6, 640.0e+6, 1280.0e+6, 2560.0e+6, 5120.0e+6]}
+    value: {4: [80.0e+6, 160.0e+6, 320.0e+6, 640.0e+6], 8: [160.0e+6, 320.0e+6, 640.0e+6, 1280.0e+6], 16: [320.0e+6, 640.0e+6, 1280.0e+6, 2560.0e+6]}
     unit: Hz per upclocking factor
-    source: survey
-    cite: "Liu 2025, Table I 'Bandwidth'"
-    note: "未核实。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "TABLE 1 'An upclocked PPDU version'（p. 72）'Bandwidth' 一行"
+    quote: "TABLE 1: | 4x 802.11ac | 8x 802.11ac | 16x 802.11ac — Bandwidth | 80/160/320/640 MHz | 160/320/640/1280 MHz | 320/640/1280/2560 MHz"
+    note: "刊出版改了：16× 一列是 802.11ac 的 20/40/80/160 MHz 乘 16，只有 4 档，最高 2560 MHz；迁入时 arXiv 版那一列按 802.11be 基准，多一档 5120 MHz。"
 
   liu2025.per_target:
     value: 1.0e-2
     unit: PER
     source: survey
     cite: "Liu 2025, Sec. V-B 'the SNR required to achieve the specified PER (10^-2)'"
-    note: "未核实。本库 external_check 的比较点。"
+    note: "未核实。本库 external_check 的比较点。刊出版（2026-11-15 读）正文没有'specified PER (10^-2)'这句，Simulation Results 只说'the SNR required to achieve the same PER'；Fig. 3 纵轴 10^0–10^-3。"
 
   liu2025.receiver_cfo_statement:
-    value: "refrained from using estimation and compensation algorithms for CFO and PN"
+    value: "refrained from using estimation and compensation algorithms for CFO and used phase tracking only on the receiving end"
     unit: text
-    source: survey
-    cite: "Liu 2025, Sec. V-A 'In order to better illustrate the impact of hardware impairments, we refrained from using estimation and compensation algorithms for CFO and PN.'"
-    note: "未核实，且与 V-B 的 4.7 门槛论证矛盾（该论证以 L-STF 自相关估计器在跑为前提）；本库示例 00 开标准 L-STF/L-LTF 估计，并另给'全关'诊断行。见 cairn/external-validation.md。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Simulation Configuration（p. 73）；Performance Evaluation of mmWave — Simulation Results（p. 74，Fig. 4 一段）"
+    quote: "The simulation discussed the upclocked PPDU based on IEEE 802.11ac and considered the effects of CFO, PN and PA. In order to better illustrate the impact of hardware impairments, we refrained from using estimation and compensation algorithms for CFO and used phase tracking only on the receiving end. [...] It is worth noting that there is a phase tracking module at the receiving end of the simulation, thus the influence of phase noise in the constellation diagram has been mitigated."
+    note: "刊出版改了：arXiv 版写'for CFO and PN'，刊出版只对 CFO 不做估计补偿，相噪在接收端做了相位跟踪。与 Simulation Results 的 4.7 门槛论证（以 L-STF 自相关估计 CFO 为前提）仍对不上；Discussion 一节另说 CFO 估计补偿是算法问题（liu2025.cfo_algorithm_statement）。mmw60_trx 的示例 00 开标准 L-STF / L-LTF 估计，另给'全关'诊断行（它的 cairn/external-validation.md）。"
 
   liu2025.mmwave_spectrum_ghz:
     value: 14
     unit: GHz
-    source: survey
-    cite: "Liu 2025, Sec. I/III '45 GHz and 60 GHz unlicensed mmWave bands ... a rich 14 GHz spectrum'"
-    note: "未核实。本库里程碑 0 不用。"
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Introduction（p. 69）"
+    quote: "Under these circumstances, the 45 GHz and 60 GHz mmWave unlicensed band holds considerable promise, offering a rich 14 GHz spectrum."
+    note: "arXiv v1 / v2 与刊出版相同。"
+
+  # ------------------------------------------------------------ 刊出版新收（issue #26）
+  liu2025.table1_idft_period_s:
+    value: {4: 8.0e-7, 8: 4.0e-7, 16: 2.0e-7}
+    unit: s per upclocking factor
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "TABLE 1 'An upclocked PPDU version'（p. 72）'IDFT/DFT period' 一行"
+    quote: "TABLE 1: | 4x 802.11ac | 8x 802.11ac | 16x 802.11ac — IDFT/DFT period | 800 ns | 400 ns | 200 ns"
+    note: "= 1 / liu2025.table1_scs_hz（3.2 µs ÷ K）。arXiv 版的表没有这一行。"
+
+  liu2025.table1_idft_size:
+    value: [64, 128, 256, 512]
+    unit: points (per 802.11ac bandwidth 20/40/80/160 MHz × K)
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "TABLE 1 'An upclocked PPDU version'（p. 72）'IDFT/DFT size' 一行"
+    quote: "TABLE 1: | 4x 802.11ac | 8x 802.11ac | 16x 802.11ac — IDFT/DFT size | 64/128/256/512 | 64/128/256/512 | 64/128/256/512"
+    note: "三列相同：upclocking 只放大子载波间距与带宽，点数与子载波编号沿用 802.11ac。arXiv 版的表没有这一行。"
+
+  liu2025.cfo_algorithm_statement:
+    value: "the CFO can be estimated and compensated, but this is an algorithmic issue and we don't discuss it much in the standard"
+    unit: text
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Performance Evaluation of mmWave — Discussion（p. 74）"
+    quote: "By using larger subcarrier spacing, the impact of CFO can be minimized. Therefore, a suitable upclocked version of IEEE 802.11ac PPDU can be used to implement mmWave communications. In addition, the CFO can be estimated and compensated, but this is an algorithmic issue and we don't discuss it much in the standard. PN usually causes ICI and common phase error (CPE), but these effects can be overcome by proper pilot designs."
+    note: "原文作者把 CFO 的估计补偿归为实现（算法）问题、不进标准；仿真里也没做（liu2025.receiver_cfo_statement）。"
+
+  liu2025.mlo_bf_training_statement:
+    value: "During beamforming training, sector sweep is performed in the 60 GHz band, but the sequences can be triggered or scheduled from a sub-7 GHz band, and feedback can be provided in sub-7 GHz band as well."
+    unit: text
+    source: spec
+    cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
+    section: "Integrated Millimeter Wave Technology（p. 72）"
+    quote: "In order to integrate 60 GHz, the architecture of multi-link can be used, which is shown in Fig. 2c. The use of MLO has a number of benefits [12]. With MLO, discovery, association, scheduling, and broadcast exchanging can be done in sub-7 GHz band. During beamforming training, sector sweep is performed in the 60 GHz band, but the sequences can be triggered or scheduled from a sub-7 GHz band, and feedback can be provided in sub-7 GHz band as well."
+    note: "是作者对 Wi-Fi 8 毫米波的设想，不是已定的标准条文。mmw60_trx 的阵列层训练假设 assumed.array_training（由 MLO 触发）是它自己的取舍，可以引这句作依据。"
 
   # ------------------------------------------------------------ 推导：只用上面的 liu2025.* 与 802.11ac 的 312.5 kHz 子载波间距
   liu2025.cfo_from_ppm_hz:

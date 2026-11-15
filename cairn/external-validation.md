@@ -16,7 +16,7 @@ authoring_mode: ai_generated
 
 - **参照**：Liu et al., "Wi-Fi 8: Embracing the Millimeter-Wave Era"，IEEE Commun. Mag. 63(3) 69–75，2025-03（doi 10.1109/MCOM.002.2400059；2026-11-15 由用户提供 PDF）的 **Fig. 3**（PER–SNR，K = 4/8/16 × MCS 0/1/4）。图上两组：**实线有损伤**（CFO + PN + PA），**虚线 "ideal"**（图例 ", ideal"，正文 "without considering these non-idealities"；4× 在这一组也是 PER = 1，所以它还带着 CFO，去掉的只是相噪与 PA）。读图值在 `src/mmw60/data/spec/liu2025_fig4.yaml`（±0.3 dB 计，有损伤组 400 dpi 渲染约 ±0.2 dB）。选它因为这是 IMMW upclocking 唯一带数字的公开仿真，而且它的设定（VHT、CFO、1 极 1 零相噪、Rapp）每一项本库都能逐一关掉，是 Halo 对 serdespy 那种"两边各自独立算"的校验。
 - **更正（2026-11-15）**：2026-11-06 起这里的参照是 arXiv v1 的 Fig. 4，当作“有损伤一组”。刊出版里那 9 条曲线逐点就是虚线的 ideal 组（如 8× MCS4：17 dB 0.25、19 dB 0.022、21 dB 0.002），实线的有损伤组是另画的。所以下面 §3a 的旧对表比错了组；§4 列出被推翻的判断。
-- **拿不到**：Rapp 参数与 OBO 定义（刊出版也没给，相噪与 PA 模型都引 [15] IEEE 802.15-06-0477-01-003c，本库没读）、CR 信道实现、SNR 口径、相噪加在哪一侧、基准带宽、接收机细节（定时、信道估计、跟踪；刊出版只说 "used phase tracking only on the receiving end"）——这些全是 `source: assumed`（`spec-sources.md`）。
+- **拿不到**：Rapp 参数与 OBO 定义（刊出版也没给，相噪与 PA 模型都引 [15] IEEE 802.15-06-0477-01-003c；[15] 2026-11-15 已读，也没给 Rapp 参数，见 `tg3c.*` 与 `spec-sources.md` 末节第 1 条）、CR 信道实现、SNR 口径、相噪加在哪一侧、基准带宽、接收机细节（定时、信道估计、跟踪；刊出版只说 "used phase tracking only on the receiving end"）——这些全是 `source: assumed`（`spec-sources.md`）。
 - **两边共享因而不算校验的东西**：没有。原文的仿真器未知，本库没有任何代码或数字来自它，除了 Table II 的设定与 Fig. 3 的读图值。
 
 ## 2. 配置
@@ -106,6 +106,7 @@ authoring_mode: ai_generated
      | 纯 Rayleigh | 到不了 / 7.06 | 到不了 / 7.59 | **0.106** |
 
      Rayleigh 给得出 MCS4 的平台（数都对上），但 MCS0 / 1 就平得多；能让 MCS0 / 1 一样陡的信道（flat / 高 K），MCS4 都到 1e-2。衰落信道上本库的平台主要是 PA 的：LOS 3 dB 时理想 PA 23.87 dB、只关相噪 31.00 dB、全关 23.00 dB；Rayleigh 时理想 PA 29.77 dB、只关相噪到 31 dB 仍 0.070。“只罚 16-QAM、几乎不碰 BPSK / QPSK”的平台正是 PA 失真的特征，所以候选排序改成 **PA 的有效工作点比本库字面读法狠** 在前，信道其次（可能叠一点衰落）。[15] 已读：没给 Rapp 数，回退定义与本库相同（相对 Psat 的输出回退），它的 PA 文件 15-06-0396 的拟合参数与本库所用 TGad EM 量级相近——所以差别更可能在工作点（驱动的归一、峰均比的处理），不在参数。原文 ideal 的 MCS4 比本库 ideal 差 2–3 dB 仍没有解释（ideal 里没有 PA）。
+   - **更正（2026-11-15，spec_sources#26 复算）**：上一段“15-06-0396 的拟合参数与 TGad EM 量级相近”只是数字巧合：它们在两个模型里位置不同，两颗 PA 的曲线也不同（TGad 的 CMOS PA 约 0.58 V 饱和、AM-PM 为正；0396 的 NEC GaAs PA 约 1.5 V 饱和、AM-PM −17.4°；`tg3c.pa_ghorbani_nec_gaas`）。0396 对 Liu 那颗 PA 没有约束，所以“不在参数”这半句没有依据：PA 的参数与工作点都还是候选；示例 12 逐项关掉只说明平台来自 PA，分不出是参数还是工作点。工作点仍排在前，因为它不需要外部输入就能扫（ROADMAP C12）。
 3. **接收机**：MCS0 / 1 上原文夹在本库两档接收机之间（flat：里程碑 0 的 +0.5 … +0.7 dB，改进的 −2.1 … −2.5 dB），与更正前的判断方向相同，量变小了。
 4. **示例 01**：整数子载波模糊解开后 K = 4 工作（MCS0 6.0 / MCS1 9.2 / MCS4 22.0 dB）——原文的门槛是估计器的性质，不是波形的。
 5. **16× 在 MCS4 比 8× 好**：原文有损伤的平台 0.053 对 0.105，ideal 19.0 对 19.7；本库 flat 组 20.27 对 20.64，方向一致。字面组（22.14 对 21.82）反过来，原因同更正前第 6 条（50 ns 的 GI 与 7 ns rms 散射尾）。

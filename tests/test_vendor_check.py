@@ -9,7 +9,7 @@ import vendor_check as vc          # tools/ is on sys.path (conftest)
 from conftest import REPO
 
 PIN = "7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02"
-SPEC_SOURCES_PIN = "8e5f2e26bc2084d324aaaabea49fab18174ecaf8"
+SPEC_SOURCES_PIN = "7aae87681dcbacb8c0a369d7d2d922d21d56b5da"
 ARRAY_TX_PIN = "5815c5a7ea43143fd58502d4894ac840b5b5fb86"
 PINS = {"wifi_trx_cal": PIN, "spec_sources": SPEC_SOURCES_PIN, "array_tx": ARRAY_TX_PIN}
 SPEC_SOURCES_SIB = Path("/home/user/alexyudragonsword-collab/spec_sources")
@@ -24,10 +24,11 @@ def test_every_vendored_file_has_the_header():
         m = vc.HEADER.match(first)
         assert m, f"{f}: missing attribution header"
         assert m["repo"] in PINS and m["sha"] == PINS[m["repo"]], f
-    # spec_sources: the reader and six tables, YAML included in the check
+    # spec_sources: the reader and seven tables, YAML included in the check
     ss = sorted(str(f.relative_to(vc.VENDOR)) for f in files if f.relative_to(vc.VENDOR).parts[0] == "spec_sources")
-    assert ss == ["spec_sources/__init__.py", *(f"spec_sources/data/{n}.yaml" for n in
-                  ("energy", "frontend60", "ieee80211", "liu2025", "pa60", "regulatory")), "spec_sources/reader.py"]
+    tables = ("energy", "frontend60", "ieee80211", "ieee802153c", "liu2025", "pa60", "regulatory")
+    assert ss == ["spec_sources/__init__.py", *(f"spec_sources/data/{n}.yaml" for n in tables),
+                  "spec_sources/reader.py"]
     # array_tx: the whole arraytx package, code only (its data/ and webui/ assets are not copied)
     at = [f for f in files if f.relative_to(vc.VENDOR).parts[0] == "arraytx"]
     assert len(at) == 135 and all(f.suffix == ".py" for f in at)

@@ -3,6 +3,15 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-15 · spec_sources#26 回了，重新 pin 到 7aae876（feat/spec-sources-liu-journal，叠在 #36 上）
+
+- 对方在它的 #27 合并：`liu2025.*` 按刊出版重读，新表 `ieee802153c.yaml`（`tg3c.*` 4 条 spec）。用户转告“回了”。
+- 动手前核过：相对 `8e5f2e2` 原 8 个文件只变 `liu2025.yaml`；18 条值不变 survey → spec，3 条改值（16× 5 MHz、带宽到 2560 MHz、接收机那句），新 4 条；本库代码读的 12 个键都在、值不变。计数 75 → 79（survey 39 → 18、spec 30 → 55、derived 6），加 `tg3c` 后 83。都属实。
+- 决定 vendor `ieee802153c.yaml`：本库三处文档与两条本地 note 点名 `tg3c.*`，vendor 后守卫能核对键名。
+- **被推翻的判断**：上一条 LOG 与 #36 的文档写“0396 的 Ghorbani 拟合与 TGad EM 量级相近、像是同一颗 PA”。spec_sources 复算：参数位置不同，TGad CMOS PA 约 0.58 V 饱和、AM-PM +13.9°（0.3 V），0396 的 NEC GaAs PA 约 1.5 V、−17.4°。0396 对 Liu 的 PA 无约束；external-validation §4 第 2 条“差别不在参数”撤回，参数与工作点都是候选。另记：0396 slide 10 印的公式分子少指数。
+- 验收：指纹 69 项逐位相同（`MMW60_NO_JIT=1`，base = feat/liu-fading；numba Viterbi 一项两边都按设计报错）；`vendor_check --strict --fail-on-skip` 250 全 verbatim；两个测试的写死值随新表改（vendored 表 6 → 7、“未核实”示例键）。
+- 下一步：合并后在 spec_sources#26 回报 SHA / 指纹 / vendor_check / 已 vendor tg3c；对方复核 `consumers.yaml` 后由本库关。
+
 ## 2026-11-15 · Liu 的 MCS4 平台：示例 12、读 [15]、spec_sources#26（feat/liu-fading）
 
 - 用户定：三件都做。spec_sources#26 已开（liu2025.* 按刊出版重读 + [15] / 0396 的条目），本库发起、验收后关。

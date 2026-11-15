@@ -29,7 +29,7 @@ wifitrx 在**基准数字学**（312.5 kHz / 20 MHz / 64 点 / GI 1/4）生成�
 | 16 | 5 MHz | 200 ns | 50 ns | 50 ns | ±10 MHz | ±2.5 MHz | 0.59 |
 | 32 | 10 MHz | 100 ns | 25 ns | 25 ns | ±20 MHz | ±5 MHz | 0.29 |
 
-（`UpclockedPhy.summary()`；arXiv 版 Table I 的 16× 一列是 802.11be 基准 78.125 kHz × 16 = 1.25 MHz，与 4×/8× 不是同一尺度，本库复现按 11ac 基准。更正 2026-11-15：刊出版的 Table I 16× 一列已改成 802.11ac 基准，5 MHz / 200 ns / 320–2560 MHz，与本库的复现一致。）
+（`UpclockedPhy.summary()`；arXiv 版 Table I 的 16× 一列是 802.11be 基准 78.125 kHz × 16 = 1.25 MHz，与 4×/8× 不是同一尺度，本库复现按 11ac 基准。更正 2026-11-15：刊出版的 Table I 16× 一列已改成 802.11ac 基准，5 MHz / 200 ns / 320–2560 MHz，与本库的复现一致；spec_sources `7aae876` 起 `liu2025.table1_scs_hz` / `table1_bandwidth_hz` 也按刊出版记。）
 
 ## 2. 门槛推导：SCS ≥ 5.88 MHz ⇔ K > 4.7 是 L-STF 自相关的捕获范围
 

@@ -1,0 +1,53 @@
+# Vendored from spec_sources@7aae87681dcbacb8c0a369d7d2d922d21d56b5da: src/spec_sources/data/ieee802153c.yaml
+# Adapted-copy policy: see src/mmw60/vendor/__init__.py
+# ieee802153c —— IEEE 802.15.3c（TG3c，60 GHz WPAN）的 RF 损伤模型提案里的数：相噪模型、PA 模型与参数。
+#
+# 标签：spec（对过原文，带 quote 与 section）/ survey（未核实，note 写明）/ derived（只由本库的 spec、
+# survey 条目推出，note 或 cite 是公式）。本表不收 assumed：哪个库自己的取舍留在那个库的本地表。
+# 只有条目自己的标签行写成"标签词 + 冒号"，说明文字里不写，所以对四个标签各跑一次 grep -c
+# 都恰好等于该标签的条目数（tests/test_iron_rules.py 跑真的 grep）。
+#
+# 出处：mmw60_trx 在本库 #26 里请求。Liu 2025（liu2025.*）的相噪与 PA 模型都引 [15] = IEEE 802.15-06-0477，
+# 它的 PA 一节又指向 IEEE 802.15-06-0396。两份都是 IEEE 802.15 的公开提案（mentor.ieee.org），本库直接读原文建条目，
+# 不是从哪个库迁入的；PDF 只放本地。是工作组提案，不是标准条文。
+# 前缀：tg3c.*。
+
+entries:
+
+  # ------------------------------------------------------------ 相噪：1 极点 1 零点模型（802.15-06-0477）
+  tg3c.pn_model:
+    value: {psd0_dbchz: -87.0, f_pole_hz: 1.0e+6, f_zero_hz: 1.0e+8, shape: "PSD(f) = PSD(0) · [1 + (f/fz)²] / [1 + (f/fp)²]"}
+    unit: "dBc/Hz, Hz, Hz, formula"
+    source: spec
+    cite: "C.-S. Choi, Y. Shoji, H. Harada, R. Funada, S. Kato, K. Maruhashi, I. Toyoda, K. Takahashi（NICT、NEC、NTT、Panasonic），'RF impairment models for 60GHz-band SYS/PHY simulation', IEEE 802.15-06-0477-01-003c, Nov. 2006（mentor.ieee.org 公开文件，2026-11-15 读原文，公式页渲染出来读；Liu 2025 的参考文献 [15]）"
+    section: "Slide 9 'Phase-noise model for TG3c: PLL/VCO and its model'，Fig. 2 'Proposed phase-noise model for TG3c'"
+    quote: "Ignoring flicker noise and Ref. oscillator noise [...] PSD(f) = PSD(0) [1 + (f/fz)^2] / [1 + (f/fp)^2]; PSD(0) = - 87 dBc/Hz, pole frequency fp = 1MHz, zero frequency fz = 100MHz [...] - PLL effectively suppresses low frequency noise of VCO, making it possible to transmit phase-modulated data signal. - Proposed model is well expressing this PLL phase-noise characteristic."
+    note: "PLL 输出相噪的 1 极点 1 零点模型：fp 以内是平台 PSD(0)，fp 到 fz 之间 −20 dB/dec，fz 以外又变平。按式子 PSD(∞) = PSD(0) + 20·lg(fp/fz) = −127 dBc/Hz（原文没写这个数）。同形的模型 TGad 评估方法学也用（tgad_em.pn_model_shape，PSD0 −90 dBc/Hz，tgad_em.pn_params）；Liu 2025 引本文、用 −93（liu2025.pn_psd0_dbchz），是 slide 10 的示例档之一，不是这里提出的 −87。"
+
+  tg3c.pn_psd0_examples_dbchz:
+    value: [-96.0, -93.0, -90.0, -87.0]
+    unit: dBc/Hz
+    source: spec
+    cite: "C.-S. Choi et al., 'RF impairment models for 60GHz-band SYS/PHY simulation', IEEE 802.15-06-0477-01-003c, Nov. 2006（同 tg3c.pn_model）"
+    section: "Slide 10 'Effect of phase-noise parameters on performance'，Fig. 1 与 Fig. 2；Slide 11 'Available 60GHz-band VCO/PLL'"
+    quote: "- 1 pole, 1 zero ph-noise model - 2Gbps 16QAM, - Roll-off factor (r) = 0.5 - No FEC, AWGN [...] pole frequency fp = 1MHz, zero frequency fz = 100MHz [...] No phase-noise, -96dBc/Hz, -93dBc/Hz, -90dBc/Hz, -87dBc/Hz [...] Fig.1: Impact of phase-noise at low frequency on 16QAM transmission [...] Fig.2: Generated phase-noise based on the model, PSD(0) = -93dBc/Hz [...] - What values are we going to use for PHY simulation? [...] (slide 11) - Si-based VCO/PLL is reasonable due to its integrability and power consumption - - 85 – -90dBc/Hz is suitable for low-frequency phase-noise below 1MHz"
+    note: "Fig. 1 是 2 Gb/s 16QAM、无 FEC、AWGN 下这四档 PSD(0) 的 BER 曲线，是示例，不是推荐值；Fig. 2 画的生成相噪用 −93。slide 11 列了当时 6 颗 60 GHz VCO / PLL 在 1 MHz 偏移的相噪，结论是 −85 到 −90 dBc/Hz 合适，与 slide 9 提出的 −87（tg3c.pn_model）一致。Liu 2025 的 −93 是这里的一档。"
+
+  # ------------------------------------------------------------ PA：修正 Rapp（0477，只有公式）与 Ghorbani 拟合（0396，有参数）
+  tg3c.pa_modified_rapp_shape:
+    value: "AM-AM F(x) = G·x / (1 + (G·x/Vsat)^(2p))^(1/(2p)); AM-PM F(x) = A·x^q / (1 + (x/B)^q)"
+    unit: formula
+    source: spec
+    cite: "C.-S. Choi et al., 'RF impairment models for 60GHz-band SYS/PHY simulation', IEEE 802.15-06-0477-01-003c, Nov. 2006（同 tg3c.pn_model）"
+    section: "Slide 5 'Power amplifier model for TG3c: Modified Rapp model'；Slide 6–7（output backoff）；Slide 13 'Conclusion'；Slide 15（IEEE 802.11n comparison criteria IM1 / IM4）"
+    quote: "F_AM-AM(y) = Gx / (1 + (Gx/Vsat)^(2p))^(1/(2p)) (AM-AM); F_AM-PM(θ) = A x^q / (1 + (x/B)^q) (AM-PM) [...] - Rapp model has been used for IEEE standardization (ex. 802.11a, 11n) - Rapp model is convenient for setting parameters, Saturation (Vsat) and Gain (G) - Suggested the equation to express AM-PM effect = Modified Rapp model [...] - Let’s use this parameter with modified Rapp model for PA simulation [...] • Reasonable parameters for suggested PA and phase-noise model: Without fixing parameters in proposed model, we cannot match these models to actual 60GHz component measurement results [...] (slide 15) Use RAPP power amplifier model as specified in document 00/294 with p = 3. Calculate backoff as the output power backoff from full saturation: PA Backoff = -10 log10(Average TX Power/Psat). [...] Note: the value Psat = 25dBm is recommended. [...] Adapted from IEEE 802.11-03/814r31"
+    note: "原文只给公式、不给参数：slide 5 的两张图是对 NEC 实测 60 GHz PA 的拟合，参数没写出来，slide 13 也说不定参数就对不上实测。所以 Liu 2025 写的 'modified Rapp model [15]' 在 [15] 里查不到参数（liu2025.pa_obo_db）。AM-PM 与 TGad 评估方法学的修正 Rapp 同形，TGad 的分子、分母各用一个指数（tgad_em.pa_model_shape 的 q1、q2）。slide 6–7 以输出回退（OBO）作 PA 的参数；slide 15 转引 802.11n 比较准则 IM1：Rapp p = 3、回退 = −10·lg(平均发射功率 / Psat)、建议 Psat = 25 dBm。口径与 tgad_em.pa_backoff_definition 相同（输出功率低于饱和的 dB 数），只是那里引的 TGad 原文没写负号。"
+
+  tg3c.pa_ghorbani_nec_gaas:
+    value: {x1: 10.0, x2: 0.71, x3: 4.66, x4: 0.0, y1: -5.4e+4, y2: 4.0, y3: 2980.0, y4: 0.11, input_p1db_dbm: -11.0}
+    unit: "Ghorbani model parameters (u = input voltage in V; AM-AM output in V, AM-PM output in deg); input_p1db_dbm in dBm"
+    source: spec
+    cite: "C.-S. Choi, Y. Shoji, H. Harada, R. Funada, S. Kato, K. Maruhashi, I. Toyoda（NICT、NEC、NTT），'Behavioral model of 60GHz-band power amplifier for SYS/PHY evaluation', IEEE 802.15-06-0396-01-003c, Sep. 2006（mentor.ieee.org 公开文件，2026-11-15 读原文，slide 10 渲染出来读图上标注；0477 slide 4 写 'Refer to 15-06-0396-01-003c'）"
+    section: "Slide 10 'Proposed power amplifier model for TG3c'（Ghorbani 模型与图上标注的参数）；Slide 8 'Impacts of AM-PM effect – GaAs HPA'（Input P1dB）；Slide 12 'Conclusion'"
+    quote: "3. Ghorbani model: well express AM-AM and AM-PM effects. F_AM/AM(u) = x1·u / (1 + x3·u^x2) + x4·u, F_AM/PM(u) = y1·u / (1 + y3·u^y2) + y4·u; (AM-AM) x1 = 10, x2 = 0.71, x3 = 4.66, x4 = 0; (AM-PM) y1 = −5.4×10^4, y2 = 4, y3 = 2980, y4 = 0.11. Measurement: AM-AM and AM-PM results of GaAs pHEMT 60GHz HPA (from NEC) → Ghorbani model is suitable for TG3c PHY evaluation [...] (slide 8) Input P1dB = -11dBm [...] (slide 12) We can provide the parameters for GaAs HPA, however no AM-PM measurement result for SiGe PA is available."
+    note: "NEC 那颗 GaAs pHEMT 60 GHz HPA 实测曲线的拟合：u 是输入电压（V），AM-AM 出输出电压（V），AM-PM 出相位变化（度，图上 0 到 −20）。**slide 10 印的公式分子少了指数**：照印出来的 x1·u、y1·u 算，u = 0.3 V 处 AM-PM 是 −644°，对不上图；分子写成 Ghorbani 原式的 x1·u^x2、y1·u^y2，u = 0.3 V 处 AM-AM 1.43 V、AM-PM −17.4°，与图上的拟合曲线相符（spec_sources 按图上标注的参数复算）。所以这组参数要按 x1·u^x2 / (1 + x3·u^x2) + x4·u 用。两个月后的 0477 改提修正 Rapp（tg3c.pa_modified_rapp_shape），没再给参数。数值上 x3 = 4.66、y3 = 2980、y4 = 0.11 与 TGad 评估方法学那颗 CMOS PA 的 g = 4.65、α = 2560、β = 0.114 接近，但在两个模型里是不同位置的参数，曲线也不同：TGad 那颗 AM-AM 在约 0.58 V 饱和、AM-PM 为正（u = 0.3 V 时 +13.9°），这颗约 1.5 V、−17.4°；看不出是同一颗 PA 的拟合。"
