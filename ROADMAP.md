@@ -9,7 +9,7 @@
 4. **B：阵列层的功率列按 N 计、训练到 MCS0 的边**。
 5. **C7 第一条：2.56 GHz 列 modem / genie 两个口径差 10 dB**，要在多径下验证。
 6. **里程碑 3（802.11ay）**：1–5 之后、同台表稳定了再开；想先看 ay 可以提到 1 之后。
-7. **C12 剩下的：原文 ideal 的 16-QAM 比本库差约 3 dB**。不动本库任何结论，只能逐个排除接收机 / 信道的候选。
+7. **C12 剩下的：原文 ideal 的 16-QAM 门槛比本库高 2.1–2.9 dB**。PA 工作点与 CFO 已排除（示例 13、ideal+CFO 组）。不动本库任何结论，只能在 ideal 链上逐个排除信道 / 接收机的候选。
 
 其余（A1 的 DPD 学习方式与没建的损伤、A2 / A3 的口径统一、C6 第二条、C9、C11）按需再做。卡在外部原文上的不排进度：C4、C10 的 802.11ad 条文与 AM/PM、C8 的 PA 记忆时间常数、B 的氧吸收、A2 的 Murmann 表；其中 11-09/0334、802.11ad EVM 表、Murmann 表能拿到原文，可以打包给 spec_sources。
 
@@ -66,10 +66,12 @@ ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、�
 ### C4. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
 Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、推荐 8 dB；刊出版与 [15] IEEE 802.15-06-0477-01-003c 2026-11-15 已读：都没给数，[15] 定义回退为相对 Psat 的输出回退，与本库一致；[15] 的 PA 文件 15-06-0396 拟合的是另一颗 GaAs PA，与 TGad EM 的参数只是数字相近，spec_sources#26 复算曲线不同，对 Liu 的 PA 没有约束；`tg3c.*`）；11ad CR 信道 tap 表。
 
-### C12. Liu 刊出版对外校验发现的（2026-11-15，`cairn/external-validation.md` §3–§4）
-- **原文 MCS4 有损伤到不了 1e-2，本库每一组都到得了**：刊出版 Fig. 3 的 8× / 16× MCS4 到 31 dB 仍停在 PER 0.105 / 0.053，本库字面 21.82 / 22.14、flat 20.64 / 20.27、改进接收机 17.0 … 19.1 dB。复现：`python examples/00_liu2025_per_vs_snr.py --jobs 4`（约 85 分钟）后 `python tools/external_check.py`。
-  2026-11-15 示例 12（`python examples/12_liu2025_channel_sensitivity.py`，约 12 分钟）把信道排除在单独解释之外：没有哪个 LOS K 因子同时给出“MCS0 / 1 陡、MCS4 停平台”——flat / 10 dB 时 MCS4 到 1e-2（19.77 / 22.11 dB），纯 Rayleigh 时 MCS4 在 31 dB 停在 0.106（原文 0.105），但 MCS0 / 1 从 0.5 到 0.05 要 7.06 / 7.59 dB（原文 0.97 / 1.23）、14 / 17 dB 也到不了 1e-2。衰落信道上的平台主要是 PA 的：LOS 3 dB 时换理想 PA 23.87 dB、只关相噪 31.00；Rayleigh 时理想 PA 29.77、只关相噪仍到不了（0.070）。“只罚高阶调制”的平台是 PA 的特征。待做：在 flat 与 LOS 10 dB 上扫 PA 的有效工作点（OBO 8 → 4 dB、OBO 参考点、驱动的峰值归一）看哪一档让 MCS4 停在 0.1 而 MCS0 / 1 只挪 0.4–0.6 dB；[15] 已读（没给 Rapp 数，回退定义与本库相同），所以 Liu 的 PA 只能这样从曲线反推一个范围，不改预设。原文 ideal 的 MCS4 比本库 ideal 差 2–3 dB 仍无解释（ideal 里没有 PA）。
-- **原文的 ideal 带着 CFO**：4× 在 ideal 组也是 PER = 1。本库没有“CFO 开、相噪 / PA 关”这一组，所以 K = 4 的 ideal 不可比；要比得加这组（约多跑 15 分钟）。
+### C12. Liu 刊出版对外校验剩下的（2026-11-15，`cairn/external-validation.md` §3–§4）
+- **原文 ideal 的 16-QAM 门槛比本库高 2.1–2.9 dB，MCS0 / 1 原文反而好 1.7–2.1 dB**。原文 ideal（相噪 / PA 关、CFO 留着）8× / 16× 的 MCS4 在 19.7 / 19.0 dB 到 1e-2；本库同定义的 ideal+CFO 组是 16.77 / 16.87 dB，flat 信道上的 ideal 是 16.00 dB。MCS0 / 1 原文 4.2 / 7.5 dB，本库 5.94 … 6.27 / 9.16 … 9.50 dB。
+  原文 MCS4 有损伤的平台（31 dB 处 0.105 / 0.053）可以全由这一项解释：示例 13 用原文 ideal 曲线反推的损伤份额是 −17.93 / −18.20 dB，本库字面工作点是 −17.74 / −17.94 dB。
+  复现：`python examples/00_liu2025_per_vs_snr.py --jobs 4 --cache DIR`（4 核约 100 分钟，可分段）后 `python tools/external_check.py`；`python examples/13_liu2025_pa_share.py`（约 17 分钟）。
+  已排除：PA 工作点（示例 13）；CFO 与估计器（ideal+CFO 对 ideal 最多 0.20 dB）；只靠 LOS K 因子的信道（示例 12）。
+  待做（不动本库任何结论，只为解释原文）：在 ideal 链上逐个量只罚 16-QAM 3/4 的候选，看哪一个让 MCS4 涨约 3 dB 而 MCS0 / 1 不涨。候选有三个：LOS K 因子 3 / 6 dB 下的 ideal 曲线（示例 12 只有全开的）；LLR 不按信道增益加权或硬判决；不平滑的信道估计。
 
 ### C6. C1–C3 过程中发现的（见 `cairn/LOG.md` 2026-11-11）
 - **门限表自己还没用上 C3 的逼近**：`tools/measure_thresholds.py` 仍是每点 ≤ 200 包 / 15 错、0.5 dB 步。同一格（11be 80 MHz MCS4 理想链）门限表读 11.40、示例 05 读 11.09；

@@ -12,7 +12,7 @@
 ```bash
 pip install -e ".[test,jit]"          # numba 可选；MMW60_NO_JIT=1 走纯 numpy，结果逐位相同
 pytest -q -m "not slow"               # 约 5 分钟
-python examples/00_liu2025_per_vs_snr.py --quick     # 冒烟；去掉 --quick 全量约 80 分钟（4 核）
+python examples/00_liu2025_per_vs_snr.py --quick     # 冒烟；去掉 --quick 全量约 100 分钟（4 核），加 --cache DIR 可分段跑完
 python tools/external_check.py        # 与 Liu 2025 刊出版 Fig. 3 的读图值对表（有损伤 / ideal 两组）
 python examples/12_liu2025_channel_sensitivity.py   # 原文 MCS4 平台：信道 K 因子扫描、逐项关 PA / 相噪（约 12 分钟）
 python examples/13_liu2025_pa_share.py   # 原文平台用它自己的 ideal 曲线反推损伤份额，对本库字面工作点（约 17 分钟）

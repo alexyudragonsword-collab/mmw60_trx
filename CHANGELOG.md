@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### C12 与 A × be_upclocked 的 CFO 余量：示例 13、ideal+CFO 组、关 MLO 的丢包率（2026-11-15）—— 引擎、预设与指纹不变
+- 示例 13（新）：用原文自己的 ideal 曲线把它 MCS4 的平台反推成损伤份额（8× −17.93、16× −18.20 dB），对本库字面工作点无噪声时的 −17.74 / −17.94 dB。平台不需要更狠的 PA：原文 ideal 的 16-QAM 要 19.7 / 19.0 dB，本库 flat ideal 16.00 dB，同样的失真压在前者上就封顶。另在本库链路上核对这个噪声样映射（MCS4 回退 8 dB 偏悲观 1.0 dB）。**被推翻的判断**：#36 与示例 12 那一轮的“PA 的有效工作点比字面读法狠”。
+- 示例 00 加第六组 ideal+CFO（相噪 / PA 关，CFO 与估计器留着，即原文 ideal 的定义）：K = 4 三个 MCS 都 PER = 1，同原文；K = 8 / 16 对本库 ideal 只差 −0.20 … +0.09 dB，所以原文 ideal 的 16-QAM 门槛高 2.1–2.9 dB 与 CFO 无关（ROADMAP C12 只剩这一项）。`tools/external_check.py` 加一张 ideal+CFO 对原文 ideal 的表，K = 4 也比。期望输出：原有各行逐字不变，加 9 条曲线与一列。
+- 示例 11 §2b（新）：A × be_upclocked 关 MLO 时 CFO 的丢包率，每格 400 包，越界与交接错分开计。11ac 20M × 4 在 3 dB 丢 0.5 / 1.0 %、0 dB 丢 11.5 / 6.8 %（flat / CR 替身），K = 8 不越界。**被推翻的判断**：“K ≥ 4 时芯片 L-STF 自己接得住”，AGENTS 铁律 3 与四篇专题文档改成 K ≥ 8。ROADMAP 加 A2“B 的 K = 4 CFO 丢包”。
+- `run_curves(cache_dir=…)` 与示例 00 的 `--cache DIR`：每条曲线跑完落盘，键 = 规格 + 包源码摘要，长跑被停后接着跑，输出同一次跑完（曲线只由自己的配置定种子）。默认不开。
+- ROADMAP 顶部加“当前优先级”一节（2026-11-15 排）。顺带修 main 上的旧问题：AGENTS 的 vendored 表数、`derived.yaml` 丢的一句引用、示例 00 加列后的取数模式；`derived.yaml` 加 ideal+CFO 一条。
+
 ### spec_sources#26：重新 pin 到 7aae876，`liu2025.*` 按刊出版、新表 `tg3c.*`（2026-11-15）—— 引擎、预设、示例输出与指纹不变
 - 重新 pin spec_sources @ `7aae87681dcbacb8c0a369d7d2d922d21d56b5da`（它的 PR #27，答复本库发起的 spec_sources#26）。原来 8 个文件里只有 `data/liu2025.yaml` 变了，其余 7 个只换出处头里的 SHA；另 vendor 新表 `data/ieee802153c.yaml`（`tg3c.*`，Liu 的 [15] 与它的 PA 文件，4 条 spec），本库文档里点名的键可以由守卫核对。
 - `liu2025.*`：18 条值不变、survey 改 spec；3 条按刊出版改值（Table I 的 16× 列 5 MHz、带宽到 2560 MHz；接收机那句 “…for CFO and used phase tracking only on the receiving end”）；新收 4 条。只有 `liu2025.per_target` 仍是 survey。本库代码读的 12 个键值不变。共享表 75 → 83 条（survey 39 → 18，spec 30 → 59，derived 6）。

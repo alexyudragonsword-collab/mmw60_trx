@@ -18,6 +18,13 @@
   quotes:
     - {doc: cairn/external-validation.md, text: "K = 8 MCS1 字面 {lit1} dB、flat {flat1} dB"}
 
+- name: ex00 K=8 MCS4, the CFO with its estimators on the ideal link (ideal+CFO against ideal; ROADMAP C12)
+  values:
+    id4: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 4 {*} {} {*} {*}"}
+    cfo4: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 4 {*} {*} {} {*}"}
+  quotes:
+    - {doc: cairn/external-validation.md, text: "K = 8 MCS4 ideal {id4} dB，带 CFO {cfo4} dB"}
+
 - name: ex04 the best row at the conformance cap (11be 80 MHz x 8 since the measured PA; since the 7.5 dB back-off 11ac 20 MHz x 32 second, x 4 third)
   values:
     rate: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=8 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
