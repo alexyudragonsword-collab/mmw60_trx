@@ -41,8 +41,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from . import spec
-from .config import (TOPOLOGIES, WAVEFORMS, ChannelConfig, Mmw60Config, if_extender_60ghz, wifi7_chain_k1,
-                     zero_if_60ghz)
+from .config import (TOPOLOGIES, WAVEFORMS, ChannelConfig, Mmw60Config, if_extender_60ghz, ifext_chip_channels_hz,
+                     wifi7_chain_k1, zero_if_60ghz)
 from .frontend.frontend import Frontend60
 from .frontend.grid import (REASON_ZH, analytic_floors, data_rate_bps, decoder_cap, decoder_floor_db,
                             max_mcs_for_floor, pa_isolated_evm_db)
@@ -55,7 +55,10 @@ PENDING = {
     ("upclock_zero_if", "ay_ofdm"): "pending: milestone 3 (802.11ay OFDM on the zero-IF hardware)",
     ("upclock_zero_if", "ay_sc"): "pending: milestone 3 (802.11ay single carrier)",
 }
-NOT_A_SCHEME = "n/a: topology A keeps the WiFi 7 waveform; the ay waveforms are topology B's hardware"
+NOT_A_SCHEME = ("n/a: the ay waveforms are topology B's hardware; topology A's chip makes WiFi 7 numerologies "
+                "only, up to its widest channel")
+NOT_A_CHIP_CHANNEL = ("n/a: topology A upclocks only the digital baseband, so K x base bandwidth must be one of the "
+                      "chip's channels (<= 320 MHz; assumed.ifext_upclock)")
 
 
 @dataclass
@@ -92,6 +95,19 @@ def scheme_matrix(ks=(1, 4, 8, 16, 32), standard: str = "11ac", bandwidth_hz: fl
                 cfg = if_extender_60ghz(mcs=mcs, standard=standard, bandwidth_hz=bandwidth_hz, carrier_hz=carrier_hz)
                 rows.append(Scheme(f"be {standard} {bandwidth_hz / 1e6:g}M IF extender @{carrier_hz / 1e9:g} GHz",
                                    topo, wf, cfg))
+            elif (topo, wf) == ("if_extender", "be_upclocked"):
+                # the chip's analog on its native channel K x base, the digital at K x (K = 1 is the 'be' row)
+                chans = ifext_chip_channels_hz()
+                for k in (k for k in ks if k > 1):
+                    lab = f"be_upclocked {standard} {bandwidth_hz / 1e6:g}M K={k} IF extender @{carrier_hz / 1e9:g} GHz"
+                    if k * bandwidth_hz in chans:
+                        cfg = if_extender_60ghz(mcs=mcs, standard=standard, bandwidth_hz=bandwidth_hz,
+                                                carrier_hz=carrier_hz, k=k)
+                        rows.append(Scheme(lab, topo, wf, cfg))
+                    else:
+                        rows.append(Scheme(lab, topo, wf, None, "n/a", NOT_A_CHIP_CHANNEL))
+                if not any(r.key == (topo, wf) for r in rows):
+                    rows.append(Scheme(f"{wf} on {topo}", topo, wf, None, "n/a", NOT_A_CHIP_CHANNEL))
             elif (topo, wf) in PENDING:
                 rows.append(Scheme(f"{wf} on {topo}", topo, wf, None, "pending", PENDING[(topo, wf)]))
             else:
@@ -513,6 +529,6 @@ def report_json(rep: dict) -> dict:
     return {k: v for k, v in rep.items() if not k.startswith("_")}
 
 
-__all__ = ["Scheme", "Row", "PENDING", "NOT_A_SCHEME", "scheme_matrix", "measured_irr_after_cal_db",
+__all__ = ["Scheme", "Row", "PENDING", "NOT_A_SCHEME", "NOT_A_CHIP_CHANNEL", "scheme_matrix", "measured_irr_after_cal_db",
            "evaluate_scheme", "build", "to_markdown", "cross_checks", "sensitivity", "sensitivity_knobs",
            "sensitivity_markdown", "report_json", "PowerReport"]

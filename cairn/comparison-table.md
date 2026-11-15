@@ -15,9 +15,10 @@ authoring_mode: ai_generated
 ## 1. 表是什么
 
 `mmw60.compare.scheme_matrix` 把 `TOPOLOGIES × WAVEFORMS` 的 8 个格子全部点名：建好的格子有配置和数字
-（拓扑 B × `be`：K = 1 的 WiFi 7 链；拓扑 B × `be_upclocked`：K = 1 / 4 / 8 / 16 / 32），没建的写明哪个里程碑带来它
-（拓扑 A × `be`：里程碑 1 / A1，另一会话；拓扑 B × `ay_ofdm` / `ay_sc`：里程碑 3），不成立的组合写 n/a
-（A 不改波形；ay 是 B 的硬件）。`tests/test_compare.py::test_law2_matrix_names_every_topology_x_waveform_pair` 守着矩阵完整。
+（拓扑 B × `be`：K = 1 的 WiFi 7 链；拓扑 B × `be_upclocked`：K = 1 / 4 / 8 / 16 / 32；拓扑 A × `be`：芯片原生波形；
+拓扑 A × `be_upclocked`：只改数字基带的升频，K × 基准带宽落在芯片信道上的那几个 K，2026-11-15），没建的写明哪个里程碑带来它
+（拓扑 B × `ay_ofdm` / `ay_sc`：里程碑 3），不成立的组合写 n/a（ay 是 B 的硬件；A 的升频超出芯片 320 MHz 信道的 K）。
+（更正 2026-11-15：此前这里写“拓扑 A × be：里程碑 1 / A1，另一会话”与“A 不改波形”，前者早已建好，后者从 A × be_upclocked 起不再成立。）`tests/test_compare.py::test_law2_matrix_names_every_topology_x_waveform_pair` 守着矩阵完整。
 
 **一个 `Frontend60` 实例给每一行**（铁律 2 的完整测试 `test_law2_every_scheme_on_the_shared_frontend_reads_the_k1_evm_when_ideal`：
 理想前端实例共用，ppm = 0 / 理想 LO / 理想 PA 下每种已建方案的 EVM 与 K = 1 差 < 0.1 dB；A 与 ay 的行以它们的里程碑为由 skip）。
@@ -64,10 +65,12 @@ MCS 上限与 IQcal 一格不动；pJ/bit 22259 / 6831 / 8369 / 2927 / 1881 / 12
 | K=32 | 2.56 G | −5.6 / −4.7 / −5.6 | —（**2**，40.2 dB） | — | — | 不能：IQ |
 | **拓扑 A**：11be 320 MHz，IF 延伸 | 320 M | −19.5 / −20.0 / −19.6 | MCS3（3） | 576 | 1712 | PA 限 |
 | **拓扑 A**：同上，芯片 PA 旁路（2026-11-14） | 320 M | −19.5 / −20.0 / −19.6 | MCS3（3） | 576 | **1200** | PA 限 |
+| **拓扑 A**：11be 80 MHz × 4，只改数字基带（2026-11-15） | 320 M | −19.6 / −20.5 / −19.7 | MCS3（3） | 576 | 1708 | PA 限 |
 
 （2026-11-13 之前：底板依次是 −20.3 / −20.0 / −19.0 / −16.5 / −11.8 / −5.7 / −20.2；K = 4 是 MCS3、576 Mb/s、955 pJ/bit；
 K = 32 校准后是 MCS3（实测 IRR 38.5 dB）；其余 pJ/bit 4782 / 1858 / 929 / 2175 / 1705。）
 
+- **拓扑 A 只改数字基带的升频**（`topology-a.md` §7b，示例 11）：11ac 20 MHz 基准的三行 × 4 / 8 / 16 是 MCS3、104 / 208 / 416 Mb/s、6635 / 3834 / 2335 pJ/bit，底板 −20.0 / −20.2 / −20.4 dB；11be 80 MHz × 4 与原生 11be 320 一样快（576 Mb/s，解码器口径 MCS6、1297 Mb/s），pJ/bit 1708 对 1712。上限不动（PA 限），换来的是 K ≥ 4 时芯片自己的 L-STF 接住 CFO。11ac 20 MHz × 32（640 MHz）超出芯片信道，n/a。
 - **拓扑 A 对拓扑 B，同样 320 MHz**：合规口径 A 是 MCS3、576 Mb/s，B 降到 MCS2、432 Mb/s；A 1712 对 B 1268 pJ/bit，A 每比特贵 1.35 倍。
   解码器口径 A 比 B 高一档：A MCS6、1297 Mb/s、765 pJ/bit，B MCS5、1153 Mb/s、487 pJ/bit，A 贵 1.6 倍。
   A 贵在：芯片的 PA 当驱动级（512 pJ/bit，294 mW）、每端两个频综（合规口径 208 对 185）、4 倍过采样的转换器（563 对 531）。

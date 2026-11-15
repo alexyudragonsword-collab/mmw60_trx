@@ -30,12 +30,16 @@ def test_law1_yaml_configs_round_trip_to_the_presets():
 
 def test_law1_both_topologies_are_named_and_an_inconsistent_config_refuses():
     """Both topologies are built; what the config says is what runs.  Topology A
-    is the WiFi 7 waveform at K = 1 behind a fixed LO: a config that names it
-    with the upclocked waveform, K > 1 or the zero-IF LO scheme is refused
-    instead of being quietly reinterpreted."""
+    is the WiFi 7 chip behind a fixed LO: its own waveform at K = 1, or with
+    only the digital baseband upclocked on one of the chip's channels.  A
+    config that asks it for K > 1 on its own waveform, a K x base wider than
+    the chip's channels, or the zero-IF LO scheme is refused instead of being
+    quietly reinterpreted."""
     assert set(TOPOLOGIES) == {"if_extender", "upclock_zero_if"}
-    with pytest.raises(ValueError, match="WiFi 7 waveform at K = 1"):
-        LinkSim(Mmw60Config(topology="if_extender"))                       # default waveform be_upclocked
+    with pytest.raises(ValueError, match="K = 1"):
+        Mmw60Config(topology="if_extender", waveform="be", upclock_k=4)
+    with pytest.raises(ValueError, match="chip's channels"):
+        Mmw60Config(topology="if_extender", upclock_k=32)                 # 11ac 20 MHz x 32 = 640 MHz
     with pytest.raises(ValueError, match="fixed_lo"):
         LinkSim(Mmw60Config(topology="if_extender", waveform="be"))        # default lo.scheme zero_if
     with pytest.raises(ValueError):

@@ -10,7 +10,8 @@ import pytest
 
 from mmw60 import compare
 from mmw60 import spec
-from mmw60.config import (ChannelConfig, Mmw60Config, PhaseNoiseConfig, if_extender_60ghz, surveyed_frontend,
+from mmw60.config import (ChannelConfig, Mmw60Config, PhaseNoiseConfig, if_extender_60ghz, ifext_chip_channels_hz,
+                          surveyed_frontend,
                           zero_if_60ghz)
 from mmw60.frontend import Frontend60
 from mmw60.frontend.grid import analytic_floors
@@ -209,6 +210,72 @@ def test_law3_topology_a_link_declares_how_it_catches_the_cfo():
     a = analytic_floors(cfg, fe)
     assert a["cfo_captured"] and a["cfo_precompensation"] == "mlo" and 0 < a["cfo_residual_max_hz"] < 625e3
     assert not analytic_floors(dc.replace(cfg, ifext=dc.replace(cfg.ifext, mlo_enabled=False)), fe)["cfo_captured"]
+
+
+# ---------------------------------------------------------------- A x be_upclocked: only the digital baseband
+def up(std: str = "11be", bw: float = 20e6, k: int = 4, **kw) -> Mmw60Config:
+    """Topology A with only the digital baseband upclocked: 11be 20 MHz x 4 on the chip's 80 MHz channel."""
+    return dc.replace(if_extender_60ghz(standard=std, bandwidth_hz=bw, k=k), channel=FLAT, **kw)
+
+
+def native(bw: float = 80e6) -> Mmw60Config:
+    return dc.replace(if_extender_60ghz(standard="11be", bandwidth_hz=bw), channel=FLAT)
+
+
+def test_law1_a_upclocked_names_its_waveform_and_stays_on_the_chips_channels():
+    c = up()
+    assert (c.topology, c.waveform, c.upclock_k) == ("if_extender", "be_upclocked", 4)
+    assert c.upclocked().bandwidth_eff == 80e6 and c.upclocked().fs_eff == 80e6 * OS
+    assert ifext_chip_channels_hz() == (20e6, 40e6, 80e6, 160e6, 320e6)
+    assert if_extender_60ghz(standard="11be", bandwidth_hz=80e6, k=4).upclocked().bandwidth_eff == 320e6
+    # past the chip's widest channel, or between its channels: the analog would have to change
+    for std, bw, k in (("11be", 80e6, 8), ("11ac", 20e6, 32), ("11be", 20e6, 3)):
+        with pytest.raises(ValueError, match="chip's channels"):
+            if_extender_60ghz(standard=std, bandwidth_hz=bw, k=k)
+    assert Mmw60Config.from_dict(c.to_dict()) == c
+    assert spec.value("assumed.ifext_upclock")["channels_from"] == "ieee80211be.n_sd"
+
+
+def test_law2_law4_a_upclocked_is_the_native_channels_chip_and_its_calibration():
+    """Only the digital baseband changes: the chip, the calibration it ran on its
+    native channel and the shared front end's 60 GHz stage are the native
+    row's, the chip's output for one input bit for bit."""
+    fe = Frontend60.from_config(zero_if_60ghz(k=8))
+    s_up, s_nat = LinkSim(up(), frontend=fe), LinkSim(native(), frontend=fe)
+    assert s_up.frontend is s_nat.frontend is fe
+    assert (s_up.phy.fs_eff, s_up.phy.bandwidth_eff) == (s_nat.phy.fs_eff, s_nat.phy.bandwidth_eff)
+    res = s_up.ifx.cal_results
+    assert res is s_nat.ifx.cal_results and len(res) >= 12                      # one run, on the native channel
+    validate_order([r.name for r in res])
+    rng = np.random.default_rng(2)
+    x = 0.1 * (rng.standard_normal(2048) + 1j * rng.standard_normal(2048))
+    z = np.zeros(x.size)
+    assert np.array_equal(s_up.ifx.tx.chip(x, phi_lo=z), s_nat.ifx.tx.chip(x, phi_lo=z))
+    st = s_up.ifx.tx.stage
+    assert st.pa.pa_model is fe.pa_model and st.lo_profile is fe.lo.at(s_up.cfg.lo_hz).profile
+    # what did change: the base PHY's numerology at K x (11be 20 MHz's 78.125 kHz x 4)
+    assert s_up.phy.scs_eff == pytest.approx(4 * 78.125e3) and s_nat.phy.scs_eff == pytest.approx(78.125e3)
+
+
+@pytest.mark.slow
+def test_law3_a_upclocked_catches_the_cfo_with_the_chips_own_l_stf():
+    """The preamble is upclocked with the data: the chip's L-STF reaches
+    +-625 kHz x K, so from K = 4 the 2.42 MHz at 60.48 GHz is caught with the
+    multi-link pre-compensation off; at K = 2 it is not.  ppm = 0 switches the
+    term off whichever way it would be caught, bit for bit."""
+    fe = Frontend60.from_config(zero_if_60ghz(k=8))
+    mlo_off = lambda c: dc.replace(c, ifext=dc.replace(c.ifext, mlo_enabled=False))   # noqa: E731
+    assert analytic_floors(mlo_off(up()), fe)["cfo_captured"]
+    assert not analytic_floors(mlo_off(up(k=2)), fe)["cfo_captured"]
+    assert not analytic_floors(mlo_off(native()), fe)["cfo_captured"]
+    on = evm_at(up(), 30.0, n_packets=2, frontend=fe)
+    off = evm_at(mlo_off(up()), 30.0, n_packets=2, frontend=fe)
+    assert off["evm_db"] < -15 and abs(off["evm_db"] - on["evm_db"]) < 1.0 and off["cfo_err_hz"] < 100e3
+    z = dc.replace(up(), xo_ppm_tx=0.0, xo_ppm_rx=0.0)
+    r1 = LinkSim(z, frontend=fe).packet(None, np.random.default_rng(4), keep_symbols=True)
+    r2 = LinkSim(mlo_off(z), frontend=fe).packet(None, np.random.default_rng(4), keep_symbols=True)
+    assert r1.cfo_true_hz == r2.cfo_true_hz == 0.0
+    assert np.array_equal(r1.rx.eq_symbols, r2.rx.eq_symbols) and r1.rx.evm_db == r2.rx.evm_db
 
 
 # ---------------------------------------------------------------- iron rule 4: calibration is run
@@ -414,7 +481,7 @@ def test_comparison_table_has_the_topology_a_row_with_its_own_terms_and_blocks()
     assert row["cfo_captured"] and row["max_mcs"] is not None and row["dec_mcs"] >= row["max_mcs"]
     blocks = row["power"]["blocks"]
     assert {"pa", "chip_pa", "lo", "converters", "dpd", "fft", "decoder"} <= set(blocks)
-    b = next(r for r in rep["rows"] if r["waveform"] == "be_upclocked")
+    b = next(r for r in rep["rows"] if r["topology"] == "upclock_zero_if" and r["waveform"] == "be_upclocked")
     assert "chip_pa" not in b["power"]["blocks"]
     assert blocks["pa"]["watts"] == pytest.approx(b["power"]["blocks"]["pa"]["watts"])      # the same 60 GHz PA
     assert blocks["lo"]["watts"] > b["power"]["blocks"]["lo"]["watts"]                      # two synthesizers per end

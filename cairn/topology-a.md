@@ -5,7 +5,7 @@ summary: "拓扑 A（IF 延伸）：芯片原样 + 60 GHz 级的模型、插入�
 tags: [mmw60, topology-a, if-extender, calibration, dpd, mlo]
 contains: [comparison-table, finding, decision, pitfall]
 created: "2026-11-11"
-updated: "2026-11-13"
+updated: "2026-11-15"
 related: [topology-b.md, comparison-table.md, architecture-invariants.md, engineering-pitfalls.md]
 authoring_mode: ai_generated
 ---
@@ -175,9 +175,42 @@ IF 从芯片的混频器输出取，芯片 PA 断电、不计功耗（`assumed.i
 链路 EVM：预补偿开 −20.44 dB；关掉 +4.10 dB（失败）；ppm = 0 时 −20.39 dB（2026-11-13 回退改成 7.5 dB 之前 −21.04 / +7.12 / −21.00；换 PA 之前是 −18.31 / +4.33 / −18.27）。ppm 为零时整项（偏移、估计、预补偿）关掉，信号逐位原样返回。
 前提是每台设备的 sub-7 LO、芯片 IF LO 和 60 GHz 固定 LO 同源一颗晶振（`assumed.mlo_common_reference`）；不成立时预补偿失效。
 
+## 7b. 只改数字基带的升频（A × be_upclocked；示例 11、同台表；`assumed.ifext_upclock`，用户 2026-11-15 定）
+
+芯片的 DAC / ADC、模拟低通、6 GHz 射频和它的 14 步校准都是原生信道的那一套，只把数字基带换成“基准 PHY、时钟 ×K”。所以 K × 基准带宽必须是芯片有的信道（20 / 40 / 80 / 160 / 320 MHz，取 `ieee80211be.n_sd` 的键），320 MHz 以上不做（要改模拟，那是另一条拓扑）。配置：`if_extender_60ghz(standard, bandwidth_hz, k=K)`，越界的 K 在 `Mmw60Config` 里就拒绝。
+同一信道上芯片、校准结果、芯片对同一输入的输出都和原生那一行逐位相同（示例 11 §3，`tests/test_ifext.py::test_law2_law4_a_upclocked_is_the_native_channels_chip_and_its_calibration`）。
+
+320 MHz 模拟信道上（flat 信道；示例 11 §1）：
+
+| 跑什么 | 子载波间隔 | 相噪 ICI | 底板 / 时域 | 合规上限 · Mb/s · pJ/bit | 解码器上限 · Mb/s · pJ/bit | 同带宽的拓扑 B |
+|---|---|---|---|---|---|---|
+| 11be 320 原生 | 78.1 kHz | −25.0 dB | −19.5 / −20.0 | MCS3 · 576 · 1712 | MCS6 · 1297 · 765 | — |
+| 11be 80 × 4 | 312.5 kHz | −25.3 | −19.6 / −20.5 | MCS3 · 576 · 1708 | MCS6 · 1297 · 764 | MCS2 · 432 · 1268 / MCS5 · 1153 · 487 |
+| 11be 40 × 8 | 625 kHz | −25.7 | −19.7 / −20.5 | MCS3 · 551 · 1786 | MCS6 · 1239 · 798 | MCS2 · 413 / MCS5 · 1101 |
+| 11be 20 × 16 | 1.25 MHz | −26.4 | −19.9 / −20.8 | MCS3 · 551 · 1784 | MCS6 · 1239 · 797 | MCS2 · 413 / MCS5 · 1101 |
+| 11ac 20 × 16 | 5 MHz | −29.5 | −20.4 / −20.9 | MCS3 · 416 · 2335 | MCS4 · 624 · 1560 | MCS3 · 416 · 1301 / MCS4 · 624 · 870 |
+
+- **EVM 收益小**：相噪 ICI 随子载波间隔下降 4.5 dB，底板最多好 0.9 dB；瓶颈仍是 60 GHz PA（−21.1 dB），合规上限都是 MCS3。
+- **速率看基准 PHY 的子载波效率**：11be 80 × 4 与原生 11be 320 一样（980 × 4 = 3920 个数据音）；11be 40 / 20 基准少 4 %（3744 个）；11ac 20 基准少 28 %，解码器上限也只到 MCS4（11ac 的门限表），解码器口径的速率是原生的一半。
+- **pJ/bit**：硬件不变，11be 80 × 4 与原生只差 FFT 一项（小 FFT、4 倍符号率，1708 对 1712）。
+- **同样 320 MHz，A 比 B 高一档**（MCS3 对 MCS2）：A 的芯片 IQ 校准过，B 的同台表主列是未校准的 IQ（B 的 IQcal 列也是 MCS3）。每比特 A 仍贵（两个频综、芯片 PA、4 倍过采样的转换器）。
+
+**CFO 才是收益**（示例 11 §2；SNR 30 dB，每格 4 包）：前导跟着升频，芯片 L-STF 的范围变成 ±625 kHz × K。
+
+| 跑什么 | K | L-STF 范围 | MLO 开 / 关的链路 EVM | 关 MLO 时的估计残差 |
+|---|---|---|---|---|
+| 11be 320 原生 | 1 | ±0.625 MHz | −19.73 / **+4.77 dB（整包坏）** | 2500 kHz |
+| 11be 80 × 4 | 4 | ±2.5 MHz | −19.94 / −19.99 | 1.0 kHz |
+| 11be 40 × 8 | 8 | ±5 MHz | −20.07 / −20.09 | 4.3 kHz |
+| 11ac 20 × 16 | 16 | ±10 MHz | −20.05 / −20.19 | 51.0 kHz |
+
+K ≥ 4 时芯片自己接住 2.42 MHz，MLO 预补偿从必需变成可选（预设仍开）。K = 4 在 60.48 GHz 只有 3 % 余量（2.50 对 2.42 MHz），到 Liu 的 73.44 GHz（2.94 MHz）就要 K ≥ 8；捕获概率与多径下的表现没量（ROADMAP A1）。
+11ac 20 MHz 基准 × 4 / 8 在 80 / 160 MHz 信道上也成立（底板 −20.0 / −20.2 dB），但小信道上 A 每比特贵得多（6635 / 3834 pJ/bit）。
+
 ## 8. 与拓扑 B 同台（`comparison-table.md` §2）
 
 同样 320 MHz、同一颗 60 GHz PA、同一回退，解码器上限 A 是 MCS6、1297 Mb/s，B 是 MCS5、1153 Mb/s（示例 04 §4b）。
+（2026-11-15 起同台表多了 A × be_upclocked 的四行，见 §7b；下面的数都是原生 K = 1 的 A。）
 每比特：拓扑 A（11be 320 MHz，K = 1）765 pJ/bit，拓扑 B（80 MHz × 4）487 pJ/bit；芯片 PA 旁路后 A 是 538（§6b）。
 A 每比特贵 1.6 倍，多出来的是芯片 PA（作驱动级）和每端两个频综。A 的带宽止于芯片的 320 MHz；B 还能到 640 MHz（1729 Mb/s、474 pJ/bit）。
 A 换来的是芯片不用改，以及已校准的基带（芯片 IRR 55 dB；B 未校准时镜像项 −31 … −12 dB）。PA 隔离 EVM 现在是 −21.1 dB，B 在 80 MHz × 4 上的镜像项（−24.7 dB）与它同量级，

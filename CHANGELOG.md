@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### 拓扑 A × be_upclocked：只改数字基带的升频（2026-11-15）—— 已有的行与指纹不变
+- 用户定：拓扑 A 只改数字基带也可以升频。芯片的 DAC / ADC、模拟、6 GHz 射频与它的 14 步校准都是原生信道的那一套，数字跑基准 PHY、时钟 ×K；K × 基准带宽必须是芯片的信道（20 … 320 MHz，取 `ieee80211be.n_sd` 的键）。`assumed.ifext_upclock`。
+- 配置：`if_extender_60ghz(..., k=K)`；`Mmw60Config` 拒绝拓扑 A 的 `be` 配 K > 1 与越出芯片信道的 `be_upclocked`；`LinkSim` 去掉“拓扑 A 只能 K = 1”那一条。**行为变化**：拓扑 A 配 `be_upclocked` 现在能跑（之前一律拒绝）。
+- 同台表：A × be_upclocked 从 n/a 变成已建，11ac 20 MHz × 4 / 8 / 16 与 11be 80 MHz × 4 四行；超出芯片信道的 K 是 n/a 行（`compare.NOT_A_CHIP_CHANNEL`），ay 的 n/a 说明改写。
+- 示例 11（新）：同一 320 MHz 模拟信道上换基准 PHY 的表（附同带宽的拓扑 B）、关 MLO 的 CFO 表、同一颗芯片同一份校准的核对。
+- 结论：上限不动（PA 限，MCS3），底板最多好 0.9 dB；11be 80 MHz × 4 与原生 11be 320 一样快（576 / 1297 Mb/s）、1708 对 1712 pJ/bit；K ≥ 4 时芯片自己的 L-STF 接住 2.42 MHz，MLO 预补偿变成可选（原生不开 MLO 整包坏）。
+- 测试：`test_ifext.py` 三项（铁律 1 的信道约束、铁律 2 / 4 的同一颗芯片与校准、铁律 3 的 L-STF 捕获与 0 ppm 逐位相同），`test_laws.py` / `test_compare.py` 的矩阵与拒绝条件随之改写；示例 04 的已有行逐字不变。
+
 ### 里程碑 2：阵列层（2026-11-14）—— 预设一个单元，指纹不变
 - vendor array_tx @ `5815c5a7ea43143fd58502d4894ac840b5b5fb86`（包名 `arraytx`）整包 135 个 `.py`，原样（它的 `data/`、`webui/` 资源不搬）；`vendor_check --strict` 249 个全 verbatim；清单、vendor 测试、策略说明与 CI 的 vendor-drift 作业（公开仓库，不用 token）带上新 pin。
 - `frontend/array60.py`：`Array60`——arraytx 的几何与阵列因子，加上本库补的移相器量化（以第一个单元为参考、四舍五入）、逐单元静态误差、训练码本、EIRP 与接收阵列 SNR 增益；每个单元是共享前端的，两条拓扑同一个。一个单元（预设）即原单元件链路。

@@ -1,0 +1,41 @@
+engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
+mmw60 0.1.0; full size; topology A changes digital baseband only: the analog is the chip's native channel K x base bandwidth; chip channels 20, 40, 80, 160, 320 MHz (ieee80211be.n_sd)
+
+== 1. one analog channel, the subcarrier spacing set by the base PHY (flat channel; floor / TD in dB; caps: 802.11ad TX-EVM limit / the decoder) ==
+scheme               chan[M]   SCS[k]  pn ICI  floor     TD   cap   Mb/s   pJ/b   dec   Mb/s   pJ/b  dominant
+A 11be 320M              320     78.1   -25.0  -19.5  -20.0  MCS3    576   1712  MCS6   1297    765  pa
+A 11be 80M x4            320    312.5   -25.3  -19.6  -20.5  MCS3    576   1708  MCS6   1297    764  pa
+B 11be 80M x4            320    312.5   -25.4  -18.5  -18.9  MCS2    432   1268  MCS5   1153    487  pa
+A 11be 40M x8            320    625.0   -25.7  -19.7  -20.5  MCS3    551   1786  MCS6   1239    798  pa
+B 11be 40M x8            320    625.0   -25.8  -18.7  -19.1  MCS2    413   1324  MCS5   1101    508  pa
+A 11be 20M x16           320   1250.0   -26.4  -19.9  -20.8  MCS3    551   1784  MCS6   1239    797  pa
+B 11be 20M x16           320   1250.0   -26.6  -18.8  -19.1  MCS2    413   1322  MCS5   1101    507  pa
+A 11ac 20M x16           320   5000.0   -29.5  -20.4  -20.9  MCS3    416   2335  MCS4    624   1560  pa
+B 11ac 20M x16           320   5000.0   -29.8  -19.3  -19.1  MCS3    416   1301  MCS4    624    870  pa
+A 11ac 20M x8            160   2500.0   -27.9  -20.2  -20.7  MCS3    208   3834  MCS4    312   2559  pa
+B 11ac 20M x8            160   2500.0   -28.0  -19.9  -19.1  MCS3    208   1901  MCS4    312   1270  pa
+A 11ac 20M x4             80   1250.0   -26.6  -20.0  -20.4  MCS3    104   6635  MCS4    156   4426  pa
+B 11ac 20M x4             80   1250.0   -26.7  -19.7  -19.3  MCS3    104   2967  MCS4    156   1981  pa
+A = the chip's analog at its native channel, digital at K x; B = topology B's zero-IF chain at fs x K (uncalibrated IQ in its floor; its calibrated cap is the comparison table's IQcal column)
+
+== 2. CFO (iron rule 3): 40 ppm at 60.48 GHz = 2.42 MHz against the chip's own L-STF (+-625 kHz x K), with and without the multi-link pre-compensation (link EVM at SNR 30 dB, 4 packets) ==
+scheme                 K  L-STF range  CFO [sc]  caught w/o MLO  EVM MLO on  EVM MLO off  |CFO err| off
+A 11be 320M            1     0.625 MHz     30.97              NO      -19.73         4.77     2500.1 kHz
+A 11be 80M x4          4     2.500 MHz      7.74             yes      -19.94       -19.99        1.0 kHz
+A 11be 40M x8          8     5.000 MHz      3.87             yes      -20.07       -20.09        4.3 kHz
+A 11be 20M x16        16    10.000 MHz      1.94             yes      -20.12       -20.04       10.3 kHz
+A 11ac 20M x16        16    10.000 MHz      0.48             yes      -20.05       -20.19       51.0 kHz
+A 11ac 20M x8          8     5.000 MHz      0.97             yes      -19.80       -19.91       27.9 kHz
+A 11ac 20M x4          4     2.500 MHz      1.94             yes      -19.44       -19.70       11.8 kHz
+MLO on: the sub-7 estimate x f_c / f_sub7 is taken out first (the preset); MLO off: the raw offset reaches the chip's L-STF / L-LTF.  K = 4 at 60.48 GHz leaves 3 % of range (2.50 against 2.42 MHz); at Liu's 73.44 GHz (2.94 MHz) it would need K >= 8
+
+== 3. the hardware is the native channel's (iron rules 2 and 4): one calibrated chip per channel ==
+A 11be 320M          channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB
+A 11be 80M x4        channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB; chip output and calibration identical to the first row on this channel
+A 11be 40M x8        channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB; chip output and calibration identical to the first row on this channel
+A 11be 20M x16       channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB; chip output and calibration identical to the first row on this channel
+A 11ac 20M x16       channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB; chip output and calibration identical to the first row on this channel
+A 11ac 20M x8        channel   160 MHz at    640 MS/s; 14 calibration steps, 14 passed, final loopback EVM -41.5 dB
+A 11ac 20M x4        channel    80 MHz at    320 MS/s; 14 calibration steps, 14 passed, final loopback EVM -43.5 dB
+
+[~s]

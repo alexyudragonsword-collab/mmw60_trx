@@ -35,11 +35,20 @@ PN_SIDES = ("off", "tx", "rx", "both")
 #: placeholder until pll_simulator's multiplier model (ROADMAP D2)
 PN_MODELS = ("pole_zero", "wifitrx_wifi7", "profile", "off")
 CHANNELS = ("flat", "tdl_exp", "tap_table")
-#: if_extender_chain = topology A: the chip's chains at K = 1 with the 60 GHz
+#: if_extender_chain = topology A: the chip's chains (its analog at a native channel width; waveform
+#: be_upclocked runs the base PHY's digital at K x on that channel) with the 60 GHz
 #: stage after / before them (``mmw60.ifext``)
 FRONTEND_MODELS = ("behavioural", "zero_if_chain", "if_extender_chain")
 #: LO scheme -> the multiplication from the PLL to the LO (zero_if: the LO is the carrier)
 LO_SCHEMES = {"zero_if": 1, "fixed_lo_x3": 3, "fixed_lo_x4": 4, "fixed_lo_x9": 9}
+
+
+def ifext_chip_channels_hz() -> tuple[float, ...]:
+    """The channel widths topology A's WiFi 7 chip has (the 802.11be ones, the
+    keys of ``ieee80211be.n_sd``): its analog and RF are built for these and
+    nothing wider.  Topology A upclocks only the digital baseband, so
+    K × base bandwidth has to be one of them (data/spec: assumed.ifext_upclock)."""
+    return tuple(sorted(float(b) for b in spec.value("ieee80211be.n_sd")))
 #: topology A's chip: wifitrx = wifitrx's own transceiver, randomised and run
 #: through its calibration sequence (the WiFi 7 chip as delivered); frontend =
 #: the shared ``Frontend60``'s chain at 1× with its PA bypassed (the K = 1 row
@@ -362,6 +371,16 @@ class Mmw60Config:
             raise ValueError(f"frontend.model must be one of {FRONTEND_MODELS}")
         if self.lo.scheme not in LO_SCHEMES:
             raise ValueError(f"lo.scheme must be one of {tuple(LO_SCHEMES)}")
+        if self.topology == "if_extender" and self.waveform == "be" and int(self.upclock_k) != 1:
+            raise ValueError("topology A's waveform 'be' is the chip's own at K = 1; the upclocking with only "
+                             "the digital baseband changed is waveform 'be_upclocked'")
+        if self.topology == "if_extender" and self.waveform == "be_upclocked":
+            bw_eff = float(self.phy.bandwidth_hz) * int(self.upclock_k)
+            chans = ifext_chip_channels_hz()
+            if bw_eff not in chans:
+                raise ValueError(f"topology A upclocks only the digital baseband: K x base bandwidth = "
+                                 f"{bw_eff / 1e6:g} MHz must be one of the chip's channels "
+                                 f"{', '.join(f'{c / 1e6:g}' for c in chans)} MHz (assumed.ifext_upclock)")
         if self.ifext.chip not in IFEXT_CHIPS:
             raise ValueError(f"ifext.chip must be one of {IFEXT_CHIPS}")
         if self.ifext.dpd_observation not in DPD_OBSERVATIONS:
@@ -690,9 +709,13 @@ def wifi7_chain_k1(mcs: int = 0, standard: str = "11ac", bandwidth_hz: float = 2
 
 
 def if_extender_60ghz(mcs: int = 0, standard: str = "11be", bandwidth_hz: float = 80e6,
-                      carrier_hz: float = 60.48e9, **top) -> Mmw60Config:
+                      carrier_hz: float = 60.48e9, k: int = 1, **top) -> Mmw60Config:
     """Topology A: the WiFi 7 chip at K = 1 on a 6 GHz-band IF, then the 60 GHz
-    stage.  Crystal, LO phase-noise numbers, the 60 GHz PA and its back-off,
+    stage.  ``k`` > 1 is the same hardware with only the digital baseband
+    upclocked (waveform ``be_upclocked``; data/spec: assumed.ifext_upclock):
+    the chip's analog and its calibration are those of its native channel
+    K × ``bandwidth_hz``, which must be one it has (≤ 320 MHz); the base PHY
+    runs on that channel at K × its clock.  Crystal, LO phase-noise numbers, the 60 GHz PA and its back-off,
     EIRP limit, channel and receiver are topology B's (``zero_if_60ghz``) — the
     shared ``Frontend60`` (iron rule 2).  The baseband converters / IQ / LO
     leakage / RX DC are the chip's own (wifitrx's, calibrated by its sequence),
@@ -706,7 +729,7 @@ def if_extender_60ghz(mcs: int = 0, standard: str = "11be", bandwidth_hz: float 
     flt = s("assumed.ifext_filter")
     mlo = s("assumed.mlo_sub7")
     cfg = dataclasses.replace(
-        b, topology="if_extender", waveform="be", frontend=fe,
+        b, topology="if_extender", waveform="be" if int(k) == 1 else "be_upclocked", upclock_k=int(k), frontend=fe,
         phy=dataclasses.replace(b.phy, oversampling=int(s("assumed.ifext_chip_oversampling"))),
         lo=dataclasses.replace(b.lo, scheme=str(s("assumed.ifext_lo_scheme")), if_hz=float(s("assumed.ifext_if_hz"))),
         ifext=IfExtConfig(chip="wifitrx", chip_seed=int(s("assumed.ifext_chip_seed")),
@@ -715,7 +738,7 @@ def if_extender_60ghz(mcs: int = 0, standard: str = "11be", bandwidth_hz: float 
                           filter_ripple_db=float(flt["ripple_db"]), filter_center_hz=float(flt["center_hz"]),
                           image_rejection_db=float(s("assumed.ifext_image_rejection_db")),
                           mlo_sub7_hz=float(mlo["carrier_hz"]), mlo_sub7_snr_db=float(mlo["snr_db"])),
-        label=f"IF extender 60 GHz {standard} {bandwidth_hz / 1e6:g} MHz MCS{mcs}")
+        label=f"IF extender 60 GHz {standard} {bandwidth_hz / 1e6:g} MHz{f' x{int(k)}' if int(k) > 1 else ''} MCS{mcs}")
     return dataclasses.replace(cfg, **top) if top else cfg
 
 
