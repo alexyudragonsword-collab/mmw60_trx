@@ -68,7 +68,7 @@ python examples/08_frontend_faces.py                      # 全量约 15 秒；-
 python examples/09_pa_against_the_literature.py           # 全量约 2 分钟；--quick 冒烟
 ```
 
-结论见 `cairn/comparison-table.md` §8：换 PA 让同台表里 K ≤ 4 与拓扑 A 的行升一到两档 MCS，K ≥ 8 的行不动（受 IQ 镜像限）。回退从 8 dB 改成 7.5 dB 后 PA 项从 −22.1 变成 −21.1 dB：合规上限下 11be 80 MHz × 4 从 MCS3 降到 MCS2，解码器上限下 K = 1 @6 GHz 从 MCS6 降到 MCS5，其余行的上限不动；校准后的列只有 2.56 GHz 一行降一档（合规 MCS3 → 2、解码器 MCS6 → 5）。7.5 dB 正好在 wifitrx DPD 的崖口：K = 8 上 DPD 拿回 0.0 dB，8 dB 上拿回 2.0 dB（ROADMAP C8、C10）。
+结论见 `cairn/comparison-table.md` §8：换 PA 让同台表里 K ≤ 4 与拓扑 A 的行升一档 MCS（2026-11-15 门限加逼近之前拓扑 A 升两档），K ≥ 8 的行不动（受 IQ 镜像限）。回退从 8 dB 改成 7.5 dB 后 PA 项从 −22.1 变成 −21.1 dB：合规上限下 11be 80 MHz × 4 从 MCS3 降到 MCS2，解码器上限下 K = 1 @6 GHz 从 MCS6 降到 MCS5，其余行的上限不动；校准后的列只有 2.56 GHz 一行降一档（合规 MCS3 → 2、解码器 MCS6 → 5）。7.5 dB 正好在 wifitrx DPD 的崖口：K = 8 上 DPD 拿回 0.0 dB，8 dB 上拿回 2.0 dB（ROADMAP C8、C10）。
 
 ## 里程碑 1 · A1：拓扑 A，IF 延伸（示例 06）
 
@@ -104,7 +104,7 @@ python tools/budget_report.py --base 11be:80e6 --k 4,8,16,32 --sensitivity -o ta
 
 网格和同台表里的“MCS 上限”有两个口径并排：**合规口径**（EVM 底板比规范的 TX EVM 要求低 3 dB——发射机过不过认证）和**解码器口径**
 （底板当一层噪声，对着本库接收机实测的 ideal 门限 `data/spec/per_thresholds.yaml`——链路带不带得动）。后者高 1–3 档，示例 05 逐格用 PER 复核。未校准的解码器上限从解析底板与该格时域 EVM 中较差的一个起算。
-改了接收机要重量门限：`python tools/measure_thresholds.py --jobs 4`（约 16 分钟），`--check` 只比对不写。
+改了接收机要重量门限：`python tools/measure_thresholds.py --jobs 4 --cache DIR`（4 核约 2.3 小时；夹住 1e-2 的两点续跑到 60 个错包，每个门限的 95 % 区间写进文件的 `ci_db`；`--cache` 让被停掉的一次接着跑），`--check` 只比对不写。
 
 ## 接收机两档与 PER 的置信区间（C1–C3）
 

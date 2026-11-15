@@ -135,3 +135,12 @@ def per_threshold_db(standard: str, bandwidth_hz: float, mcs: int) -> float | No
     never reaches the target."""
     table = per_threshold_document()["thresholds_db"]
     return table.get(standard, {}).get(float(bandwidth_hz), {}).get(int(mcs))
+
+
+def per_threshold_ci_db(standard: str, bandwidth_hz: float, mcs: int) -> tuple[float, float] | None:
+    """95 % bootstrap interval of ``per_threshold_db`` from the packet
+    counts of the two bracketing points (``ci_db`` of the file); None
+    where the threshold is None or the interval is open on one side."""
+    ci = per_threshold_document().get("ci_db", {})
+    v = ci.get(standard, {}).get(float(bandwidth_hz), {}).get(int(mcs))
+    return None if v is None else (float(v[0]), float(v[1]))

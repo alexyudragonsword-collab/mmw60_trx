@@ -44,6 +44,8 @@ from mmw60.sim.link import LinkSim, evm_at                                     #
 
 OUT = HERE / "output"
 TARGET = 1e-2
+#: the decoder-cap check's bracketing points run on as tools/measure_thresholds.py's do
+REFINE_ERRORS, REFINE_MAX_PACKETS = 60, 3000
 BASE_BW = 80e6
 KS = (4, 8)
 CAP_KS = (4, 8, 16, 32)
@@ -152,6 +154,9 @@ def main(argv=None) -> int:
     print("K   BW[MHz]  floor   cap    T[dB]  SNR needed (predicted)  measured @ PER 1e-2   one MCS above: predicted  measured")
     cap_specs, cap_rows = [], []
     mp, me = (6, 2) if quick else (150, 10)
+    # the two points bracketing PER 1e-2 run on as the threshold table's do (ROADMAP C6), so both
+    # sides of "predicted / measured" rest on tens of errors instead of a handful
+    rf = {} if quick else {"refine_errors": REFINE_ERRORS, "refine_max_packets": REFINE_MAX_PACKETS}
     for k in ((8,) if quick else CAP_KS):
         cfg = dc.replace(zero_if_60ghz(k=k, standard="11be", bandwidth_hz=BASE_BW), channel=FLAT)
         td = evm_at(cfg, None, n_packets=1, frontend=fe)["evm_db"]
@@ -167,9 +172,10 @@ def main(argv=None) -> int:
         for mcs, centre in ((d["mcs"], d["required_snr_db"]), (above, pred_above if pred_above is not None else t_above + 6)):
             grid = [round(centre - 2 + i, 2) for i in range(0, 7 if not quick else 2, 1 if not quick else 3)]
             cap_specs.append(CurveSpec(f"cap check x{k:<2} MCS{mcs}", dc.replace(cfg, phy=dc.replace(cfg.phy, mcs=mcs)),
-                                       grid, mp, me, tags={"k": k, "mcs": mcs, "set": "cap"}))
+                                       grid, mp, me, tags={"k": k, "mcs": mcs, "set": "cap"}, **rf))
     cap_res = run_curves(cap_specs, TARGET, a.jobs, log=lambda s: None)
     got = {(r["tags"]["k"], r["tags"]["mcs"]): r["snr_at_target"] for r in cap_res}
+    ci = {(r["tags"]["k"], r["tags"]["mcs"]): r.get("ci") or {} for r in cap_res}
     fmt = lambda v: "never" if v is None else f"{v:.2f}"  # noqa: E731
     for k, floor, d, above, t_above, pred_above in cap_rows:
         bw = BASE_BW * k / 1e6
@@ -181,6 +187,15 @@ def main(argv=None) -> int:
     print("floor = the worse of the analytic floor and the time-domain EVM of the cell (frontend/grid.py::decoder_floor_db); "
           "'never' above the cap means the floor is over that MCS's ideal threshold or the sweep's 4 dB over the prediction "
           "was not enough.")
+    if rf:
+        print(f"measured: 1 dB grid round the prediction, the two points bracketing PER 1e-2 run on to {REFINE_ERRORS} errors "
+              f"or {REFINE_MAX_PACKETS} packets; 95 % bootstrap interval of each measured crossing "
+              "(the threshold's own interval is spec.per_threshold_ci_db):")
+        for (k, mcs), c in sorted(ci.items()):
+            t_ci = spec.per_threshold_ci_db("11be", BASE_BW, mcs)
+            iv = "—" if c.get("lo_db") is None else f"[{c['lo_db']:.2f}, {c['hi_db']:.2f}]"
+            print(f"  x{k:<2} MCS{mcs:<2} measured {fmt(got.get((k, mcs))):>6} {iv:<16} threshold "
+                  f"{fmt(spec.per_threshold_db('11be', BASE_BW, mcs))} {'—' if t_ci is None else f'[{t_ci[0]:.2f}, {t_ci[1]:.2f}]'}")
     results = results + cap_res
     OUT.mkdir(exist_ok=True)
     save_results(results, OUT / "05_sweeps.json")
