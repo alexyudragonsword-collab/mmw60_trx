@@ -125,7 +125,7 @@ def main(argv=None) -> int:
           "the IF filter (equalised: 0 dB here) and the image band's noise (a noise-figure term, example 06); only in the "
           "zero-IF rows: the uncalibrated baseband IQ image, the converters at ENOB(fs_eff), LO leakage and RX DC")
     print("\n== 4. power blocks per bit at the cap [pJ/bit] (Halo example 41's method: public-figure coefficients, read ratios) ==")
-    print(f"{'scheme':<44} {'Mb/s':>6} {'pa':>6} {'lo':>6} {'conv':>6} {'dpd':>6} {'fft':>6} {'dec':>6} {'total':>7}  not counted")
+    print(f"{'scheme':<44} {'Mb/s':>6} {'pa':>6} {'lo':>6} {'conv':>6} {'c.dpd':>6} {'fft':>6} {'dec':>6} {'total':>7}  not counted")
     for r in rep["rows"]:
         p = r["power"]
         if not p:
@@ -134,11 +134,13 @@ def main(argv=None) -> int:
         bl = p["blocks"]
         g = lambda n: f"{bl[n]['pj_per_bit']:6.0f}" if n in bl else "     —"  # noqa: E731
         chip = f"; total includes the chip's PA as the driver, {bl['chip_pa']['pj_per_bit']:.0f}" if "chip_pa" in bl else ""
-        print(f"{r['label']:<44} {p['bit_rate_bps'] / 1e6:6.0f} {g('pa')} {g('lo')} {g('converters')} {g('dpd')} "
+        print(f"{r['label']:<44} {p['bit_rate_bps'] / 1e6:6.0f} {g('pa')} {g('lo')} {g('converters')} {g('chip_dpd')} "
               f"{g('fft')} {g('decoder')} {p['pj_per_bit']:7.0f}  {'; '.join(p['omitted']) or '—'}{chip}")
     c = rep["coefficients"]
     print(f"coefficients: Walden {c['walden_fom_fj']:.0f} fJ/step; Horowitz {c['mult32_pj']:g} / {c['add32_pj']:g} pJ at 45 nm "
           f"(node scale {c['node_scale']:g}); {c['word_bits']} bit; synthesizers {c['pll60_mw']:g} / {c['pll_sub7_mw']:g} mW")
+    print("c.dpd = the chip's own DPD (topology A: its calibration runs it and the floor's chip residual is read after it); "
+          "no row pays for a DPD on the 60 GHz PA, whose floor term is the PA without predistortion (ROADMAP C8)")
 
     print("\n== 4b. the decoder's cap: the EVM floor as one more noise term against the measured ideal PER thresholds "
           "(data/spec/per_thresholds.yaml); reachable while -floor >= threshold + margin ==")

@@ -27,21 +27,21 @@
 
 - name: ex04 the best row at the conformance cap (11be 80 MHz x 8 since the measured PA; since the 7.5 dB back-off 11ac 20 MHz x 32 second, x 4 third)
   values:
-    rate: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=8 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
-    pj: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
-    rate32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
-    pj32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
-    rate4: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
-    pj4: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
+    rate: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=8 @60.48 GHz {} {*} {*} {*} — {*} {*} {*}"}
+    pj: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} {*} {*} {*} — {*} {*} {}"}
+    rate32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {} {*} {*} {*} — {*} {*} {*}"}
+    pj32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {*} {*} {*} {*} — {*} {*} {}"}
+    rate4: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} — {*} {*} {*}"}
+    pj4: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} — {*} {*} {}"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 8（640 MHz）以 {rate} Mb/s、{pj} pJ/bit 居首；第二是 11ac 20 MHz × 32（{rate32} Mb/s、{pj32} pJ/bit）"}
     - {doc: cairn/comparison-table.md, text: "合规口径降到 MCS2，{rate4} Mb/s、{pj4} pJ/bit"}
 
 - name: ex04 20 MHz base, K = 16 vs K = 32 pJ/bit at the conformance cap (K = 32 is cheaper since the measured PA)
   values:
-    k16: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=16 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
-    k32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
-    k1: {example: "04", after: "== 4. power blocks per bit", line: "be 11ac 20M K=1 @6 GHz (WiFi 7 chain) {*} {*} {*} {*} {*} {*} {*} {}"}
+    k16: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=16 @60.48 GHz {*} {*} {*} {*} — {*} {*} {}"}
+    k32: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=32 @60.48 GHz {*} {*} {*} {*} — {*} {*} {}"}
+    k1: {example: "04", after: "== 4. power blocks per bit", line: "be 11ac 20M K=1 @6 GHz (WiFi 7 chain) {*} {*} {*} {*} — {*} {*} {}"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "K = 16 的 {k16} pJ/bit 到 K = 32 降到 {k32}"}
     - {doc: cairn/comparison-table.md, text: "是 {k1} pJ/bit，是 K = 16 的 {k1 / k16} 倍"}
@@ -58,8 +58,8 @@
   values:
     rate_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} MCS{*} {} {*}"}
     pj_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} MCS{*} {*} {}"}
-    pj_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} {*} {*} {*} {}"}
-    rate_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} {*} {*} {*} {*}"}
+    pj_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} — {*} {*} {}"}
+    rate_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} — {*} {*} {*}"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 4 从 {rate_conf} Mb/s / {pj_conf} 到 {rate_dec} Mb/s / {pj_dec}"}
 
@@ -192,7 +192,8 @@
     pj8_s: {example: "09", after: "be_upclocked 11be 80M K=8 @60.48 GHz 11ad EM", line: "presets {*} {*} {*} {} {*} iq_image"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "K = 4 从 {pj_p} 降到 {pj_s}，和 K = 8 的差从 {pj_p - pj8_p} 缩到 {pj_s - pj8_s} pJ/bit"}
-    - {doc: cairn/LOG.md, text: "K = 4 4 → 5、{r_p} → 1153、{pj_p} → 483"}
+    # the LOG entry of 2026-11-12 quoted 628 → 483 with the DPD of the 60 GHz PA still counted; LOG is history,
+    # so it is no longer checked against today's output (2026-11-15, ROADMAP C8: that DPD is not counted)
 
 - name: ex09 what wifitrx's DPD step buys at 8 dB of back-off on each PA (K = 8)
   values:
