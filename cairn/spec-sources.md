@@ -128,7 +128,7 @@ A3 的 pJ/bit 列另有一组只进功率列、不碰 EVM 的 assumed：PA 的 B
 
 ## 要原文才能关掉的问题
 
-1. Liu 2025 的 Rapp 参数与 OBO 定义：刊出版（2026-11-15 读）也没给数，只引 [15] IEEE 802.15-06-0477-01-003c（Choi 等，802.15.3c 的 60 GHz 射频损伤模型）。要关掉得读 [15]。
+1. Liu 2025 的 Rapp 参数与 OBO 定义：刊出版（2026-11-15 读）也没给数，只引 [15] IEEE 802.15-06-0477-01-003c（Choi 等，802.15.3c 的 60 GHz 射频损伤模型）。**[15] 2026-11-15 已读**（公开，`mentor.ieee.org/802.15/dcn/06/15-06-0477-01-003c-rf-impairment-models-60ghz-band-sysphy-simulation.pdf`）：修正 Rapp 只给公式、没给数（slide 13：“Without fixing parameters in proposed model, we cannot match these models to actual 60GHz component measurement results”）；回退是相对 Psat 的输出回退（slide 15 转引 802.11n IM1 “PA Backoff = -10 log10(Average TX Power/Psat)”），与本库字面读法一致；相噪一极一零，建议值 PSD(0) = −87 dBc/Hz、1 MHz / 100 MHz（slide 9），Liu 的 −93 是 slide 10 四档示例之一。它引的 PA 文件 15-06-0396-01-003c（slide 10）给的是 NEC GaAs pHEMT 60 GHz PA 的 Ghorbani 拟合：x1 = 10、x2 = 0.71、x3 = 4.66、x4 = 0，y1 = −5.4×10⁴、y2 = 4、y3 = 2980、y4 = 0.11，与 TGad EM 的 g = 4.65、α = 2560、β = 0.114 量级很近，像是同一颗 PA 的拟合（未核实）。所以 Liu 的 PA 参数仍是未知，但“与本库不是一个量级”的可能性变小。这些数已请 spec_sources 收（spec_sources#26）。
 2. 11ad CR 信道的 tap 表（Maltsev 11-09/0334；拿到后 `TapTableChannel` 直接接，`cairn/Reference/` 放原文）。
 3. ~~IEEE 802.11-09/0296r16 原文：把 `tgad_em.*` 从 survey 改成 spec。~~ 已由 spec_sources 0.3.0 关掉（2026-11-13，mmw60_trx#25）。
 4. 前端三个面还剩三条 survey（上面“前端的三个面”一条）：ISCAS 2015 与 Okada 2013 要 IEEE Xplore 的访问权或 PDF；802.11ad 灵敏度表的前提与最大输入电平要标准条文。另外两处读了原文仍没有答案：Asada 2011 的 IIP3 对应哪一档增益；TU/e 2018 正文里不加隔离结构时的隔离度到底给没给（只读了摘要）；通信接收前端的带外压缩点（基带高通之前）没有任何出处。
