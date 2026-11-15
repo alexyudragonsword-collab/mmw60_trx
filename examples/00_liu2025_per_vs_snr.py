@@ -19,7 +19,7 @@ A sixth set, "ideal+CFO", is the paper's own "ideal": phase noise and PA
 off, the 40 ppm CFO and the estimators kept (its 4x is PER = 1 too), so
 that set is compared at every K (ROADMAP C12).
 
-    python examples/00_liu2025_per_vs_snr.py [--quick] [--jobs N]
+    python examples/00_liu2025_per_vs_snr.py [--quick] [--jobs N] [--cache DIR]
 
 Writes examples/output/00_per_vs_snr.png and 00_sweeps.json (what
 tools/external_check.py compares with the read-offs of the published Fig. 3, arXiv v1's Fig. 4).
@@ -149,6 +149,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--jobs", type=int, default=max(1, min(4, os.cpu_count() or 1)))
+    ap.add_argument("--cache", type=Path, default=None,
+                    help="keep each finished curve in this directory and reuse it, so a run "
+                         "stopped part-way resumes (the output is the same as one uninterrupted run)")
     a = ap.parse_args(argv)
     quick = a.quick or os.environ.get("MMW60_SMOKE") == "1"
     t0 = time.time()
@@ -180,7 +183,8 @@ def main(argv=None) -> int:
     if not quick:
         print(f"the two points bracketing PER 1e-2 are run on to {REFINE_ERRORS} errors or {REFINE_MAX_PACKETS} packets; "
               "the bracketed interval is the 95 % bootstrap interval of the crossing from the counts")
-    results = run_curves(specs(quick), TARGET, a.jobs, log=lambda s: print(s, flush=True))
+    results = run_curves(specs(quick), TARGET, a.jobs, log=lambda s: print(s, flush=True),
+                         cache_dir=a.cache)
     print("\ncurve                              SNR @ PER 1e-2      SNR:PER points")
     for r in results:
         print(sweep_line(r))
@@ -207,7 +211,7 @@ def main(argv=None) -> int:
             print(row.rstrip())
 
     print("\n== sensitivity (one assumed input at a time, K=8 MCS4) ==")
-    sens = run_curves(sensitivity_specs(quick), TARGET, a.jobs, log=lambda s: None)
+    sens = run_curves(sensitivity_specs(quick), TARGET, a.jobs, log=lambda s: None, cache_dir=a.cache)
     for r in sens:
         print(sweep_line(r))
 
