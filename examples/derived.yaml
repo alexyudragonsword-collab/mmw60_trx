@@ -203,3 +203,21 @@
     s1: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {*} {} {*} {*}"}
   quotes:
     - {doc: ROADMAP.md, text: "拿回 {p0 - p1} dB（{p0} → {p1}），对测量形状（现在的预设）拿回 {s0 - s1} dB（{s0} → {s1}）"}
+
+- name: ex11 CFO lost beyond the L-STF range at K = 4 without the multi-link estimate, topology A and topology B (11ac 20 MHz base, 400 packets per cell)
+  values:
+    af0: {example: "11", after: "== 2b.", line: "A 11ac 20M x4 {*} flat 2.42 MHz {*} kHz 0 {}/400"}
+    af3: {example: "11", after: "== 2b.", line: "A 11ac 20M x4 {*} flat 2.42 MHz {*} kHz 3 {}/400"}
+    af10: {example: "11", after: "== 2b.", line: "A 11ac 20M x4 {*} flat 2.42 MHz {*} kHz 10 {}/400"}
+    ac0: {example: "11", after: "== 2b.", line: "A 11ac 20M x4 {*} CR stand-in 2.42 MHz {*} kHz 0 {}/400"}
+    ac3: {example: "11", after: "== 2b.", line: "A 11ac 20M x4 {*} CR stand-in 2.42 MHz {*} kHz 3 {}/400"}
+    ac10: {example: "11", after: "== 2b.", line: "A 11ac 20M x4 {*} CR stand-in 2.42 MHz {*} kHz 10 {}/400"}
+    bf0: {example: "11", after: "== 2b.", line: "B 11ac 20M x4 {*} flat 2.42 MHz {*} kHz 0 {}/400"}
+    bf3: {example: "11", after: "== 2b.", line: "B 11ac 20M x4 {*} flat 2.42 MHz {*} kHz 3 {}/400"}
+    bf10: {example: "11", after: "== 2b.", line: "B 11ac 20M x4 {*} flat 2.42 MHz {*} kHz 10 {}/400"}
+    bc0: {example: "11", after: "== 2b.", line: "B 11ac 20M x4 {*} CR stand-in 2.42 MHz {*} kHz 0 {}/400"}
+    bc3: {example: "11", after: "== 2b.", line: "B 11ac 20M x4 {*} CR stand-in 2.42 MHz {*} kHz 3 {}/400"}
+    bc10: {example: "11", after: "== 2b.", line: "B 11ac 20M x4 {*} CR stand-in 2.42 MHz {*} kHz 10 {}/400"}
+  quotes:
+    - {doc: cairn/topology-a.md, text: "| 11ac 20 × 4 | 4 | 81 kHz | {af0} / {af3} / {af10} | {ac0} / {ac3} / {ac10} |"}
+    - {doc: cairn/topology-a.md, text: "| B 11ac 20 × 4 | 4 | {bf0} / {bf3} / {bf10} | {bc0} / {bc3} / {bc10} |"}
