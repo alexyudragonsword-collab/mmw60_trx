@@ -11,8 +11,10 @@ array for both topologies (iron rule 2).  What the tables answer:
    more linear: per-element output, back-off, PA EVM, floor, decoder cap;
 3. the data link: the largest path loss each MCS takes (EIRP + receive
    gain - the topology's own sensitivity at that MCS's required SNR), and
-   the free-space distance it means (no oxygen absorption: illustrative
-   beyond a few tens of metres);
+   the distance it means over line of sight: free space plus the oxygen
+   absorption, an estimate (data/spec: assumed.oxygen_absorption; 3b: the
+   distance at other absorptions — the path loss is the answer, the
+   distance follows the estimate);
 4. the beam training, MLO-triggered (data/spec: assumed.array_training):
    the per-tone SNR a sector sweep needs, the path loss the transmit sweep
    (far end on one element) and the receive sweep take against the data
@@ -82,7 +84,8 @@ def main(argv=None) -> int:
           f"element {fe.antenna_gain_tx_dbi:g} dBi; EIRP limit {fe.eirp.avg_dbm:g} dBm avg (FCC 15.255)")
     print(f"arrays: n x 1 at both ends, {geo['spacing_lambda']:g} lambda, element factor {geo['element_pattern']}, "
           f"{spec.value('assumed.array_phase_bits')}-bit phase shifters, element errors "
-          f"{spec.value('assumed.array_element_errors')}; free space at the carrier, line of sight")
+          f"{spec.value('assumed.array_element_errors')}; line of sight at the carrier, free space plus "
+          f"{al.oxygen_db_per_km():g} dB/km oxygen absorption (an estimate)")
 
     # ---------------------------------------------------------------- 1. faces
     base = schemes()[0][1]
@@ -124,8 +127,23 @@ def main(argv=None) -> int:
     print(f"Pe / OBO: the per-element output and its back-off from Psat (the front end's {fe.obo_db:g} dB unless the "
           f"EIRP limit asks for more); PL = EIRP + G_rx - sensitivity at the MCS's required SNR over the floor; "
           f"d = the "
-          f"free-space distance of that path loss at {base.carrier_hz / 1e9:g} GHz (no oxygen absorption, ~15 dB/km: "
-          "illustrative beyond a few tens of metres)")
+          f"distance of that path loss at {base.carrier_hz / 1e9:g} GHz: free space plus {al.oxygen_db_per_km():g} "
+          "dB/km oxygen (an estimate; 3b)")
+
+    # ---------------------------------------------------------------- 3b. the oxygen estimate
+    alphas = (0.0, 10.0, al.oxygen_db_per_km(), 20.0)
+    print("\n== 3b. sensitivity: the MCS0 distance (m) at other oxygen absorptions (the path loss does not move) ==")
+    print(f"{'scheme':<26} {'N':>3} {'PL MCS0':>8} " + " ".join(f"{f'{a:g} dB/km':>10}" for a in alphas))
+    for lab, _ in schemes():
+        for n in sizes:
+            c, ar, b = budgets[(lab, n)]
+            if 0 not in b.sens_by_mcs:
+                continue
+            pl0 = b.eirp_dbm + b.g_rx_db - b.sens_by_mcs[0]
+            print(f"{lab:<26} {n:>3} {pl0:8.1f} "
+                  + " ".join(f"{al.range_m(pl0, c.carrier_hz, a):10.0f}" for a in alphas))
+    print(f"0 dB/km = free space alone; {al.oxygen_db_per_km():g} dB/km is the preset (the round figure for the "
+          "absorption peak near 60 GHz at sea level, no original consulted: ROADMAP B)")
 
     # ---------------------------------------------------------------- 4. training
     print(f"\n== 4. beam training, MLO-triggered: training field {tr['field']}, estimator {tr['estimator']}, "

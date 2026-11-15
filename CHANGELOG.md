@@ -10,6 +10,7 @@
 - `arraylink.py`：EIRP 上限下的逐单元工作点（PA 随之回退、更线性）、该点的底板与解码器上限、各 MCS 的最大路径损耗（拓扑自己的灵敏度）、MLO 触发的扇区扫描训练所需 SNR（非中心卡方闭式，测试对照逐音蛮力）、TX / RX 扫的预算与扫描时长。
 - 配置：`ArrayConfig` 取代占位（`tx_nx/tx_ny/rx_nx/rx_ny`、间距、单元因子、移相器位数、导向、误差、码本）；`config.array_frontend()` 读新的 `assumed.array_*` 五条。两个 `configs/*.yaml` 的 `array:` 块随之改写。
 - 示例 10（新）、`cairn/array-layer.md`（新）；`tests/test_array60.py` 7 项。
+- 距离：路径损耗换算成视距距离时计入氧吸收 `assumed.oxygen_absorption`（15 dB/km 的估算，没有原文，ROADMAP B）；示例 10 §3b 有 0 / 10 / 20 dB/km 的灵敏度行。路径损耗本身不含它。
 - 结论：N = 64 时 EIRP 上限把每单元压到 3.9 dBm（回退 10.7 dB），PA 单独 EVM −21.1 → −27.8 dB，三个方案的解码器上限各升一到两档；训练的瓶颈是对端单个单元接收的 TX 扫，N ≥ 16 时到不了 MCS0 的边（11be 80 MHz 基准差 2.7 / 8.9 dB，N = 16 / 64），上限 MCS 的范围内都够；2.56 GHz × N = 64 的移相器斜视平均 0.98 dB、最差音 3.36 dB。
 - **验收**：指纹逐位不变；已有示例逐字不变。
 

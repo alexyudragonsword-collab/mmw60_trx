@@ -1,6 +1,6 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
 mmw60 0.1.0; full size; one Frontend60 at every element: PA Pout 7.1 dBm (back-off 7.5 dB from Psat), receive NF 3.5 dB, element 0 dBi; EIRP limit 40 dBm avg (FCC 15.255)
-arrays: n x 1 at both ends, 0.5 lambda, element factor cos, 3-bit phase shifters, element errors {'gain_db_rms': 0.5, 'phase_deg_rms': 5.0}; free space at the carrier, line of sight
+arrays: n x 1 at both ends, 0.5 lambda, element factor cos, 3-bit phase shifters, element errors {'gain_db_rms': 0.5, 'phase_deg_rms': 5.0}; line of sight at the carrier, free space plus 15 dB/km oxygen absorption (an estimate)
 
 == 1. the array's faces (beam at broadside unless stated; dB) ==
   N  TX gain  RX gain  scan 45  BW3dB  sectors  phase loss  +errors
@@ -12,19 +12,35 @@ TX gain = EIRP over one element's output (20 log10 N + element); RX gain = SNR g
 
 == 2. the EIRP limit and the per-element operating point; 3. the data link (largest path loss, dB) ==
 scheme                       N     Pe    OBO  PA EVM   EIRP   G_rx  floor   cap  PL MCS0  PL cap  d MCS0 [m]  d cap [m]
-B 11be 80M x4 (320 MHz)      1    7.1   7.50   -21.1    7.1    0.0  -18.5  MCS5     93.6    75.0          19          2
-B 11be 80M x4 (320 MHz)      4    7.1   7.50   -21.1   19.2    5.7  -18.5  MCS5    111.4    92.8         146         17
-B 11be 80M x4 (320 MHz)     16    7.1   7.50   -21.1   31.0   12.3  -18.5  MCS5    129.8   111.3        1215        144
-B 11be 80M x4 (320 MHz)     64    3.9  10.74   -27.8   40.0   18.0  -21.0  MCS6    144.5   125.1        6596        708
-B 11ac 20M x8 (160 MHz)      1    7.1   7.50   -21.1    7.1    0.0  -19.9  MCS4     94.0    80.1          20          4
-B 11ac 20M x8 (160 MHz)      4    7.1   7.50   -21.1   19.2    5.7  -19.9  MCS4    111.8    97.9         154         31
-B 11ac 20M x8 (160 MHz)     16    7.1   7.50   -21.1   31.0   12.3  -19.9  MCS4    130.3   116.3        1284        259
-B 11ac 20M x8 (160 MHz)     64    3.9  10.74   -27.8   40.0   18.0  -23.8  MCS6    145.0   124.9        6986        693
-A 11be 80M (IF extender)     1    7.1   7.50   -21.1    7.1    0.0  -19.6  MCS6     99.6    79.2          38          4
-A 11be 80M (IF extender)     4    7.1   7.50   -21.1   19.2    5.7  -19.6  MCS6    117.4    97.0         292         28
-A 11be 80M (IF extender)    16    7.1   7.50   -21.1   31.0   12.3  -19.6  MCS6    135.8   115.4        2434        232
-A 11be 80M (IF extender)    64    3.9  10.74   -27.8   40.0   18.0  -23.1  MCS7    150.5   129.2       13208       1140
-Pe / OBO: the per-element output and its back-off from Psat (the front end's 7.5 dB unless the EIRP limit asks for more); PL = EIRP + G_rx - sensitivity at the MCS's required SNR over the floor; d = the free-space distance of that path loss at 60.48 GHz (no oxygen absorption, ~15 dB/km: illustrative beyond a few tens of metres)
+B 11be 80M x4 (320 MHz)      1    7.1   7.50   -21.1    7.1    0.0  -18.5  MCS5     93.6    75.0          18          2
+B 11be 80M x4 (320 MHz)      4    7.1   7.50   -21.1   19.2    5.7  -18.5  MCS5    111.4    92.8         119         17
+B 11be 80M x4 (320 MHz)     16    7.1   7.50   -21.1   31.0   12.3  -18.5  MCS5    129.8   111.3         507        118
+B 11be 80M x4 (320 MHz)     64    3.9  10.74   -27.8   40.0   18.0  -21.0  MCS6    144.5   125.1        1059        372
+B 11ac 20M x8 (160 MHz)      1    7.1   7.50   -21.1    7.1    0.0  -19.9  MCS4     94.0    80.1          19          4
+B 11ac 20M x8 (160 MHz)      4    7.1   7.50   -21.1   19.2    5.7  -19.9  MCS4    111.8    97.9         124         30
+B 11ac 20M x8 (160 MHz)     16    7.1   7.50   -21.1   31.0   12.3  -19.9  MCS4    130.3   116.3         522        187
+B 11ac 20M x8 (160 MHz)     64    3.9  10.74   -27.8   40.0   18.0  -23.8  MCS6    145.0   124.9        1081        367
+A 11be 80M (IF extender)     1    7.1   7.50   -21.1    7.1    0.0  -19.6  MCS6     99.6    79.2          35          4
+A 11be 80M (IF extender)     4    7.1   7.50   -21.1   19.2    5.7  -19.6  MCS6    117.4    97.0         205         27
+A 11be 80M (IF extender)    16    7.1   7.50   -21.1   31.0   12.3  -19.6  MCS6    135.8   115.4         712        173
+A 11be 80M (IF extender)    64    3.9  10.74   -27.8   40.0   18.0  -23.1  MCS7    150.5   129.2        1330        489
+Pe / OBO: the per-element output and its back-off from Psat (the front end's 7.5 dB unless the EIRP limit asks for more); PL = EIRP + G_rx - sensitivity at the MCS's required SNR over the floor; d = the distance of that path loss at 60.48 GHz: free space plus 15 dB/km oxygen (an estimate; 3b)
+
+== 3b. sensitivity: the MCS0 distance (m) at other oxygen absorptions (the path loss does not move) ==
+scheme                       N  PL MCS0    0 dB/km   10 dB/km   15 dB/km   20 dB/km
+B 11be 80M x4 (320 MHz)      1     93.6         19         18         18         18
+B 11be 80M x4 (320 MHz)      4    111.4        146        126        119        113
+B 11be 80M x4 (320 MHz)     16    129.8       1215        605        507        441
+B 11be 80M x4 (320 MHz)     64    144.5       6596       1367       1059        877
+B 11ac 20M x8 (160 MHz)      1     94.0         20         19         19         19
+B 11ac 20M x8 (160 MHz)      4    111.8        154        132        124        118
+B 11ac 20M x8 (160 MHz)     16    130.3       1284        625        522        453
+B 11ac 20M x8 (160 MHz)     64    145.0       6986       1398       1081        893
+A 11be 80M (IF extender)     1     99.6         38         36         35         35
+A 11be 80M (IF extender)     4    117.4        292        225        205        189
+A 11be 80M (IF extender)    16    135.8       2434        882        712        605
+A 11be 80M (IF extender)    64    150.5      13208       1754       1330       1085
+0 dB/km = free space alone; 15 dB/km is the preset (the round figure for the absorption peak near 60 GHz at sea level, no original consulted: ROADMAP B)
 
 == 4. beam training, MLO-triggered: training field GI2 + 2 L-LTF symbols of the base PHY, upclocked, estimator noncoherent_tones, a pick within 1 dB of the best sector in 99 % of sweeps ==
 scheme                       N  tones  req TX  req RX  PL TXSS  PL RXSS  TXSS-MCS0  TXSS-cap  sweep [us]

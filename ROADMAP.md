@@ -31,7 +31,7 @@
 
 ## B. 里程碑 2：阵列层（主体已落地：vendor array_tx @ `5815c5a`、`frontend/array60.py`、`arraylink.py`、示例 10、`cairn/array-layer.md`）
 - **训练到不了 MCS0 的边**：MLO 触发的 TX 扫（对端一个单元接收）在 N ≥ 16 时比 MCS0 少承受 2.7 dB（11be 80 MHz 基准）/ 7.2 dB（11ac 20 MHz 基准），N = 64 时 8.9 / 13.5 dB；上限 MCS 的范围内都够。复现：`python examples/10_array_link_and_training.py` §4。待做：更长的训练场（重复 LTF）或分层训练（先宽波束再细化）的一档；跨音相干累加能少要 8 dB（§6），但要平坦信道与准定时，多径下要量。
-- **氧吸收没有出处**：N ≥ 16 时自由空间距离到了百米、千米，60 GHz 氧吸收约 15 dB/km 不能不计；现在以路径损耗为准、距离只作示意。待做：向 spec_sources 要 ITU-R P.676 的数（需用户同意开 issue）。
+- **氧吸收是估算，没有原文**：距离现在按自由空间 + `assumed.oxygen_absorption` 15 dB/km（60 GHz 吸收峰的常用估算，按载频不变）算，路径损耗不含它。N ≥ 16 时距离对它很敏感：B 11be 80M × 4、N = 64 的 MCS0 在 0 / 10 / 15 / 20 dB/km 是 6596 / 1367 / 1059 / 877 m；N ≤ 4 只差 1–87 m。复现：`python examples/10_array_link_and_training.py` §3b。待做：要 ITU-R P.676 的原文数（海平面、按载频；57–71 GHz 两侧比峰值小得多），经 spec_sources 进来后删掉这条 assumed。用户 2026-11-14 定先用估算、这次不向 spec_sources 开 issue，后面找机会再打开。
 - **逐单元 PA 没进时域**：PA 只按 EIRP 上限下的回退进底板；单元误差让各 PA 驱动不同、远场合成后的失真没算。待做：时域里 N 路 PA + `arraytx.beam.far_field` 合成的一档。
 - **功率列不知道阵列**：N 颗 PA 的直流功率、移相器 / 合路损耗没进 pJ/bit。待做：功率列按 N 计 PA 与频综分配。
 - 多径下的扇区选择、双向各一次扫描、码本以外的波束细化（BRP 类）都没建。

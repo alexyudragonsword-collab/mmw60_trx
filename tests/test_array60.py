@@ -88,7 +88,7 @@ def test_the_eirp_limit_backs_every_element_off_and_the_pa_gets_more_linear():
     assert big.dec_mcs >= small.dec_mcs
 
 
-def test_budget_ranges_are_the_receivers_own_sensitivity_in_free_space():
+def test_budget_ranges_are_the_receivers_own_sensitivity_over_free_space_and_oxygen():
     cfg = dc.replace(zero_if_60ghz(k=8), channel=FLAT)
     fe = Frontend60.from_config(cfg)
     c = array_frontend(cfg, 4)
@@ -99,8 +99,18 @@ def test_budget_ranges_are_the_receivers_own_sensitivity_in_free_space():
     s0 = sim.rx_input_dbm_for_snr(al.required_snr_db(t0, b.floor_db))
     assert b.sens_by_mcs[0] == pytest.approx(s0)
     d = b.range_by_mcs[0]
-    assert b.eirp_dbm + b.g_rx_db - al.fspl_db(d, c.carrier_hz) == pytest.approx(s0, abs=1e-9)
+    assert b.eirp_dbm + b.g_rx_db - al.path_loss_db(d, c.carrier_hz) == pytest.approx(s0, abs=1e-9)
     assert al.fspl_db(1.0, 60.48e9) == pytest.approx(68.08, abs=0.005)
+    # the distance adds the oxygen estimate to free space; 0 dB/km is free space alone, and the path loss
+    # (the budget's answer) does not depend on it
+    a = spec.value("assumed.oxygen_absorption")
+    assert al.oxygen_db_per_km() == a > 0
+    for link in (90.0, 130.0, 150.0):
+        d_fs, d_ox = al.range_m(link, 60.48e9, 0.0), al.range_m(link, 60.48e9)
+        assert al.fspl_db(d_fs, 60.48e9) == pytest.approx(link, abs=1e-9)
+        assert float(al.path_loss_db(d_ox, 60.48e9)) == pytest.approx(link, abs=1e-9)
+        assert al.path_loss_db(d_ox, 60.48e9) - al.fspl_db(d_ox, 60.48e9) == pytest.approx(a * d_ox / 1e3)
+        assert d_ox < d_fs and al.range_m(link, 60.48e9, 2 * a) < d_ox
     # the same array instance serves topology A: its sensitivity is its own (cascade included)
     a = array_frontend(dc.replace(if_extender_60ghz(standard="11be", bandwidth_hz=20e6), channel=FLAT), 4)
     ba = al.array_budget(a, fe, ar)
@@ -146,6 +156,7 @@ def test_training_needs_less_snr_than_mcs0_but_the_transmit_sweep_loses_the_rece
     assert tr["rxss_m"] > tr["txss_m"]
     # the transmit sweep's budget is the data link's less the receive array (one element there)
     one = float(ar.element_factor_db("rx", 0.0)[0] + ar.element_gain_rx_dbi)
-    assert 20 * np.log10(tr["rxss_m"] / tr["txss_m"]) == pytest.approx(b.g_rx_db - one, abs=1e-9)
+    pl = [float(al.path_loss_db(tr[k], c.carrier_hz)) for k in ("rxss_m", "txss_m")]
+    assert pl[0] - pl[1] == pytest.approx(b.g_rx_db - one, abs=1e-9)
     assert al.sweep_time_s(ar, c.upclocked()) == pytest.approx(
         16 * (al._ltf_field_s(c.upclocked()) + spec.value("assumed.array_training")["sector_switch_s"]))

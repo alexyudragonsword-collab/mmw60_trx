@@ -6,9 +6,12 @@ operating point unless N of them would exceed the EIRP limit at the beam
 N_rx receive array whose SNR gain is 10 log10 N_rx + G_e.  The range of an
 MCS is where the received power falls to the receiver's own sensitivity for
 that MCS's required SNR (the decoder threshold over the link's EVM floor),
-in free space at the carrier: the topology's own noise figure and occupied
-bandwidth come from its ``LinkSim`` (topology A's 60 GHz LNA cascade
-included), the floor from ``analytic_floors`` at the per-element back-off.
+over a line-of-sight path at the carrier: the topology's own noise figure
+and occupied bandwidth come from its ``LinkSim`` (topology A's 60 GHz LNA
+cascade included), the floor from ``analytic_floors`` at the per-element
+back-off.  The budget's answer is the path loss it takes; the distance that
+means adds the oxygen absorption (data/spec: assumed.oxygen_absorption, an
+estimate) to free space.
 
 The training (data/spec: assumed.array_training): 802.11be has no mmWave
 beam training, so it is MLO-triggered — the sub-7 GHz link schedules the
@@ -35,6 +38,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+from scipy.optimize import brentq
 
 from . import spec
 from .frontend.array60 import Array60
@@ -49,9 +53,28 @@ def fspl_db(d_m, f_hz: float):
     return 20.0 * np.log10(4.0 * np.pi * np.asarray(d_m, dtype=float) * float(f_hz) / C0)
 
 
-def range_m(link_db: float, f_hz: float) -> float:
-    """The distance at which free space eats ``link_db`` (EIRP + G_rx - sensitivity)."""
-    return float(10.0 ** (link_db / 20.0) * C0 / (4.0 * np.pi * float(f_hz)))
+def oxygen_db_per_km() -> float:
+    """The oxygen absorption the distances use (data/spec: assumed.oxygen_absorption)."""
+    return float(spec.value("assumed.oxygen_absorption"))
+
+
+def path_loss_db(d_m, f_hz: float, oxygen_db_km: float | None = None):
+    """Free space plus the oxygen absorption over ``d_m``."""
+    a = oxygen_db_per_km() if oxygen_db_km is None else float(oxygen_db_km)
+    d = np.asarray(d_m, dtype=float)
+    return fspl_db(d, f_hz) + a * d / 1000.0
+
+
+def range_m(link_db: float, f_hz: float, oxygen_db_km: float | None = None) -> float:
+    """The distance at which the path (free space plus oxygen) eats ``link_db``
+    (EIRP + G_rx - sensitivity); ``oxygen_db_km=0`` is free space alone."""
+    d_fs = float(10.0 ** (link_db / 20.0) * C0 / (4.0 * np.pi * float(f_hz)))
+    a = oxygen_db_per_km() if oxygen_db_km is None else float(oxygen_db_km)
+    if a == 0.0:
+        return d_fs
+    # the loss rises with d and the absorption only shortens the free-space distance
+    return float(brentq(lambda d: float(path_loss_db(d, f_hz, a)) - link_db, d_fs * 1e-12, d_fs,
+                        xtol=1e-12 * d_fs, rtol=1e-14))
 
 
 def required_snr_db(threshold_db: float, floor_db: float) -> float | None:
@@ -126,7 +149,7 @@ class ArrayBudget:
     occupied_bw_hz: float
     nf_db: float
     sens_by_mcs: dict = field(default_factory=dict)      # MCS -> receiver input [dBm] at its required SNR
-    range_by_mcs: dict = field(default_factory=dict)     # MCS -> metres, both arrays on the beam
+    range_by_mcs: dict = field(default_factory=dict)     # MCS -> metres (free space + oxygen), beams aligned
     noise_dbm: float = 0.0                               # per-tone SNR = P_rx - noise_dbm
 
     def snr_tone_db(self, p_rx_dbm: float) -> float:
@@ -197,6 +220,7 @@ def noise_dbm_per_tone(nf_db: float, scs_hz: float) -> float:
     return float(KT_DBM_HZ + nf_db + 10.0 * np.log10(scs_hz))
 
 
-__all__ = ["fspl_db", "range_m", "required_snr_db", "sweep_statistic", "selection_success",
+__all__ = ["fspl_db", "oxygen_db_per_km", "path_loss_db", "range_m", "required_snr_db", "sweep_statistic",
+           "selection_success",
            "required_training_snr_db", "ArrayBudget", "array_budget", "training_ranges", "sweep_time_s",
            "noise_dbm_per_tone", "C0"]
