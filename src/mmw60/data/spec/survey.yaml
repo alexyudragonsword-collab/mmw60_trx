@@ -465,6 +465,13 @@ entries:
     cite: "本库；RF 预选滤波对 f_LO − f_IF 镜像带的抑制，未查具体器件"
     note: "接收侧镜像带的噪声折进信号带：噪声系数恶化 10·log10(1 + 10^(−IRR/10)) = 0.004 dB（30 dB）、0.41 dB（10 dB）。只有拓扑 A 有这一项（零中频没有镜像带），同台表里标出。"
 
+  assumed.ifext_upclock:
+    value: {changes: "digital baseband only", analog: "the chip's native channel K x base bandwidth", channels_from: "ieee80211be.n_sd"}
+    unit: procedure
+    source: assumed
+    cite: "本库 config.if_extender_60ghz(k=…)、Mmw60Config 的校验、compare.scheme_matrix（拓扑 A × be_upclocked；用户 2026-11-15 定：只改数字基带）"
+    note: "拓扑 A 的升频只改数字基带：芯片的 DAC / ADC、模拟低通、6 GHz 射频与它的 14 步校准都是原生信道 K × 基准带宽的那一套（同一颗芯片、同一份校准缓存），数字跑基准 PHY、时钟 ×K。所以 K × 基准带宽必须是芯片有的信道宽度（802.11be 的 20 / 40 / 80 / 160 / 320 MHz，取 ieee80211be.n_sd 的键），320 MHz 以上不做（那要改模拟，等于另一条拓扑）。CFO：前导也跟着升频，L-STF 范围 ±625 kHz × K；MLO 预补偿仍是预设，示例 11 §2 有关掉它的灵敏度行。"
+
   assumed.ifext_chip_seed:
     value: 5
     unit: seed

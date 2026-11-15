@@ -15,11 +15,16 @@ Two front-end models, both topology B (``upclock_zero_if``):
   cross-correlation with the known frame (the chain's group delay).
 
 Topology A (``if_extender``, ``mmw60.ifext``): the chip's own wifitrx chains
-at K = 1 — built and calibrated the way wifitrx does — with the 60 GHz stage
+at one of its native channel widths — built and calibrated the way wifitrx
+does; waveform ``be`` is its own PHY at K = 1, ``be_upclocked`` the base PHY
+at K × its clock on that channel, the digital baseband the only change
+(data/spec: assumed.ifext_upclock) — with the 60 GHz stage
 (interstage level, IF filter, fixed-LO mixer, the shared front end's PA)
 inserted after the transmit chain and before the receive chain; the CFO at
 the RF plane is what is left after the multi-link pre-compensation
-(``impairments.cfo.MloCfo``).  Everything else — frame, channel, SNR
+(``impairments.cfo.MloCfo``); with the waveform upclocked by K ≥ 4 the
+chip's own L-STF reaches the raw offset too, and the pre-compensation is
+optional (``ifext.mlo_enabled``).  Everything else — frame, channel, SNR
 definition, receiver — is the same code path as topology B's chain.
 """
 from __future__ import annotations
@@ -90,8 +95,6 @@ class LinkSim:
         if cfg.waveform not in WAVEFORMS_BUILT:
             raise NotImplementedError(f"waveform {cfg.waveform!r}: milestone 3")
         self.topology_a = cfg.topology == "if_extender"
-        if self.topology_a and (cfg.waveform != "be" or int(cfg.upclock_k) != 1):
-            raise ValueError("topology A keeps the WiFi 7 waveform at K = 1 (waveform 'be', upclock_k 1)")
         self.cfg = cfg
         self.coded = cfg.coded
         self.ldpc = cfg.phy.standard == "11be"

@@ -36,7 +36,7 @@
 
 1. **配置是唯一真值** —— `topology: if_extender | upclock_zero_if`、`waveform: be | be_upclocked | ay_ofdm | ay_sc`、载频、K、基准 PHY、LO 方案、前端、信道、阵列全在一个 frozen `Mmw60Config`；示例和表单只读它，文献数字只经 `mmw60.spec` 进来（`tests/test_laws.py::test_law1_*`）。
 2. **每种方案（拓扑 × 波形）公平可比** —— 60 GHz 前端、LO 链、信道、EIRP 限值是同一个对象实例；毫米波级的插入点显式（A 在 wifitrx 的 RF 之后，B 替换它的 RF）；只对一种方案建的损伤在同台表里标出来。锚：K = 1 行就是未改动的 wifitrx 链（`test_law2_k1_chain_is_the_unmodified_wifitrx_chain`），拓扑 A 的毫米波级关掉时逐位等于 wifitrx 链（`tests/test_ifext.py::test_law2_*`），全部方案的共享实例测试在 `tests/test_compare.py::test_law2_*`。
-3. **CFO 端到端建模** —— (ppm_tx + ppm_rx) × f_c，每种方案（拓扑 × 波形）声明自己怎么接住它：B 靠大 SCS 与 L-STF/L-LTF 估计，A 靠 MLO sub-7 估计乘频率比预补偿 + 残差，ay 靠 5.16 MHz SCS 本身；ppm = 0 时该项逐位为零（`test_law3_*`）。
+3. **CFO 端到端建模** —— (ppm_tx + ppm_rx) × f_c，每种方案（拓扑 × 波形）声明自己怎么接住它：B 靠大 SCS 与 L-STF/L-LTF 估计，A 靠 MLO sub-7 估计乘频率比预补偿 + 残差（A × be_upclocked 在 K ≥ 4 时芯片 L-STF 自己也接得住），ay 靠 5.16 MHz SCS 本身；ppm = 0 时该项逐位为零（`test_law3_*`）。
 4. **校准是跑出来的，不是假设的** —— wifitrx 校准序列（`cal/deps.py` 顺序约束）在每种方案（拓扑 × 波形）上都真跑，每步在毫米波级的结果进表；不许手填"已校准"（`test_law4_*`；拓扑 A 建链时就跑，`tests/test_ifext.py::test_law4_*`）。
 5. **规范和文献数字只用原文** —— 外部的数在 vendored 的共享库 spec_sources（`src/mmw60/vendor/spec_sources/data/`），本库的取舍与产出在 `data/spec/survey.yaml`，`mmw60.spec` 合起来读、同键报错；`source: spec | survey | assumed | derived`；拿不到原文的标 survey 并注明出处，原文没说的标 assumed；每张表四个标签都按 `grep -c` 核对（`tests/test_spec_sources.py`）。
 6. **杂散结论只能来自逐周期引擎** —— 本库是线性化的时域基带引擎，每个示例第一行打印引擎名，凡杂散 / 互调结论标"线性化引擎，不能背书"（`test_law6_*`）。

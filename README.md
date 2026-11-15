@@ -2,7 +2,7 @@
 
 60 GHz（57–71 GHz 免许可段）WiFi 收发机行为级仿真框架。两种拓扑在同一个引擎里同台：
 
-- **A = IF 延伸**：WiFi 7 芯片原样，5–7 GHz 射频输出当实 IF，一级固定 LO（×3 / ×4 / ×9）60 GHz 上下变频 + 镜像滤波 + PA / LNA；波形不变。（已建：示例 06）
+- **A = IF 延伸**：WiFi 7 芯片原样，5–7 GHz 射频输出当实 IF，一级固定 LO（×3 / ×4 / ×9）60 GHz 上下变频 + 镜像滤波 + PA / LNA；波形是芯片自己的，或只改数字基带升频（芯片信道以内）。（已建：示例 06、11）
 - **B = IMMW upclocking**（Liu 等，"Wi-Fi 8: Embracing the Millimeter-Wave Era"，IEEE Comm. Mag. 2025-03）：PHY / MAC 不动，时钟 ×K，带宽和子载波间距同乘，宽带零中频 60 GHz transceiver。（里程碑 0 已建）
 
 引擎是 vendored 的 [`wifi_trx_cal`](https://github.com/alexyudragonsword-collab/wifi_trx_cal)（`src/mmw60/vendor/wifitrx/`，按完整 SHA pin，整包 verbatim）；本库加的是 upclocking 层、VHT 数据域编解码（PER）、Rapp PA、L-STF 粗 CFO 估计、1 极 1 零相噪、信道与接收机组合。
@@ -77,7 +77,13 @@ CFO 靠多链路的 sub-7 估计乘频率比预补偿（`impairments/cfo.py::Mlo
 python examples/06_topology_a_if_extender.py --jobs 4     # 全量约 4 分钟；--quick 冒烟
 ```
 
-结论见 `cairn/topology-a.md`。
+只改数字基带的升频（A × be_upclocked，示例 11）：芯片的模拟与校准不动，数字跑基准 PHY、时钟 ×K，K × 基准带宽要落在芯片的信道上（≤ 320 MHz）。上限不变（PA 限），换来的是 K ≥ 4 时芯片自己的 L-STF 接住 60 GHz 的 CFO，不靠 MLO。
+
+```bash
+python examples/11_topology_a_digital_upclock.py           # 全量约 2.5 分钟；--quick 冒烟
+```
+
+结论见 `cairn/topology-a.md`（§7b 是只改数字基带的升频）。
 
 ## 里程碑 1 · A3：同台表（示例 04、`tools/budget_report.py`）
 

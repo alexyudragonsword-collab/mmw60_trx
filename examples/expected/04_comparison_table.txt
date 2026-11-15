@@ -1,10 +1,13 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
 mmw60 0.1.0; full; one Frontend60 for every row: PA rapp_11ad Psat 14.6 dBm OBO 7.5 dB -> Pout 7.1 dBm, PAE_max 16 %; LO pole_zero IPN -31.1 dBc; converters -0.5 bit/octave from ENOB 10 @ 1 GS/s; EIRP ceiling 40 dBm avg (FCC 15.255)
-matrix: 8 (topology, waveform) pairs; 15 rows with numbers, 5 without
+matrix: 8 (topology, waveform) pairs; 19 rows with numbers, 5 without
 
 == 1. the table (floor / TD / EvmBudget in dB; CFO in subcarriers; rate at the uncalibrated cap; EIRP margin to 40 dBm avg; pJ/bit at the cap) ==
 scheme                                        BW[M] SCS[M] Tsym[ns]    CFO STF   floor     TD budget   max IQcal  Mb/s   EIRP  pJ/bit verdict
 be 11ac 20M IF extender @60.48 GHz               20  0.312   4000   7.74 yes   -19.7  -20.4  -19.7  MCS3  MCS3    26   +33    22419 能 PA 限 MCS
+be_upclocked 11ac 20M K=4 IF extender @60.48 GHz     80  1.250   1000   1.94 yes   -20.0  -20.4  -20.0  MCS3  MCS3   104   +33     6635 能 PA 限 MCS
+be_upclocked 11ac 20M K=8 IF extender @60.48 GHz    160  2.500    500   0.97 yes   -20.2  -20.7  -20.3  MCS3  MCS3   208   +33     3834 能 PA 限 MCS
+be_upclocked 11ac 20M K=16 IF extender @60.48 GHz    320  5.000    250   0.48 yes   -20.4  -20.9  -20.5  MCS3  MCS3   416   +33     2335 能 PA 限 MCS
 be 11ac 20M K=1 @6 GHz (WiFi 7 chain)            20  0.312   4000   0.77 yes   -19.5  -18.9  -19.4  MCS3  MCS3    26    —      6991 能 PA 限 MCS
 be_upclocked 11ac 20M K=1 @60.48 GHz             20  0.312   4000   7.74 NO    -19.5    5.9  -19.4  MCS3  MCS3    26   +33     8530 不能 CFO 捕获
 be_upclocked 11ac 20M K=4 @60.48 GHz             80  1.250   1000   1.94 yes   -19.7  -19.3  -19.7  MCS3  MCS3   104   +33     2967 能 PA 限 MCS
@@ -12,6 +15,7 @@ be_upclocked 11ac 20M K=8 @60.48 GHz            160  2.500    500   0.97 yes   -
 be_upclocked 11ac 20M K=16 @60.48 GHz           320  5.000    250   0.48 yes   -19.3  -19.1  -19.3  MCS3  MCS3   416   +33     1301 能 PA 限 MCS
 be_upclocked 11ac 20M K=32 @60.48 GHz           640 10.000    125   0.24 yes   -16.5  -16.6  -16.5  MCS2  MCS3   624   +33     1268 能 IQ 不平衡 限 MCS
 be 11be 80M IF extender @60.48 GHz               80  0.078  13600  30.97 yes   -19.6  -20.4  -19.6  MCS3  MCS3   144   +33     4811 能 PA 限 MCS
+be_upclocked 11be 80M K=4 IF extender @60.48 GHz    320  0.312   3400   7.74 yes   -19.6  -20.5  -19.7  MCS3  MCS3   576   +33     1708 能 PA 限 MCS
 be 11be 80M K=1 @6 GHz (WiFi 7 chain)            80  0.078  13600   3.07 yes   -19.4  -19.8  -19.3  MCS3  MCS3   144    —      1887 能 PA 限 MCS
 be_upclocked 11be 80M K=4 @60.48 GHz            320  0.312   3400   7.74 yes   -18.5  -18.9  -18.5  MCS2  MCS3   432   +33     1268 能 PA 限 MCS
 be_upclocked 11be 80M K=8 @60.48 GHz            640  0.625   1700   3.87 yes   -16.2  -16.2  -16.2  MCS2  MCS3   865   +33      934 能 IQ 不平衡 限 MCS
@@ -19,14 +23,17 @@ be_upclocked 11be 80M K=16 @60.48 GHz          1280  1.250    850   1.94 yes   -
 be_upclocked 11be 80M K=32 @60.48 GHz          2560  2.500    425   0.97 yes    -5.6   -4.7   -5.6   —    MCS2     —   +33  — 不能 IQ 不平衡
 be 11be 320M IF extender @60.48 GHz             320  0.078  13600  30.97 yes   -19.5  -20.0  -19.6  MCS3  MCS3   576   +33     1712 能 PA 限 MCS
 be 11be 320M IF ext. PA bypass @60.48 GHz       320  0.078  13600  30.97 yes   -19.5  -20.0  -19.6  MCS3  MCS3   576   +33     1200 能 PA 限 MCS
-be_upclocked on if_extender                  n/a: topology A keeps the WiFi 7 waveform; the ay waveforms are topology B's hardware
-ay_ofdm on if_extender                       n/a: topology A keeps the WiFi 7 waveform; the ay waveforms are topology B's hardware
-ay_sc on if_extender                         n/a: topology A keeps the WiFi 7 waveform; the ay waveforms are topology B's hardware
+be_upclocked 11ac 20M K=32 IF extender @60.48 GHz n/a: topology A upclocks only the digital baseband, so K x base bandwidth must be one of the chip's channels (<= 320 MHz; assumed.ifext_upclock)
+ay_ofdm on if_extender                       n/a: the ay waveforms are topology B's hardware; topology A's chip makes WiFi 7 numerologies only, up to its widest channel
+ay_sc on if_extender                         n/a: the ay waveforms are topology B's hardware; topology A's chip makes WiFi 7 numerologies only, up to its widest channel
 ay_ofdm on upclock_zero_if                   pending: milestone 3 (802.11ay OFDM on the zero-IF hardware)
 ay_sc on upclock_zero_if                     pending: milestone 3 (802.11ay single carrier)
 
 == 2. cross-checks: analytic floor vs time-domain EVM (|Δ| ≤ 2 dB while the floor ≤ −8 dB and the CFO is caught), EvmBudget vs floor ==
   be 11ac 20M IF extender @60.48 GHz           TD − floor -0.7 dB ok         EvmBudget − floor +0.0 dB
+  be_upclocked 11ac 20M K=4 IF extender @60.48 GHz TD − floor -0.4 dB ok         EvmBudget − floor -0.0 dB
+  be_upclocked 11ac 20M K=8 IF extender @60.48 GHz TD − floor -0.4 dB ok         EvmBudget − floor -0.0 dB
+  be_upclocked 11ac 20M K=16 IF extender @60.48 GHz TD − floor -0.5 dB ok         EvmBudget − floor -0.1 dB
   be 11ac 20M K=1 @6 GHz (WiFi 7 chain)        TD − floor +0.6 dB ok         EvmBudget − floor +0.0 dB
   be_upclocked 11ac 20M K=1 @60.48 GHz         TD − floor +25.4 dB n/a       EvmBudget − floor +0.0 dB
   be_upclocked 11ac 20M K=4 @60.48 GHz         TD − floor +0.4 dB ok         EvmBudget − floor +0.0 dB
@@ -34,6 +41,7 @@ ay_sc on upclock_zero_if                     pending: milestone 3 (802.11ay sing
   be_upclocked 11ac 20M K=16 @60.48 GHz        TD − floor +0.3 dB ok         EvmBudget − floor -0.0 dB
   be_upclocked 11ac 20M K=32 @60.48 GHz        TD − floor -0.1 dB ok         EvmBudget − floor -0.0 dB
   be 11be 80M IF extender @60.48 GHz           TD − floor -0.8 dB ok         EvmBudget − floor -0.0 dB
+  be_upclocked 11be 80M K=4 IF extender @60.48 GHz TD − floor -0.9 dB ok         EvmBudget − floor -0.0 dB
   be 11be 80M K=1 @6 GHz (WiFi 7 chain)        TD − floor -0.5 dB ok         EvmBudget − floor +0.0 dB
   be_upclocked 11be 80M K=4 @60.48 GHz         TD − floor -0.4 dB ok         EvmBudget − floor -0.0 dB
   be_upclocked 11be 80M K=8 @60.48 GHz         TD − floor -0.0 dB ok         EvmBudget − floor -0.0 dB
@@ -45,6 +53,9 @@ ay_sc on upclock_zero_if                     pending: milestone 3 (802.11ay sing
 == 3. analytic terms [dB]: this library's phase-noise ICI (to fs/2) next to EvmBudget's (10 kHz–100 MHz IPN × (1 − CPE-tracked share)) ==
 scheme                                        pn ICI pn bdgt tracked      iq    conv      pa     isi
 be 11ac 20M IF extender @60.48 GHz             -25.5   -25.4    8.9%      —      —   -21.1      —   chip residual -42.2, chip LO -42.3
+be_upclocked 11ac 20M K=4 IF extender @60.48 GHz   -26.6   -26.7   31.5%      —      —   -21.1  -134.5   chip residual -43.5, chip LO -46.6
+be_upclocked 11ac 20M K=8 IF extender @60.48 GHz   -27.9   -28.1   50.2%      —      —   -21.1   -72.5   chip residual -41.5, chip LO -49.5
+be_upclocked 11ac 20M K=16 IF extender @60.48 GHz   -29.5   -30.0   68.4%      —      —   -21.1   -41.4   chip residual -38.9, chip LO -52.2
 be 11ac 20M K=1 @6 GHz (WiFi 7 chain)          -25.6   -25.4    8.9%   -31.2   -64.5   -21.1      —
 be_upclocked 11ac 20M K=1 @60.48 GHz           -25.6   -25.4    8.9%   -31.2   -64.5   -21.1      —
 be_upclocked 11ac 20M K=4 @60.48 GHz           -26.7   -26.7   31.5%   -31.2   -58.5   -21.1  -134.5
@@ -52,6 +63,7 @@ be_upclocked 11ac 20M K=8 @60.48 GHz           -28.0   -28.1   50.2%   -30.4   -
 be_upclocked 11ac 20M K=16 @60.48 GHz          -29.8   -30.0   68.4%   -25.5   -52.5   -21.1   -41.4
 be_upclocked 11ac 20M K=32 @60.48 GHz          -31.6   -32.5   81.9%   -19.4   -49.5   -21.1   -25.9
 be 11be 80M IF extender @60.48 GHz             -25.1   -25.1    1.8%      —      —   -21.1      —   chip residual -43.5, chip LO -41.1
+be_upclocked 11be 80M K=4 IF extender @60.48 GHz   -25.3   -25.4    8.9%      —      —   -21.1  -134.5   chip residual -38.9, chip LO -42.2
 be 11be 80M K=1 @6 GHz (WiFi 7 chain)          -25.1   -25.1    1.8%   -31.2   -58.0   -21.1      —
 be_upclocked 11be 80M K=4 @60.48 GHz           -25.4   -25.4    8.9%   -24.7   -52.0   -21.1  -134.5
 be_upclocked 11be 80M K=8 @60.48 GHz           -25.7   -25.9   17.4%   -18.6   -49.0   -21.1   -72.5
@@ -64,6 +76,9 @@ only in the IF-extender rows: the chip's residual after its own calibration (mea
 == 4. power blocks per bit at the cap [pJ/bit] (Halo example 41's method: public-figure coefficients, read ratios) ==
 scheme                                         Mb/s     pa     lo   conv    dpd    fft    dec   total  not counted
 be 11ac 20M IF extender @60.48 GHz               26   2870   4615   3119    355     13     10   22419  —; total includes the chip's PA as the driver, 11437
+be_upclocked 11ac 20M K=4 IF extender @60.48 GHz    104    717   1154   1560    355     13     10    6635  —; total includes the chip's PA as the driver, 2827
+be_upclocked 11ac 20M K=8 IF extender @60.48 GHz    208    359    577   1103    355     13     10    3834  —; total includes the chip's PA as the driver, 1418
+be_upclocked 11ac 20M K=16 IF extender @60.48 GHz    416    179    288    780    355     13     10    2335  —; total includes the chip's PA as the driver, 710
 be 11ac 20M K=1 @6 GHz (WiFi 7 chain)            26   2870   1538   2206    355     13     10    6991  —
 be_upclocked 11ac 20M K=1 @60.48 GHz             26   2870   3077   2206    355     13     10    8530  —
 be_upclocked 11ac 20M K=4 @60.48 GHz            104    717    769   1103    355     13     10    2967  —
@@ -71,6 +86,7 @@ be_upclocked 11ac 20M K=8 @60.48 GHz            208    359    385    780    355 
 be_upclocked 11ac 20M K=16 @60.48 GHz           416    179    192    551    355     13     10    1301  —
 be_upclocked 11ac 20M K=32 @60.48 GHz           624    120    128    520    474     17     10    1268  —
 be 11be 80M IF extender @60.48 GHz              144    518    833   1125    256     18     22    4811  —; total includes the chip's PA as the driver, 2040
+be_upclocked 11be 80M K=4 IF extender @60.48 GHz    576    129    208    563    256     18     22    1708  —; total includes the chip's PA as the driver, 512
 be 11be 80M K=1 @6 GHz (WiFi 7 chain)           144    518    278    796    256     18     22    1887  —
 be_upclocked 11be 80M K=4 @60.48 GHz            432    173    185    531    342     24     14    1268  —
 be_upclocked 11be 80M K=8 @60.48 GHz            865     86     93    375    342     24     14     934  —
@@ -83,6 +99,9 @@ coefficients: Walden 70 fJ/step; Horowitz 3.1 / 0.1 pJ at 45 nm (node scale 1); 
 == 4b. the decoder's cap: the EVM floor as one more noise term against the measured ideal PER thresholds (data/spec/per_thresholds.yaml); reachable while -floor >= threshold + margin ==
 scheme                                        floor  conf   dec  T[dB] SNRreq  costs dec-cal   Mb/s  pJ/bit
 be 11ac 20M IF extender @60.48 GHz            -19.7  MCS3  MCS4  14.50  16.06   1.56    MCS4     39   14949
+be_upclocked 11ac 20M K=4 IF extender @60.48 GHz  -20.0  MCS3  MCS4  14.50  15.94   1.44    MCS4    156    4426
+be_upclocked 11ac 20M K=8 IF extender @60.48 GHz  -20.2  MCS3  MCS4  14.50  15.85   1.35    MCS4    312    2559
+be_upclocked 11ac 20M K=16 IF extender @60.48 GHz  -20.4  MCS3  MCS4  14.50  15.79   1.29    MCS4    624    1560
 be 11ac 20M K=1 @6 GHz (WiFi 7 chain)         -18.9  MCS3  MCS4  14.50  16.48   1.98    MCS4     39    4664
 be_upclocked 11ac 20M K=1 @60.48 GHz          -19.5  MCS3  MCS4  14.50  16.17   1.67    MCS4     39    5690
 be_upclocked 11ac 20M K=4 @60.48 GHz          -19.3  MCS3  MCS4  14.50  16.25   1.75    MCS4    156    1981
@@ -90,6 +109,7 @@ be_upclocked 11ac 20M K=8 @60.48 GHz          -19.1  MCS3  MCS4  14.50  16.34   
 be_upclocked 11ac 20M K=16 @60.48 GHz         -19.1  MCS3  MCS4  14.50  16.37   1.87    MCS4    624     870
 be_upclocked 11ac 20M K=32 @60.48 GHz         -16.5  MCS2  MCS3  11.00  12.45   1.45    MCS4    832     953
 be 11be 80M IF extender @60.48 GHz            -19.6  MCS3  MCS6  16.52  19.48   2.96    MCS6    324    2143
+be_upclocked 11be 80M K=4 IF extender @60.48 GHz  -19.6  MCS3  MCS6  16.52  19.46   2.94    MCS6   1297     764
 be 11be 80M K=1 @6 GHz (WiFi 7 chain)         -19.4  MCS3  MCS5  15.02  17.02   2.00    MCS6    288     949
 be_upclocked 11be 80M K=4 @60.48 GHz          -18.5  MCS2  MCS5  15.02  17.61   2.59    MCS6   1153     487
 be_upclocked 11be 80M K=8 @60.48 GHz          -16.2  MCS2  MCS4  11.40  13.16   1.76    MCS6   1729     474
@@ -123,7 +143,7 @@ pllsim wu19 x10, floor -130 dBc/Hz                     8     -33.0   -31.6  -20.
 pllsim wu19 x10, floor -130 dBc/Hz                    32     -33.0   -33.0  -16.5  -16.5  MCS2
 
 == 6. sensitivity: which guesses decide the verdict (analytic side at every coefficient's range ends) ==
-base pJ/bit ranking (best first): be_upclocked 11be 80M K=8 @60.48 GHz < be 11be 320M IF ext. PA bypass @60.48 GHz < be_upclocked 11ac 20M K=32 @60.48 GHz < be_upclocked 11be 80M K=4 @60.48 GHz < be_upclocked 11ac 20M K=16 @60.48 GHz < be 11be 320M IF extender @60.48 GHz < be 11be 80M K=1 @6 GHz (WiFi 7 chain) < be_upclocked 11ac 20M K=8 @60.48 GHz < be_upclocked 11be 80M K=16 @60.48 GHz < be_upclocked 11ac 20M K=4 @60.48 GHz < be 11be 80M IF extender @60.48 GHz < be 11ac 20M K=1 @6 GHz (WiFi 7 chain) < be_upclocked 11ac 20M K=1 @60.48 GHz < be 11ac 20M IF extender @60.48 GHz < be_upclocked 11be 80M K=32 @60.48 GHz
+base pJ/bit ranking (best first): be_upclocked 11be 80M K=8 @60.48 GHz < be 11be 320M IF ext. PA bypass @60.48 GHz < be_upclocked 11ac 20M K=32 @60.48 GHz < be_upclocked 11be 80M K=4 @60.48 GHz < be_upclocked 11ac 20M K=16 @60.48 GHz < be_upclocked 11be 80M K=4 IF extender @60.48 GHz < be 11be 320M IF extender @60.48 GHz < be 11be 80M K=1 @6 GHz (WiFi 7 chain) < be_upclocked 11ac 20M K=8 @60.48 GHz < be_upclocked 11be 80M K=16 @60.48 GHz < be_upclocked 11ac 20M K=16 IF extender @60.48 GHz < be_upclocked 11ac 20M K=4 @60.48 GHz < be_upclocked 11ac 20M K=8 IF extender @60.48 GHz < be 11be 80M IF extender @60.48 GHz < be_upclocked 11ac 20M K=4 IF extender @60.48 GHz < be 11ac 20M K=1 @6 GHz (WiFi 7 chain) < be_upclocked 11ac 20M K=1 @60.48 GHz < be 11ac 20M IF extender @60.48 GHz < be_upclocked 11be 80M K=32 @60.48 GHz
 the decoder caps here start from the analytic floor alone (no time-domain run per knob): a row whose 4b cap came from the time-domain floor starts one MCS higher in this section
   Walden FoM                 at 3.84e-14  conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x0.79 … x0.94      ranking CHANGED
   Walden FoM                 at 1.202e-13 conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x1.10 … x1.34      ranking same
@@ -132,19 +152,19 @@ the decoder caps here start from the analytic floor alone (no time-domain run pe
   synthesizer power          at 2.0       conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x1.06 … x1.36      ranking CHANGED
   PA peak PAE                at 0.1       conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x1.04 … x1.26      ranking CHANGED
   PA peak PAE                at 0.3       conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x0.81 … x0.97      ranking CHANGED
-  PA back-off                at -2        conformance cap moved on 13 row(s), decoder cap on 11; pJ/bit x1.02 … x1.55      ranking CHANGED
-      conformance: be 11ac 20M IF extender: 3->2, be 11ac 20M K=1: 3->2, be_upclocked 11ac 20M K=1: 3->2, be_upclocked 11ac 20M K=4: 3->2, be_upclocked 11ac 20M K=8: 3->2, be_upclocked 11ac 20M K=16: 3->2, be_upclocked 11ac 20M K=32: 2->1, be 11be 80M IF extender: 3->2, be 11be 80M K=1: 3->2, be_upclocked 11be 80M K=4: 2->1, be_upclocked 11be 80M K=8: 2->1, be 11be 320M IF extender: 3->2, be 11be 320M IF ext. PA bypass: 3->2
-      decoder: be 11ac 20M IF extender: 4->3, be 11ac 20M K=1: 4->3, be_upclocked 11ac 20M K=1: 4->3, be_upclocked 11ac 20M K=4: 4->3, be_upclocked 11ac 20M K=8: 4->3, be_upclocked 11ac 20M K=16: 4->3, be 11be 80M IF extender: 6->4, be 11be 80M K=1: 5->4, be_upclocked 11be 80M K=4: 5->4, be 11be 320M IF extender: 6->4, be 11be 320M IF ext. PA bypass: 6->4
-  PA back-off                at +2        conformance cap moved on  5 row(s), decoder cap on 12; pJ/bit x0.63 … x0.99      ranking CHANGED
-      conformance: be 11ac 20M IF extender: 3->4, be_upclocked 11ac 20M K=4: 3->4, be_upclocked 11ac 20M K=8: 3->4, be 11be 80M IF extender: 3->4, be_upclocked 11be 80M K=4: 2->3
-      decoder: be 11ac 20M IF extender: 4->5, be 11ac 20M K=1: 4->5, be_upclocked 11ac 20M K=1: 4->5, be_upclocked 11ac 20M K=4: 4->5, be_upclocked 11ac 20M K=8: 4->5, be_upclocked 11ac 20M K=16: 4->5, be_upclocked 11ac 20M K=32: 3->4, be 11be 80M IF extender: 6->7, be 11be 80M K=1: 5->7, be_upclocked 11be 80M K=4: 5->6, be 11be 320M IF extender: 6->7, be 11be 320M IF ext. PA bypass: 6->7
+  PA back-off                at -2        conformance cap moved on 17 row(s), decoder cap on 15; pJ/bit x1.02 … x1.55      ranking CHANGED
+      conformance: be 11ac 20M IF extender: 3->2, be_upclocked 11ac 20M K=4 IF extender: 3->2, be_upclocked 11ac 20M K=8 IF extender: 3->2, be_upclocked 11ac 20M K=16 IF extender: 3->2, be 11ac 20M K=1: 3->2, be_upclocked 11ac 20M K=1: 3->2, be_upclocked 11ac 20M K=4: 3->2, be_upclocked 11ac 20M K=8: 3->2, be_upclocked 11ac 20M K=16: 3->2, be_upclocked 11ac 20M K=32: 2->1, be 11be 80M IF extender: 3->2, be_upclocked 11be 80M K=4 IF extender: 3->2, be 11be 80M K=1: 3->2, be_upclocked 11be 80M K=4: 2->1, be_upclocked 11be 80M K=8: 2->1, be 11be 320M IF extender: 3->2, be 11be 320M IF ext. PA bypass: 3->2
+      decoder: be 11ac 20M IF extender: 4->3, be_upclocked 11ac 20M K=4 IF extender: 4->3, be_upclocked 11ac 20M K=8 IF extender: 4->3, be_upclocked 11ac 20M K=16 IF extender: 4->3, be 11ac 20M K=1: 4->3, be_upclocked 11ac 20M K=1: 4->3, be_upclocked 11ac 20M K=4: 4->3, be_upclocked 11ac 20M K=8: 4->3, be_upclocked 11ac 20M K=16: 4->3, be 11be 80M IF extender: 6->4, be_upclocked 11be 80M K=4 IF extender: 6->4, be 11be 80M K=1: 5->4, be_upclocked 11be 80M K=4: 5->4, be 11be 320M IF extender: 6->4, be 11be 320M IF ext. PA bypass: 6->4
+  PA back-off                at +2        conformance cap moved on  9 row(s), decoder cap on 16; pJ/bit x0.63 … x0.99      ranking CHANGED
+      conformance: be 11ac 20M IF extender: 3->4, be_upclocked 11ac 20M K=4 IF extender: 3->4, be_upclocked 11ac 20M K=8 IF extender: 3->4, be_upclocked 11ac 20M K=16 IF extender: 3->4, be_upclocked 11ac 20M K=4: 3->4, be_upclocked 11ac 20M K=8: 3->4, be 11be 80M IF extender: 3->4, be_upclocked 11be 80M K=4 IF extender: 3->4, be_upclocked 11be 80M K=4: 2->3
+      decoder: be 11ac 20M IF extender: 4->5, be_upclocked 11ac 20M K=4 IF extender: 4->5, be_upclocked 11ac 20M K=8 IF extender: 4->6, be_upclocked 11ac 20M K=16 IF extender: 4->6, be 11ac 20M K=1: 4->5, be_upclocked 11ac 20M K=1: 4->5, be_upclocked 11ac 20M K=4: 4->5, be_upclocked 11ac 20M K=8: 4->5, be_upclocked 11ac 20M K=16: 4->5, be_upclocked 11ac 20M K=32: 3->4, be 11be 80M IF extender: 6->7, be_upclocked 11be 80M K=4 IF extender: 6->7, be 11be 80M K=1: 5->7, be_upclocked 11be 80M K=4: 5->6, be 11be 320M IF extender: 6->7, be 11be 320M IF ext. PA bypass: 6->7
   converter ENOB law         at 1.0       conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x0.86 … x2.26      ranking CHANGED
   calibrated IRR             at 45.0      conformance cap moved on  1 row(s), decoder cap on  0; pJ/bit x1.00 … x1.00      ranking same
       conformance: be_upclocked 11be 80M K=32: 2->3
-  decoder-cap margin         at 1.0       conformance cap moved on  0 row(s), decoder cap on 10; pJ/bit x1.00 … x1.00      ranking same
-      decoder: be 11ac 20M IF extender: 4->5, be_upclocked 11ac 20M K=4: 4->5, be_upclocked 11ac 20M K=8: 4->5, be_upclocked 11ac 20M K=32: 3->4, be 11be 80M IF extender: 6->7, be 11be 80M K=1: 5->6, be_upclocked 11be 80M K=4: 5->6, be_upclocked 11be 80M K=8: 4->5, be 11be 320M IF extender: 6->7, be 11be 320M IF ext. PA bypass: 6->7
-  decoder-cap margin         at 6.0       conformance cap moved on  0 row(s), decoder cap on 15; pJ/bit x1.00 … x1.00      ranking same
-      decoder: be 11ac 20M IF extender: 4->3, be 11ac 20M K=1: 4->3, be_upclocked 11ac 20M K=1: 4->3, be_upclocked 11ac 20M K=4: 4->3, be_upclocked 11ac 20M K=8: 4->3, be_upclocked 11ac 20M K=16: 4->3, be_upclocked 11ac 20M K=32: 3->2, be 11be 80M IF extender: 6->4, be 11be 80M K=1: 5->4, be_upclocked 11be 80M K=4: 5->4, be_upclocked 11be 80M K=8: 4->3, be_upclocked 11be 80M K=16: 3->2, be_upclocked 11be 80M K=32: 1->0, be 11be 320M IF extender: 6->4, be 11be 320M IF ext. PA bypass: 6->4
+  decoder-cap margin         at 1.0       conformance cap moved on  0 row(s), decoder cap on 14; pJ/bit x1.00 … x1.00      ranking same
+      decoder: be 11ac 20M IF extender: 4->5, be_upclocked 11ac 20M K=4 IF extender: 4->5, be_upclocked 11ac 20M K=8 IF extender: 4->5, be_upclocked 11ac 20M K=16 IF extender: 4->5, be_upclocked 11ac 20M K=4: 4->5, be_upclocked 11ac 20M K=8: 4->5, be_upclocked 11ac 20M K=32: 3->4, be 11be 80M IF extender: 6->7, be_upclocked 11be 80M K=4 IF extender: 6->7, be 11be 80M K=1: 5->6, be_upclocked 11be 80M K=4: 5->6, be_upclocked 11be 80M K=8: 4->5, be 11be 320M IF extender: 6->7, be 11be 320M IF ext. PA bypass: 6->7
+  decoder-cap margin         at 6.0       conformance cap moved on  0 row(s), decoder cap on 19; pJ/bit x1.00 … x1.00      ranking same
+      decoder: be 11ac 20M IF extender: 4->3, be_upclocked 11ac 20M K=4 IF extender: 4->3, be_upclocked 11ac 20M K=8 IF extender: 4->3, be_upclocked 11ac 20M K=16 IF extender: 4->3, be 11ac 20M K=1: 4->3, be_upclocked 11ac 20M K=1: 4->3, be_upclocked 11ac 20M K=4: 4->3, be_upclocked 11ac 20M K=8: 4->3, be_upclocked 11ac 20M K=16: 4->3, be_upclocked 11ac 20M K=32: 3->2, be 11be 80M IF extender: 6->4, be_upclocked 11be 80M K=4 IF extender: 6->4, be 11be 80M K=1: 5->4, be_upclocked 11be 80M K=4: 5->4, be_upclocked 11be 80M K=8: 4->3, be_upclocked 11be 80M K=16: 3->2, be_upclocked 11be 80M K=32: 1->0, be 11be 320M IF extender: 6->4, be 11be 320M IF ext. PA bypass: 6->4
 
 wrote examples/output/04_comparison_table.md
 [~s]

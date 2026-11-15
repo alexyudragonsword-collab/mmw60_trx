@@ -33,8 +33,11 @@ def test_law2_matrix_names_every_topology_x_waveform_pair():
     keys = {s.key for s in MATRIX}
     assert keys == {(t, w) for t in TOPOLOGIES for w in WAVEFORMS}
     built = {s.key for s in MATRIX if s.status == "built"}
-    # topology B carries both built waveforms; topology A keeps the WiFi 7 waveform as it is
-    assert built == {("upclock_zero_if", w) for w in WAVEFORMS_BUILT} | {("if_extender", "be")}
+    # both topologies carry both built waveforms (topology A's upclocking changes only its digital
+    # baseband, on the chip's own channels: 11ac 20 MHz x 32 = 640 MHz is past them, an n/a row)
+    assert built == {(t, w) for t in TOPOLOGIES for w in WAVEFORMS_BUILT}
+    beyond = [s for s in MATRIX if s.key == ("if_extender", "be_upclocked") and s.status == "n/a"]
+    assert [s.label.split()[3] for s in beyond] == ["K=32"] and beyond[0].reason == compare.NOT_A_CHIP_CHANNEL
     for s in MATRIX:
         if s.status == "pending":
             assert "milestone" in s.reason and s.cfg is None
@@ -79,7 +82,8 @@ def test_law2_report_hands_one_instance_to_every_row_and_the_k1_row_is_the_ancho
     rep = compare.build(compare.scheme_matrix(ks=(1, 8)), fe, time_domain=True)
     assert rep["frontend_ids"]["frontend"] == id(fe) and rep["frontend_ids"]["eirp"] == id(fe.eirp)
     labels = [r["label"] for r in rep["rows"]]
-    assert len(labels) == 4 and len(rep["pending"]) == 5 and len(rep["matrix"]) == 8
+    # rows: A be, A be_upclocked K=8 (the chip's 160 MHz channel), B be K=1, B be_upclocked K=1 / 8; not built: ay x 2 x 2
+    assert len(labels) == 5 and len(rep["pending"]) == 4 and len(rep["matrix"]) == 8
     # the K = 1 chain row reads what evm_at reads for the same config on the same instance
     k1 = next(r for r in rep["rows"] if r["waveform"] == "be" and r["topology"] == "upclock_zero_if")
     e = evm_at(dc.replace(wifi7_chain_k1(), channel=FLAT), None, n_packets=1, frontend=fe)["evm_db"]
@@ -315,7 +319,7 @@ def test_budget_report_cli_writes_markdown_and_json(tmp_path):
     text = md.read_text(encoding="utf-8")
     assert "be_upclocked 11ac 20M K=8 @60.48 GHz" in text and "pending" in text and "pJ/bit" in text
     d = json.loads(js.read_text(encoding="utf-8"))
-    assert len(d["rows"]) == 4 and len(d["pending"]) == 5 and "_rows" not in d
+    assert len(d["rows"]) == 5 and len(d["pending"]) == 4 and "_rows" not in d
     with pytest.raises(ValueError, match="unique"):
         compare.build(compare.scheme_matrix(ks=(8, 8)), time_domain=False)
     assert budget_report.parse_base("11be:80e6") == ("11be", 80e6)
