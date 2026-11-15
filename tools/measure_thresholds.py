@@ -1,7 +1,7 @@
 """Measure the decoder's own PER threshold of every coded MCS and write
 ``src/mmw60/data/spec/per_thresholds.yaml`` (source: derived).
 
-    python tools/measure_thresholds.py --jobs 4 --cache DIR   # all bases, ~50 min on 4 cores (resumable with --cache)
+    python tools/measure_thresholds.py --jobs 4 --cache DIR   # all bases, ~2.3 h on 4 cores (resumable with --cache)
     python tools/measure_thresholds.py --only 11be:80e6       # one base
     python tools/measure_thresholds.py --check                # re-measure and compare with the file (exit 1 beyond --tol)
     python tools/measure_thresholds.py --refine-errors 0      # the old single pass (~15 min; no refinement, wider intervals)

@@ -11,6 +11,8 @@ from mmw60.frontend.grid import decoder_cap, decoder_floor_db, evaluate_cell, ma
 from mmw60.sim.link import per_sweep
 
 BE_BWS = (20e6, 40e6, 80e6, 160e6, 320e6)
+#: interval widths the refined table must stay inside (set from the 2026-11-15 measurement)
+WIDTH_MAX_DB, WIDTH_MEDIAN_DB = 1.0, 0.5
 
 
 def test_threshold_file_is_tagged_complete_and_monotonic():
@@ -42,6 +44,33 @@ def test_threshold_file_is_tagged_complete_and_monotonic():
         assert max(spread) - min(spread) < 1.5, (i, spread)
         assert spread[-1] < spread[0] + 0.5, (i, spread)
     assert spec.per_threshold_db("11ac", 40e6, 0) is None and spec.per_threshold_db("11be", 80e6, 14) is None
+
+
+def test_every_threshold_carries_its_interval_from_the_refined_counts():
+    """ROADMAP C6: the two points bracketing PER 1e-2 run on to 60 errors (or
+    3000 packets) and the file records the 95 % bootstrap interval next to
+    every threshold; the cap reads the point, the interval says how far the
+    point can be trusted."""
+    doc = spec.per_threshold_document()
+    assert "60 errors or 3000 packets" in doc["cite"] and "ci_db" in doc["cite"]
+    widths = []
+    for std, by_bw in doc["thresholds_db"].items():
+        for bw, by_mcs in by_bw.items():
+            for mcs, v in by_mcs.items():
+                ci = spec.per_threshold_ci_db(std, bw, mcs)
+                if v is None:
+                    assert ci is None, (std, bw, mcs)
+                    continue
+                assert ci is not None, (std, bw, mcs)
+                lo, hi = ci
+                assert lo <= v <= hi, (std, bw, mcs, v, ci)
+                widths.append(hi - lo)
+    assert len(widths) >= 9 + 5 * 12
+    # with the bracketing points at 60 errors the counting statistics are a
+    # few tenths of a dB wide, well inside the 0.5 dB grid the crossing is
+    # interpolated on (the interval does not include that interpolation)
+    assert max(widths) < WIDTH_MAX_DB and float(np.median(widths)) < WIDTH_MEDIAN_DB, (max(widths), np.median(widths))
+    assert spec.per_threshold_ci_db("11ac", 40e6, 0) is None
 
 
 def test_one_threshold_reproduces_from_the_code():
