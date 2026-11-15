@@ -57,7 +57,8 @@ Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、
 spec_sources 的 `liu2025.*` 仍按 arXiv 记，与刊出版有三处不同（Table I 的 16× 一列、接收机那句话、Table II 的几行可以升 spec；`cairn/spec-sources.md` “Liu 2025 的版本”一节）。2026-11-15 已开 spec_sources#26（连同 [15] / 0396 的相噪与 PA 模型条目）；对方发版后本库重新 pin、验收后关 issue。
 
 ### C12. Liu 刊出版对外校验发现的（2026-11-15，`cairn/external-validation.md` §3–§4）
-- **原文 MCS4 有损伤到不了 1e-2，本库每一组都到得了**：刊出版 Fig. 3 的 8× / 16× MCS4 到 31 dB 仍停在 PER 0.105 / 0.053，本库字面 21.82 / 22.14、flat 20.64 / 20.27、改进接收机 17.0 … 19.1 dB。复现：`python examples/00_liu2025_per_vs_snr.py --jobs 4`（约 85 分钟）后 `python tools/external_check.py`。候选三个：PA（原文引 [15] IEEE 802.15-06-0477 的 Rapp，不是 TGad EM；OBO 参考点没说）、逐包衰落的 CR 信道（本库纯 Rayleigh 的 MCS4 在 26 dB 仍 PER 0.21）、接收机。原文 ideal 的 MCS4 也比本库 ideal 差 2–3 dB（MCS0 / 1 反而好 1.6–2.2 dB），偏向信道 / 接收机。待做：读 [15]；示例 00 加一组“Rayleigh / 更低 K 因子的 CR 信道 + 字面 PA”的灵敏度行；不调参数凑。
+- **原文 MCS4 有损伤到不了 1e-2，本库每一组都到得了**：刊出版 Fig. 3 的 8× / 16× MCS4 到 31 dB 仍停在 PER 0.105 / 0.053，本库字面 21.82 / 22.14、flat 20.64 / 20.27、改进接收机 17.0 … 19.1 dB。复现：`python examples/00_liu2025_per_vs_snr.py --jobs 4`（约 85 分钟）后 `python tools/external_check.py`。
+  2026-11-15 示例 12（`python examples/12_liu2025_channel_sensitivity.py`，约 12 分钟）把信道排除在单独解释之外：没有哪个 LOS K 因子同时给出“MCS0 / 1 陡、MCS4 停平台”——flat / 10 dB 时 MCS4 到 1e-2（19.77 / 22.11 dB），纯 Rayleigh 时 MCS4 在 31 dB 停在 0.106（原文 0.105），但 MCS0 / 1 从 0.5 到 0.05 要 7.06 / 7.59 dB（原文 0.97 / 1.23）、14 / 17 dB 也到不了 1e-2。衰落信道上的平台主要是 PA 的：LOS 3 dB 时换理想 PA 23.87 dB、只关相噪 31.00；Rayleigh 时理想 PA 29.77、只关相噪仍到不了（0.070）。“只罚高阶调制”的平台是 PA 的特征。待做：在 flat 与 LOS 10 dB 上扫 PA 的有效工作点（OBO 8 → 4 dB、OBO 参考点、驱动的峰值归一）看哪一档让 MCS4 停在 0.1 而 MCS0 / 1 只挪 0.4–0.6 dB；[15] 已读（没给 Rapp 数，回退定义与本库相同），所以 Liu 的 PA 只能这样从曲线反推一个范围，不改预设。原文 ideal 的 MCS4 比本库 ideal 差 2–3 dB 仍无解释（ideal 里没有 PA）。
 - **原文的 ideal 带着 CFO**：4× 在 ideal 组也是 PER = 1。本库没有“CFO 开、相噪 / PA 关”这一组，所以 K = 4 的 ideal 不可比；要比得加这组（约多跑 15 分钟）。
 
 ### C6. C1–C3 过程中发现的（见 `cairn/LOG.md` 2026-11-11）
