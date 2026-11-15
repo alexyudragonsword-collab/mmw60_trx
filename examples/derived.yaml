@@ -6,17 +6,24 @@
 
 - name: ex00 K=8 MCS0, literal vs flat channel at PER 1e-2 (what the channel assumption costs)
   values:
-    lit: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 0 {} {*} {*}"}
-    flat: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 0 {*} {*} {}"}
+    lit: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 0 {} {*} {*} {*}"}
+    flat: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 0 {*} {*} {*} {}"}
   quotes:
     - {doc: cairn/external-validation.md, text: "K = 8 MCS0 字面 {lit} dB、flat {flat} dB，信道假设值 {lit - flat} dB"}
 
 - name: ex00 K=8 MCS1, literal vs flat channel at PER 1e-2
   values:
-    lit1: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 1 {} {*} {*}"}
-    flat1: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 1 {*} {*} {}"}
+    lit1: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 1 {} {*} {*} {*}"}
+    flat1: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 1 {*} {*} {*} {}"}
   quotes:
     - {doc: cairn/external-validation.md, text: "K = 8 MCS1 字面 {lit1} dB、flat {flat1} dB"}
+
+- name: ex00 K=8 MCS4, the CFO with its estimators on the ideal link (ideal+CFO against ideal; ROADMAP C12)
+  values:
+    id4: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 4 {*} {} {*} {*}"}
+    cfo4: {example: "00", after: "== SNR at PER 1e-2 [dB] ==", line: "8 4 {*} {*} {} {*}"}
+  quotes:
+    - {doc: cairn/external-validation.md, text: "K = 8 MCS4 ideal {id4} dB，带 CFO {cfo4} dB"}
 
 - name: ex04 the best row at the conformance cap (11be 80 MHz x 8 since the measured PA; since the 7.5 dB back-off 11ac 20 MHz x 32 second, x 4 third)
   values:

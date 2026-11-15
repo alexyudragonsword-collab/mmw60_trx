@@ -12,9 +12,10 @@
 ```bash
 pip install -e ".[test,jit]"          # numba 可选；MMW60_NO_JIT=1 走纯 numpy，结果逐位相同
 pytest -q -m "not slow"               # 约 5 分钟
-python examples/00_liu2025_per_vs_snr.py --quick     # 冒烟；去掉 --quick 全量约 80 分钟（4 核）
+python examples/00_liu2025_per_vs_snr.py --quick     # 冒烟；去掉 --quick 全量约 100 分钟（4 核），加 --cache DIR 可分段跑完
 python tools/external_check.py        # 与 Liu 2025 刊出版 Fig. 3 的读图值对表（有损伤 / ideal 两组）
 python examples/12_liu2025_channel_sensitivity.py   # 原文 MCS4 平台：信道 K 因子扫描、逐项关 PA / 相噪（约 12 分钟）
+python examples/13_liu2025_pa_share.py   # 原文平台用它自己的 ideal 曲线反推损伤份额，对本库字面工作点（约 17 分钟）
 python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_cal
 ```
 
@@ -78,10 +79,10 @@ CFO 靠多链路的 sub-7 估计乘频率比预补偿（`impairments/cfo.py::Mlo
 python examples/06_topology_a_if_extender.py --jobs 4     # 全量约 4 分钟；--quick 冒烟
 ```
 
-只改数字基带的升频（A × be_upclocked，示例 11）：芯片的模拟与校准不动，数字跑基准 PHY、时钟 ×K，K × 基准带宽要落在芯片的信道上（≤ 320 MHz）。上限不变（PA 限），换来的是 K ≥ 4 时芯片自己的 L-STF 接住 60 GHz 的 CFO，不靠 MLO。
+只改数字基带的升频（A × be_upclocked，示例 11）：芯片的模拟与校准不动，数字跑基准 PHY、时钟 ×K，K × 基准带宽要落在芯片的信道上（≤ 320 MHz）。上限不变（PA 限），换来的是 K ≥ 8 时芯片自己的 L-STF 接住 60 GHz 的 CFO，不靠 MLO（K = 4 余量 3 %，低 SNR 下按包丢）。
 
 ```bash
-python examples/11_topology_a_digital_upclock.py           # 全量约 2.5 分钟；--quick 冒烟
+python examples/11_topology_a_digital_upclock.py           # 全量约 17 分钟（多半是 §2b 的失锁统计）；--quick 冒烟
 ```
 
 结论见 `cairn/topology-a.md`（§7b 是只改数字基带的升频）。

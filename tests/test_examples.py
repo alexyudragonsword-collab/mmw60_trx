@@ -11,7 +11,7 @@ EXAMPLES = sorted((REPO / "examples").glob("[0-9][0-9]_*.py"))
 
 
 def test_examples_exist_and_compile():
-    assert [p.name[:2] for p in EXAMPLES] == [f"{i:02d}" for i in range(13)]
+    assert [p.name[:2] for p in EXAMPLES] == [f"{i:02d}" for i in range(14)]
     for p in EXAMPLES:
         py_compile.compile(str(p), doraise=True)
 

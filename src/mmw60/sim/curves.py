@@ -3,6 +3,7 @@ curve specs → sweeps (optionally in parallel processes) → table rows, with
 the SNR at the target PER interpolated from each sweep."""
 from __future__ import annotations
 
+import hashlib
 import json
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
@@ -38,21 +39,60 @@ def _run(spec_dict: dict) -> dict:
             "ci": snr_at_per_ci(sw, spec_dict["target"])}
 
 
+def _source_digest() -> str:
+    """sha256 over every ``.py`` file of the installed ``mmw60`` package
+    (vendored copies included): a cached curve is only reused by the very
+    code that produced it."""
+    root = Path(__file__).resolve().parents[1]
+    h = hashlib.sha256()
+    for f in sorted(root.rglob("*.py")):
+        h.update(f.relative_to(root).as_posix().encode())
+        h.update(f.read_bytes())
+    return h.hexdigest()
+
+
+def _run_cached(spec_dict: dict) -> dict:
+    """``_run`` behind a one-file-per-curve cache.  A sweep is seeded from
+    its own config only, so a curve does not depend on which run, process
+    or order produced it; both a hit and a miss return the JSON round trip,
+    so a run split over several invocations prints what one run would."""
+    path = Path(spec_dict.pop("cache_path"))
+    if path.exists():
+        return json.loads(path.read_text())
+    r = json.loads(json.dumps(_run(spec_dict)))
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(r, sort_keys=True))
+    tmp.replace(path)
+    return r
+
+
 def run_curves(specs: list[CurveSpec], target: float = 1e-2, jobs: int = 1,
-               log=print) -> list[dict]:
+               log=print, cache_dir: Path | None = None) -> list[dict]:
+    """Run every spec; with ``cache_dir`` each finished curve is kept on
+    disk (keyed by the spec and the package source) and reused, so a long
+    run stopped part-way resumes where it was."""
     todo = [{"name": s.name, "cfg": s.cfg.to_dict(), "snr_db": list(map(float, s.snr_db)),
              "max_packets": s.max_packets, "min_errors": s.min_errors,
              "stop_below": s.stop_below, "tags": s.tags, "target": target,
              "refine_errors": s.refine_errors, "refine_max_packets": s.refine_max_packets} for s in specs]
+    run = _run
+    if cache_dir is not None:
+        cache_dir = Path(cache_dir)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        src = _source_digest()
+        for d in todo:
+            key = hashlib.sha256((src + json.dumps(d, sort_keys=True)).encode()).hexdigest()[:24]
+            d["cache_path"] = str(cache_dir / f"{key}.json")
+        run = _run_cached
     out: list[dict] = []
     if jobs > 1:
         with ProcessPoolExecutor(max_workers=jobs) as pool:
-            for r in pool.map(_run, todo):
+            for r in pool.map(run, todo):
                 out.append(r)
                 log(f"  done {r['name']}: SNR@{target:g} = {_fmt(r['snr_at_target'])}")
     else:
         for d in todo:
-            r = _run(d)
+            r = run(d)
             out.append(r)
             log(f"  done {r['name']}: SNR@{target:g} = {_fmt(r['snr_at_target'])}")
     return out

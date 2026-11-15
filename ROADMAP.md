@@ -2,6 +2,17 @@
 
 **这份文件只写还没做的事。** 做完即删，并在 `CHANGELOG.md` 记一笔、`cairn/LOG.md` 记数字。每条带证据（复现方式与数字）。
 
+## 当前优先级（2026-11-15 排：先动结论的、成本低的；做完一条就从这里和正文一起删）
+1. **C8 + C10：预设回退落在 DPD 的崖口，要用户定**。同台表计了 DPD 的功耗，底板却用未预失真的 Rapp；7.5 dB 上 K ≤ 8 DPD 拿回 0–0.7 dB（换训练数据后中位 0），直接动 A 对 B 的 pJ/bit。两个选项：工作点按“DPD 后刚好 −21 dB”取；或保持 7.5 dB、同台表不计 DPD 功耗。都会动数字（用指纹逃生口）。
+2. **C6：门限表加逼近**。解码器上限的预测带 ±0.3 dB（K = 4 MCS4 预测 12.97、实测 12.12）；工具加 `--refine`，区间写进文件，约 50 分钟算力。
+3. **A2：B 的 K = 4 CFO 丢包**。同一对估计器在 A 上 3 dB 丢 0.5–1 % 的包，B 的 K = 4 行按“捕获”记；一档约 1 分钟。
+4. **B：阵列层的功率列按 N 计、训练到 MCS0 的边**。
+5. **C7 第一条：2.56 GHz 列 modem / genie 两个口径差 10 dB**，要在多径下验证。
+6. **里程碑 3（802.11ay）**：1–5 之后、同台表稳定了再开；想先看 ay 可以提到 1 之后。
+7. **C12 剩下的：原文 ideal 的 16-QAM 门槛比本库高 2.1–2.9 dB**。PA 工作点与 CFO 已排除（示例 13、ideal+CFO 组）。不动本库任何结论，只能在 ideal 链上逐个排除信道 / 接收机的候选。
+
+其余（A1 的 DPD 学习方式与没建的损伤、A2 / A3 的口径统一、C6 第二条、C9、C11）按需再做。卡在外部原文上的不排进度：C4、C10 的 802.11ad 条文与 AM/PM、C8 的 PA 记忆时间常数、B 的氧吸收、A2 的 Murmann 表；其中 11-09/0334、802.11ad EVM 表、Murmann 表能拿到原文，可以打包给 spec_sources。
+
 ## A. 里程碑 1 —— 两条拓扑同台（主体都已落地；下面是剩余项）
 
 ### A1. 拓扑 A 的剩余项（主体已落地：`src/mmw60/ifext.py`、示例 06、`cairn/topology-a.md`）
@@ -12,7 +23,6 @@
   整套序列搬到 60 GHz 观测上，IQ 校准的 IRR 从 55.7 掉到 47.5 dB，芯片自己输出端的 TX EVM 掉到 −14.2 dB（§2）。（2026-11-13 回退改成 7.5 dB 之前：48.4 dB、−15.8 dB。2026-11-12 预设换成测量的 PA 之前：6 dB 上 −16.0 / −14.6，8 dB 上 +1.2；IRR 掉到 37.9 dB，芯片输出 −11.9 dB。）挑哪一轮现在由 wifitrx 的 DPD 步自己做（0.7.39），本库只再和芯片上原有的比（`train_dpd_mmw`）。
   待做：这类 PA 上换直接学习，或目标增益按可达的峰值输出折算（PA_DPD 有 `dpd/direct.py`，针对样条预失真器；已在 PA_DPD#4 上问对方要不要单开 issue）；
   或在观测通路里先把第二级 PA 的失真建模扣掉再做 IQ 校准。
-- **只改数字基带的升频（A × be_upclocked，2026-11-15 已建）只在 flat 信道、每格 4 包上验了 CFO 捕获**：K = 4 在 60.48 GHz 的 L-STF 余量只有 3 %（2.50 对 2.42 MHz），关掉 MLO 时链路 EVM −19.99 dB、估计残差 1.0 kHz；失锁概率与多径（CR 信道）下没量。复现：`python examples/11_topology_a_digital_upclock.py` §2。待做：K = 4 / 8 关 MLO 的几百包失锁率与一档 CR 信道；要在 Liu 的 73.44 GHz（2.94 MHz）上 K = 4 也不靠 MLO，需要示例 01 那种整数子载波解模糊。
 - 没建的：60 GHz LNA 的增益台阶（2026-11-14 起它是共享前端最高增益档的一级固定增益，`assumed.ifext_rx_front60`；接收梯子只在芯片里）、混频器单独的非线性、IF 滤波器的温漂、采样钟偏差（两条拓扑都没建）；MLO 的 sub-7 链路只有 AWGN（没有它自己的相噪和多径）。
   预设用 WiFi 7 梯子时芯片前没有这一级（它就是芯片那颗梯子），所以预设的数与 60 GHz LNA 无关；换成查到的前端，拓扑 A 才在芯片前串一级。
 - 11ac 20 MHz 的拓扑 A 行 pJ/bit 是 22419：26 Mb/s 的分母，不是硬件差（与 `comparison-table.md` §6 ① 同理）。（2026-11-13 回退改成 7.5 dB 之前 22259；2026-11-12 预设换成测量的 PA 之前：29291、20 Mb/s。）
@@ -21,6 +31,7 @@
 - 示例 02 网格的 "IQcal" 列仍用 `assumed.irr_after_cal_db`（45 dB）；同台表（示例 04）已换成示例 03 实测的 `derived.irr_after_cal_measured_db`，一格结论都没动（`cairn/comparison-table.md` §6 ④），网格要不要跟着换只是口径统一的问题。
 - 11ac 40 / 80 / 160 MHz 基准仍是 EVM-only（它们的 BCC 交织器未建；11be 全部带宽已有 LDPC 数据域，`phy/eht.py`）；要不要补只看有没有人要 11ac 宽带的 PER。
 - 11be 数据域里没建的：HE/EHT 的预 FEC 填充 a 因子与 PE 字段（按 HT/VHT 流程，`assumed.eht_prefec_padding`）、EHT 11 位扰码器（PER 不感知）、MU-RU / 320 MHz 打孔 / DCM / 多流。
+- **K = 4 的 CFO 在低 SNR 下按包丢，B 没单独量**：60.48 GHz 上 L-STF 余量 81 kHz。同一对估计器在拓扑 A 上（示例 11 §2b，关 MLO，每格 400 包）11ac 20 MHz 基准 3 dB 丢 0.5 / 1.0 %（flat / CR 替身）、0 dB 丢 11.5 / 6.8 %，K = 8 全 0。B 的 K = 4 行（同台表、示例 02）按“捕获”记，没计这部分丢包；预计同量级，要在 B 的链上量一档（3 dB、400 包，约 1 分钟）。
 - 转换器 ENOB 随速率的法则（`assumed.converter_bits_per_octave`）换成 Murmann 调查表的实测包络（拿到表后标 survey）。
 - DPD 的 2.56 GHz 代价现在是 dsp_ip P=4 综合面积 + Horowitz 运算能耗的记账，按逐样本的 GMP 算；带记忆的 PA 上基函数要改（C8 第一条），那时项数与代价要重算。
 
@@ -55,10 +66,12 @@ ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、�
 ### C4. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
 Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、推荐 8 dB；刊出版与 [15] IEEE 802.15-06-0477-01-003c 2026-11-15 已读：都没给数，[15] 定义回退为相对 Psat 的输出回退，与本库一致；[15] 的 PA 文件 15-06-0396 拟合的是另一颗 GaAs PA，与 TGad EM 的参数只是数字相近，spec_sources#26 复算曲线不同，对 Liu 的 PA 没有约束；`tg3c.*`）；11ad CR 信道 tap 表。
 
-### C12. Liu 刊出版对外校验发现的（2026-11-15，`cairn/external-validation.md` §3–§4）
-- **原文 MCS4 有损伤到不了 1e-2，本库每一组都到得了**：刊出版 Fig. 3 的 8× / 16× MCS4 到 31 dB 仍停在 PER 0.105 / 0.053，本库字面 21.82 / 22.14、flat 20.64 / 20.27、改进接收机 17.0 … 19.1 dB。复现：`python examples/00_liu2025_per_vs_snr.py --jobs 4`（约 85 分钟）后 `python tools/external_check.py`。
-  2026-11-15 示例 12（`python examples/12_liu2025_channel_sensitivity.py`，约 12 分钟）把信道排除在单独解释之外：没有哪个 LOS K 因子同时给出“MCS0 / 1 陡、MCS4 停平台”——flat / 10 dB 时 MCS4 到 1e-2（19.77 / 22.11 dB），纯 Rayleigh 时 MCS4 在 31 dB 停在 0.106（原文 0.105），但 MCS0 / 1 从 0.5 到 0.05 要 7.06 / 7.59 dB（原文 0.97 / 1.23）、14 / 17 dB 也到不了 1e-2。衰落信道上的平台主要是 PA 的：LOS 3 dB 时换理想 PA 23.87 dB、只关相噪 31.00；Rayleigh 时理想 PA 29.77、只关相噪仍到不了（0.070）。“只罚高阶调制”的平台是 PA 的特征。待做：在 flat 与 LOS 10 dB 上扫 PA 的有效工作点（OBO 8 → 4 dB、OBO 参考点、驱动的峰值归一）看哪一档让 MCS4 停在 0.1 而 MCS0 / 1 只挪 0.4–0.6 dB；[15] 已读（没给 Rapp 数，回退定义与本库相同），所以 Liu 的 PA 只能这样从曲线反推一个范围，不改预设。原文 ideal 的 MCS4 比本库 ideal 差 2–3 dB 仍无解释（ideal 里没有 PA）。
-- **原文的 ideal 带着 CFO**：4× 在 ideal 组也是 PER = 1。本库没有“CFO 开、相噪 / PA 关”这一组，所以 K = 4 的 ideal 不可比；要比得加这组（约多跑 15 分钟）。
+### C12. Liu 刊出版对外校验剩下的（2026-11-15，`cairn/external-validation.md` §3–§4）
+- **原文 ideal 的 16-QAM 门槛比本库高 2.1–2.9 dB，MCS0 / 1 原文反而好 1.7–2.1 dB**。原文 ideal（相噪 / PA 关、CFO 留着）8× / 16× 的 MCS4 在 19.7 / 19.0 dB 到 1e-2；本库同定义的 ideal+CFO 组是 16.77 / 16.87 dB，flat 信道上的 ideal 是 16.00 dB。MCS0 / 1 原文 4.2 / 7.5 dB，本库 5.94 … 6.27 / 9.16 … 9.50 dB。
+  原文 MCS4 有损伤的平台（31 dB 处 0.105 / 0.053）可以全由这一项解释：示例 13 用原文 ideal 曲线反推的损伤份额是 −17.93 / −18.20 dB，本库字面工作点是 −17.74 / −17.94 dB。
+  复现：`python examples/00_liu2025_per_vs_snr.py --jobs 4 --cache DIR`（4 核约 100 分钟，可分段）后 `python tools/external_check.py`；`python examples/13_liu2025_pa_share.py`（约 17 分钟）。
+  已排除：PA 工作点（示例 13）；CFO 与估计器（ideal+CFO 对 ideal 最多 0.20 dB）；只靠 LOS K 因子的信道（示例 12）。
+  待做（不动本库任何结论，只为解释原文）：在 ideal 链上逐个量只罚 16-QAM 3/4 的候选，看哪一个让 MCS4 涨约 3 dB 而 MCS0 / 1 不涨。候选有三个：LOS K 因子 3 / 6 dB 下的 ideal 曲线（示例 12 只有全开的）；LLR 不按信道增益加权或硬判决；不平滑的信道估计。
 
 ### C6. C1–C3 过程中发现的（见 `cairn/LOG.md` 2026-11-11）
 - **门限表自己还没用上 C3 的逼近**：`tools/measure_thresholds.py` 仍是每点 ≤ 200 包 / 15 错、0.5 dB 步。同一格（11be 80 MHz MCS4 理想链）门限表读 11.40、示例 05 读 11.09；

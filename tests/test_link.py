@@ -79,6 +79,31 @@ def test_run_curves_serial_and_parallel_agree():
     assert "SNR@1e-2" in sweep_line(a[0])
 
 
+def test_run_curves_cache_resumes_with_the_same_numbers(tmp_path, monkeypatch):
+    """A cached curve is what an uncached run gives; a second run reads it
+    instead of simulating; another spec or another source is a miss."""
+    import mmw60.sim.curves as curves
+    spec = CurveSpec("t", _flat_ideal(8, 0), [0.0, 20.0], max_packets=3, min_errors=1,
+                     tags={"k": 8, "mcs": 0, "set": "x"})
+    plain = run_curves([spec], jobs=1, log=lambda s: None)
+    first = run_curves([spec], jobs=1, log=lambda s: None, cache_dir=tmp_path)
+    assert first[0]["sweep"] == plain[0]["sweep"]
+    assert first[0]["snr_at_target"] == plain[0]["snr_at_target"]
+    assert len(list(tmp_path.glob("*.json"))) == 1
+
+    def boom(_):
+        raise AssertionError("simulated although cached")
+    monkeypatch.setattr(curves, "_run", boom)
+    again = run_curves([spec], jobs=1, log=lambda s: None, cache_dir=tmp_path)
+    assert again == first
+    other = dc.replace(spec, snr_db=[0.0, 19.0])
+    with pytest.raises(AssertionError, match="simulated although cached"):
+        run_curves([other], jobs=1, log=lambda s: None, cache_dir=tmp_path)
+    monkeypatch.setattr(curves, "_source_digest", lambda: "another source")
+    with pytest.raises(AssertionError, match="simulated although cached"):
+        run_curves([spec], jobs=1, log=lambda s: None, cache_dir=tmp_path)
+
+
 def test_k16_symbol_is_hurt_by_a_long_delay_spread_and_not_by_the_assumed_one():
     """ISI beyond the 50 ns guard: 15 ns rms costs the K = 16 link an EVM
     floor near −14 dB; the assumed 7 ns stays below −25 dB (derived.isi_beyond_gi_k16_db)."""
