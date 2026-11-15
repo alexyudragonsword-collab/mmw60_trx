@@ -97,16 +97,27 @@ def test_derived_entries_follow_their_formulas():
         s("derived.isi_beyond_gi_k16_db"), abs=0.1)
 
 
-def test_fig4_readings_cover_all_nine_curves():
+def test_fig4_readings_cover_all_nine_curves_in_both_sets():
+    """The published figure (Fig. 3) has an impaired and an "ideal" set; the
+    one set read off arXiv v1 is the ideal one (2026-11-15 correction)."""
     ref = spec.fig4_readings()
-    assert ref["source"] == "survey" and "未核实" in ref["note"]
-    keys = {(c["k"], c["mcs"]) for c in ref["curves"]}
-    assert keys == {(k, m) for k in (4, 8, 16) for m in (0, 1, 4)}
-    for c in ref["curves"]:
-        if c["k"] == 4:
-            assert c["per_at_1e-2_snr_db"] is None
-        else:
-            assert 0 < c["per_at_1e-2_snr_db"] < 30
+    assert ref["source"] == "survey" and "未核实" in ref["note"] and "MCOM.002.2400059" in ref["cite"]
+    assert set(ref["sets"]) == {"impaired", "ideal"}
+    for st in ("impaired", "ideal"):
+        cs = [c for c in ref["curves"] if c["set"] == st]
+        assert {(c["k"], c["mcs"]) for c in cs} == {(k, m) for k in (4, 8, 16) for m in (0, 1, 4)} and len(cs) == 9
+        for c in cs:
+            if c["k"] == 4:                                   # 4x is PER = 1 in both sets: the CFO is in both
+                assert c["per_at_1e-2_snr_db"] is None and "floor_per" not in c
+            elif st == "impaired" and c["mcs"] == 4:          # the impaired MCS4 curves floor above 1e-2
+                assert c["per_at_1e-2_snr_db"] is None and 0.01 < c["floor_per"] < 0.2
+            else:
+                assert 0 < c["per_at_1e-2_snr_db"] < 30
+    # the impaired curves sit right of the ideal ones where both cross
+    by = {(c["set"], c["k"], c["mcs"]): c["per_at_1e-2_snr_db"] for c in ref["curves"]}
+    for k in (8, 16):
+        for m in (0, 1):
+            assert by[("impaired", k, m)] > by[("ideal", k, m)]
 
 
 def test_unknown_key_names_what_exists():

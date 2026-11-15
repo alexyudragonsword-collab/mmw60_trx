@@ -194,33 +194,48 @@ def test_refinement_adds_errors_at_the_bracket_only_and_stays_deterministic():
 def test_external_check_verdict_has_three_states(capsys):
     """finding C3: a difference is OUTSIDE only if its whole interval (our
     bootstrap interval widened by the figure's reading precision) is; an
-    interval straddling the tolerance is reported as undecided, not as a miss."""
+    interval straddling the tolerance is reported as undecided, not as a miss.
+    A paper curve that floors above 1e-2 agrees only with one of ours that
+    never reaches it; the paper's ideal set keeps the CFO, so its 4x curves
+    are not compared with ours (which switch it off)."""
     import sys
 
     from conftest import REPO
     sys.path.insert(0, str(REPO / "tools"))
     import external_check
 
-    from mmw60 import spec
-    results = []
-    for c in spec.fig4_readings()["curves"]:
-        paper = c["per_at_1e-2_snr_db"]
-        tags = {"k": c["k"], "mcs": c["mcs"], "set": "impaired"}
-        if paper is None:
-            results.append({"tags": tags, "snr_at_target": None, "sweep": {"per": [1.0, 1.0]}, "ci": {}})
-            continue
-        delta, half = {(8, 1): (1.2, 0.5), (8, 4): (2.5, 0.2)}.get((c["k"], c["mcs"]), (0.2, 0.1))
-        results.append({"tags": tags, "snr_at_target": paper + delta, "sweep": {"per": [1.0, 0.0]},
+    def fake(ref_set, which, deltas):
+        out = []
+        for c in external_check.paper_curves(ref_set):
+            paper = c["per_at_1e-2_snr_db"]
+            tags = {"k": c["k"], "mcs": c["mcs"], "set": which}
+            if paper is None:
+                out.append({"tags": tags, "snr_at_target": None, "sweep": {"per": [1.0, 1.0]}, "ci": {}})
+                continue
+            delta, half = deltas.get((c["k"], c["mcs"]), (0.2, 0.1))
+            out.append({"tags": tags, "snr_at_target": paper + delta, "sweep": {"per": [1.0, 0.0]},
                         "ci": {"lo_db": paper + delta - half, "hi_db": paper + delta + half}})
+        return out
+
+    results = fake("impaired", "impaired", {(8, 1): (1.2, 0.5), (16, 1): (2.5, 0.2)})
     code = external_check.compare(results, "impaired")
     out = capsys.readouterr().out
     assert code == 1 and out.count("OUTSIDE 1 dB") == 1 and out.count("cannot tell") == 1
-    assert out.count("within 1 dB") == 4 and "1 cannot be told" in out and "1 to investigate" in out
+    assert out.count("within 1 dB") == 2 and out.count("neither reaches") == 2
+    assert "7 of 9 curves agree" in out and "1 cannot be told" in out and "1 to investigate" in out
     # without the one clear miss the check passes, undecided curves included
-    ok = [r for r in results if (r["tags"]["k"], r["tags"]["mcs"]) != (8, 4)]
-    ok.append({"tags": {"k": 8, "mcs": 4, "set": "impaired"}, "snr_at_target": 19.9, "sweep": {"per": [1.0, 0.0]},
-               "ci": {"lo_db": 19.8, "hi_db": 20.0}})
+    ok = fake("impaired", "impaired", {(8, 1): (1.2, 0.5)})
     assert external_check.compare(ok, "impaired") == 0
+    # one of ours reaching 1e-2 where the paper floors is a miss
+    for r in ok:
+        if (r["tags"]["k"], r["tags"]["mcs"]) == (8, 4):
+            r.update(snr_at_target=21.8, sweep={"per": [1.0, 0.0]}, ci={"lo_db": 21.4, "hi_db": 22.4})
+    capsys.readouterr()
+    assert external_check.compare(ok, "impaired") == 1 and "the paper floors at PER 0.105" in capsys.readouterr().out
+    # the ideal sets: K = 4 is skipped, K = 8 / 16 are compared
+    assert external_check.compare(fake("ideal", "ideal", {}), "ideal", "ideal") == 0
+    out = capsys.readouterr().out
+    assert out.count("not comparable: ") == 3 and "6 of 6 curves agree" in out and "(3 not comparable)" in out
 
 
 def test_auto_span_does_not_give_up_smoothing_when_it_sees_no_noise():

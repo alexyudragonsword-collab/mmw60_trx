@@ -53,7 +53,8 @@ ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、�
 ## C. 里程碑 0 过程中发现的问题
 
 ### C4. 需要外部输入才能关掉的（见 `cairn/spec-sources.md` 末节）
-Liu 2025 的 Rapp 参数与 OBO 定义（TGad 原文 2026-11-13 已读：回退从 Psat 算、推荐 8 dB；Liu 本人用的哪颗 PA 仍不知道）；11ad CR 信道 tap 表。
+Liu 2025 的 Rapp 参数与 OBO 定义（TGad 原文 2026-11-13 已读：回退从 Psat 算、推荐 8 dB；刊出版 2026-11-15 已读：也没给数，PN 与 PA 模型都引 [15] IEEE 802.15-06-0477-01-003c，下一步读它）；11ad CR 信道 tap 表。
+spec_sources 的 `liu2025.*` 仍按 arXiv 记，与刊出版有三处不同（Table I 的 16× 一列、接收机那句话、Table II 的几行可以升 spec；`cairn/spec-sources.md` “Liu 2025 的版本”一节）。改要回 spec_sources 提，是否开 issue 等用户定。
 
 ### C6. C1–C3 过程中发现的（见 `cairn/LOG.md` 2026-11-11）
 - **门限表自己还没用上 C3 的逼近**：`tools/measure_thresholds.py` 仍是每点 ≤ 200 包 / 15 错、0.5 dB 步。同一格（11be 80 MHz MCS4 理想链）门限表读 11.40、示例 05 读 11.09；
