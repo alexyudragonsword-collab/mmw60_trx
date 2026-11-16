@@ -11,7 +11,7 @@
 
 ### A1. 拓扑 A 的剩余项（主体已落地：`src/mmw60/ifext.py`、示例 06、`cairn/topology-a.md`）
 - **A × be_upclocked 关 MLO 时 CR 替身在 0 dB 少丢，原因没查**（示例 11 §2b）：11ac 20 × 4、0 dB，A flat 46/400、CR 替身 27/400；同样配置的 B 两种信道同是 45/400。两种信道共用同一串噪声（成对比较），所以差别在 A 的链（芯片 AGC / 模拟低通对多径的反应是候选），不在估计器。预设开 MLO，不动任何结论。复现：`python examples/11_topology_a_digital_upclock.py` §2b（约 10 分钟）。
-- **芯片 PA 旁路这一档留下的**（2026-11-14 已建：`ifext.chip_pa_bypass`，预设不开；`cairn/topology-a.md` §6b）：320 MHz 解码器口径 862 → 477 pJ/bit，拓扑 B 358，两边同是 MCS5（2026-11-15 门限加逼近之前 765 → 424、A 多一档）；合规口径 1712 → 943，B 926，B 略省（2026-11-15 起 60 GHz PA 的 DPD 不计、旁路时芯片的 DPD 也不计；之前 538 对 487、1200 对 1268，A 省）。
+- **芯片 PA 旁路这一档留下的**（2026-11-14 已建：`ifext.chip_pa_bypass`，预设不开；`cairn/topology-a.md` §6b）：320 MHz 解码器口径 865 → 481 pJ/bit，拓扑 B 361，两边同是 MCS5（2026-11-15 门限加逼近之前 765 → 424、A 多一档）；合规口径 1718 → 950，B 932，B 略省（2026-11-15 起 60 GHz PA 的 DPD 不计、旁路时芯片的 DPD 也不计；之前 538 对 487、1200 对 1268，A 省）。
   - 另一种做法没建：带着 PA 按交付方式校准、链路上再旁路（IIP2 照常，IQ 估计里混进 PA 失真，残差要在旁路模式下另量）。
   - 旁路后剩下的差：每端两个频综（芯片的 + 固定 LO）与 4 倍过采样的转换器。
 - **间接学习越迭代越差，靠近饱和时 1 轮也不够**：60 GHz 观测回环的 DPD 在回退 6 dB 上每一轮都不如不加（观测读数 不加 −18.41、第 1 轮 −16.27 dB），留芯片上的；8 dB 上值 +1.63 dB（示例 06 §3）。换成压缩更陡的测量形状之后，第 2、3 轮照样越来越差。
@@ -20,7 +20,7 @@
   或在观测通路里先把第二级 PA 的失真建模扣掉再做 IQ 校准。
 - 没建的：60 GHz LNA 的增益台阶（2026-11-14 起它是共享前端最高增益档的一级固定增益，`assumed.ifext_rx_front60`；接收梯子只在芯片里）、混频器单独的非线性、IF 滤波器的温漂、采样钟偏差（两条拓扑都没建）；MLO 的 sub-7 链路只有 AWGN（没有它自己的相噪和多径）。
   预设用 WiFi 7 梯子时芯片前没有这一级（它就是芯片那颗梯子），所以预设的数与 60 GHz LNA 无关；换成查到的前端，拓扑 A 才在芯片前串一级。
-- 11ac 20 MHz 的拓扑 A 行 pJ/bit 是 22419：26 Mb/s 的分母，不是硬件差（与 `comparison-table.md` §6 ① 同理）。（2026-11-13 回退改成 7.5 dB 之前 22259；2026-11-12 预设换成测量的 PA 之前：29291、20 Mb/s。）
+- 11ac 20 MHz 的拓扑 A 行 pJ/bit 是 22455：26 Mb/s 的分母，不是硬件差（与 `comparison-table.md` §6 ① 同理）。（2026-11-13 回退改成 7.5 dB 之前 22259；2026-11-12 预设换成测量的 PA 之前：29291、20 Mb/s。）
 
 ### A2. 拓扑 B 的剩余项（主体已在里程碑 1-B 落地：`cairn/topology-b.md`）
 - 示例 02 网格的 "IQcal" 列仍用 `assumed.irr_after_cal_db`（45 dB）；同台表（示例 04）已换成示例 03 实测的 `derived.irr_after_cal_measured_db`，一格结论都没动（`cairn/comparison-table.md` §6 ④），网格要不要跟着换只是口径统一的问题。
@@ -32,7 +32,7 @@
 ### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
 - WiFi 7 全链路四条整合：PA_DPD 的 PA / DPD 进 wifitrx 链在 K > 1 上已作为灵敏度研究接通（`pamemory.py`、示例 07：参考 PA 带记忆、wifitrx 的 DPD 步、抽头间隔透传），但预设与同台表的 PA 仍是无记忆的 Rapp（2026-11-12 起是测量 PA 的幅度与压缩形状），带记忆的 PA 没有进任何一行（C8）。还没做的一条：Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（A1 更正单边带换算后每行差 0.0 dB，相噪项差 0.1–1.3 dB）。
 - 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；示例 04 §6 的灵敏度从解析底板起算（每个旋钮不跑时域），2.56 GHz 行在那一节的基线是 MCS1、§4b 用时域底板是 MCS0；`per_thresholds.yaml` 是本库接收机的测量值，接收机再改要 `python tools/measure_thresholds.py --jobs 4 --cache DIR` 重量（2026-11-15 起夹点续跑到 60 错包，4 核约 2.3 小时，可分段）。
-- **校准列现在是示例 03 实测 IRR 的查表**，代入解析和；ay 两行（2026-11-16）读的是真跑过校准的链上的时域 EVM，两边读法不对称（`cairn/comparison-table.md` §2c）。这个不对称现在决定 ay 对 be 的倍数：同在校准后上限，ay SC 4620 Mb/s、188 pJ/bit，be 最好的 11be 80 MHz × 32 是 3459 Mb/s、270 pJ/bit（IRR 查表 40.2 dB；ay 的链实跑 43.6 dB）。
+- **校准列现在是示例 03 实测 IRR 的查表**，代入解析和；ay 两行（2026-11-16）读的是真跑过校准的链上的时域 EVM，两边读法不对称（`cairn/comparison-table.md` §2c）。这个不对称现在决定 ay 对 be 的倍数：同在校准后上限，ay SC 4620 Mb/s、189 pJ/bit，be 最好的 11be 80 MHz × 32 是 3459 Mb/s、272 pJ/bit（IRR 查表 40.2 dB；ay 的链实跑 43.6 dB）。
   待做：be 的宽带行（至少 1.28 / 2.56 GHz）也用 `calcheck.run_cal_at` 实跑，在校准过的链上读时域。be 的 `LinkSim` 要先加一个 `chains=` 入口，现在只有 ay 有（2a）。复现：`python examples/04_comparison_table.py` §1b 末行（约 1 分钟）。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
 
@@ -55,8 +55,8 @@ ay 不是第三条拓扑，是拓扑 B 的硬件配第三、四种波形，单�
 - **阵列表里 ay 行的距离两端用同一个阵列**（示例 10 §3d）：SC 按自己的工作点 30 个单元就顶到 EIRP 上限，接收增益也跟着少 1.5 dB，16-QAM 3/4 的距离从 OFDM 的 277 m 降到 219 m。不对称的阵列（发端少、收端多）没有建；要不要建看有没有人问。复现：`python examples/10_array_link_and_training.py` §3d（全量约 10 分钟）。
 - **SC 在 64-QAM 高码率上够不到限值**（示例 15 §5）：底板停在约 −27 dB，主要是相噪（两段 GI 之间插值后单开 −27.5 dB），MCS20 / 21 的 −28 / −29 dB 够不到。待做（按需）：块内更密的相位跟踪（如导频块），或换相噪更低的 LO 剖面再量。
 - **没建的**：DMG 混合速率前导（OFDM 包的前导以 1.76 GHz 单载波发，本库在 2.64 GHz 上发 Golay 训练场，`assumed.ay_preamble`）；信道绑定（第一轮不做）。
-- **编码 PER 等 spec_sources#33 的矩阵**（`ay/coding.py`，`cairn/ay.md` §9d）：SC 的编码通路已建，用 802.11 的 648 码当替身验证过。等 #33：DMG / EDMG 的 LDPC 基矩阵、7/8 打孔、扰码、填充与缩短；进来后用它量 EDMG 各档的门限，换掉 `assumed.ay_sensitivity`（距离表、阵列表）与多径下的门限。没建：OFDM 的编码载荷（DCM 配对、tone mapping）。
-- **ay 扇区扫描的时长没算，TRN / short SSW 没建**（示例 10 §4d，`cairn/ay.md` §9c）：能扫多远已算（N = 64 时发端扫描比 SC MCS1 的边短 8.0 dB，be 靠 MLO 的训练短 8.8 dB，同一类缺口）。扫一轮多久要控制 PHY 的前导与头、SSW 帧长、扇区间隔，等 spec_sources#33；EDMG 的 TRN 字段与 short SSW 也等它。复现：`python examples/10_array_link_and_training.py` §4d（全量约 10 分钟）。
+- **编码 PER 等 spec_sources#33 的矩阵**（`ay/coding.py`，`cairn/ay.md` §9d）：SC 的编码通路已建，用 802.11 的 648 码当替身验证过。#33 已到（2026-11-16，pin `76ee72a`）：`dmg.ldpc_matrices`（z = 42 的四个码率）、`edmg.ldpc_672_r7_8`、`edmg.ldpc_1344_lifting`、`dmg.data_encoding` / `edmg.sc_encoding`（扰码、填充）；还没接进 `coding.dmg_code`。接上后用它量 EDMG 各档的门限，换掉 `assumed.ay_sensitivity`（距离表、阵列表）与多径下的门限。没建：OFDM 的编码载荷（DCM 配对、tone mapping）。
+- **ay 扇区扫描的时长没算，TRN / short SSW 没建**（示例 10 §4d，`cairn/ay.md` §9c）：能扫多远已算（N = 64 时发端扫描比 SC MCS1 的边短 8.0 dB，be 靠 MLO 的训练短 8.8 dB，同一类缺口）。扫一轮多久要控制 PHY 的前导与头、SSW 帧长、扇区间隔：spec_sources#33 已给 `dmg.control_phy`、`dmg.phy_timing`、`dmg.ssw_frame`、`edmg.short_ssw`（pin `76ee72a`），还没算；EDMG 的 TRN 字段 #33 没给（BRP / TRN 不在范围里）。复现：`python examples/10_array_link_and_training.py` §4d（全量约 10 分钟）。
 - **多径下 ay 的距离没有重算**（示例 15 §10，`cairn/ay.md` §9b）：CR 替身（rms 7 ns）下，带内 SNR 12 dB 时 SC 比 flat 差 0.78 dB、OFDM 差 0.86 dB；§9 的距离表与示例 10 §3d 的阵列表都是 flat、视距，门限是 AWGN 的。待做（按需）：在多径下量各档门限（要编码 PER，见下一条），或把这 0.8–0.9 dB 作为余量记进距离表。复现：`python examples/15_ay_on_the_shared_front_end.py` §10（全量约 4.5 分钟）。
 - **长 GI 在 rms 15 ns 时把底板拿回来，但在 12 dB 上不帮忙，OFDM 还更差**（示例 15 §10）：+1.53 对普通 GI 的 +1.41 dB。推测是信道估计截窗跟着 GI 变长、收进更多噪声，没有单独验证。
 - **理想链上 OFDM 只到 −36 … −38 dB**，SC 到 −40 … −50 dB，随 GI 不单调，原因没查（`cairn/ay.md` 的坑）。离限值有 8 dB 以上，不动结论。复现：`examples/15_ay_on_the_shared_front_end.py` §3 第一行；GI 换成 short / long 用 `ay_60ghz(..., gi=)`。

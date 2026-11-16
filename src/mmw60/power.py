@@ -205,11 +205,11 @@ def power_report(cfg, fe, bit_rate_bps: float, coeffs: PowerCoefficients | None 
         enob = fe.converters.enob(fs)
         blocks.append(PowerBlock("converters", 4 * k.converter_w(fs, enob),
                                  f"the chip's 2 DAC + 2 ADC at {fs / 1e9:.2f} GS/s, ENOB {enob:.1f} by the same law, "
-                                 f"Walden {k.walden_fom_j * 1e15:.0f} fJ"))
+                                 f"Walden {k.walden_fom_j * 1e15:g} fJ"))
     elif fe.converters_enabled and cfg.frontend.converters.enabled:
         enob = fe.converters.enob(fs)
         blocks.append(PowerBlock("converters", 4 * k.converter_w(fs, enob),
-                                 f"2 DAC + 2 ADC at {fs / 1e9:.2f} GS/s, ENOB {enob:.1f}, Walden {k.walden_fom_j * 1e15:.0f} fJ"))
+                                 f"2 DAC + 2 ADC at {fs / 1e9:.2f} GS/s, ENOB {enob:.1f}, Walden {k.walden_fom_j * 1e15:g} fJ"))
     else:
         omitted.append("converters ideal")
     # DPD: counted only where the floor has a predistorter (ROADMAP C8)

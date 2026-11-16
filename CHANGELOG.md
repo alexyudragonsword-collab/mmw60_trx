@@ -4,6 +4,11 @@
 
 ## 未发布
 
+### 重新 pin spec_sources 到 `76ee72a`（spec_sources#33，连同 0.5.0 与第 7 批，2026-11-16）—— 指纹不变；pJ/bit 涨 0.1–1 %
+- vendored spec_sources 换成 `76ee72a`：新键 `dmg.ldpc_matrices`、`dmg.ldpc_r7_8_punctured`、`dmg.sc_mcs_extended`、`dmg.data_encoding`、`dmg.control_phy`、`dmg.phy_timing`、`dmg.ssw_frame`、`edmg.ldpc_672_r7_8`、`edmg.ldpc_1344_lifting`、`edmg.sc_encoding`、`edmg.short_ssw`（本 PR 只 pin，不接线）；11 条 survey 读成原文，`spec.unverified()` 20 → 9。
+- `adc_survey.walden_fom_fj` 70 → 70.815、区间 [38.36, 120.19]：转换器功耗 ×1.0116，示例 02 / 04 / 06 / 09 / 10 / 11 的期望输出重新接受，文档引用的数跟着改；MCS 上限、底板、排名不动。
+- `compare.knob_value_text`（新，`__all__`）：敏感度表 `at` 列的数按 12 位有效数字打印；Walden 系数在示例 04 与 `power` 的说明里按 `:g` 打印。
+
 ### 里程碑 3 第三段 9d：802.11ay 编码 PER 的机器（2026-11-16）—— 已发布的数、预设与指纹不变
 - `phy.ldpc.qc_code`（新）：任意准循环基矩阵 + 提升因子；`phy.ldpc.code` 改走它，结果逐位相同。
 - `ay/coding.py`（新）：`dmg_code`（矩阵等 spec_sources#33，没到时报 `PendingSpec`）、`payload_bits`、`coded_sc_packet`、`per`。
