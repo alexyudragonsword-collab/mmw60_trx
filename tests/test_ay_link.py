@@ -506,3 +506,44 @@ def test_the_dmg_and_edmg_codes_are_spec_sources_matrices_and_agree_with_each_ot
     assert coding.sc_code(LinkSim(_ideal("ay_sc", 16, model="behavioural"))) is e
     with pytest.raises(NotImplementedError, match="repetition"):
         coding.sc_code(LinkSim(_ideal("ay_sc", 1, model="behavioural")))
+
+
+def test_the_measured_edmg_sc_thresholds_are_tagged_complete_and_rise_with_the_code_rate():
+    """data/spec/ay_per_thresholds.yaml (tools/measure_ay_thresholds.py):
+    every SC MCS at repetition 1 measured with spec_sources#33's codes,
+    above the Shannon bound of its bits per chip, rising with the code rate
+    within a modulation; the preset rule takes them for SC and the DMG twin's
+    for OFDM and SC MCS 1 (repetition, not coded here)."""
+    doc = spec.ay_per_threshold_document()
+    assert doc["source"] == "derived" and "measure_ay_thresholds.py" in doc["cite"] and doc["note"]
+    assert doc["packet_bytes"] == 4096 and doc["target_per"] == 1e-2
+    t, ci = doc["thresholds_db"]["ay_sc"], doc["ci_db"]["ay_sc"]
+    coded = [e for e in edmg.mcs_table("ay_sc") if e.repetition == 1]
+    assert set(t) == {e.mcs for e in coded} and all(t[e.mcs] is not None for e in coded)
+    for e in coded:
+        eta = float(e.code_rate) * np.log2(e.order)
+        assert t[e.mcs] > 10 * np.log10(2 ** eta - 1), e.mcs
+        assert ci[e.mcs][0] <= t[e.mcs] <= ci[e.mcs][1] and ci[e.mcs][1] - ci[e.mcs][0] < 0.5
+    for order in (2, 4, 16, 64):
+        row = [t[e.mcs] for e in coded if e.order == order]
+        assert row == sorted(row), order
+    assert spec.ay_per_threshold_db("ay_sc", 1) is None and spec.ay_per_threshold_db("ay_ofdm", 13) is None
+    assert edmg.threshold_db("ay_sc", 14, 1.76e9) == (t[14], "measured")
+    assert edmg.threshold_db("ay_sc", 14, 1.76e9, rule="twin") == (edmg.ideal_threshold_db("ay_sc", 14, 1.76e9), "twin")
+    assert edmg.threshold_db("ay_sc", 1, 1.76e9)[1] == "twin" and edmg.threshold_db("ay_ofdm", 13, 1.8e9)[1] == "twin"
+    assert edmg.threshold_db("ay_sc", 17, 1.76e9) == (t[17], "measured")      # no DMG twin: measured only
+    assert edmg.threshold_db("ay_sc", 17, 1.76e9, rule="twin") == (None, None)
+    with pytest.raises(ValueError, match="rule"):
+        edmg.threshold_db("ay_sc", 14, 1.76e9, rule="best")
+
+
+def test_one_measured_edmg_sc_threshold_reproduces_from_the_code():
+    """The file is this code's measurement: 1 dB under the recorded
+    threshold of SC MCS 14 (π/2-16-QAM 3/4) the link fails, 1 dB over it it
+    holds, through per_sweep's packet hook."""
+    from mmw60.ay import coding
+    from mmw60.sim.link import per_sweep
+    t = spec.ay_per_threshold_db("ay_sc", 14)
+    sw = per_sweep(coding.threshold_config(14), [t - 1.0, t + 1.0], max_packets=40, min_errors=8, seed=5,
+                   packet=coding.sweep_packet)
+    assert sw["per"][0] > 0.5 and sw["per"][1] < 0.05, (t, sw["per"])

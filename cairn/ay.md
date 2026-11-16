@@ -291,11 +291,43 @@ RX DC 单开等于底板，没有贡献。直接读数：`dc_pre` 之后剩的�
 
   ay 的一个扇区（13.6 µs）是 be 训练场的 2 倍（6.9 µs：320 MHz 升频后的 GI2 + 2 个 L-LTF 符号加 0.1 µs 切换）：控制 PHY 的帧带着前导、头和 26 字节的 MAC 帧，be 的训练场只是一段 LTF（扇区号由 MLO 带外传）。N = 64 时扫一轮约 1.7 ms。EDMG 的 short SSW（48 位，`edmg.short_ssw`）在 EDMG PPDU 的数据域里发，那个 PPDU 的前导长度不在 spec_sources 里，没算；TRN 也没建。
 
-### 9d. 编码 PER：机器先建，矩阵等 spec_sources#33（`ay/coding.py`，feat/ay-coded）
+### 9d. 编码 PER：DMG / EDMG 的码与实测门限（`ay/coding.py`，feat/ay-coded → feat/ay-33-keys）
 - **已建**：`phy.ldpc.qc_code` 能从任意基矩阵与提升因子构造准循环码（802.11 的码改走它，边数组逐位相同；DMG / EDMG 的是 16 列、z = 42）。SC 载荷装整数个码字，不够一个码字的比特用随机填充，接收端丢掉。接收端从均衡后的码片求 max-log LLR，不做逐码片加权：SC 的 MMSE 让每个码片 SINR 相同，归一化 min-sum 又对 LLR 的整体缩放不敏感。任一码字的任一信息比特错就算丢包。`AyLinkSim.transmit(rng, bits=)` 接收载荷比特（只对 SC）。
 - **替身验证**：用 802.11 的 648 码（码率 1/2）、π/2-QPSK、行为模型的理想链：不加噪声时零错，−3 dB 全丢，6 dB 全对；把 LLR 的符号翻过来测试就变红（`test_the_coded_sc_path_with_an_80211_code_standing_in`）。替身码的 PER 曲线不打印：它不是 EDMG 的码，打出来容易被当成 EDMG 的数。
-- **等 spec_sources#33**（铁律 5）：DMG / EDMG 的 LDPC 基矩阵、码率 7/8 的打孔、扰码、填充与缩短规则。`coding.dmg_code` 在矩阵进来之前报 `PendingSpec`，不出任何 EDMG 档的 PER。键名 `dmg.ldpc_base_matrices` 是占位，spec_sources 定了名字再改。#33 已到（2026-11-16，pin `76ee72a`）：键名是 `dmg.ldpc_matrices`（z = 42，`r1_2` / `r5_8` / `r3_4` / `r13_16`，−1 是零块），码率 7/8 是 `dmg.ldpc_r7_8_punctured` 与 `edmg.ldpc_672_r7_8`（一格可叠两个移位），扰码与填充在 `dmg.data_encoding` / `edmg.sc_encoding`；还没接。
-- **没建**：OFDM 的编码载荷（DCM 配对、tone mapping）。
+- **码（2026-11-16，spec_sources#33，铁律 5）**：`coding.dmg_code` 从 `dmg.ldpc_matrices` 提升四个码率（1/2、5/8、3/4、13/16，672 位，z = 42）；DMG 的 7/8 是 13/16 码字不发前 48 个校验位（`dmg.ldpc_r7_8_punctured`，624 / 546，`PuncturedCode`：收端在那 48 位填零 LLR）。`coding.edmg_code` 在 7/8 用 EDMG 自己的 672 位码（`edmg.ldpc_672_r7_8`，588 位信息；大多数格是两个移位单位阵之和，`qc_code` 为此接受一格多个移位，相等的移位在 GF(2) 上相消，拒收）。spec_sources 的交叉核对在本库复现：EDMG 7/8 的校验阵就是 DMG 3/4 的第 1+3、2+4 块行之和，逐位相同。每个码编出来校验子为零、干净码字解得回（`test_the_dmg_and_edmg_codes_are_spec_sources_matrices_and_agree_with_each_other`）。`PendingSpec` 删掉了。
+- **实测门限**（`tools/measure_ay_thresholds.py` → `data/spec/ay_per_thresholds.yaml`，derived）：每个重复 1 的 SC 档，4096 字节 PSDU 按整数个码字发，理想 SC 链（`coding.threshold_config`：`ay_60ghz` ideal、flat），带内 SNR（码片速率上），PER 1e-2 的交叉点；0.5 dB 网格从香农界下 0.5 dB 起，夹住目标的两点续跑到 60 错或 3000 包，95 % 区间宽 0.1–0.2 dB。口径与 be 行的 `per_thresholds.yaml` 相同。
+
+  | MCS | 调制 码率 | DMG 孪生 | 孪生规则 | 实测 | 差 |
+  |---|---|---|---|---|---|
+  | 2 | π/2-BPSK 1/2 | 2 | 0.52 | 0.12 | −0.40 |
+  | 3 | 5/8 | 3 | 1.52 | 1.46 | −0.06 |
+  | 4 | 3/4 | 4 | 2.52 | 2.81 | +0.29 |
+  | 5 | 13/16 | 5 | 4.52 | 4.02 | −0.50 |
+  | 6 | 7/8 | — | — | 4.75 | |
+  | 7 | π/2-QPSK 1/2 | 6 | 3.52 | 3.03 | −0.49 |
+  | 8 | 5/8 | 7 | 4.52 | 4.44 | −0.08 |
+  | 9 | 3/4 | 8 | 5.52 | 5.89 | +0.37 |
+  | 10 | 13/16 | 9 | 7.52 | 7.15 | −0.37 |
+  | 11 | 7/8 | 9.1 | 9.52 | 7.87 | −1.65 |
+  | 12 | π/2-16-QAM 1/2 | 10 | 11.52 | 8.52 | −3.00 |
+  | 13 | 5/8 | 11 | 12.52 | 10.44 | −2.08 |
+  | 14 | 3/4 | 12 | 13.52 | 12.17 | −1.35 |
+  | 15 | 13/16 | 12.1 | 15.52 | 13.58 | −1.94 |
+  | 16 | 7/8 | 12.2 | 16.52 | 14.35 | −2.17 |
+  | 17 | π/2-64-QAM 1/2 | — | — | 13.34 | |
+  | 18 | 5/8 | 12.3 | 18.52 | MCS18_VALUE | MCS18_DIFF |
+  | 19 | 3/4 | 12.4 | 20.52 | 17.59 | −2.93 |
+  | 20 | 13/16 | 12.5 | 22.52 | 19.22 | −3.30 |
+  | 21 | 7/8 | 12.6 | 24.52 | 20.18 | −4.34 |
+
+  **读到的**：
+  - BPSK 与 QPSK 在 DMG 原有的档（MCS 1–9 的孪生）上，孪生规则与实测差 ±0.5 dB 以内：拿掉 10 dB NF 与 5 dB 实现损耗的 DMG 灵敏度，正好是本库接收机在低阶调制上的门限。
+  - 16-QAM、64-QAM 与扩展档的 7/8 上孪生规则偏悲观 1.4–4.3 dB，码率越高越悲观。DMG 表里 16-QAM 三档（1/2、5/8、3/4）的灵敏度只隔 1 dB（−55 / −54 / −53 dBm），实测隔 1.92 / 1.73 dB；扩展档每档隔 2 dB，实测相邻码率之间只隔 0.77–1.63 dB：表的台阶不是按码算出来的，16-QAM 1/2 留的余量最多（3 dB），扩展档越往上留得越多。
+  - 同调制同码率时，EDMG SC 比本库 11be 80 MHz 的 LDPC 门限高 0.8–1.0 dB（BPSK 1/2 0.12 对 −0.80，QPSK 1/2 3.03 对 2.25，16-QAM 3/4 12.17 对 11.25，64-QAM 3/4 17.59 对 16.63）：672 位码比 1944 位码短，代价大致如此。
+  - BPSK 7/8（4.75）比 QPSK 1/2（3.03）难，16-QAM 13/16（13.58）比 64-QAM 1/2（13.34）难：同速率下低阶高码率不划算，SC 的 MCS 表本来就不是按 SNR 单调排的。
+- **接法**（`ay.edmg.threshold_db`，`rule`）：预设 `measured`，SC 有实测的档取实测，MCS 1（重复 2，编码步骤没建）与 OFDM（编码载荷没建）取孪生规则；`rule="twin"` 两种波形都取孪生规则（实测之前的读法）。`arraylink.ay_mcs_ranges` 每档带 `source`。这样 SC 与 be 行同口径（都是本库接收机实测），SC 与 OFDM 不同口径：示例 15 §9 给 SC 一行孪生规则的灵敏度，两种波形同口径比时看它。
+- **没建**：扰码与填充 / 缩短规则（载荷是随机比特，扰码不改 PER；PSDU 按整数个码字发）、重复 2 的编码步骤（MCS 1）、1344 位长码字（`edmg.ldpc_1344_lifting`）、OFDM 的编码载荷（DCM 配对、tone mapping）。
+- **测量里的一个坑**（`tools/measure_ay_thresholds.py`）：`per_sweep` 在第一个 200 包零错的点停扫。MCS 18 第一次在 15.5 dB 零错停了，续跑到 3000 包反而有 48 错（PER 1.6 %，200 包零错的概率约 4 %），交叉点落在最后一点之外，记成 “never”。工具改成：没有交叉、最后一点又有错时，从最后一点下两格换种子重扫（最多 3 次）。`per_sweep` 本身不改：be 的门限表也用它。
 
 ## 10. 剩下的（ROADMAP 里程碑 3）
 - ay 自己的波束训练。
