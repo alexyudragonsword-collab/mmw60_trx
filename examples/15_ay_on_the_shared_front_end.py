@@ -402,6 +402,27 @@ def main(argv=None) -> int:
         e = [sim.packet(None, rng).rx.evm_db for _ in range(n_pk)]
         return float(10 * np.log10(np.mean(10 ** (np.asarray(e) / 10))))
 
+    def exact_dc_pre(tx):
+        """The dc_pre that cancels the TX LO leak exactly at this gain state (the chain is linear in it
+        from the digital input to the modulator output; solved with the PA, LO and DAC out of the way)."""
+        def dc_out(d):
+            t = copy.deepcopy(tx)
+            t.dc_pre, t.params.pa_enabled, t.params.lo.enabled, t.params.dac.enabled = d, False, False, False
+            return complex(np.mean(t(np.zeros(4000, complex))[-1000:]))
+        b0 = dc_out(0j)
+        a1, aj = dc_out(1e-2) - b0, dc_out(1e-2j) - b0
+        sol = np.linalg.solve(np.array([[a1.real, aj.real], [a1.imag, aj.imag]]) / 1e-2, [-b0.real, -b0.imag])
+        return complex(sol[0], sol[1])
+
+    def full_with_dc_pre(cfg, f2, r, exact):
+        tx, rx = copy.deepcopy(r.chains[:2])
+        sim = LinkSim(cfg, frontend=f2, chains=[tx, rx])
+        if exact:
+            sim.tx.dc_pre = exact_dc_pre(sim.tx)
+        rng = np.random.default_rng(0)
+        e = [sim.packet(None, rng).rx.evm_db for _ in range(n_pk)]
+        return float(10 * np.log10(np.mean(10 ** (np.asarray(e) / 10))))
+
     def irr_db(tx, fs, f_hz, n=8192):
         t = copy.deepcopy(tx)
         t.params.lo_leak_dbm, t.dc_pre, t.params.pa_enabled, t.params.lo.enabled = None, 0j, False, False
@@ -422,10 +443,14 @@ def main(argv=None) -> int:
             away_e = evm(calibrated(c), n=n_pk)
             full = cal_evm(dc.replace(ay_60ghz(wf, m), channel=FLAT), ob)
             psum = 10 * np.log10(10 ** (away_e / 10) + sum(10 ** (v / 10) for v in alone.values()))
+            ex = {lab: (full_with_dc_pre(cc, f2, r, False), full_with_dc_pre(cc, f2, r, True))
+                  for lab, cc in (("CFO on", c), ("CFO off", dc.replace(c, xo_ppm_tx=0.0, xo_ppm_rx=0.0)))}
             print(f"  {wf:<8} none {base_e:7.2f}  " + "  ".join(f"{items[k]} {v:7.2f}" for k, v in alone.items())
                   + f"  TX LO leak without the CFO {no_cfo:7.2f}, without the lead-in DC removal {no_rm:7.2f};  "
                     f"calibrated away {away_e:7.2f} + these = "
                     f"{psum:7.2f}, the calibrated chain {full:7.2f}")
+            print(f"  {wf:<8} the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel "
+                  f"the leak exactly: " + ";  ".join(f"{lab} {a:7.2f} / {b:7.2f}" for lab, (a, b) in ex.items()))
         sim = LinkSim(at_obo(dc.replace(base["ay_sc"], channel=FLAT), ob), frontend=f2,
                       chains=copy.deepcopy(r.chains[:2]))
         _, fr = sim.transmit(np.random.default_rng(0))
@@ -446,11 +471,12 @@ def main(argv=None) -> int:
               + " dB (uncorrected " + ", ".join(f"{irr_db(uncorr, sim.phy.fs_eff, f):.1f}" for f in edges)
               + "; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)")
     print("isolation: one residual at a time, read directly (contributions do not add up as powers in general; the "
-          "power sum is a check, not a decomposition).  The leak costs only with the CFO (without it the receiver's "
-          "DC removal on its quiet lead-in takes the leak out exactly), and on SC 6-8 dB more than its own power: "
-          "part of that is the lead-in DC removal subtracting a leak that turns at the CFO there, the rest is not "
-          "attributed yet (not the SC phase tracking, not the channel-estimate window: ROADMAP milestone 3).  OFDM "
-          "puts the leak on its three empty DC tones")
+          "power sum is a check, not a decomposition).  Alone, the leak left after dc_pre costs only with the CFO "
+          "(without it the receiver's DC removal on its quiet lead-in takes it out exactly), and on SC it reads "
+          "above its own power (the direct reading); on the whole chain it costs SC without the CFO too, so it acts "
+          "together with another impairment, not yet located (ROADMAP milestone 3).  Either way the cost is the "
+          "residual's: dc_pre solved to cancel the leak exactly takes it away.  OFDM puts the leak on its three "
+          "empty DC tones")
 
     # ---------------------------------------------------------------- 9. rate against range
     print("\n== 9. rate against range: one element, line of sight, the calibrated chain at every back-off "
