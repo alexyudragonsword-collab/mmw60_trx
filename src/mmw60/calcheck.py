@@ -97,6 +97,9 @@ class CalRun:
     dpd_kept: int | None = None                           # the DPD step's kept pass (0 = nothing written)
     dpd_before_db: float | None = None                    # PA-output EVM before / after the DPD step (its own readings)
     dpd_after_db: float | None = None
+    #: the calibrated chains, the scoring waveform, the loopback and the drive the run ended with
+    #: (``loopback_views``); None when the cell had no scoring waveform
+    chains: tuple | None = field(default=None, repr=False, compare=False)
 
     @property
     def label(self) -> str:
@@ -296,7 +299,55 @@ def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: 
         if log:
             r = run.rows[-1]
             log(f"  K={k:<3} {name:<22} {r.status:<9} {r.metric} {'' if r.value is None else f'{r.value:.2f}'} {r.detail}")
+    if full:
+        run.chains = (tx, rx, cfg, path, drive_scale)
     return run
+
+
+def loopback_views(run: CalRun, seed: int = 0) -> dict | None:
+    """The final check's loopback read three ways (ROADMAP C7), on the chains
+    the run ended with:
+
+    - ``isolation_db``: wifitrx's isolation view as it computes it (the
+      common phase of each symbol against the reference over all tones,
+      **then** the per-tone LS equaliser);
+    - ``isolation_eq_first_db``: the same with the per-tone equaliser first
+      and the common phase after it;
+    - ``modem_db``: wifitrx's modem view (LTF channel estimate, pilot CPE).
+
+    ``phase_ramp_rad`` is the linear part of the loopback's channel phase
+    across the band (a residual delay of the capture alignment) and
+    ``cpe_coherence`` = |mean over tones of e^{j phase}|: the CPE-first
+    estimate weights every tone by its |X|^2, so with the phase wound
+    round the band (coherence near 0) the 64-QAM data's random amplitudes
+    pull its angle off by many degrees per symbol."""
+    if run.chains is None:
+        return None
+    from .vendor.wifitrx.cal.sequence import agc_for_loopback, capture_aligned, score_views
+    from .vendor.wifitrx.metrics.cpe import correct_cpe
+    from .vendor.wifitrx.waveform.ofdm import demodulate_ofdm
+    tx, rx, cfg, path, drive = run.chains
+    frame, cols, pilots = scoring_frame(cfg)
+    x = frame.x * drive
+    agc_for_loopback(tx, rx, path, x)
+    cap = capture_aligned(tx, rx, path, x, seed=seed)
+    y = cap / (np.vdot(x, cap) / np.vdot(x, x)) / drive
+    v = score_views(y, frame, cols, pilots, cfg.n_symbols)
+    n = cfg.n_symbols
+    syms = demodulate_ofdm(y[frame.preamble_len:], frame.data)[:n]
+    ref = frame.data.tx_symbols[:n]
+    data = np.ones(cfg.n_active, dtype=bool)
+    data[cols] = False
+    h = np.sum(np.conj(ref) * syms, axis=0) / np.sum(np.abs(ref) ** 2, axis=0)
+    eq = correct_cpe(syms / h, ref)
+    eq = eq / (np.sum(np.conj(ref) * eq, axis=0) / np.sum(np.abs(ref) ** 2, axis=0))
+    p = float(np.mean(np.abs(ref[:, data]) ** 2))
+    ph = np.unwrap(np.angle(h))
+    idx = np.arange(ph.size)
+    ramp = np.polyval(np.polyfit(idx, ph, 1), idx)
+    return {"isolation_db": float(v["evm_db"]), "modem_db": float(v["evm_modem_db"]),
+            "isolation_eq_first_db": float(10 * np.log10(np.mean(np.abs(eq[:, data] - ref[:, data]) ** 2) / p)),
+            "phase_ramp_rad": float(np.ptp(ramp)), "cpe_coherence": float(np.abs(np.mean(np.exp(1j * ph))))}
 
 
 def compare_runs(runs: list[CalRun], degrade_db: float = 3.0) -> list[dict]:

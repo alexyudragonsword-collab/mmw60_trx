@@ -18,6 +18,14 @@ check lands there.  Until 2026-11-13 the sequence ran at wifitrx's default
 drive, which lands wherever the PA's gain puts it (ROADMAP C8); the last
 sensitivity section shows where that is and what it reads.
 
+ROADMAP C7: the final check's loopback read three ways per column
+(``calcheck.loopback_views``) — at 2.56 GHz wifitrx's isolation view sits
+10 dB under its modem view because of the capture alignment, not the
+chain — and the calibrated 2.56 GHz column in a link over the
+conference-room stand-in (the library's own receiver, per-packet
+estimates), with the IQ mismatch scaled so its image is the calibrated
+residual the comparison table uses (derived.irr_after_cal_measured_db).
+
     python examples/03_calibration_at_k.py [--quick]
 """
 from __future__ import annotations
@@ -33,13 +41,40 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
+import dataclasses as dc                                           # noqa: E402
+
 from mmw60 import ENGINE_BANNER, __version__                       # noqa: E402
-from mmw60.calcheck import compare_runs, run_cal_at                # noqa: E402
-from mmw60.config import zero_if_60ghz                             # noqa: E402
+from mmw60.calcheck import compare_runs, loopback_views, run_cal_at  # noqa: E402
+from mmw60.compare import measured_irr_after_cal_db                # noqa: E402
+from mmw60.config import ChannelConfig, zero_if_60ghz              # noqa: E402
 from mmw60.frontend import Frontend60                              # noqa: E402
+from mmw60.frontend.grid import analytic_floors, pa_isolated_evm_db  # noqa: E402
+from mmw60.sim.link import evm_at                                  # noqa: E402
 
 #: training waveforms (``run_cal_at(waveform_seed=…)``) per cell of the capture-length table
 N_SEEDS = 24
+FLAT = ChannelConfig(model="flat")
+
+
+def scaled_iq(cfg, s: float):
+    """``cfg`` with every IQ mismatch term (gain, phase, skew, rail ripples) times ``s``."""
+    iq = cfg.frontend.iq
+    iq2 = dc.replace(iq, gain_db=iq.gain_db * s, phase_deg=iq.phase_deg * s, gd_mismatch_ps=iq.gd_mismatch_ps * s,
+                     rail_ripple_db=iq.rail_ripple_db * s, rail_gd_ripple_ns=iq.rail_gd_ripple_ns * s)
+    return dc.replace(cfg, frontend=dc.replace(cfg.frontend, iq=iq2))
+
+
+def image_matched(cfg, target_db: float):
+    """``cfg`` with the IQ mismatch scaled (bisection on a log scale) until the
+    analytic image term reads ``target_db``."""
+    def image(s):
+        c = scaled_iq(cfg, s)
+        return float(analytic_floors(c, Frontend60.from_config(c), None)["terms_db"]["iq_image"])     # dB
+    lo, hi = -3.0, 0.0
+    for _ in range(40):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if image(10 ** mid) < target_db else (lo, mid)
+    return scaled_iq(cfg, 10 ** (0.5 * (lo + hi))), 10 ** (0.5 * (lo + hi))
 
 
 def main(argv=None) -> int:
@@ -72,6 +107,43 @@ def main(argv=None) -> int:
             print(f"  final EVM as a standard receiver reads it: loopback {v['evm_modem_db']:.1f}, TX alone "
                   f"{v['tx_evm_modem_db']:.1f}, RX alone {v['rx_evm_modem_db']:.1f} dB; RX NF {v['rx_nf_db']:.1f} dB")
         runs.append(run)
+    print("\n== the final check's loopback read three ways (ROADMAP C7; dB) ==")
+    print(f"{'column':<16} {'isolation':>10} {'EQ first':>9} {'modem':>7} {'phase ramp':>11} {'coherence':>10}")
+    for r in runs:
+        v = loopback_views(r)
+        if v is None:
+            print(f"{r.label:<16}   (no scoring waveform)")
+            continue
+        print(f"{r.label:<16} {v['isolation_db']:10.1f} {v['isolation_eq_first_db']:9.1f} {v['modem_db']:7.1f} "
+              f"{v['phase_ramp_rad']:9.2f} rad {v['cpe_coherence']:10.2f}")
+    print("isolation = wifitrx's isolation view as it computes it (each symbol's common phase over all tones, then the "
+          "per-tone equaliser); EQ first = the same with the equaliser first; modem = wifitrx's modem view (LTF "
+          "channel estimate, pilot CPE).  phase ramp = the linear part of the loopback's channel phase across the band "
+          "(a residual delay the capture alignment leaves); coherence = |mean of e^(j phase)| over the tones: near 0 "
+          "the common-phase-first estimate is pulled by the 64-QAM amplitudes and the isolation view reads the "
+          "estimator, not the chain")
+    print("\n== the calibrated column in a link over multipath (ROADMAP C7): the library's receiver, per-packet "
+          "estimates, IQ mismatch scaled to the calibrated residual the comparison table uses; EVM at no noise, dB ==")
+    print(f"{'cell':<22} {'IRR':>5} {'scale':>6} {'floor CR':>9} {'floor flat':>11} {'TD flat':>8} {'TD CR':>6} "
+          f"{'ideal CR':>9}")
+    n_pk = 2 if quick else 16
+    pa_evm = pa_isolated_evm_db(fe.pa_model, fe.obo_db, fe.obo_reference)
+    for k in ((32,) if quick else (8, 16, 32)):
+        c0 = zero_if_60ghz(k=k, standard="11be", bandwidth_hz=80e6)
+        irr, _ = measured_irr_after_cal_db(c0.upclocked().bandwidth_eff)
+        c, scale = image_matched(c0, 10 * np.log10(2 * 10 ** (-irr / 10)))
+        fe_c = Frontend60.from_config(c)
+        f_cr = analytic_floors(c, fe_c, pa_evm)["floor_db"]
+        f_fl = analytic_floors(dc.replace(c, channel=FLAT), fe_c, pa_evm)["floor_db"]
+        td = {n: evm_at(cc, None, n_packets=n_pk, frontend=fe_c)["evm_db"]
+              for n, cc in (("flat", dc.replace(c, channel=FLAT)), ("cr", c))}
+        ideal = evm_at(dc.replace(c0.ideal(), channel=c0.channel), None, n_packets=n_pk)["evm_db"]
+        print(f"{'11be 80M x' + str(k) + f' ({80 * k / 1e3:g} GHz)':<22} {irr:5.1f} {scale:6.3f} {f_cr:9.1f} {f_fl:11.1f} "
+              f"{td['flat']:8.1f} {td['cr']:6.1f} {ideal:9.1f}", flush=True)
+    print(f"IRR = the calibrated residual per side (example 03's, derived.irr_after_cal_measured_db); scale = the factor on "
+          f"every IQ mismatch term that puts the analytic image there; floor CR includes the ISI beyond the guard "
+          f"interval on the stand-in (7 ns rms, LOS K 10 dB), floor flat does not; TD = {n_pk} packets each; ideal CR = "
+          "the ideal chain on the same channel (ISI and the receiver's estimates alone)")
     if not quick:
         k, base = 32, 20e6
         print(f"\n== sensitivity: capture length at K = {k}, base {base / 1e6:g} MHz (assumed.cal_capture_symbols) ==")

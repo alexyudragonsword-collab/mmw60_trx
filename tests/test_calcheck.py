@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from mmw60 import spec
-from mmw60.calcheck import FINAL_VIEWS, run_cal_at, scoring_config, upclocked_scoring_config
+from mmw60.calcheck import FINAL_VIEWS, loopback_views, run_cal_at, scoring_config, upclocked_scoring_config
 from mmw60.config import zero_if_60ghz
 from mmw60.frontend import Frontend60
 from mmw60.vendor.wifitrx.waveform.pilots import generate_ofdm_with_pilots, pilot_positions
@@ -75,3 +75,24 @@ def test_waveform_seed_changes_the_training_data_and_zero_is_the_default():
         same = r.dpd_after_db == pytest.approx(r.dpd_before_db)
         assert (r.dpd_after_db < r.dpd_before_db) == bool(r.dpd_kept) or same
     assert runs[0].rows[-1].value != runs[1].rows[-1].value             # different data, different final reading
+
+
+def test_the_2p56ghz_isolation_view_is_the_capture_alignment_not_the_chain():
+    """ROADMAP C7 (2026-11-16): at 2.56 GHz wifitrx's isolation view reads
+    10 dB worse than its modem view, which was taken for linear terms the
+    receiver absorbs.  It is the view itself: the capture alignment leaves a
+    residual delay (a ~6 rad phase ramp across the band), and the view
+    takes each symbol's common phase over all tones before equalising, so
+    with the phase wound round the band the 64-QAM amplitudes pull that
+    estimate off.  Equalising first reads within a dB of the modem view, as
+    at 320 MHz where there is no ramp.  If a re-pinned wifitrx fixes the
+    alignment or the order this test fails: update cairn/topology-b.md."""
+    fe = Frontend60.from_config(zero_if_60ghz(k=8))
+    wide = loopback_views(run_cal_at(fe, 32, 80e6, standard="11be", with_dpd=False, obo_db=fe.obo_db))
+    assert wide["phase_ramp_rad"] > 3.0 and wide["cpe_coherence"] < 0.3
+    assert wide["isolation_db"] > wide["modem_db"] + 5.0
+    assert abs(wide["isolation_eq_first_db"] - wide["modem_db"]) < 2.0
+    narrow = loopback_views(run_cal_at(fe, 16, 20e6, standard="11ac", with_dpd=False, obo_db=fe.obo_db))
+    assert narrow["phase_ramp_rad"] < 0.5 and narrow["cpe_coherence"] > 0.9
+    assert abs(narrow["isolation_eq_first_db"] - narrow["isolation_db"]) < 1.0
+    assert loopback_views(run_cal_at(fe, 1, 20e6, standard="11ac", with_dpd=False, n_symbols=8)) is not None
