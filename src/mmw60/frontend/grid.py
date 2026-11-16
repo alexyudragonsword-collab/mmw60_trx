@@ -172,13 +172,37 @@ def decoder_cap(floor_db: float, standard: str, bandwidth_hz: float, margin_db: 
     the transmitter-conformance one (floor against the standard's TX-EVM
     limit) and sits about two MCS lower (example 05; cairn/comparison-table.md §6).
 
-    Returns ``{"mcs", "threshold_db", "required_snr_db", "penalty_db"}``;
-    ``mcs`` is None when no MCS is reachable or the base has no coded data
-    field (11ac 40 / 80 / 160 MHz: no thresholds to compare with)."""
+    Returns ``{"mcs", "threshold_db", "required_snr_db", "penalty_db",
+    "mcs_range", "next_margin_db"}``; ``mcs`` is None when no MCS is
+    reachable or the base has no coded data field (11ac 40 / 80 / 160 MHz:
+    no thresholds to compare with).  ``mcs_range`` is the cap with every
+    threshold at the upper and at the lower end of its 95 % interval
+    (``spec.per_threshold_ci_db``; counting statistics only): where the two
+    differ the floor sits on an MCS line inside the measurement's own
+    scatter (ROADMAP C6).  ``next_margin_db`` is −floor − (T + margin) of the
+    MCS above the cap — how far the floor is from carrying one more MCS
+    (negative; None where that MCS has no threshold)."""
     m = float(spec.value("assumed.decoder_cap_margin_db")) if margin_db is None else float(margin_db)
+
+    def ci_end(i: int) -> int:
+        def t(idx: int) -> float | None:
+            ci = spec.per_threshold_ci_db(standard, bandwidth_hz, idx)
+            return spec.per_threshold_db(standard, bandwidth_hz, idx) if ci is None else ci[i]
+        return _cap_at(floor_db, standard, m, t)["mcs"]
+
+    best = _cap_at(floor_db, standard, m, lambda idx: spec.per_threshold_db(standard, bandwidth_hz, idx))
+    best["mcs_range"] = (ci_end(1), ci_end(0))
+    nxt = 0 if best["mcs"] is None else best["mcs"] + 1
+    t_next = spec.per_threshold_db(standard, bandwidth_hz, nxt) if nxt <= MAX_MCS[standard] else None
+    best["next_margin_db"] = None if t_next is None else float(-floor_db - (t_next + m))
+    return best
+
+
+def _cap_at(floor_db: float, standard: str, m: float, threshold) -> dict:
+    """``decoder_cap``'s rule with the thresholds read from ``threshold(mcs)``."""
     best = {"mcs": None, "threshold_db": None, "required_snr_db": None, "penalty_db": None}
     for idx in range(MAX_MCS[standard] + 1):
-        t = spec.per_threshold_db(standard, bandwidth_hz, idx)
+        t = threshold(idx)
         if t is None or not (-floor_db >= t + m):
             continue
         lin = 10 ** (-t / 10) - 10 ** (floor_db / 10)
@@ -187,6 +211,15 @@ def decoder_cap(floor_db: float, standard: str, bandwidth_hz: float, margin_db: 
         req = -10 * np.log10(lin)
         best = {"mcs": idx, "threshold_db": float(t), "required_snr_db": float(req), "penalty_db": float(req - t)}
     return best
+
+
+def format_cap(mcs: int | None, mcs_range: tuple | None = None) -> str:
+    """``MCS5``, or ``MCS5–6`` when the cap at the two ends of the threshold
+    intervals differs (``decoder_cap``'s ``mcs_range``); ``—`` for none."""
+    if mcs_range is None or mcs_range[0] == mcs_range[1]:
+        return "—" if mcs is None else f"MCS{mcs}"
+    lo, hi = mcs_range
+    return f"MCS{'—' if lo is None else lo}–{'—' if hi is None else hi}"
 
 
 def decoder_floor_db(analytic_floor_db: float, td_evm_db: float | None, cfo_captured: bool = True) -> float:
@@ -246,6 +279,12 @@ class Cell:
     dec_rate_mbps: float | None = None
     dec_coded: bool = True
     dec_floor_db: float | None = None       # the floor the cap was computed from (analytic or time-domain)
+    #: the caps at the two ends of the threshold intervals (ROADMAP C6) and the
+    #: margin to the next MCS line, uncalibrated and calibrated
+    dec_mcs_range: tuple | None = None
+    dec_mcs_cal_range: tuple | None = None
+    dec_next_margin_db: float | None = None
+    dec_cal_next_margin_db: float | None = None
 
     def row(self) -> str:
         iso = "" if not self.td_isolated_db else " ".join(
@@ -253,12 +292,15 @@ class Cell:
         td = "   —  " if self.td_evm_db is None else f"{self.td_evm_db:6.1f}"
         cal = "  —  " if self.max_mcs_cal is None else f"MCS{self.max_mcs_cal}"
         nopa = "  —  " if self.max_mcs_no_pa is None else f"MCS{self.max_mcs_no_pa}"
-        def dec(v):
-            return " n/a " if not self.dec_coded else ("  —  " if v is None else f"MCS{v}")
+        def dec(v, rng):
+            if not self.dec_coded:
+                return " n/a "
+            return "  —  " if v is None and (rng is None or rng[0] == rng[1]) else format_cap(v, rng)
         return (f"{self.standard:<5} {self.base_bw_hz / 1e6:5.0f} x{self.k:<3} {self.bw_eff_hz / 1e9:6.2f} "
                 f"{self.scs_eff_hz / 1e6:6.2f} {self.floor_db:7.1f} {td} "
                 f"{'MCS' + str(self.max_mcs) if self.max_mcs is not None else '  —  ':>6} {cal:>6} "
-                f"{self.floor_no_pa_db:7.1f} {nopa:>6} {dec(self.dec_mcs):>6} {dec(self.dec_mcs_cal):>6} "
+                f"{self.floor_no_pa_db:7.1f} {nopa:>6} {dec(self.dec_mcs, self.dec_mcs_range):>6} "
+                f"{dec(self.dec_mcs_cal, self.dec_mcs_cal_range):>6} "
                 f"{self.verdict:<4} {self.reason:<22} {iso}")
 
 
@@ -319,7 +361,10 @@ def evaluate_cell(cfg: Mmw60Config, fe: Frontend60, time_domain: bool = True,
         cell.dec_floor_db = decoder_floor_db(a["floor_db"], cell.td_evm_db, a["cfo_captured"])
         d = decoder_cap(cell.dec_floor_db, cfg.phy.standard, cfg.phy.bandwidth_hz)
         cell.dec_mcs, cell.dec_required_snr_db = d["mcs"], d["required_snr_db"]
-        cell.dec_mcs_cal = decoder_cap(a_cal["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz)["mcs"]
+        d_cal = decoder_cap(a_cal["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz)
+        cell.dec_mcs_cal = d_cal["mcs"]
+        cell.dec_mcs_range, cell.dec_mcs_cal_range = d["mcs_range"], d_cal["mcs_range"]
+        cell.dec_next_margin_db, cell.dec_cal_next_margin_db = d["next_margin_db"], d_cal["next_margin_db"]
         if d["mcs"] is not None:
             cell.dec_rate_mbps = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d["mcs"],
                                                phy.t_symbol_eff) / 1e6

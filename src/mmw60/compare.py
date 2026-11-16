@@ -45,7 +45,7 @@ from .config import (TOPOLOGIES, WAVEFORMS, ChannelConfig, Mmw60Config, if_exten
                      wifi7_chain_k1, zero_if_60ghz)
 from .frontend.frontend import Frontend60
 from .frontend.grid import (REASON_ZH, analytic_floors, data_rate_bps, decoder_cap, decoder_floor_db,
-                            max_mcs_for_floor, pa_isolated_evm_db)
+                            format_cap, max_mcs_for_floor, pa_isolated_evm_db)
 from .power import PowerCoefficients, PowerReport, power_report
 from .vendor.wifitrx.impairments.phase_noise import cpe_partition
 from .vendor.wifitrx.link.evm_budget import PN_BAND_HZ, EvmBudget
@@ -170,6 +170,12 @@ class Row:
     dec_rate_cal_mbps: float | None = None
     power_dec: dict | None = None
     dec_floor_db: float | None = None       # analytic floor, or the time-domain EVM when that reads worse
+    #: the decoder caps at the two ends of the threshold intervals and the margin to the
+    #: next MCS line (``decoder_cap``'s ``mcs_range`` / ``next_margin_db``; ROADMAP C6)
+    dec_mcs_range: tuple | None = None
+    dec_next_margin_db: float | None = None
+    dec_mcs_cal_range: tuple | None = None
+    dec_cal_next_margin_db: float | None = None
 
     @property
     def label(self) -> str:
@@ -286,6 +292,8 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
         d = decoder_cap(row.dec_floor_db, cfg.phy.standard, cfg.phy.bandwidth_hz, dec_margin_db)
         d_cal = decoder_cap(a_cal["floor_db"], cfg.phy.standard, cfg.phy.bandwidth_hz, dec_margin_db)
         row.dec_mcs, row.dec_mcs_cal = d["mcs"], d_cal["mcs"]
+        row.dec_mcs_range, row.dec_next_margin_db = d["mcs_range"], d["next_margin_db"]
+        row.dec_mcs_cal_range, row.dec_cal_next_margin_db = d_cal["mcs_range"], d_cal["next_margin_db"]
         row.dec_required_snr_db, row.dec_penalty_db = d["required_snr_db"], d["penalty_db"]
         if d["mcs"] is not None:
             r_dec = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d["mcs"], phy.t_symbol_eff)
@@ -382,13 +390,14 @@ def to_markdown(rep: dict) -> str:
             f"{_f(r['max_mcs_cal'], 'MCS{}')} ({r['irr_cal_db']:.0f} dB) | {_f(r['rate_mbps'], '{:.0f} Mb/s')} | "
             f"{_f(r['bits_per_s_per_hz'], '{:.2f}')} | {eirp} | {pj} | {r['verdict']} {r['reason']} |")
     lines += ["", "## the decoder's cap (EVM floor as a noise term against the measured ideal thresholds)", "",
-              "| scheme | floor used (worse of analytic / time-domain) | conformance cap | decoder cap | SNR needed there | floor costs | decoder cap, IQ calibrated | rate @dec cap | pJ/bit @dec cap |",
-              "|---|---|---|---|---|---|---|---|---|"]
+              "| scheme | floor used (worse of analytic / time-domain) | conformance cap | decoder cap | to the next MCS line | SNR needed there | floor costs | decoder cap, IQ calibrated | rate @dec cap | pJ/bit @dec cap |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
     for r in rep["rows"]:
         pjd = "—" if not r["power_dec"] else f"{r['power_dec']['pj_per_bit']:.0f}"
-        lines.append(f"| {r['label']} | {_f(r['dec_floor_db'])} | {_f(r['max_mcs'], 'MCS{}')} | {_f(r['dec_mcs'], 'MCS{}')} | "
+        lines.append(f"| {r['label']} | {_f(r['dec_floor_db'])} | {_f(r['max_mcs'], 'MCS{}')} | "
+                     f"{format_cap(r['dec_mcs'], r['dec_mcs_range'])} | {_f(r['dec_next_margin_db'], '{:+.2f} dB')} | "
                      f"{_f(r['dec_required_snr_db'], '{:.1f} dB')} | {_f(r['dec_penalty_db'], '{:.1f} dB')} | "
-                     f"{_f(r['dec_mcs_cal'], 'MCS{}')} | {_f(r['dec_rate_mbps'], '{:.0f} Mb/s')} | {pjd} |")
+                     f"{format_cap(r['dec_mcs_cal'], r['dec_mcs_cal_range'])} | {_f(r['dec_rate_mbps'], '{:.0f} Mb/s')} | {pjd} |")
     lines += ["", "## rows without numbers yet", ""]
     for p in rep["pending"]:
         lines.append(f"- **{p['label']}** — {p['reason']}")

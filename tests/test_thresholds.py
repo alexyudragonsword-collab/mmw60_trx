@@ -144,3 +144,27 @@ def test_decoder_cap_takes_the_worse_of_the_analytic_and_the_time_domain_floor()
     assert quick.dec_floor_db == quick.floor_db
     assert full.dec_floor_db == max(full.floor_db, full.td_evm_db)
     assert full.dec_mcs <= quick.dec_mcs and full.dec_mcs_cal == quick.dec_mcs_cal
+
+
+def test_decoder_cap_gives_the_caps_at_the_interval_ends_and_the_margin_to_the_next_line():
+    """ROADMAP C6: where a floor sits on an MCS line inside the threshold's
+    95 % interval the cap reads both MCS (example 02 / 04 print MCS5–6), and
+    the margin to the next MCS line says how close every cap is."""
+    from mmw60.frontend.grid import format_cap
+    m = float(spec.value("assumed.decoder_cap_margin_db"))
+    t6, (lo6, hi6) = spec.per_threshold_db("11be", 80e6, 6), spec.per_threshold_ci_db("11be", 80e6, 6)
+    inside = -((lo6 + hi6) / 2 + m)                       # MCS6 reachable at the interval's low end only
+    d = decoder_cap(inside, "11be", 80e6)
+    assert d["mcs_range"] == (5, 6) and d["mcs_range"][0] <= d["mcs"] <= d["mcs_range"][1]
+    assert format_cap(d["mcs"], d["mcs_range"]) == "MCS5–6"
+    clear = decoder_cap(-(hi6 + m + 0.2), "11be", 80e6)    # over the interval's top: MCS6 at both ends
+    assert clear["mcs"] == 6 and clear["mcs_range"] == (6, 6) and format_cap(6, clear["mcs_range"]) == "MCS6"
+    below = decoder_cap(-(lo6 + m - 0.01), "11be", 80e6)   # 0.01 dB under the interval: MCS5, and the margin shows it
+    assert below["mcs"] == 5 and below["mcs_range"] == (5, 5)
+    assert below["next_margin_db"] == pytest.approx((lo6 + m - 0.01) - (t6 + m))
+    assert -0.2 < below["next_margin_db"] < 0
+    # the top of the table has no next line; no MCS at all reads the margin to MCS0
+    assert decoder_cap(-60.0, "11ac", 20e6)["next_margin_db"] is None
+    none = decoder_cap(5.0, "11be", 80e6)
+    assert none["mcs"] is None and none["mcs_range"] == (None, None) and format_cap(None, none["mcs_range"]) == "—"
+    assert none["next_margin_db"] == pytest.approx(-5.0 - (spec.per_threshold_db("11be", 80e6, 0) + m))

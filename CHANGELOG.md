@@ -4,6 +4,11 @@
 
 ## 未发布
 
+### C6：解码器上限标出踩在门限区间里的格（2026-11-16）—— 上限、速率、pJ/bit 与指纹不变；示例 02 / 04 的列格式变
+- `frontend/grid.py::decoder_cap` 的返回多 `mcs_range`、`next_margin_db` 两键（**公开返回值变化**，原有键不变）；新 `format_cap`。`Cell` 与 `compare.Row` 多四个字段（区间两端的上限与离下一档的余量，未校准 / 校准后）。
+- 示例 02：dec / dec-cal 两端不同时印 MCS5–6（5 格）。示例 04 §4b 与 markdown：同样标注，另加 next 列。
+- ROADMAP：优先级按用户 2026-11-16 定的顺序重排（C7 → B 分层训练 → 里程碑 3 → C12），删 C6 里这一条。
+
 ### B：阵列的功率列按 N 计，重复训练场补到 MCS0 的边（2026-11-15）—— 同台表、预设与指纹不变；示例 10 多 §3c 与 §4b
 - `arraylink.array_power_report`（新）：N_tx 颗 PA 按 EIRP 上限留下的每单元输出计直流，TX / RX 每单元一个移相器（`assumed.array_phase_shifter_power_mw`，新，15 mW），其余同单元件列；N = 1 逐位等于同台表的列。`PowerCoefficients.phase_shifter_w`（新字段，只有阵列行用）。
 - `arraylink.required_training_snr_db(repetitions=, combining=)`、`repetitions_to_reach`、`transmit_sweep_reach_db`（新）；`sweep_time_s(repetitions=)`。`assumed.array_training_repetition`（新）：非相干累加，R 取 2 的幂到 256。R = 1 与原来逐位相同。
