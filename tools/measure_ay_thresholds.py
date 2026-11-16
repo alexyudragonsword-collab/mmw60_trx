@@ -1,7 +1,7 @@
 """Measure the decoder's own PER threshold of every coded EDMG SC MCS and
 write ``src/mmw60/data/spec/ay_per_thresholds.yaml`` (source: derived).
 
-    python tools/measure_ay_thresholds.py --jobs 4          # every SC MCS at repetition 1 (~30 min on 4 cores)
+    python tools/measure_ay_thresholds.py --jobs 4 --cache DIR   # every SC MCS at repetition 1 (~1 h on 4 cores; resumable)
     python tools/measure_ay_thresholds.py --only 14 --only 16
     python tools/measure_ay_thresholds.py --check           # re-measure and compare with the file (exit 1 beyond --tol)
 
@@ -25,6 +25,7 @@ code and receiver, not of a standard.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from multiprocessing import get_context
@@ -67,13 +68,33 @@ def _one(job: dict) -> dict:
     return {"mcs": job["mcs"], "sweep": sw, "snr_at_target": snr_at_per(sw, TARGET), "ci": ci}
 
 
+def _from_counts(mcs: int, sweep: dict) -> dict:
+    """A finished MCS from its sweep's counts: the crossing and its interval
+    depend on nothing else."""
+    return {"mcs": mcs, "sweep": sweep, "snr_at_target": snr_at_per(sweep, TARGET), "ci": snr_at_per_ci(sweep, TARGET)}
+
+
 def measure(mcs: list[int], step: float, max_packets: int, min_errors: int, jobs: int,
-            refine_errors: int, refine_max_packets: int, log=print) -> tuple[dict, dict, list]:
-    todo = [{"mcs": m, "grid": grid_for(m, step), "max_packets": max_packets, "min_errors": min_errors,
-             "refine_errors": refine_errors, "refine_max_packets": refine_max_packets} for m in mcs]
-    out = []
+            refine_errors: int, refine_max_packets: int, log=print, cache_dir: Path | None = None
+            ) -> tuple[dict, dict, list]:
+    """``cache_dir``: every finished MCS's sweep is kept there as JSON (the
+    settings in its name) and a rerun reuses it — a stopped run resumes."""
+    tag = f"s{step:g}_p{max_packets}_e{min_errors}_r{refine_errors}_{refine_max_packets}"
+    todo, out = [], []
+    for m in mcs:
+        f = None if cache_dir is None else Path(cache_dir) / f"mcs{m}_{tag}.json"
+        if f is not None and f.exists():
+            out.append(_from_counts(m, json.loads(f.read_text())))
+            continue
+        todo.append({"mcs": m, "grid": grid_for(m, step), "max_packets": max_packets, "min_errors": min_errors,
+                     "refine_errors": refine_errors, "refine_max_packets": refine_max_packets, "file": f})
+    if cache_dir is not None:
+        Path(cache_dir).mkdir(parents=True, exist_ok=True)
     with get_context("fork").Pool(max(1, jobs)) as pool:
         for r in pool.imap_unordered(_one, todo):
+            f = next(j["file"] for j in todo if j["mcs"] == r["mcs"])
+            if f is not None:
+                f.write_text(json.dumps(r["sweep"]))
             v = r["snr_at_target"]
             log(f"MCS{r['mcs']:>2}: {'never' if v is None else f'{v:.2f} dB'}  "
                 + " ".join(f"{s:g}:{e}/{n}" for s, e, n in zip(r["sweep"]["snr_db"], r["sweep"]["n_errors"],
@@ -119,12 +140,14 @@ def main(argv=None) -> int:
     ap.add_argument("--min-errors", type=int, default=15)
     ap.add_argument("--refine-errors", type=int, default=REFINE_ERRORS)
     ap.add_argument("--refine-max-packets", type=int, default=REFINE_MAX_PACKETS)
+    ap.add_argument("--cache", type=Path, default=None, help="keep each finished MCS here and reuse it (resumable)")
     ap.add_argument("--check", action="store_true", help="compare a fresh measurement with the file instead of writing it")
     ap.add_argument("--tol", type=float, default=0.7, help="--check: allowed |difference| in dB")
     a = ap.parse_args(argv)
     t0 = time.time()
     mcs = a.only or mcs_list()
-    table, ci, _ = measure(mcs, a.step, a.max_packets, a.min_errors, a.jobs, a.refine_errors, a.refine_max_packets)
+    table, ci, _ = measure(mcs, a.step, a.max_packets, a.min_errors, a.jobs, a.refine_errors, a.refine_max_packets,
+                           cache_dir=a.cache)
     if a.check:
         ref = yaml.safe_load(OUT.read_text(encoding="utf-8"))["thresholds_db"]["ay_sc"]
         bad = 0
