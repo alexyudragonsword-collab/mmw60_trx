@@ -3,6 +3,20 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-16 · 里程碑 3 第二段 2a：ay 的链上真跑校准；同调制同码率时 SC 的回退优势只剩 0.01–0.15 dB（feat/ay-stage2，叠在 #50 上）
+
+- `calcheck.run_cal_ay`：在 ay 的链（2.16 GHz、5.28 GS/s）上跑 wifitrx 的序列（铁律 4），评分波形是 `assumed.ay_cal_probe`（11be 80 MHz × 22，过采样 3）。`LinkSim(..., chains=)` 在校准过的链上跑 ay 波形。
+- 步骤（示例 15 §7）：
+  - TX LPF 0 %；RX LPF 退化，6.38 %；
+  - RX DC −57.8 dBFS；LO 泄漏残差 −38.1 dBc（退化）；
+  - TX / RX IRR 43.6 / 44.0 dB（退化）；
+  - 终检 modem 读法 −21.3 dB，isolation 读法 −7.65 dB（D5 又见一次，ROADMAP D5 已补）。
+- 校准过的链（§8）：SC −24.0 … −25.1 dB，OFDM −20.9 … −21.0 dB。“当作校准掉”时 SC −24.3 … −25.5，OFDM 相同。合规上限不变。
+- **被推翻的判断**（第一段自己的）：“同调制同码率时 SC 少退 0.36–0.68 dB”。在真跑校准的链上只剩 0.01–0.15 dB（16-QAM），64-QAM 5/8 反而多退 0.34 dB；PAPR 优势被严 3–4 dB 的限值和 0.3–0.4 dB 的校准残差抵掉。`cairn/ay.md` §5 追加了更正。
+- SC 那 0.3–0.4 dB 没查到原因。不是带 CFO 的残余泄漏（关掉 CFO 差不变），也不是带边 IQ 外推（滚降 0.10–0.40 差 0.31–0.40 dB）。记 ROADMAP。
+- 自己踩的坑：第一次验泄漏假设时“当作校准掉”那组用了预设的前端实例（IQ 还开着），读成原始链 −8.2 dB；改成按配置建前端后才是 −24.8 dB。
+- 测试：铁律 4 一项。两处变异（不用传进来的链、探针不落在链速率上）都红，还原绿。下一步 2b：同台表两行、距离、阵列。
+
 ## 2026-11-16 · 里程碑 3 第一段：EDMG 数字接上，两种 ay 波形跑在共享前端上（feat/ay-wiring）
 
 - spec_sources#29 已验收并关闭。`ay/edmg.py` 从 spec 读数字学、MCS、限值与速率；`config.ay_60ghz` 与 `AyConfig`；`LinkSim` 遇到 ay 交给 `sim/ay_link.AyLinkSim`（同一前端实例、一条 5.28 GS/s 的链）。新增 assumed 五条：`ay_chain_rate`、`ay_sc_pulse`、`ay_preamble`、`ay_evm_payload`、`ay_receiver`。

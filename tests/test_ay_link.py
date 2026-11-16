@@ -172,3 +172,36 @@ def test_the_guard_window_and_the_pair_estimate_helpers():
     err_raw = np.mean(np.abs(noisy - H) ** 2)
     err_win = np.mean(np.abs(sc.window_estimate(noisy, 64, 8) - H) ** 2)
     assert err_raw / err_win == pytest.approx(512 / 72, rel=0.25)
+
+
+def test_law4_the_ay_chain_is_calibrated_by_running_wifitrx_sequence():
+    """Iron rule 4 for the ay schemes: wifitrx's sequence runs on the ay chain
+    (2.16 GHz, 5.28 GS/s) on the probe of assumed.ay_cal_probe, every planned
+    step leaves a row, and both waveforms on the calibrated chains climb from
+    the raw chain's IQ-limited floor to within 1 dB of the "IQ and LO leak
+    calibrated away" reading of example 15 §4."""
+    import copy
+
+    from mmw60.calcheck import ay_probe_config, run_cal_ay
+    probe, name, p = ay_probe_config()
+    assert probe.oversampling * probe.bandwidth_hz == edmg.chain_rate()["fs_hz"] and "x22" in name
+    cfg = ay_60ghz("ay_sc", 16)
+    fe = Frontend60.from_config(cfg)
+    run = run_cal_ay(fe, cfg)
+    steps = {r.step: r for r in run.rows}
+    for s in ("tx_lpf_corner", "rx_dc_offset", "tx_lo_leak_loopback", "tx_iq", "rx_iq", "final_loopback_evm"):
+        assert s in steps and steps[s].status in ("ok", "degraded"), (s, steps.get(s))
+    assert steps["tx_iq"].value > 35 and steps["rx_iq"].value > 35 and steps["tx_lo_leak_loopback"].value < -30
+    assert run.final_views["evm_modem_db"] < -18 and run.pout_dbm == pytest.approx(fe.target_pout_dbm(), abs=0.5)
+    for wf, m in (("ay_sc", 16), ("ay_ofdm", 15)):
+        c = dc.replace(ay_60ghz(wf, m), channel=FLAT)
+        cal = LinkSim(c, frontend=fe, chains=copy.deepcopy(run.chains[:2]))
+        assert cal.calibrated and cal.pout_dbm == pytest.approx(fe.target_pout_dbm(), abs=0.05)
+        e_cal = cal.packet(None, np.random.default_rng(0)).rx.evm_db
+        e_raw = LinkSim(c, frontend=fe).packet(None, np.random.default_rng(0)).rx.evm_db
+        away = dc.replace(c, frontend=dc.replace(c.frontend, iq=dc.replace(c.frontend.iq, enabled=False),
+                                                 lo_leak_dbc=None))
+        e_away = LinkSim(away).packet(None, np.random.default_rng(0)).rx.evm_db
+        assert e_raw > -10 and e_cal < e_raw - 10 and abs(e_cal - e_away) < 1.0, (wf, e_raw, e_cal, e_away)
+    with pytest.raises(ValueError, match="rate and bandwidth"):
+        LinkSim(ay_60ghz("ay_sc"), frontend=fe, chains=fe.build_chains(2.56e9, 5.12e9))

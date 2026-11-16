@@ -585,3 +585,10 @@ entries:
     source: assumed
     cite: "本库；mmw60.sim.ay_link"
     note: "ay 接收机的选择。信道估计只用一对 Golay 序列，不平滑时它自己的噪声在 in-band SNR 20 dB 上把 EVM 拉到 SC −18.4 / OFDM −17.4 dB；把估计的冲激响应截在 GI 以内（再留 GI/8 的前驱），噪声降 512 / 72 ≈ 8.5 dB，信道短于 GI 时什么也不丢——DMG 接收机的通常做法，标准不规定。SC 的相位跟踪在每块前后两段已知 GI 之间线性插值（sc_phase: interp）：每块只取尾部 GI 一个相位时，60 GHz 的相噪在 291 ns 的块里漂，预设回退上单开相噪，SC 64-QAM 每块一个相位读 −25.1 dB、插值读 −27.5 dB，OFDM（每个符号 16 个导频）−27.7 dB；插值是 OFDM 逐符号导频的对应做法。示例 15 给 block 的灵敏度行。"
+
+  assumed.ay_cal_probe:
+    value: {standard: 11be, base_bandwidth_hz: 80.0e+6, k: 22, oversampling: 3}
+    unit: "-, Hz, -, samples per probe sample"
+    source: assumed
+    cite: "本库；mmw60.calcheck.run_cal_ay"
+    note: "在 ay 的链（2.16 GHz、5.28 GS/s）上跑 wifitrx 校准序列用的评分波形：wifitrx 的序列要一个带标准导频的 OFDM 波形，且采样率 = 带宽 × 整数过采样。2.16 GHz 配 5.28 GS/s 是 2.44 倍，不是整数；5.28 GS/s 的整数分之一里，1.76 GHz（× 3）既落在链的通带里，又能写成标准波形升频：11be 80 MHz × 22，996 个音、音距 1.71875 MHz，占 1.71 GHz。链自己的步骤（LPF 角频、IQ 的 FIR、DC、LO 泄漏）按链的参数走（tx.params.bandwidth_hz、lpf.fc_nominal_hz），探针只用于快照、终检和 DPD 训练。探针比 ay 波形窄：OFDM 占 ±0.92 GHz、SC 成形后 ±1.10 GHz，探针只到 ±0.86 GHz，带边的 IQ 校正是外推出来的，所以校准后的链要用 ay 波形自己再读（示例 15 §7–§8）。"

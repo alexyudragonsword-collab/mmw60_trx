@@ -203,4 +203,44 @@ Pout dBm back-off             SC           OFDM
    -0.40     15.0  6.930 (MCS19)  7.659 (MCS20)
 (single element at 0 dBi: EIRP = Pout, far under the regulatory cap; with an array the cap binds first and the SC power margin becomes fewer elements or less DC power — stage 2)
 
+== 7. wifitrx's calibration sequence on the ay chain (2.16 GHz, 5.28 GS/s), PA at the preset back-off ==
+probe: 11be 80 MHz x22 upclocked (996 tones at 1.71875 MHz, the base's 16 pilots) (assumed.ay_cal_probe [assumed]); no DPD (as the be rows)
+  tx_lpf_corner          ok        fc_err_pct           0.00
+  rx_lpf_corner          degraded  fc_err_pct           6.38
+  rx_dc_offset           ok        worst_dc_dbfs      -57.80
+  tx_lo_leak_loopback    degraded  lo_leak_dbc        -38.12
+  loopback_delay         ok        delay_ns             6.76
+  tx_iq                  degraded  irr_min_db          43.63
+  group_delay            ok        error_ps             5.05
+  rx_iq                  degraded  irr_min_db          43.95
+  tx_power               ok                                —
+  agc_sweep              ok        worst_landing_err_db     0.33
+  final_loopback_evm     ok        evm_db              -7.65
+final check: isolation reading -7.65 dB; modem reading -21.30 dB (TX -21.46, RX -29.03); PA output 7.28 dBm.  The isolation reading is the wide-band capture-alignment bias of ROADMAP D5 (2.56 GHz: −13.5 against −23.4 dB modem)
+
+== 8. on the chains the sequence calibrated: floors at the preset back-off, against section 4 ==
+ay_sc    π/2-BPSK                   calibrated  -25.08   section 4: raw   -8.24, calibrated away  -25.46
+ay_sc    π/2-QPSK                   calibrated  -24.93   section 4: raw   -8.13, calibrated away  -25.29
+ay_sc    π/2-16-QAM                 calibrated  -24.47   section 4: raw   -8.21, calibrated away  -24.85
+ay_sc    π/2-64-QAM                 calibrated  -24.01   section 4: raw   -8.18, calibrated away  -24.30
+ay_ofdm  QPSK points (DCM BPSK)     calibrated  -21.00   section 4: raw   -6.52, calibrated away  -20.94
+ay_ofdm  16-QAM points (DCM QPSK)   calibrated  -20.92   section 4: raw   -6.40, calibrated away  -20.88
+ay_ofdm  16-QAM                     calibrated  -20.92   section 4: raw   -6.40, calibrated away  -20.88
+ay_ofdm  64-QAM                     calibrated  -21.04   section 4: raw   -6.57, calibrated away  -20.98
+cap, calibrated chain ay_ofdm  MCS15 16-QAM 7/8 (limit -19 dB), 5.106 Gb/s
+cap, calibrated chain ay_sc    MCS16 π/2-16-QAM 7/8 (limit -23 dB), 5.390 Gb/s
+
+SC against OFDM at the same modulation and code rate on the calibrated chains (back-off from Psat; ΔPout = SC − OFDM; section 5's ΔPout beside it):
+modulation  rate      SC   OFDM   ΔPout   sec. 5
+16-QAM       1/2    3.82   3.96    0.14     0.64
+16-QAM       5/8    4.41   4.55    0.14     0.68
+16-QAM       3/4    4.98   5.13    0.15     0.66
+16-QAM     13/16    5.65   5.73    0.09     0.61
+16-QAM       7/8    6.35   6.36    0.01     0.50
+64-QAM       1/2    7.41   7.47    0.06     0.36
+64-QAM       5/8    8.44   8.10   -0.34    -0.01
+64-QAM       3/4   never   8.77    —       -4.15
+64-QAM     13/16   never  10.49    —        —
+64-QAM       7/8   never  never    —        —
+
 [~s]

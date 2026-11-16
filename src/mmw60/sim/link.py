@@ -90,7 +90,7 @@ class LinkSim:
     ``frontend`` may be passed in so two topologies share one instance
     (iron rule 2); otherwise it is built from the config."""
 
-    def __new__(cls, cfg: Mmw60Config, frontend=None):
+    def __new__(cls, cfg: Mmw60Config, frontend=None, **kw):
         # the 802.11ay waveforms run on the same plumbing with their own frame and
         # receiver (sim/ay_link.py); every caller keeps writing LinkSim(cfg)
         from ..config import AY_WAVEFORMS
