@@ -3,6 +3,16 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-16 · 里程碑 3：与数字无关的 ay 骨架；SC 对 OFDM 的回退差就是 PAPR 差（feat/ay-skeleton，叠在 #46 上）
+
+- 优先级第 4 条。用户定：数字先发 spec_sources issue（#29，已发，未回）、第一轮只做 EVM 口径、只做单信道。数字没到，先建与数字无关的部分：`src/mmw60/ay/`（golay / sc / ofdm / papr），数字学全是参数；`WAVEFORMS_BUILT` 不动，`LinkSim` 照样拒绝 ay，现有方案指纹不变。
+- 合成数字学（RRC 0.25、4×）：PAPR@1e-3 OFDM 8.36（高斯包络理论 8.39）、SC π/2-BPSK 1.92 / QPSK 4.24 / 16-QAM 5.47 / 64-QAM 5.77 dB。
+- 预设 PA 上 −20 dB EVM 的回退（从 Psat）：SC 0 / 0.36 / 3.27 / 3.63，OFDM 6.08 / 5.96 / 6.05（QPSK / 16 / 64）。同为 16-QAM 差 2.7 dB，PAPR 差 2.9 dB；TGad EM PA 上 3.2 dB。
+- **被推翻的判断**：ROADMAP 写的"SC 的 PAPR 比 OFDM 低 3–4 dB"只对 QPSK / π/2-BPSK 成立；16 / 64-QAM 在滚降 0.25 下是 2.6–2.9 dB。验收线改成按星座写。
+- 自己踩的坑：第一次量 OFDM 用了全 1 训练值（时域冲激，PAPR 22 dB），过 PA 被削，信道估计歪掉，回退读出 16 dB；换随机 ±1 后又随种子差 1.5 dB。PA 隔离读法改成不带训练场（`ofdm.receive(h=)`）；真实帧里 CEF 过 PA 的一项接数字后单算（`cairn/ay.md` §3）。
+- 测试 11 项（`tests/test_ay_skeleton.py`）；变异 8 处（递推式、窗口偏一个样本、MMSE 去偏、两种相位跟踪、成形增益、回退二分方向、不可达当可达）都红、还原都绿。
+- 下一步：第 5 条 C12；spec_sources#29 回了再接线（`cairn/ay.md` §4）。
+
 ## 2026-11-16 · B：两级扫描补不了 N = 64 的边，省时间只在有余量处（feat/hierarchical-training，叠在 #45 上）
 
 - 优先级第 3 条。`arraylink.hierarchical_training`：前 m 个单元的子阵扫 m 个宽扇区（按自己的单元数定工作点），整阵再扫选中扇区里增益最高的 ⌈N/m⌉ 个窄扇区；对端一个单元，每级各自重复到够得着目标。`required_training_snr_db(candidates=)` 限定候选扇区。
