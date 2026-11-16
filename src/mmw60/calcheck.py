@@ -304,6 +304,43 @@ def run_cal_on(tx, rx, path: LoopbackPath, k: int, bw_eff: float, oversampling: 
     return run
 
 
+def ay_probe_config(n_symbols: int | None = None, seed: int = 0) -> tuple[OFDMConfig, str, dict]:
+    """The scoring waveform wifitrx's sequence runs on for the ay chain
+    (data/spec: assumed.ay_cal_probe): a standard waveform upclocked to a
+    bandwidth that is the chain's rate over an integer."""
+    from .ay import edmg
+    p = spec.value("assumed.ay_cal_probe")
+    n_sym = int(spec.value("assumed.cal_capture_symbols")) if n_symbols is None else int(n_symbols)
+    cfg, name = upclocked_scoring_config(float(p["base_bandwidth_hz"]), int(p["k"]), int(p["oversampling"]), n_sym,
+                                         standard=str(p["standard"]), seed=seed)
+    fs = edmg.chain_rate()["fs_hz"]
+    if cfg is None or abs(float(p["base_bandwidth_hz"]) * int(p["k"]) * int(p["oversampling"]) - fs) > 1.0:
+        raise ValueError("assumed.ay_cal_probe does not land on the ay chain's sample rate")
+    return cfg, name, p
+
+
+def run_cal_ay(fe: Frontend60, cfg, with_dpd: bool = False, profile: str = "poweron", seed: int = 0,
+               drive_scale: float = 0.12, log=None) -> CalRun:
+    """wifitrx's sequence on the 802.11ay chain (iron rule 4): the shared front
+    end's chains at the ay chain's bandwidth and rate (``sim.ay_link.AyPhy``),
+    the PA trimmed on the probe to the preset back-off (Psat − OBO, the same
+    average output the ay waveforms then run at), and the step table on the
+    probe of ``ay_probe_config``.  The calibrated chains are ``run.chains``;
+    ``LinkSim(cfg, frontend=fe, chains=run.chains[:2])`` runs an ay waveform
+    on them.  No DPD by default: the be rows of the comparison table carry
+    no predistorter either (C8 + C10)."""
+    from .sim.ay_link import AyPhy
+    phy = AyPhy(cfg)
+    probe, _, p = ay_probe_config()
+    tx, rx = fe.build_chains(phy.bandwidth_eff, phy.fs_eff)
+    if fe.pa_enabled:
+        _trim_drive(tx, scoring_frame(probe)[0].x * drive_scale, fe.target_pout_dbm())
+    path = LoopbackPath(atten_db=recommended_loopback_atten_db(phy.bandwidth_eff), delay_ns=6.0)
+    return run_cal_on(tx, rx, path, int(p["k"]), float(p["base_bandwidth_hz"]) * int(p["k"]), int(p["oversampling"]),
+                      profile, with_dpd, seed, log, drive_scale=drive_scale,
+                      base_bw_hz=float(p["base_bandwidth_hz"]), standard=str(p["standard"]))
+
+
 def loopback_views(run: CalRun, seed: int = 0) -> dict | None:
     """The final check's loopback read three ways (ROADMAP C7), on the chains
     the run ended with:

@@ -4,6 +4,11 @@
 
 ## 未发布
 
+### 里程碑 3 第二段 2a：在 ay 的链上真跑 wifitrx 的校准（2026-11-16）—— be 方案与指纹不变；示例 15 多 §7–§8
+- `calcheck.ay_probe_config`、`calcheck.run_cal_ay`（新）；新 assumed `ay_cal_probe`。
+- `LinkSim(cfg, frontend=, chains=)`：ay 配置可以传进一对建好的（校准过的）链（**公开签名加参数**，be 不接受）；`describe()` 多 `calibrated`。
+- 示例 15 §7：校准步骤表；§8：校准过的链上的底板、合规上限，以及同调制同码率的回退。结论更正：SC 的回退优势只剩 0.01–0.15 dB。
+
 ### 里程碑 3 第一段：两种 802.11ay 波形接上 EDMG 数字，跑在共享前端上（2026-11-16）—— be 方案、预设与指纹不变；新示例 15
 - `config.WAVEFORMS_BUILT` 加 `ay_ofdm`、`ay_sc`。新增 `AY_WAVEFORMS`、`AyConfig`（`Mmw60Config.ay`，**配置 schema 变化**）、预设 `ay_60ghz`。ay 只在拓扑 B、EDMG 信道中心、K = 1 上，配置拒绝其余组合。
 - `mmw60.ay.edmg`（新）：EDMG 单信道数字学（导频随信道）、MCS 表、限值、速率、合规上限（限值不单调，取通过的里最快的）、共用的链速率。

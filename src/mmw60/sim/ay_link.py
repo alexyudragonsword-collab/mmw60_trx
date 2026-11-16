@@ -110,7 +110,12 @@ class AyFrame:
 
 
 class AyLinkSim(LinkSim):
-    def __init__(self, cfg, frontend=None):
+    """``chains``: a (tx, rx) pair built elsewhere — the chains wifitrx's
+    sequence calibrated (``calcheck.run_cal_ay``, iron rule 4) — used in
+    place of fresh ones; the PA is trimmed to the back-off on this waveform
+    either way."""
+
+    def __init__(self, cfg, frontend=None, chains=None):
         self.cfg = cfg
         self.topology_a = False
         self.coded = False
@@ -141,13 +146,22 @@ class AyLinkSim(LinkSim):
         self.pa = None
         self.frontend = None
         self.ifx = None
+        self.calibrated = False
         if self.model == "behavioural":
+            if chains is not None:
+                raise ValueError("calibrated chains need frontend.model zero_if_chain")
             self.pa = (ModifiedRappPA(ampm=cfg.frontend.pa.ampm, p=cfg.frontend.pa.rapp_p)
                        if cfg.frontend.pa.enabled else None)
         else:
             from ..frontend import Frontend60
             self.frontend = frontend if frontend is not None else Frontend60.from_config(cfg)
-            self.tx, self.rx = self.frontend.build_chains(self.phy.bandwidth_eff, self.phy.fs_eff)
+            if chains is not None:
+                self.tx, self.rx = chains
+                if (self.tx.fs, self.tx.params.bandwidth_hz) != (self.phy.fs_eff, self.phy.bandwidth_eff):
+                    raise ValueError("the chains were not built for this ay chain's rate and bandwidth")
+            else:
+                self.tx, self.rx = self.frontend.build_chains(self.phy.bandwidth_eff, self.phy.fs_eff)
+            self.calibrated = chains is not None
             _, frame0 = self.transmit(np.random.default_rng(cfg.seed))
             self.pout_dbm = self.frontend.set_vga_for_obo(self.tx, frame0.x * DIGITAL_DRIVE_RMS)
 
@@ -259,6 +273,7 @@ class AyLinkSim(LinkSim):
         if self.frontend is not None:
             d["frontend"] = self.frontend.describe(self.phy.fs_eff)
             d["frontend"]["pout_dbm_set"] = self.pout_dbm
+            d["calibrated"] = self.calibrated
         return d
 
 

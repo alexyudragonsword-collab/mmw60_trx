@@ -21,13 +21,20 @@ standard sets for each?
 5. EVM against back-off on the chain (IQ / LO leakage off), the back-off
    every MCS's TX EVM limit needs, and SC against OFDM at matching
    modulation and code rate;
-6. at each PA output power, the best EVM-limited rate of each waveform.
+6. at each PA output power, the best EVM-limited rate of each waveform;
+7. wifitrx's calibration sequence run on the ay chain (iron rule 4;
+   ``calcheck.run_cal_ay``, the probe of data/spec: assumed.ay_cal_probe);
+8. the floors, caps and matched-pair back-offs again on the chains that
+   sequence calibrated (calibrated once at the preset back-off; other
+   back-offs only re-trim the drive) — the check of section 4's "calibrated
+   away".
 
     python examples/15_ay_on_the_shared_front_end.py [--quick]
 """
 from __future__ import annotations
 
 import argparse
+import copy
 import dataclasses as dc
 import os
 import sys
@@ -41,6 +48,7 @@ sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, spec                # noqa: E402
 from mmw60.ay import edmg, papr                                   # noqa: E402
+from mmw60.calcheck import run_cal_ay                             # noqa: E402
 from mmw60.config import ChannelConfig, ay_60ghz                  # noqa: E402
 from mmw60.frontend import Frontend60                             # noqa: E402
 from mmw60.sim.link import LinkSim                                # noqa: E402
@@ -270,6 +278,60 @@ def main(argv=None) -> int:
         print(f"{psat - ob:8.2f} {ob:8.1f} {row[0]:>14} {row[1]:>14}")
     print(f"(single element at {fe.antenna_gain_tx_dbi:g} dBi: EIRP = Pout, far under the regulatory cap; with an "
           f"array the cap binds first and the SC power margin becomes fewer elements or less DC power — stage 2)")
+
+    # ---------------------------------------------------------------- 7. calibration on the ay chain
+    print("\n== 7. wifitrx's calibration sequence on the ay chain (2.16 GHz, 5.28 GS/s), PA at the preset back-off ==")
+    run = run_cal_ay(fe, base["ay_sc"])
+    print(f"probe: {run.waveform} ({tag('assumed.ay_cal_probe')}); no DPD (as the be rows)")
+    for r in run.rows:
+        print(f"  {r.step:<22} {r.status:<9} {r.metric:<16} {fmt(r.value, '{:8.2f}', '       —')}")
+    v = run.final_views
+    print(f"final check: isolation reading {run.evm_after_db:.2f} dB; "
+          f"modem reading {v.get('evm_modem_db', np.nan):.2f} dB "
+          f"(TX {v.get('tx_evm_modem_db', np.nan):.2f}, RX {v.get('rx_evm_modem_db', np.nan):.2f}); PA output "
+          f"{run.pout_dbm:.2f} dBm.  The isolation reading is the wide-band capture-alignment bias of ROADMAP D5 "
+          f"(2.56 GHz: −13.5 against −23.4 dB modem)")
+
+    def cal_evm(cfg, obo=None, n=n_pk):
+        c = cfg if obo is None else at_obo(cfg, obo)
+        f2 = fe if obo is None else Frontend60.from_config(c)
+        sim = LinkSim(c, frontend=f2, chains=copy.deepcopy(run.chains[:2]))
+        rng = np.random.default_rng(0)
+        e = [sim.packet(None, rng).rx.evm_db for _ in range(n)]
+        return float(10 * np.log10(np.mean(10 ** (np.asarray(e) / 10))))
+
+    # ---------------------------------------------------------------- 8. on the calibrated chains
+    print("\n== 8. on the chains the sequence calibrated: floors at the preset back-off, against section 4 ==")
+    cal_floor = {}
+    for wf, rep in reps.items():
+        for label, m in rep.items():
+            e = edmg.mcs_entry(wf, m)
+            cal_floor[(wf, e.tone_order)] = cal_evm(dc.replace(ay_60ghz(wf, m), channel=FLAT))
+            print(f"{wf:<8} {label:<26} calibrated {cal_floor[(wf, e.tone_order)]:7.2f}   section 4: raw "
+                  f"{floors['raw'][(wf, e.tone_order)]:7.2f}, calibrated away {floors['cal'][(wf, e.tone_order)]:7.2f}")
+    for wf in edmg.WAVEFORMS:
+        best = cap(wf, lambda order: cal_floor[(wf, order)])
+        txt = "none" if best is None else (f"MCS{best.mcs} {best.modulation} {best.code_rate} "
+                                           f"(limit {best.evm_limit_db:g} dB), {best.rate_bps() / 1e9:.3f} Gb/s")
+        print(f"cap, calibrated chain {wf:<8} {txt}")
+    obos8 = obos
+    sub = {("ay_sc", 16): SC_REP["π/2-16-QAM"], ("ay_sc", 64): SC_REP["π/2-64-QAM"],
+           ("ay_ofdm", 16): OFDM_REP["16-QAM"], ("ay_ofdm", 64): OFDM_REP["64-QAM"]}
+    cal_curves = {key: [cal_evm(dc.replace(ay_60ghz(key[0], m), channel=FLAT), ob, n=1) for ob in obos8]
+                  for key, m in sub.items()}
+    print("\nSC against OFDM at the same modulation and code rate on the calibrated chains (back-off from Psat; "
+          "ΔPout = SC − OFDM; section 5's ΔPout beside it):")
+    print(f"{'modulation':<10} {'rate':>5}  {'SC':>6} {'OFDM':>6}  {'ΔPout':>6}   {'sec. 5':>6}")
+    for sm, om in pairs:
+        es, eo = edmg.mcs_entry("ay_sc", sm), edmg.mcs_entry("ay_ofdm", om)
+        bs = cross(obos8, cal_curves[("ay_sc", es.tone_order)], es.evm_limit_db)
+        bo = cross(obos8, cal_curves[("ay_ofdm", eo.tone_order)], eo.evm_limit_db)
+        dp = None if bs is None or bo is None else bo - bs
+        b5s, b5o = need[("ay_sc", sm)], need[("ay_ofdm", om)]
+        d5 = None if b5s is None or b5o is None else b5o - b5s
+        print(f"{eo.modulation:<10} {str(es.code_rate):>5}  {fmt(bs, '{:6.2f}', ' never')} "
+              f"{fmt(bo, '{:6.2f}', ' never')}  "
+              f"{fmt(dp, '{:6.2f}')}   {fmt(d5, '{:6.2f}')}")
     print(f"\n[{time.time() - t0:.0f}s]")
     return 0
 

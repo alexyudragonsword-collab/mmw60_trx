@@ -3,7 +3,7 @@
 **这份文件只写还没做的事。** 做完即删，并在 `CHANGELOG.md` 记一笔、`cairn/LOG.md` 记数字。每条带证据（复现方式与数字）。
 
 ## 当前优先级（2026-11-16 用户定：按下面的顺序做；做完一条就从这里和正文一起删）
-1. **里程碑 3（802.11ay）第二段**：同台表两行、校准列、按功率换距离（本地 assumed 的 EDMG 灵敏度）、阵列与 EIRP 上限。第一段（spec 数字接线、两种波形跑在共享前端上、示例 15）已做，见 `cairn/ay.md` §4。
+1. **里程碑 3（802.11ay）第二段剩下的**：同台表两行、按功率换距离（本地 assumed 的 EDMG 灵敏度）、阵列与 EIRP 上限。第一段（spec 数字接线、两种波形跑在共享前端上）与第二段 2a（在 ay 的链上真跑校准，铁律 4）已做，见 `cairn/ay.md` §4–§5、示例 15。
 
 其余（A1 的 DPD 学习方式与没建的损伤、A2 / A3 的口径统一、C6、C9、C11、C12 剩下的解映射幅度基准）按需再做。卡在外部原文上的不排进度：C4、C10 的 AM/PM、C8 的 PA 记忆时间常数、B 的氧吸收、A2 的 Murmann 表；其中 11-09/0334、Murmann 表能拿到原文，可以打包给 spec_sources（802.11ad 的 EVM 表 2026-11-16 已随 spec_sources#29 进来：`dmg.tx_evm_db`）。
 
@@ -41,11 +41,14 @@
 - **逐单元 PA 没进时域**：PA 只按 EIRP 上限下的回退进底板；单元误差让各 PA 驱动不同、远场合成后的失真没算。待做：时域里 N 路 PA + `arraytx.beam.far_field` 合成的一档。
 - 多径下的扇区选择、双向各一次扫描、码本以外的波束细化（BRP 类）都没建。
 
-## 里程碑 3：802.11ay（第一段已落地：`ay/edmg.py`、`sim/ay_link.py`、`config.ay_60ghz`、示例 15、`cairn/ay.md` §4）
+## 里程碑 3：802.11ay（第一段与第二段 2a 已落地：`ay/edmg.py`、`sim/ay_link.py`、`config.ay_60ghz`、`calcheck.run_cal_ay`、示例 15、`cairn/ay.md` §4–§5）
 ay 不是第三条拓扑，是拓扑 B 的硬件配第三、四种波形，单信道、EVM 口径（用户 2026-11-16 定）。数字来自 spec_sources#29（2026-11-16 已验收并关闭，pin `3123b65`）。下面是第二段。
-- **同台表两行**（示例 04；`compare.PENDING` 现在写的是“第二段”）：底板、合规上限、速率、pJ/bit（转换器在 5.28 GS/s）。读法照 be 行：原始链的时域 EVM，加一列 IQ 与 LO 泄漏按校准后残差算的。
-- **校准列**（铁律 4）：wifitrx 序列要在 ay 的链上真跑。依赖 be 导频 / 音的步骤（逐音 ρ(f)、LO 泄漏环回、group_delay）要为 ay 重写探针，算法和 `deps.py` 顺序不变。在这之前示例 15 只能把 IQ 与 LO 泄漏“当作校准掉”。
-  原始链上 IQ 让两种波形都只有 −4 … −5 dB（be 的 2.56 GHz 行也是 −4.6 dB）。TX LO 泄漏（−30 dBc）带着 CFO 时，SC 单开读 −24.5 dB、OFDM −32.1 dB（示例 15 §3）。所以 SC 需要的 LO 泄漏残差比 OFDM 严，校准列要按波形读。
+- **同台表两行**（示例 04；`compare.PENDING` 现在写的是“第二段”）：底板、合规上限、速率、pJ/bit（转换器在 5.28 GS/s）。读法照 be 行：原始链的时域 EVM，加一列校准过的链（`calcheck.run_cal_ay`，示例 15 §8）。
+- **SC 在校准过的链上比“当作校准掉”多损失 0.3–0.4 dB，原因没找到**（示例 15 §8）：
+  - 数：SC −24.0 … −25.1 对 −24.3 … −25.5 dB；OFDM 完全不变（−20.9 … −21.0）。这正好把同调制同码率时 SC 的回退优势从 0.36–0.68 dB 吃到 0.01–0.15 dB。
+  - 已排除：带着 CFO 进来的残余 LO 泄漏（关掉 CFO 差不变）；探针外推带边的 IQ 校正（滚降 0.10–0.40 时差 0.31–0.40 dB）。
+  - 候选：RX LPF 角频 6.4 % 的残差、校准后 RX 侧的修正状态，逐项换回未校准的值看哪一项是它。
+  - 复现：`python examples/15_ay_on_the_shared_front_end.py` §8（全量约 2 分钟）。
 - **距离**：EDMG 灵敏度没有出处（spec_sources#29），要在本地写 assumed（沿用 DMG 同调制档，`dmg.rx_sensitivity_dbm`），再把示例 15 §6 的“速率 × 输出功率”换成“速率 × 距离”。
 - **阵列与 EIRP 上限**：单天线时 EIRP = Pout，离上限很远。阵列上上限先到，SC 的回退余量变成更少的单元或更少的直流功率，要和阵列层的功率列一起算。
 - **SC 在 64-QAM 高码率上够不到限值**（示例 15 §5）：底板停在约 −27 dB，主要是相噪（两段 GI 之间插值后单开 −27.5 dB），MCS20 / 21 的 −28 / −29 dB 够不到。待做（按需）：块内更密的相位跟踪（如导频块），或换相噪更低的 LO 剖面再量。
@@ -110,7 +113,7 @@ D1（wifi_trx_cal#4，非标准带宽的评分波形）、D2（pll_simulator#71�
 
 D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）已落地并由对方关闭（2026-11-12，示例 08、`cairn/topology-b.md` §5）：接收前端、收发隔离、发 / 收天线增益三个面在 `Frontend60` 上，条目已删；过程中发现的在 C9。倍频器底噪不进 `Frontend60`（雷达直接读剖面文件）。对方最后读的是来源表而不是对象：它 vendor 了 `spec.py` 与 `survey.yaml`，按条目读三条 `spec`，哪几条、改之前要做什么见 `cairn/spec-sources.md` 的“被下游消费的条目”。这三条 2026-11-13 已随迁移进了 spec_sources；fmcw_radar 也已迁完，本库那条下游守卫已删（mmw60_trx#23）。
 
-**候选 D5（待用户定是否报 wifi_trx_cal）**：2.56 GHz（fs 5.12 GS/s）上 wifitrx 回环捕获对齐后留约 2 个样本（0.38 ns）的时延，各音信道相位有 6.0 rad 的线性斜坡；它的 isolation 读法（`cal/sequence.score_views` 的 `evm_db`）先按全部音估每个符号的公共相位、再逐音均衡，斜坡下这个估计被 64-QAM 的幅度拉偏（相干度 0.08），读 −13.5 dB，先均衡则 −24.4 dB（modem 读法 −23.4）。isolation 读法是 wifitrx 重放闭环的目标，标准带宽（≤ 320 MHz，斜坡 0.00 rad）上不受影响；2.56 GHz 不在它的承诺范围内，所以只是候选。复现：`python examples/03_calibration_at_k.py` 的“read three ways”一节、`tests/test_calcheck.py::test_the_2p56ghz_isolation_view_is_the_capture_alignment_not_the_chain`。
+**候选 D5（待用户定是否报 wifi_trx_cal）**：2.56 GHz（fs 5.12 GS/s）上 wifitrx 回环捕获对齐后留约 2 个样本（0.38 ns）的时延，各音信道相位有 6.0 rad 的线性斜坡；它的 isolation 读法（`cal/sequence.score_views` 的 `evm_db`）先按全部音估每个符号的公共相位、再逐音均衡，斜坡下这个估计被 64-QAM 的幅度拉偏（相干度 0.08），读 −13.5 dB，先均衡则 −24.4 dB（modem 读法 −23.4）。isolation 读法是 wifitrx 重放闭环的目标，标准带宽（≤ 320 MHz，斜坡 0.00 rad）上不受影响；2.56 GHz 不在它的承诺范围内，所以只是候选。2026-11-16 在 ay 的 2.16 GHz 链上又见到一次（探针 11be 80 MHz × 22）：isolation −7.65 对 modem −21.3 dB（示例 15 §7）。复现：`python examples/03_calibration_at_k.py` 的“read three ways”一节、`tests/test_calcheck.py::test_the_2p56ghz_isolation_view_is_the_capture_alignment_not_the_chain`。
 
 ## E. 明确不做
 MAC / MLO 调度、多用户、信道模型本身（用 11ad CR 现成表）、D-band、雷达（另开 fmcw_radar）；EIRP / 谱模板只做趋势比较，不替代认证测试；不把 vendor 变成 fork。
