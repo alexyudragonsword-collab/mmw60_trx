@@ -1,7 +1,7 @@
 """Measure the decoder's own PER threshold of every coded EDMG SC MCS and
 write ``src/mmw60/data/spec/ay_per_thresholds.yaml`` (source: derived).
 
-    python tools/measure_ay_thresholds.py --jobs 4 --cache DIR   # every SC MCS at repetition 1 (~1 h on 4 cores; resumable)
+    python tools/measure_ay_thresholds.py --jobs 4 --cache DIR   # every SC MCS, repetition 1 (~1 h, 4 cores; resumable)
     python tools/measure_ay_thresholds.py --only 14 --only 16
     python tools/measure_ay_thresholds.py --check           # re-measure and compare with the file (exit 1 beyond --tol)
 
@@ -60,10 +60,29 @@ def grid_for(mcs: int, step: float, span_db: float = 8.0) -> list[float]:
     return [round(float(lo + i * step), 3) for i in range(int(round(span_db / step)) + 1)]
 
 
+#: how often a sweep that stopped above the target is run again further up
+RESTARTS = 3
+
+
 def _one(job: dict) -> dict:
+    """One MCS.  ``per_sweep`` stops at the first point with no error in
+    ``max_packets``; when the refinement then finds errors there (the true
+    PER was just above the target: 0 in 200 at PER 1.6 % happens 4 % of the
+    time) the curve has no crossing.  Such a sweep is run again from two
+    steps under its last point, on a new seed, and the new sweep replaces it
+    (``restarts`` says how often)."""
     cfg = coding.threshold_config(job["mcs"])
-    sw = per_sweep(cfg, job["grid"], job["max_packets"], job["min_errors"], refine_errors=job["refine_errors"],
-                   refine_max_packets=job["refine_max_packets"], target=TARGET, packet=coding.sweep_packet)
+    kw = dict(refine_errors=job["refine_errors"], refine_max_packets=job["refine_max_packets"], target=TARGET,
+              packet=coding.sweep_packet)
+    sw = per_sweep(cfg, job["grid"], job["max_packets"], job["min_errors"], **kw)
+    restarts = 0
+    while snr_at_per(sw, TARGET) is None and sw["n_errors"] and sw["n_errors"][-1] > 0 and restarts < RESTARTS:
+        restarts += 1
+        step = job["grid"][1] - job["grid"][0]
+        start = sw["snr_db"][-1] - 2 * step
+        grid = [round(start + i * step, 3) for i in range(int(round(6.0 / step)) + 1)]
+        sw = per_sweep(cfg, grid, job["max_packets"], job["min_errors"], seed=cfg.seed + restarts, **kw)
+    sw["restarts"] = restarts
     ci = snr_at_per_ci(sw, TARGET)
     return {"mcs": job["mcs"], "sweep": sw, "snr_at_target": snr_at_per(sw, TARGET), "ci": ci}
 
@@ -97,6 +116,7 @@ def measure(mcs: list[int], step: float, max_packets: int, min_errors: int, jobs
                 f.write_text(json.dumps(r["sweep"]))
             v = r["snr_at_target"]
             log(f"MCS{r['mcs']:>2}: {'never' if v is None else f'{v:.2f} dB'}  "
+                + (f"(restarted {r['sweep']['restarts']}x) " if r["sweep"].get("restarts") else "")
                 + " ".join(f"{s:g}:{e}/{n}" for s, e, n in zip(r["sweep"]["snr_db"], r["sweep"]["n_errors"],
                                                                r["sweep"]["n_packets"])), flush=True)
             out.append(r)
@@ -119,8 +139,10 @@ def document(table: dict, ci: dict, step: float, max_packets: int, min_errors: i
                  f"edmg.ldpc_672_r7_8 at 7/8) on the ideal SC chain (ay.coding.threshold_config: ay_60ghz ideal, "
                  f"flat channel), in-band SNR over the chip rate, {step:g} dB steps from 0.5 dB under the Shannon "
                  f"bound, up to {max_packets} packets or {min_errors} errors per point; the two points bracketing "
-                 f"PER {TARGET:g} run on to {refine_errors} errors or {refine_max_packets} packets, log-linear "
-                 f"interpolation; ci_db = 95 % bootstrap interval of the crossing from the counts"),
+                 f"PER {TARGET:g} run on to {refine_errors} errors or {refine_max_packets} packets (a sweep left "
+                 f"without a crossing that way is run again from two steps under its last point on a new seed, up "
+                 f"to {RESTARTS} times), log-linear interpolation; ci_db = 95 % bootstrap interval of the crossing "
+                 f"from the counts"),
         "note": ("本库接收机自己的 EDMG SC 门限（Golay 信道估计、SC MMSE、max-log LLR、归一化 min-sum），不是规范数；"
                  "接收机或码一改就要重量（tests/test_ay_link.py 复量一个点）。MCS 1（重复 2）没有：重复的编码步骤没建。"
                  "不含扰码与填充规则（载荷是随机比特，扰码不改 PER；PSDU 按整数个码字发）。"),
@@ -141,7 +163,8 @@ def main(argv=None) -> int:
     ap.add_argument("--refine-errors", type=int, default=REFINE_ERRORS)
     ap.add_argument("--refine-max-packets", type=int, default=REFINE_MAX_PACKETS)
     ap.add_argument("--cache", type=Path, default=None, help="keep each finished MCS here and reuse it (resumable)")
-    ap.add_argument("--check", action="store_true", help="compare a fresh measurement with the file instead of writing it")
+    ap.add_argument("--check", action="store_true",
+                    help="compare a fresh measurement with the file instead of writing it")
     ap.add_argument("--tol", type=float, default=0.7, help="--check: allowed |difference| in dB")
     a = ap.parse_args(argv)
     t0 = time.time()

@@ -266,7 +266,8 @@ def ssw_frame_s() -> float:
     parity is not."""
     cp = spec.value("dmg.control_phy")
     bits = int(cp["header_bits"]) + 8 * int(spec.value("dmg.ssw_frame")["ssw_frame_octets"])
-    return float(spec.value("dmg.phy_timing")["control_preamble_s"]) + bits / float(spec.value("dmg.control_phy_rate_bps"))
+    rate = float(spec.value("dmg.control_phy_rate_bps"))
+    return float(spec.value("dmg.phy_timing")["control_preamble_s"]) + bits / rate
 
 
 def ay_sweep_time_s(array: Array60, side: str = "tx") -> float:
