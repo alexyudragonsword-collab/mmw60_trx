@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### 里程碑 3 第三段 9c：802.11ay 扇区扫描能扫多远（2026-11-16）—— 已发布的数、预设与指纹不变；示例 10 多 §4d
+- `ay.edmg.dmg_threshold_db`、`control_threshold_db`（新）；`ideal_threshold_db` 改走同一个函数，数值不变。
+- 新 assumed `ay_sector_sweep`。
+- 示例 10 §4d：ay 的发端 / 收端扫描在 §3d 的阵列上能扛的路径损耗，对 ay 数据链路的边、与 be 行靠 MLO 的训练并列。
+- 结论：N ≥ 16 时两种训练都够不到最慢数据档的边，缺口相当；扫描时长等 spec_sources#33。
+
 ### 里程碑 3 第三段 9b：多径下的 802.11ay；SC MMSE 噪声标度修正（2026-11-16）—— 已发布的数、预设与指纹不变；示例 15 多 §10
 - 修正：`AyLinkSim` 的 SC MMSE 噪声方差按信道估计的标度给（mean|h|²/SNR），原来是 1/SNR（多径下多正则化 16 倍）。
 - 新配置项 `AyConfig.sc_equalizer`（`mmse` 默认 / `zf`；**配置 schema 变化**）；`assumed.ay_receiver` 的说明随之更新。
