@@ -289,12 +289,23 @@ def code(n: int, rate: str) -> LdpcCode:
     """The 802.11 code of length ``n`` and rate ``rate`` ("1/2" … "5/6")."""
     if n not in LENGTHS or rate not in RATES:
         raise ValueError(f"802.11 LDPC: n in {LENGTHS}, rate in {RATES}; got {n}, {rate!r}")
-    base = np.asarray(spec.ldpc_base_matrices()[n][rate], dtype=np.int64)
-    z = n // 24
-    m_b = base.shape[0]
+    return qc_code(spec.ldpc_base_matrices()[n][rate], n // 24, rate)
+
+
+def qc_code(base, z: int, rate: str) -> LdpcCode:
+    """A quasi-cyclic code from any base matrix (−1 = zero block, s ≥ 0 = the
+    z × z identity cyclically shifted right by s) and lifting factor ``z``:
+    the 802.11 codes (24 columns) and the DMG / EDMG ones (16 columns, z = 42)
+    are built the same way.  ``rate`` must agree with the base's shape."""
+    base = np.asarray(base, dtype=np.int64)
+    m_b, n_b = base.shape
+    n = n_b * int(z)
+    num, den = (int(v) for v in rate.split("/"))
+    if (n_b - m_b) * den != n_b * num:
+        raise ValueError(f"a {m_b} x {n_b} base matrix is rate {n_b - m_b}/{n_b}, not {rate}")
     rows, cols = [], []
     for i in range(m_b):
-        for j in range(24):
+        for j in range(n_b):
             s = int(base[i, j])
             if s < 0:
                 continue

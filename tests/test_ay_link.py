@@ -425,3 +425,31 @@ def test_the_sector_sweep_threshold_is_the_control_phys_with_the_reference_recei
     assert t < min(x for x in data if x is not None) - 8.0
     # the data MCS go through the same function: one rule
     assert edmg.ideal_threshold_db("ay_sc", 14, 1.76e9) == edmg.dmg_threshold_db(12, 1.76e9)
+
+
+def test_the_coded_sc_path_with_an_80211_code_standing_in():
+    """ay.coding (section 9d): whole codewords on the SC payload, max-log LLRs
+    from the equalised chips, normalised min-sum, packet error = any info bit
+    wrong.  The DMG / EDMG matrices wait for spec_sources#33, so an 802.11
+    code stands in; ``qc_code`` lifts any base matrix as ``code`` does."""
+    from mmw60.ay import coding
+    from mmw60.phy import ldpc
+    ref = ldpc.code(648, "1/2")
+    again = ldpc.qc_code(spec.ldpc_base_matrices()[648]["1/2"], 27, "1/2")
+    assert np.array_equal(ref.edge_row, again.edge_row) and np.array_equal(ref.edge_col, again.edge_col)
+    with pytest.raises(ValueError, match="rate"):
+        ldpc.qc_code(spec.ldpc_base_matrices()[648]["1/2"], 27, "3/4")
+    sim = LinkSim(_ideal("ay_sc", 7, model="behavioural", units=4))           # π/2-QPSK 1/2
+    assert coding.payload_bits(sim) == 4 * 448 * 2
+    clean = coding.coded_sc_packet(sim, ref, None, np.random.default_rng(0))
+    assert clean["codewords"] == 5 and not clean["packet_error"] and clean["bit_errors"] == 0
+    assert coding.per(sim, ref, -3.0, 6, np.random.default_rng(1)) == 1.0
+    assert coding.per(sim, ref, 6.0, 6, np.random.default_rng(1)) == 0.0
+    # the transmitter carries exactly the bits handed in; OFDM's coded payload is not built
+    with pytest.raises(ValueError, match="carries"):
+        sim.transmit(np.random.default_rng(0), bits=np.zeros(10, dtype=np.uint8))
+    with pytest.raises(NotImplementedError):
+        LinkSim(_ideal("ay_ofdm", 13, model="behavioural")).transmit(np.random.default_rng(0), bits=np.zeros(8))
+    # iron rule 5: no EDMG PER without spec_sources' matrices
+    with pytest.raises(coding.PendingSpec, match="spec_sources#33"):
+        coding.dmg_code("1/2")
