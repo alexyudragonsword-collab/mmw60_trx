@@ -205,3 +205,26 @@ def test_law4_the_ay_chain_is_calibrated_by_running_wifitrx_sequence():
         assert e_raw > -10 and e_cal < e_raw - 10 and abs(e_cal - e_away) < 1.0, (wf, e_raw, e_cal, e_away)
     with pytest.raises(ValueError, match="rate and bandwidth"):
         LinkSim(ay_60ghz("ay_sc"), frontend=fe, chains=fe.build_chains(2.56e9, 5.12e9))
+
+
+def test_the_tx_lo_leak_calibration_holds_only_at_its_gain_state():
+    """Why example 15 §8 calibrates at every back-off: the TX LO-leak
+    cancellation wifitrx finds is right for the VGA setting it was found at.
+    Calibrated at the preset back-off and run 7.5 dB lower (the drive
+    re-trimmed), single carrier loses about 10 dB, all of it DC — without
+    the CFO the receiver's DC removal takes it out — while the sequence run
+    anew at that back-off reads what the clean chain reads."""
+    import copy
+
+    from mmw60.calcheck import run_cal_ay
+    cfg = dc.replace(ay_60ghz("ay_sc", 16), channel=FLAT)
+    low = dc.replace(cfg, frontend=dc.replace(cfg.frontend, pa=dc.replace(cfg.frontend.pa, obo_db=15.0)))
+    fe, fe_low = Frontend60.from_config(cfg), Frontend60.from_config(low)
+    once, here = run_cal_ay(fe, cfg), run_cal_ay(fe_low, low)
+
+    def ev(c, run):
+        sim = LinkSim(c, frontend=Frontend60.from_config(c), chains=copy.deepcopy(run.chains[:2]))
+        return float(np.mean([sim.packet(None, np.random.default_rng(i)).rx.evm_db for i in range(2)]))
+    stale, stale_no_cfo = ev(low, once), ev(dc.replace(low, xo_ppm_tx=0.0, xo_ppm_rx=0.0), once)
+    fresh = ev(low, here)
+    assert fresh < -25 and stale > fresh + 6 and stale_no_cfo < fresh + 1.0, (stale, stale_no_cfo, fresh)

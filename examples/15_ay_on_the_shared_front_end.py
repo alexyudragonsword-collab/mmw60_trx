@@ -25,9 +25,10 @@ standard sets for each?
 7. wifitrx's calibration sequence run on the ay chain (iron rule 4;
    ``calcheck.run_cal_ay``, the probe of data/spec: assumed.ay_cal_probe);
 8. the floors, caps and matched-pair back-offs again on the chains that
-   sequence calibrated (calibrated once at the preset back-off; other
-   back-offs only re-trim the drive) — the check of section 4's "calibrated
-   away".
+   sequence calibrated, the sequence run anew at every back-off (the TX
+   LO-leak cancellation holds only at the gain state it was found at) — the
+   check of section 4's "calibrated away"; one row shows what a single
+   calibration at the preset back-off reads at 15 dB.
 
     python examples/15_ay_on_the_shared_front_end.py [--quick]
 """
@@ -292,10 +293,27 @@ def main(argv=None) -> int:
           f"{run.pout_dbm:.2f} dBm.  The isolation reading is the wide-band capture-alignment bias of ROADMAP D5 "
           f"(2.56 GHz: −13.5 against −23.4 dB modem)")
 
-    def cal_evm(cfg, obo=None, n=n_pk):
-        c = cfg if obo is None else at_obo(cfg, obo)
-        f2 = fe if obo is None else Frontend60.from_config(c)
-        sim = LinkSim(c, frontend=f2, chains=copy.deepcopy(run.chains[:2]))
+    runs = {}
+
+    def cal_at(obo):
+        """The sequence run on fresh chains with the PA at this back-off (one run per back-off, shared by
+        both waveforms: the same chain, the same PA target)."""
+        if obo not in runs:
+            c = at_obo(base["ay_sc"], obo)
+            f2 = Frontend60.from_config(c)
+            runs[obo] = (f2, run_cal_ay(f2, c))
+        return runs[obo]
+
+    def cal_evm(cfg, obo=None, n=n_pk, single=False):
+        if obo is None:
+            c, f2, r = cfg, fe, run
+        elif single:                                     # calibrated at the preset back-off only, drive re-trimmed
+            c = at_obo(cfg, obo)
+            f2, r = Frontend60.from_config(c), run
+        else:
+            c = at_obo(cfg, obo)
+            f2, r = cal_at(obo)
+        sim = LinkSim(c, frontend=f2, chains=copy.deepcopy(r.chains[:2]))
         rng = np.random.default_rng(0)
         e = [sim.packet(None, rng).rx.evm_db for _ in range(n)]
         return float(10 * np.log10(np.mean(10 ** (np.asarray(e) / 10))))
@@ -319,6 +337,13 @@ def main(argv=None) -> int:
            ("ay_ofdm", 16): OFDM_REP["16-QAM"], ("ay_ofdm", 64): OFDM_REP["64-QAM"]}
     cal_curves = {key: [cal_evm(dc.replace(ay_60ghz(key[0], m), channel=FLAT), ob, n=1) for ob in obos8]
                   for key, m in sub.items()}
+    one = dc.replace(ay_60ghz("ay_sc", SC_REP["π/2-16-QAM"]), channel=FLAT)
+    leak_on, leak_off = cal_evm(one, 15.0, single=True), cal_evm(dc.replace(one, xo_ppm_tx=0.0, xo_ppm_rx=0.0),
+                                                                 15.0, single=True)
+    print(f"\none calibration at {fe.obo_db:g} dB, run at 15 dB (drive re-trimmed, π/2-16-QAM): {leak_on:.2f} dB; "
+          f"the same without the CFO {leak_off:.2f} dB; calibrated at 15 dB {cal_evm(one, 15.0):.2f} dB — the TX "
+          f"LO-leak cancellation found at one gain state does not hold at another, and what is left is DC that "
+          f"only the CFO carries past the receiver's DC removal")
     print("\nSC against OFDM at the same modulation and code rate on the calibrated chains (back-off from Psat; "
           "ΔPout = SC − OFDM; section 5's ΔPout beside it):")
     print(f"{'modulation':<10} {'rate':>5}  {'SC':>6} {'OFDM':>6}  {'ΔPout':>6}   {'sec. 5':>6}")
