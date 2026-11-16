@@ -149,20 +149,24 @@ def test_preset_back_off_follows_the_operating_rule():
     """The presets run the measured PA where it alone meets the 802.11ad 16-QAM
     TX EVM limit on the OFDM waveform: the rule the read 60 GHz transmitters
     are rated by (pa60.wu_isscc2015)."""
-    rule = spec.value("assumed.pa60_operating_rule")
+    from mmw60.frontend.grid import operating_rule_evm_limit_db
+    lim = operating_rule_evm_limit_db()
     p = spec.value("pa60.asada_eumc2011_rapp_p")
-    obo = obo_for_isolated_evm(ModifiedRappPA(p=p), rule["evm_limit_db"], "psat")
+    obo = obo_for_isolated_evm(ModifiedRappPA(p=p), lim, "psat")
     assert spec.value("derived.pa60_obo_at_evm_limit_db") == pytest.approx(obo, abs=0.05)
-    assert pa_isolated_evm_db(ModifiedRappPA(p=p), obo, "psat") == pytest.approx(rule["evm_limit_db"], abs=0.01)
-    # the rule's number is the limit the transmitter paper plots and rates its output at
+    assert pa_isolated_evm_db(ModifiedRappPA(p=p), obo, "psat") == pytest.approx(lim, abs=0.01)
+    # the limit is the standard's 802.11ad MCS12 (pi/2-16QAM 3/4) TX EVM, read in spec_sources since
+    # 2026-11-16 (spec_sources#29); it is the line the transmitter paper plots and rates its output at
+    rule = spec.value("assumed.pa60_operating_rule")
+    assert rule["evm_limit"] == "dmg.tx_evm_db#evm_db@mcs=12" and spec.survey("dmg.tx_evm_db").source == "spec"
     wu = spec.survey("pa60.wu_isscc2015")
-    assert wu.source == "spec" and wu.value["evm_limit_db"] == rule["evm_limit_db"]
+    assert wu.source == "spec" and wu.value["evm_limit_db"] == lim == -21.0
     assert "-21dB" in wu.quote and "9.3" in wu.quote
     # the noise seed of the Gaussian envelope moves it by less than 0.2 dB
-    spread = [obo_for_isolated_evm(ModifiedRappPA(p=p), rule["evm_limit_db"], "psat", seed=sd) for sd in (1, 2, 4, 5)]
+    spread = [obo_for_isolated_evm(ModifiedRappPA(p=p), lim, "psat", seed=sd) for sd in (1, 2, 4, 5)]
     assert max(spread) - min(spread) < 0.2 and abs(np.mean(spread) - obo) < 0.15
     # the same rule on the 11ad shape asks for more back-off than Liu's 8 dB
-    assert obo_for_isolated_evm(ModifiedRappPA(), rule["evm_limit_db"], "psat") > spec.value("liu2025.pa_obo_db") + 1.5
+    assert obo_for_isolated_evm(ModifiedRappPA(), lim, "psat") > spec.value("liu2025.pa_obo_db") + 1.5
 
 
 def test_obo_for_isolated_evm_is_monotone_and_refuses_an_unreachable_limit():

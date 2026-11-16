@@ -52,8 +52,10 @@ from .vendor.wifitrx.link.evm_budget import PN_BAND_HZ, EvmBudget
 
 #: why a (topology, waveform) cell has no numbers yet
 PENDING = {
-    ("upclock_zero_if", "ay_ofdm"): "pending: milestone 3 (802.11ay OFDM on the zero-IF hardware)",
-    ("upclock_zero_if", "ay_sc"): "pending: milestone 3 (802.11ay single carrier)",
+    ("upclock_zero_if", "ay_ofdm"): "pending: milestone 3 stage 2, the comparison-table row (the waveform runs on "
+                                    "the shared front end since stage 1: sim/ay_link.py, example 15)",
+    ("upclock_zero_if", "ay_sc"): "pending: milestone 3 stage 2, the comparison-table row (the waveform runs on "
+                                  "the shared front end since stage 1: sim/ay_link.py, example 15)",
 }
 NOT_A_SCHEME = ("n/a: the ay waveforms are topology B's hardware; topology A's chip makes WiFi 7 numerologies "
                 "only, up to its widest channel")

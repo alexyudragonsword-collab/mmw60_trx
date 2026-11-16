@@ -32,9 +32,11 @@ def test_law2_matrix_names_every_topology_x_waveform_pair():
     keys = {s.key for s in MATRIX}
     assert keys == {(t, w) for t in TOPOLOGIES for w in WAVEFORMS}
     built = {s.key for s in MATRIX if s.status == "built"}
-    # both topologies carry both built waveforms (topology A's upclocking changes only its digital
-    # baseband, on the chip's own channels: 11ac 20 MHz x 32 = 640 MHz is past them, an n/a row)
-    assert built == {(t, w) for t in TOPOLOGIES for w in WAVEFORMS_BUILT}
+    # both topologies carry both be waveforms (topology A's upclocking changes only its digital
+    # baseband, on the chip's own channels: 11ac 20 MHz x 32 = 640 MHz is past them, an n/a row);
+    # the ay waveforms are built (they run) but their table rows are milestone 3 stage 2
+    assert built == {(t, w) for t in TOPOLOGIES for w in ("be", "be_upclocked")}
+    assert set(WAVEFORMS_BUILT) == set(WAVEFORMS)
     beyond = [s for s in MATRIX if s.key == ("if_extender", "be_upclocked") and s.status == "n/a"]
     assert [s.label.split()[3] for s in beyond] == ["K=32"] and beyond[0].reason == compare.NOT_A_CHIP_CHANNEL
     for s in MATRIX:
@@ -45,11 +47,15 @@ def test_law2_matrix_names_every_topology_x_waveform_pair():
         else:
             assert s.cfg is not None and s.cfg.topology == s.topology and s.cfg.waveform == s.waveform
             LinkSim(s.cfg)
-    # the pending ones refuse to run, which is why they have no numbers
+    # the pending ones are the ay rows on topology B: they run (example 15), only the table row waits;
+    # on topology A they are not a scheme at all
+    from mmw60.config import ay_60ghz
     for s in MATRIX:
         if s.status == "pending":
-            with pytest.raises(NotImplementedError):
-                LinkSim(Mmw60Config(topology=s.topology, waveform=s.waveform))
+            assert s.topology == "upclock_zero_if" and s.waveform in ("ay_ofdm", "ay_sc") and "stage 2" in s.reason
+            assert type(LinkSim(ay_60ghz(s.waveform))).__name__ == "AyLinkSim"
+        if s.key in {("if_extender", "ay_ofdm"), ("if_extender", "ay_sc")}:
+            assert s.status == "n/a" and s.reason == compare.NOT_A_SCHEME
 
 
 @pytest.mark.parametrize("scheme", MATRIX, ids=[s.label for s in MATRIX])

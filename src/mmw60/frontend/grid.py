@@ -49,6 +49,13 @@ def pa_isolated_evm_db(pa: ModifiedRappPA, obo_db: float, reference: str, seed: 
     return _db(np.mean(np.abs(y - g * x) ** 2) / np.mean(np.abs(g * x) ** 2))
 
 
+def operating_rule_evm_limit_db() -> float:
+    """The TX EVM limit the presets' PA operating point is set by
+    (data/spec: assumed.pa60_operating_rule names it; since 2026-11-16 the
+    802.11ad MCS12 limit read from the standard, dmg.tx_evm_db)."""
+    return float(spec.ref(spec.value("assumed.pa60_operating_rule")["evm_limit"]))
+
+
 def obo_for_isolated_evm(pa: ModifiedRappPA, evm_limit_db: float, reference: str = "psat",
                          seed: int = 3, lo_db: float = 1.0, hi_db: float = 20.0) -> float:
     """The smallest back-off at which the Rapp alone meets ``evm_limit_db``

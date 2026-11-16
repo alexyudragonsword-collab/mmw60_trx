@@ -48,16 +48,28 @@ def test_law1_both_topologies_are_named_and_an_inconsistent_config_refuses():
         Mmw60Config(lo=dc.replace(Mmw60Config().lo, scheme="fixed_lo_x5"))
 
 
-def test_law1_waveform_enum_is_complete_and_ay_refuses():
-    """Every scheme (topology × waveform) is named in the config now; the two
-    802.11ay waveforms refuse to run until milestone 3."""
+def test_law1_waveform_enum_is_complete_and_ay_runs_on_topology_b_only():
+    """Every scheme (topology × waveform) is named in the config; since
+    milestone 3 stage 1 the two 802.11ay waveforms run (``sim/ay_link.py``) —
+    on topology B's hardware only, on an EDMG channel centre, at their own
+    clock — and the config refuses every other combination."""
+    from mmw60.config import ay_60ghz
     assert set(WAVEFORMS) == {"be", "be_upclocked", "ay_ofdm", "ay_sc"}
-    assert set(WAVEFORMS_BUILT) == {"be", "be_upclocked"}
+    assert set(WAVEFORMS_BUILT) == set(WAVEFORMS)
     assert wifi7_baseline_k1().waveform == "be" and liu2025_table2().waveform == "be_upclocked"
     assert zero_if_60ghz().waveform == "be_upclocked"
     for wf in ("ay_ofdm", "ay_sc"):
-        with pytest.raises(NotImplementedError, match="milestone 3"):
-            LinkSim(Mmw60Config(waveform=wf))
+        cfg = ay_60ghz(wf)
+        assert cfg.topology == "upclock_zero_if" and cfg.upclock_k == 1 and cfg.waveform == wf
+        assert type(LinkSim(cfg)).__name__ == "AyLinkSim"
+        with pytest.raises(ValueError, match="topology B"):
+            dc.replace(cfg, topology="if_extender")
+        with pytest.raises(ValueError, match="own clock"):
+            dc.replace(cfg, upclock_k=4)
+        with pytest.raises(ValueError, match="channel centre"):
+            dc.replace(cfg, carrier_hz=60.0e9)
+    with pytest.raises(ValueError, match="no MCS 21"):
+        ay_60ghz("ay_ofdm", mcs=21)
     with pytest.raises(ValueError, match="waveform"):
         Mmw60Config(waveform="ad_sc")
     assert any(k.id == "waveform" for k in KNOBS)
@@ -69,7 +81,7 @@ def test_law1_examples_build_their_links_from_the_presets_only():
         tree = ast.parse(p.read_text(encoding="utf-8"))
         calls = {n.func.id for n in ast.walk(tree)
                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
-        assert calls & {"liu2025_table2", "zero_if_60ghz"}, p.name
+        assert calls & {"liu2025_table2", "zero_if_60ghz", "ay_60ghz"}, p.name     # ay_60ghz is built on zero_if_60ghz
         src = p.read_text(encoding="utf-8")
         for forbidden in ("73.44e9", "-93", "2.94e6", "obo_db=8"):
             assert forbidden not in src, f"{p.name} types a literature number: {forbidden}"

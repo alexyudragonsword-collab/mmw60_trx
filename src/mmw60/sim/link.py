@@ -90,10 +90,19 @@ class LinkSim:
     ``frontend`` may be passed in so two topologies share one instance
     (iron rule 2); otherwise it is built from the config."""
 
+    def __new__(cls, cfg: Mmw60Config, frontend=None):
+        # the 802.11ay waveforms run on the same plumbing with their own frame and
+        # receiver (sim/ay_link.py); every caller keeps writing LinkSim(cfg)
+        from ..config import AY_WAVEFORMS
+        if cls is LinkSim and cfg.waveform in AY_WAVEFORMS:
+            from .ay_link import AyLinkSim
+            return super().__new__(AyLinkSim)
+        return super().__new__(cls)
+
     def __init__(self, cfg: Mmw60Config, frontend=None):
         from ..config import WAVEFORMS_BUILT
         if cfg.waveform not in WAVEFORMS_BUILT:
-            raise NotImplementedError(f"waveform {cfg.waveform!r}: milestone 3")
+            raise NotImplementedError(f"waveform {cfg.waveform!r} is not built")
         self.topology_a = cfg.topology == "if_extender"
         self.cfg = cfg
         self.coded = cfg.coded
