@@ -132,7 +132,7 @@ python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 5 分钟（4 核�
 结论在 `cairn/array-layer.md`：N ≥ 16 时“对端单个单元接收”的 TX 扫用一段训练场到不了 MCS0 的边，上限 MCS 的范围内训练都够；把训练场重复 R 次（非相干累加）补上，N = 16 要 4–16 次（TX 扫 0.26–1.7 ms），N = 64 要 64–256 次（16–111 ms）。阵列买的是距离不是速率：B 11be 80 MHz × 4 的 pJ/bit 在 N = 16 / 64 是单元件的 ×4.9 / ×11.9。结论以路径损耗为准；换成距离时加了 15 dB/km 的氧吸收估算（没有原文），N ≥ 16 的距离对它很敏感。
 
 ```bash
-python examples/10_array_link_and_training.py    # 全量约 9 分钟（多半是 §4b / §4c 的重复次数搜索）；--quick 冒烟
+python examples/10_array_link_and_training.py    # 全量约 10 分钟（多半是 §4b / §4c 的重复次数搜索；§3d 是 802.11ay 两种波形）；--quick 冒烟
 ```
 
 ## 读什么

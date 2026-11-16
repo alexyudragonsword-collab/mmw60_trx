@@ -58,6 +58,35 @@ A 11be 80M (IF extender)    16    7.1    6.9    1194     480      620      2294 
 A 11be 80M (IF extender)    64    3.9    4.7    3290    1920      620      5830  MCS7    360  16180     10851     21509
 PA = N_tx x Pout / PAE(Pout) at the per-element output (class-B law; the EIRP limit backs every element off together from some N on, and PAE drops with it); PS = (N_tx + N_rx) phase shifters; rest = synthesizers, converters, FFT, decoder (and topology A's chip PA and DPD) as in the comparison table; LNA / mixer per receive element not counted, as in the single-element column; N = 1 is the comparison table's own column
 
+== 3d. the two 802.11ay waveforms (topology B, EDMG channel 2) on the same arrays and front end: floors on the chain wifitrx's sequence calibrated at each per-element back-off; thresholds from the DMG twins (assumed.ay_sensitivity); the decoder cap by the be rows' rule ==
+each element at the shared preset back-off, and at the waveform's own operating point — the preset rule (the PA alone at the 802.11ad 16-QAM 3/4 TX EVM limit) on its own 16-QAM payload (assumed.ay_operating_point): ay_sc 3.97 dB (the PA alone at the preset 7.5 dB: -28.4 dB); ay_ofdm 7.12 dB (the PA alone at the preset 7.5 dB: -21.7 dB)
+waveform point    N     Pe    OBO  PA EVM   EIRP   G_rx  floor   cap   Mb/s  d MCS1  d 16Q3/4   d cap   pJ/b
+ay_sc    preset   1    7.1   7.50   -28.4    7.1    0.0  -24.5 MCS14   4620       8         1       1    188
+ay_sc    preset   4    7.1   7.50   -28.4   19.2    5.7  -24.5 MCS14   4620      59        11      11    262
+ay_sc    preset  16    7.1   7.50   -28.4   31.0   12.3  -24.5 MCS14   4620     316        81      81    534
+ay_sc    preset  64    3.9  10.74   -35.3   40.0   18.0  -26.6 MCS14   4620     775       303     303   1299
+ay_sc    own      1   10.6   3.97   -21.0   10.6    0.0  -19.6 MCS14   4620      12         2       2    196
+ay_sc    own      4   10.6   3.97   -21.0   22.7    5.7  -19.6 MCS14   4620      85        15      15    295
+ay_sc    own     16   10.6   3.97   -21.0   34.6   12.3  -19.6 MCS14   4620     406       105     105    663
+ay_sc    own     64    3.9  10.74   -35.3   40.0   18.0  -26.6 MCS14   4620     775       303     303   1299
+ay_ofdm  preset   1    7.1   7.50   -21.7    7.1    0.0  -21.1 MCS18   6565       7         2       1    134
+ay_ofdm  preset   4    7.1   7.50   -21.7   19.2    5.7  -21.1 MCS18   6565      48        12       5    187
+ay_ofdm  preset  16    7.1   7.50   -21.7   31.0   12.3  -21.1 MCS18   6565     271        87      43    378
+ay_ofdm  preset  64    3.9  10.74   -27.9   40.0   18.0  -25.4 MCS19   7112     700       326     170    846
+ay_ofdm  own      1    7.5   7.12   -21.0    7.5    0.0  -20.5 MCS18   6565       7         2       1    135
+ay_ofdm  own      4    7.5   7.12   -21.0   19.6    5.7  -20.5 MCS18   6565      50        12       5    189
+ay_ofdm  own     16    7.5   7.12   -21.0   31.4   12.3  -20.5 MCS18   6565     279        89      42    386
+ay_ofdm  own     64    3.9  10.74   -27.9   40.0   18.0  -25.4 MCS19   7112     700       326     170    846
+PA EVM = the PA alone on the waveform's 16-QAM payload at the per-element back-off; floor = the cap MCS's constellation on the calibrated chain; d = metres (free space plus oxygen) at MCS1 (the slowest), at 16-QAM 3/4 (SC MCS14 / OFDM MCS13) and at the cap; pJ/b at the cap as in 3c.  SC's cap stops at MCS14 because its 16-QAM 13/16, 7/8 and 64-QAM MCS have no DMG twin (no threshold), OFDM's 64-QAM ones do: compare the two at 16-QAM 3/4, not at the cap
+
+the smallest array that reaches the EIRP limit (40 dBm) at each operating point, and its cost (PA = N x Pout / PAE; PS = 2N x 15 mW; d and pJ/b at 16-QAM 3/4):
+waveform point     OBO    N     Pe  PAE %   PA mW   PS mW   G_rx  d MCS1  d 16Q3/4   pJ/b
+ay_sc    preset   7.50   45   6.96    6.8    3304    1350  16.48     718       267   1179
+ay_sc    own      3.97   30  10.54   10.2    3325     900  14.85     658       219   1086
+ay_ofdm  preset   7.50   45   6.96    6.8    3304    1350  16.48     645       282   1248
+ay_ofdm  own      7.12   43   7.37    7.1    3308    1290  16.32     639       277   1235
+at the limit the PA's DC power hardly moves with the operating point: fewer elements at a smaller back-off, each at a higher PAE (the class-B law: PAE grows with the output amplitude), the product constant; what the smaller back-off saves is elements — phase shifters, area — and what it costs is receive gain (the same array at both ends, a TDD link)
+
 == 4. beam training, MLO-triggered: training field GI2 + 2 L-LTF symbols of the base PHY, upclocked, estimator noncoherent_tones, a pick within 1 dB of the best sector in 99 % of sweeps ==
 scheme                       N  tones  req TX  req RX  PL TXSS  PL RXSS  TXSS-MCS0  TXSS-cap  sweep [us]
 B 11be 80M x4 (320 MHz)      1    996       —       —        —        —          —         —           —   (one sector: no sweep)

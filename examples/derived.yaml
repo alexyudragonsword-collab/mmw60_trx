@@ -319,6 +319,23 @@
     - {doc: cairn/LOG.md, text: "13.6 dBm 上 {sc1} 对 {of1} Gb/s"}
     - {doc: cairn/ay.md, text: "13.6 dBm 上 {sc1} 对 {of1} Gb/s"}
 
+- name: ex10 the smallest arrays that reach the EIRP limit — SC at its own operating point against OFDM at its own
+  values:
+    n_sc: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_sc own {*} {} {*} {*} {*} {*} {*} {*} {*} {*}"}
+    n_of: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_ofdm own {*} {} {*} {*} {*} {*} {*} {*} {*} {*}"}
+    ps_sc: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_sc own {*} {*} {*} {*} {*} {} {*} {*} {*} {*}"}
+    ps_of: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_ofdm own {*} {*} {*} {*} {*} {} {*} {*} {*} {*}"}
+    g_sc: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_sc own {*} {*} {*} {*} {*} {*} {} {*} {*} {*}"}
+    g_of: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_ofdm own {*} {*} {*} {*} {*} {*} {} {*} {*} {*}"}
+    pj_sc: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_sc own {*} {*} {*} {*} {*} {*} {*} {*} {*} {}"}
+    pj_of: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_ofdm own {*} {*} {*} {*} {*} {*} {*} {*} {*} {}"}
+    obo_of: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_ofdm own {} {*} {*} {*} {*} {*} {*} {*} {*} {*}"}
+    obo_pre: {example: "10", after: "the smallest array that reaches the EIRP limit", line: "ay_ofdm preset {} {*} {*} {*} {*} {*} {*} {*} {*} {*}"}
+  quotes:
+    - {doc: cairn/ay.md, text: "少 {n_of - n_sc} 个单元、{2 * (n_of - n_sc)} 个移相器、{ps_of - ps_sc} mW，每比特少 {100 * (1 - pj_sc / pj_of)} %"}
+    - {doc: ROADMAP.md, text: "接收增益也跟着少 {g_of - g_sc} dB"}
+    - {doc: cairn/ay.md, text: "OFDM 自己的工作点与预设只差 {obo_pre - obo_of} dB"}
+
 - name: ex15 rate against range — how much output power the SC low-order MCS gain over the preset, and the 16-QAM range-best back-off
   values:
     preset: {example: "15", line: "one front end for both: PA Psat {*} dBm at {} dB from psat"}

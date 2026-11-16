@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### 里程碑 3 第二段 2b（末）：802.11ay 两种波形上阵列（2026-11-16）—— be 各行、预设与指纹不变；示例 10 多 §3d
+- `arraylink.ay_array_budget`、`ay_operating_obo_db`、`ay_pa_alone_evm_db`（新）；`array_power_report` 认得 ay 的预算；`ArrayBudget` 加 `floor_by_order`、`rate_by_mcs`（**公开数据类加字段**，有默认值）。
+- 新 assumed `ay_operating_point`：预设的回退规则用在各波形自己的 16-QAM 包络上。
+- 示例 10 §3d：两种波形在预设回退与各自工作点上的阵列预算，以及最少几个单元顶到 EIRP 上限、它们的代价。
+- 结论：顶到上限时 PA 直流与工作点几乎无关；SC 回退小，省下的是单元与移相器，代价是接收增益。里程碑 3 第二段至此完成。
+
 ### 里程碑 3 第二段 2b（下）：按功率换距离（2026-11-16）—— 预设、同台表与指纹不变；示例 15 多 §9
 - 新 assumed `ay_sensitivity`：EDMG 门限借 DMG 同档灵敏度，参考接收机的 NF 与实现损耗拿掉；没有对应档的 EDMG MCS 不给门限。
 - `ay.edmg.dmg_twin`、`ay.edmg.ideal_threshold_db`、`arraylink.ay_mcs_ranges`（新）。
