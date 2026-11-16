@@ -282,6 +282,12 @@ RX DC 单开等于底板，没有贡献。直接读数：`dc_pre` 之后剩的�
 - 收端扫描在所有尺寸上都够得着（在选好的发端波束后面）。
 - 扫一轮要多久（控制 PHY 的前导与头、SSW 帧长、扇区间隔）等 spec_sources#33。
 
+### 9d. 编码 PER：机器先建，矩阵等 spec_sources#33（`ay/coding.py`，feat/ay-coded）
+- **已建**：`phy.ldpc.qc_code` 能从任意基矩阵与提升因子构造准循环码（802.11 的码改走它，边数组逐位相同；DMG / EDMG 的是 16 列、z = 42）。SC 载荷装整数个码字，不够一个码字的比特用随机填充，接收端丢掉。接收端从均衡后的码片求 max-log LLR，不做逐码片加权：SC 的 MMSE 让每个码片 SINR 相同，归一化 min-sum 又对 LLR 的整体缩放不敏感。任一码字的任一信息比特错就算丢包。`AyLinkSim.transmit(rng, bits=)` 接收载荷比特（只对 SC）。
+- **替身验证**：用 802.11 的 648 码（码率 1/2）、π/2-QPSK、行为模型的理想链：不加噪声时零错，−3 dB 全丢，6 dB 全对；把 LLR 的符号翻过来测试就变红（`test_the_coded_sc_path_with_an_80211_code_standing_in`）。替身码的 PER 曲线不打印：它不是 EDMG 的码，打出来容易被当成 EDMG 的数。
+- **等 spec_sources#33**（铁律 5）：DMG / EDMG 的 LDPC 基矩阵、码率 7/8 的打孔、扰码、填充与缩短规则。`coding.dmg_code` 在矩阵进来之前报 `PendingSpec`，不出任何 EDMG 档的 PER。键名 `dmg.ldpc_base_matrices` 是占位，spec_sources 定了名字再改。
+- **没建**：OFDM 的编码载荷（DCM 配对、tone mapping）。
+
 ## 10. 剩下的（ROADMAP 里程碑 3）
 - ay 自己的波束训练。
 - DMG 混合速率前导。

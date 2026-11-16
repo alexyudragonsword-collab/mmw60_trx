@@ -174,13 +174,22 @@ class AyLinkSim(LinkSim):
         cp = self.cef_cp
         return np.concatenate([a[-cp:], a, b[-cp:], b])
 
-    def transmit(self, rng: np.random.Generator):
+    def transmit(self, rng: np.random.Generator, bits: np.ndarray | None = None):
+        """``bits``: the payload's bits (SC only; ``ay.coding`` hands the codewords in), one block's worth
+        per unit; None = random bits, the EVM-only payload."""
         m = self.mcs
         stf = self._stf()
+        if bits is not None and self.cfg.waveform != "ay_sc":
+            raise NotImplementedError("a coded OFDM payload (DCM, tone mapping) is not built: SC only")
         if self.cfg.waveform == "ay_sc":
             num = self.phy.num
             n_sym = num.data_per_block * self.n_symbols
-            syms = map_bits(rng.integers(0, 2, n_sym * int(np.log2(m.order))), m.order)
+            n_bits = n_sym * int(np.log2(m.order))
+            if bits is None:
+                bits = rng.integers(0, 2, n_bits)
+            elif np.asarray(bits).size != n_bits:
+                raise ValueError(f"the SC payload carries {n_bits} bits, got {np.asarray(bits).size}")
+            syms = map_bits(np.asarray(bits), m.order)
             frm = sc.build(syms, num, self.guard_seq, self.pair)        # [CEF | G d G d … G]
             native = np.concatenate([stf, frm.samples])
             x = papr.shape(native, self.phy.up, self.taps)

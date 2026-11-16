@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### 里程碑 3 第三段 9d：802.11ay 编码 PER 的机器（2026-11-16）—— 已发布的数、预设与指纹不变
+- `phy.ldpc.qc_code`（新）：任意准循环基矩阵 + 提升因子；`phy.ldpc.code` 改走它，结果逐位相同。
+- `ay/coding.py`（新）：`dmg_code`（矩阵等 spec_sources#33，没到时报 `PendingSpec`）、`payload_bits`、`coded_sc_packet`、`per`。
+- `AyLinkSim.transmit(rng, bits=None)`（**公开签名加参数**；SC 才接受 `bits`，不传时与原来逐位相同）。
+- 新测试：替身码下的编码 SC 通路、`qc_code` 与 `code` 一致、没有矩阵时不出 EDMG 的 PER。
+
 ### 里程碑 3 第三段 9c：802.11ay 扇区扫描能扫多远（2026-11-16）—— 已发布的数、预设与指纹不变；示例 10 多 §4d
 - `ay.edmg.dmg_threshold_db`、`control_threshold_db`（新）；`ideal_threshold_db` 改走同一个函数，数值不变。
 - 新 assumed `ay_sector_sweep`。

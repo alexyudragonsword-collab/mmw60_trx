@@ -3,6 +3,14 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-16 · 第三段 9d：编码 PER 的机器（SC），矩阵等 spec_sources#33（feat/ay-coded）
+
+- `phy.ldpc.qc_code`：任意基矩阵 + 提升因子；802.11 的 `code` 改走它，边数组逐位相同，指纹不变。
+- `ay/coding.py`：SC 载荷装整数个码字、max-log LLR、归一化 min-sum、丢包判据；`AyLinkSim.transmit(rng, bits=)`。
+- 替身（802.11 648 码 1/2、π/2-QPSK、理想链，测试守着）：不加噪声零错，−3 dB 全丢，6 dB 全对。替身的 PER 曲线不打印，免得被当成 EDMG 的数。
+- `coding.dmg_code` 在 #33 的矩阵进来前报 `PendingSpec`，不出 EDMG 的 PER（铁律 5）。OFDM 的编码载荷没建。
+- 第三段（用户“都做”的五项）的本地部分至此都有了 PR：#56 残差、#57 多径、#58 扫描、本 PR 编码；剩下的都等 #33。
+
 ## 2026-11-16 · 第三段 9c：ay 自己的扇区扫描，能扫多远（feat/ay-sector-sweep）
 
 - 新 assumed `ay_sector_sweep`：SSW 帧走 DMG 控制 PHY（MCS 0），门限按 `ay_sensitivity` 的规则从 MCS 0 灵敏度反推，−11.48 dB（1.76 GHz 带内）。`edmg.dmg_threshold_db` 成为各档共用的一条规则（数值不变）。
