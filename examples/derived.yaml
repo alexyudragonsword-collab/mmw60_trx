@@ -362,9 +362,9 @@
 - name: ex15 rate against range — how much output power the SC low-order MCS gain over the preset, and the 16-QAM range-best back-off
   values:
     preset: {example: "15", line: "one front end for both: PA Psat {*} dBm at {} dB from psat"}
-    edge: {example: "15", after: "== 9. rate against range", line: "ay_sc 1 π/2-BPSK 1/2 {*} {*} {*} {*} {*} {}*"}
-    sc14: {example: "15", after: "== 9. rate against range", line: "ay_sc 14 π/2-16-QAM 3/4 {*} {*} {*} {*} {*} {}"}
-    of13: {example: "15", after: "== 9. rate against range", line: "ay_ofdm 13 16-QAM 3/4 {*} {*} {*} {*} {*} {}"}
+    edge: {example: "15", after: "== 9. rate against range", line: "ay_sc 1 π/2-BPSK 1/2 {*} {*} {*} t {*} {*} {}*"}
+    sc14: {example: "15", after: "== 9. rate against range", line: "ay_sc 14 π/2-16-QAM 3/4 {*} {*} {*} m {*} {*} {}"}
+    of13: {example: "15", after: "== 9. rate against range", line: "ay_ofdm 13 16-QAM 3/4 {*} {*} {*} t {*} {*} {}"}
   quotes:
     - {doc: cairn/ay.md, text: "SC 的低阶星座能把回退压到 {edge} dB，多出 {preset - edge} dB 输出功率"}
     - {doc: cairn/ay.md, text: "16-QAM 的最佳回退比预设小 {preset - of13}–{preset - sc14} dB"}
@@ -395,3 +395,26 @@
   quotes:
     - {doc: cairn/ay.md, text: "带 CFO {st} dB、不带 {sn} dB；在 15 dB 重新校准 {fr} dB"}
 
+
+- name: ex10 the 802.11ay sector sweep's duration (spec_sources#33) against the be row's MLO-triggered training, N = 64
+  values:
+    ay64: {example: "10", after: "== 4d.", line: "64 {*} {*} {*} {*} {*} MCS21 {*} {*} {*} MCS19 {*} {*} {*} {} {*}"}
+    be64: {example: "10", after: "== 4d.", line: "64 {*} {*} {*} {*} {*} MCS21 {*} {*} {*} MCS19 {*} {*} {*} {*} {}"}
+  quotes:
+    - {doc: cairn/ay.md, text: "| 64 | {ay64} µs | {be64} µs |"}
+
+- name: ex10 the SC row at N = 64 on the measured thresholds (spec_sources#33's codes) — its decoder cap and 16-QAM 3/4
+  values:
+    rate: {example: "10", after: "== 3d.", line: "ay_sc preset 64 {*} {*} {*} {*} {*} {*} MCS21 {} {*} {*} {*} {*}"}
+    d16: {example: "10", after: "== 3d.", line: "ay_sc preset 64 {*} {*} {*} {*} {*} {*} MCS21 {*} {*} {} {*} {*}"}
+    dcap: {example: "10", after: "== 3d.", line: "ay_sc preset 64 {*} {*} {*} {*} {*} {*} MCS21 {*} {*} {*} {} {*}"}
+    pj: {example: "10", after: "== 3d.", line: "ay_sc preset 64 {*} {*} {*} {*} {*} {*} MCS21 {*} {*} {*} {*} {}"}
+  quotes:
+    - {doc: cairn/ay.md, text: "ay SC 的上限是 MCS21、{rate} Mb/s、{dcap} m、{pj} pJ/b，16-QAM 3/4 到 {d16} m"}
+
+- name: ex15 the fastest rate each waveform keeps at 1 m (SC on its measured thresholds, OFDM on the DMG twins)
+  values:
+    sc1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {} (MCS16) {*} (MCS14)"}
+    of1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {*} (MCS16) {} (MCS14)"}
+  quotes:
+    - {doc: cairn/ay.md, text: "| 1 m | {sc1m}（MCS16） | {of1m}（MCS14） |"}

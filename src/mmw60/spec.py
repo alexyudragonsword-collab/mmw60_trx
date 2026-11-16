@@ -36,6 +36,7 @@ SURVEY_FILE = DATA_DIR / "survey.yaml"     # this library's table: its assumed /
 FIG4_FILE = DATA_DIR / "liu2025_fig4.yaml"
 LDPC_FILE = DATA_DIR / "ldpc_80211.yaml"
 THRESHOLDS_FILE = DATA_DIR / "per_thresholds.yaml"
+AY_THRESHOLDS_FILE = DATA_DIR / "ay_per_thresholds.yaml"
 
 
 def load_table(path: Path = SURVEY_FILE) -> dict[str, SpecNumber]:
@@ -143,4 +144,29 @@ def per_threshold_ci_db(standard: str, bandwidth_hz: float, mcs: int) -> tuple[f
     where the threshold is None or the interval is open on one side."""
     ci = per_threshold_document().get("ci_db", {})
     v = ci.get(standard, {}).get(float(bandwidth_hz), {}).get(int(mcs))
+    return None if v is None else (float(v[0]), float(v[1]))
+
+
+_AY_THRESHOLDS: dict | None = None
+
+
+def ay_per_threshold_document() -> dict:
+    """The measured ideal-chain PER thresholds of the EDMG SC MCS
+    (``ay_per_thresholds.yaml``, source derived: ``tools/measure_ay_thresholds.py``)."""
+    global _AY_THRESHOLDS
+    if _AY_THRESHOLDS is None:
+        _AY_THRESHOLDS = yaml.safe_load(AY_THRESHOLDS_FILE.read_text(encoding="utf-8"))
+    return _AY_THRESHOLDS
+
+
+def ay_per_threshold_db(waveform: str, mcs: int) -> float | None:
+    """In-band SNR at PER 1e-2 of a 4096-byte PSDU on the ideal 802.11ay
+    chain; None where the payload is not coded here (OFDM, SC MCS 1) or the
+    MCS never reaches the target."""
+    return ay_per_threshold_document()["thresholds_db"].get(waveform, {}).get(int(mcs))
+
+
+def ay_per_threshold_ci_db(waveform: str, mcs: int) -> tuple[float, float] | None:
+    """95 % bootstrap interval of ``ay_per_threshold_db`` (``ci_db`` of the file)."""
+    v = ay_per_threshold_document().get("ci_db", {}).get(waveform, {}).get(int(mcs))
     return None if v is None else (float(v[0]), float(v[1]))

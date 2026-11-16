@@ -256,6 +256,27 @@ def sweep_time_s(array: Array60, phy, side: str = "tx", repetitions: int = 1) ->
     return float(array.codebook_deg(side).size * (int(repetitions) * _ltf_field_s(phy) + float(tr["sector_switch_s"])))
 
 
+def ssw_frame_s() -> float:
+    """One SSW frame of the 802.11ay sector sweep in the DMG control PHY
+    (assumed.ay_sector_sweep): the control PHY's preamble
+    (dmg.phy_timing.control_preamble_s, STF + CEF) plus the header and the
+    frame's octets (dmg.control_phy.header_bits, dmg.ssw_frame) at the control
+    PHY's rate (dmg.control_phy_rate_bps, effective code rate 1/2).  A lower
+    bound: every LDPC codeword is counted as full, so a partly filled one's
+    parity is not."""
+    cp = spec.value("dmg.control_phy")
+    bits = int(cp["header_bits"]) + 8 * int(spec.value("dmg.ssw_frame")["ssw_frame_octets"])
+    rate = float(spec.value("dmg.control_phy_rate_bps"))
+    return float(spec.value("dmg.phy_timing")["control_preamble_s"]) + bits / rate
+
+
+def ay_sweep_time_s(array: Array60, side: str = "tx") -> float:
+    """One 802.11ay sector sweep: every sector sends one SSW frame, the frames
+    SBIFS apart (dmg.phy_timing.sbifs_s)."""
+    gap = float(spec.value("dmg.phy_timing")["sbifs_s"])
+    return float(array.codebook_deg(side).size * (ssw_frame_s() + gap))
+
+
 def transmit_sweep_reach_db(budget: "ArrayBudget", array: Array60, req_db: float, theta_deg: float = 0.0) -> float:
     """The path loss the transmit sweep takes (far end on one element) at a
     required per-tone SNR ``req_db``."""
@@ -486,10 +507,12 @@ def _ltf_field_s(phy) -> float:
 
 
 def ay_mcs_ranges(sim, floor_by_order: dict, eirp_dbm: float, g_rx_db: float = 0.0,
-                  keep_implementation_loss: bool = False, oxygen_db_km: float | None = None) -> dict:
+                  keep_implementation_loss: bool = False, oxygen_db_km: float | None = None,
+                  rule: str = "measured") -> dict:
     """The data link of an 802.11ay waveform (``sim`` an ``AyLinkSim`` on the
-    shared front end), per EDMG MCS with a DMG twin: the decoder threshold
-    (``ay.edmg.ideal_threshold_db``; data/spec: assumed.ay_sensitivity), the
+    shared front end), per EDMG MCS with a threshold: the decoder threshold
+    (``ay.edmg.threshold_db`` under ``rule``: measured for the coded SC MCS,
+    the DMG twin's elsewhere, assumed.ay_sensitivity; ``source`` says which), the
     in-band SNR it needs over the floor of its constellation
     (``floor_by_order[tone_order]``, a noise term as for the be rows'
     measured thresholds), the receiver input that gives it (the front end's
@@ -497,17 +520,18 @@ def ay_mcs_ranges(sim, floor_by_order: dict, eirp_dbm: float, g_rx_db: float = 0
     the path loss EIRP + G_rx − that input and the distance (free space plus
     oxygen).  ``conforms`` says the floor meets the MCS's TX EVM limit;
     ``range_m`` is None where the floor alone exceeds what the decoder
-    tolerates.  MCS without a twin are left out."""
+    tolerates.  MCS without a threshold are left out."""
     from .ay import edmg
     wf = sim.cfg.waveform
     out = {}
     for e in edmg.mcs_table(wf):
-        t = edmg.ideal_threshold_db(wf, e.mcs, sim.occupied_bw_hz, keep_implementation_loss)
+        t, src = edmg.threshold_db(wf, e.mcs, sim.occupied_bw_hz, rule, keep_implementation_loss)
         if t is None:
             continue
         f = float(floor_by_order[e.tone_order])
         req = required_snr_db(t, f)
-        row = {"mcs": e.mcs, "twin": edmg.dmg_twin(wf, e.mcs), "threshold_db": t, "floor_db": f, "req_db": req,
+        row = {"mcs": e.mcs, "twin": edmg.dmg_twin(wf, e.mcs), "threshold_db": t, "source": src, "floor_db": f,
+               "req_db": req,
                "conforms": f <= e.evm_limit_db, "rate_bps": e.rate_bps(sim.cfg.ay.gi), "sens_dbm": None,
                "pl_db": None, "range_m": None}
         if req is not None:
@@ -526,6 +550,7 @@ def noise_dbm_per_tone(nf_db: float, scs_hz: float) -> float:
 __all__ = ["fspl_db", "oxygen_db_per_km", "path_loss_db", "range_m", "required_snr_db", "sweep_statistic",
            "selection_success",
            "required_training_snr_db", "ArrayBudget", "array_budget", "training_ranges", "sweep_time_s",
+           "ssw_frame_s", "ay_sweep_time_s",
            "transmit_sweep_reach_db", "repetitions_to_reach", "hierarchical_training", "array_power_report",
            "ay_mcs_ranges", "ay_pa_alone_evm_db", "ay_operating_obo_db", "ay_array_budget", "noise_dbm_per_tone",
            "C0"]

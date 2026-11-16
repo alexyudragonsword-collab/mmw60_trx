@@ -28,8 +28,9 @@ array for both topologies (iron rule 2).  What the tables answer:
    the MCS0 edge and at the decoder cap's distance;
 3d. the two 802.11ay waveforms on the same arrays and the same front end
    (milestone 3): floors on the chain wifitrx's sequence calibrated at each
-   per-element back-off, thresholds from the DMG twins (data/spec:
-   assumed.ay_sensitivity), the be rows' decoder-cap rule; each element at
+   per-element back-off, thresholds measured with spec_sources#33's codes
+   for SC (data/spec/ay_per_thresholds.yaml) and from the DMG twins for OFDM
+   (data/spec: assumed.ay_sensitivity), the be rows' decoder-cap rule; each element at
    the shared preset back-off and at the waveform's own operating point (the
    preset rule on its own envelope, data/spec: assumed.ay_operating_point);
    then the smallest array that reaches the EIRP limit at each operating
@@ -38,7 +39,9 @@ array for both topologies (iron rule 2).  What the tables answer:
    the DMG control PHY (data/spec: assumed.ay_sector_sweep), its threshold
    from the MCS 0 sensitivity, how far the transmit and receive sweeps reach
    on the same arrays against the ay data link's edges, next to the
-   MLO-triggered be row; the sweep's duration waits for spec_sources#33;
+   MLO-triggered be row; how long the sweep lasts (the control PHY's
+   preamble, header and SSW frame, SBIFS apart: spec_sources#33) next to
+   the be row's;
 5. the squint of phase-shifter steering across the occupied band (arraytx's
    beam response), against true time delay;
 6. the assumed inputs, one at a time.
@@ -198,8 +201,9 @@ def main(argv=None) -> int:
     own = {wf: al.ay_operating_obo_db(c) for wf, c in ay_cfgs.items()}
     common = {"ay_sc": 14, "ay_ofdm": 13}         # 16-QAM 3/4: the fastest MCS both have a threshold for
     print("\n== 3d. the two 802.11ay waveforms (topology B, EDMG channel 2) on the same arrays and front end: floors "
-          "on the chain wifitrx's sequence calibrated at each per-element back-off; thresholds from the DMG twins "
-          "(assumed.ay_sensitivity); the decoder cap by the be rows' rule ==")
+          "on the chain wifitrx's sequence calibrated at each per-element back-off; thresholds: SC measured with "
+          "spec_sources#33's codes (data/spec/ay_per_thresholds.yaml), OFDM from the DMG twins "
+          "(assumed.ay_sensitivity; the coded OFDM payload is not built); the decoder cap by the be rows' rule ==")
     print("each element at the shared preset back-off, and at the waveform's own operating point — the preset rule "
           "(the PA alone at the 802.11ad 16-QAM 3/4 TX EVM limit) on its own 16-QAM payload "
           "(assumed.ay_operating_point): "
@@ -226,9 +230,10 @@ def main(argv=None) -> int:
                       f"{fmt(None if rp is None else rp.pj_per_bit, '{:.0f}'):>6}", flush=True)
     print("PA EVM = the PA alone on the waveform's 16-QAM payload at the per-element back-off; floor = the cap "
           "MCS's constellation on the calibrated chain; d = metres (free space plus oxygen) at MCS1 (the slowest), "
-          "at 16-QAM 3/4 (SC MCS14 / OFDM MCS13) and at the cap; pJ/b at the cap as in 3c.  SC's cap stops at "
-          "MCS14 because its 16-QAM 13/16, 7/8 and 64-QAM MCS have no DMG twin (no threshold), OFDM's 64-QAM "
-          "ones do: compare the two at 16-QAM 3/4, not at the cap")
+          "at 16-QAM 3/4 (SC MCS14 / OFDM MCS13) and at the cap; pJ/b at the cap as in 3c.  The two waveforms' "
+          "thresholds differ in method (SC measured, OFDM the DMG twin's, 1.4-4.3 dB pessimistic where SC can be "
+          "checked: cairn/ay.md 9d), and OFDM's 7/8 MCS have no threshold: compare them at 16-QAM 3/4 with that "
+          "in mind, not at the cap")
     print(f"\nthe smallest array that reaches the EIRP limit ({fe.eirp.avg_dbm:g} dBm) at each operating point, "
           f"and its cost (PA = N x Pout / PAE; PS = 2N x {1e3 * coeffs.phase_shifter_w:g} mW; d and pJ/b at "
           f"16-QAM 3/4):")
@@ -361,12 +366,13 @@ def main(argv=None) -> int:
           f"preset back-off as 3d; one sweep serves both ay waveforms ==")
     print(f"{'N':>3} {'EIRP':>6} {'PL TXSS':>8} {'PL RXSS':>8}   " + "   ".join(
         f"{wf + ' MCS1':>12} {'TXSS-MCS1':>10} {'cap':>5} {'TXSS-cap':>9}" for wf in ay_cfgs)
-        + f"   {'be TXSS':>8} {'TXSS-MCS0':>10}")
+        + f"   {'be TXSS':>8} {'TXSS-MCS0':>10}   {'ay [us]':>8} {'be [us]':>8}")
     for n in sizes:
         if n == 1:
             print(f"{n:>3}   (one sector: no sweep)")
             continue
         _, ar, b = ay_budgets[("ay_sc", "preset", n)]
+        t_ay = al.ay_sweep_time_s(ar, "tx") + al.ay_sweep_time_s(ar, "rx")
         pl_tx = al.transmit_sweep_reach_db(b, ar, t_ctl)
         pl_rx = b.eirp_dbm + b.g_rx_db - (b.noise_dbm + t_ctl)
         cells = []
@@ -377,17 +383,23 @@ def main(argv=None) -> int:
                    if bw.dec_mcs is not None and bw.dec_mcs in bw.sens_by_mcs else None)
             cells.append(f"{fmt(pl1):>12} {fmt(None if pl1 is None else pl_tx - pl1, '{:+.1f}'):>10} "
                          f"{fmt(bw.dec_mcs, 'MCS{}'):>5} {fmt(None if plc is None else pl_tx - plc, '{:+.1f}'):>9}")
-        _, ar_be, b_be = budgets[(be_lab, n)]
+        c_be, ar_be, b_be = budgets[(be_lab, n)]
+        t_be = al.sweep_time_s(ar_be, c_be.upclocked(), "tx") + al.sweep_time_s(ar_be, c_be.upclocked(), "rx")
         rt = train.get((be_lab, n))
         be_tx = (None if rt is None or rt[0]["snr_db"] is None
                  else al.transmit_sweep_reach_db(b_be, ar_be, rt[0]["snr_db"]))
         print(f"{n:>3} {b.eirp_dbm:6.1f} {pl_tx:8.1f} {pl_rx:8.1f}   " + "   ".join(cells)
-              + f"   {fmt(be_tx):>8} {fmt(None if rt is None else rt[2], '{:+.1f}'):>10}", flush=True)
+              + f"   {fmt(be_tx):>8} {fmt(None if rt is None else rt[2], '{:+.1f}'):>10}"
+              + f"   {1e6 * t_ay:8.1f} {1e6 * t_be:8.1f}", flush=True)
     print(f"PL = the path loss the sweep's frame still decodes at (dB): TXSS with the far end on one element, RXSS "
           f"behind the chosen transmit beam; MCS1 / cap = the ay data link's edges at that MCS (3d, preset); positive "
           f"= the sweep reaches further.  be TXSS / TXSS-MCS0 = section 4's MLO-triggered row for {be_lab}.  The "
-          f"implementation loss kept in the threshold takes {loss:g} dB off every PL.  How long a sweep lasts (the "
-          f"control PHY's preamble and header, the SSW frame, the spacing between sectors) waits for spec_sources#33")
+          f"implementation loss kept in the threshold takes {loss:g} dB off every PL.  ay [us] = transmit + receive "
+          f"sweep, one direction: every sector one SSW frame of {1e6 * al.ssw_frame_s():.3f} us (the control PHY's "
+          f"preamble, then its header and the {spec.value('dmg.ssw_frame')['ssw_frame_octets']}-octet frame at "
+          f"{spec.value('dmg.control_phy_rate_bps') / 1e6:g} Mb/s; a lower bound, a partly filled codeword's parity "
+          f"not counted), SBIFS ({1e6 * spec.value('dmg.phy_timing')['sbifs_s']:g} us) apart; be [us] = section 4's "
+          f"sweep time for {be_lab}")
 
     # ---------------------------------------------------------------- 5. squint
     print(f"\n== 5. squint across the occupied band at a {SCAN_DEG:g} deg beam (phase shifters vs true time "

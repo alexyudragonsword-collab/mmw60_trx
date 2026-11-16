@@ -152,7 +152,7 @@ N = 64 时三个方案的上限都升一档或两档（B 11ac 20M × 8：MCS4 �
 只有 2.56 GHz 配大阵列时斜视才算数；真时延没有这项。每音均衡把形状拿掉，剩下的是 SNR 损失。
 
 ## 6b. 802.11ay 两种波形在同一套阵列上（示例 10 §3d，2026-11-16）
-- `arraylink.ay_array_budget`：同一个阵列、同一个前端实例、同一条解码器上限规则。底板不是解析和，而是在每个单元的回退上真跑过校准的链上读时域；门限来自 `assumed.ay_sensitivity`。
+- `arraylink.ay_array_budget`：同一个阵列、同一个前端实例、同一条解码器上限规则。底板不是解析和，而是在每个单元的回退上真跑过校准的链上读时域；门限：SC 是本库实测的（spec_sources#33 的码，`data/spec/ay_per_thresholds.yaml`，2026-11-16 起），OFDM 来自 `assumed.ay_sensitivity`。
 - 结论与数在 `cairn/ay.md` §8。要点：顶到 EIRP 上限时 PA 直流功率与工作点几乎无关（class-B 的 PAE 规律）；SC 回退小，省下的是单元与移相器，代价是接收增益。
 
 ## 7. 没建的（ROADMAP B）
