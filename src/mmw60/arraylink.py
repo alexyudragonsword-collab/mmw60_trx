@@ -193,6 +193,10 @@ class ArrayBudget:
     sens_by_mcs: dict = field(default_factory=dict)      # MCS -> receiver input [dBm] at its required SNR
     range_by_mcs: dict = field(default_factory=dict)     # MCS -> metres (free space + oxygen), beams aligned
     noise_dbm: float = 0.0                               # per-tone SNR = P_rx - noise_dbm
+    #: the 802.11ay rows (``ay_array_budget``): the floor of each payload constellation on the chain
+    #: calibrated at the per-element back-off, and each MCS's rate (the be rows read data_rate_bps)
+    floor_by_order: dict = field(default_factory=dict)
+    rate_by_mcs: dict = field(default_factory=dict)
 
     def snr_tone_db(self, p_rx_dbm: float) -> float:
         return float(p_rx_dbm - self.noise_dbm)
@@ -326,6 +330,120 @@ def hierarchical_training(cfg, fe, n: int, m: int, n_tones: int, target_pl_db: f
     return out
 
 
+def _ay_cfg_at(cfg, mcs: int | None = None, pa_only: bool = False):
+    """``cfg`` on a flat channel with payload ``mcs``; ``pa_only`` = the ideal chain with only the PA on."""
+    import dataclasses as dc
+
+    from .config import ChannelConfig
+    c = dc.replace(cfg, channel=ChannelConfig(model="flat"))
+    if mcs is not None:
+        c = dc.replace(c, ay=dc.replace(c.ay, mcs=int(mcs)))
+    if pa_only:
+        ideal = c.ideal()
+        c = dc.replace(ideal, frontend=dc.replace(ideal.frontend, pa=cfg.frontend.pa))
+    return c
+
+
+def _ay_rule_payload(waveform: str) -> int:
+    """The payload the operating rule is measured on: the fastest 16-QAM MCS (the rule's limit is the
+    802.11ad 16-QAM 3/4 one)."""
+    from .ay import edmg
+    return max((e for e in edmg.mcs_table(waveform) if e.order == 16), key=lambda e: e.mcs).mcs
+
+
+def ay_pa_alone_evm_db(cfg, obo_db: float, mcs: int | None = None) -> float:
+    """The PA alone on an 802.11ay waveform's own payload (the ideal chain with only the PA on, flat, no
+    noise) at ``obo_db`` from the PA's reference: the preset rule's measurement (data/spec:
+    assumed.pa60_operating_rule) made on this waveform instead of an OFDM-like envelope."""
+    import dataclasses as dc
+
+    from .frontend import Frontend60
+    from .sim.link import LinkSim
+    c = _ay_cfg_at(cfg, _ay_rule_payload(cfg.waveform) if mcs is None else mcs, pa_only=True)
+    c = dc.replace(c, frontend=dc.replace(c.frontend, pa=dc.replace(c.frontend.pa, obo_db=float(obo_db))))
+    sim = LinkSim(c, frontend=Frontend60.from_config(c))
+    return float(sim.packet(None, np.random.default_rng(cfg.seed)).rx.evm_db)
+
+
+def ay_operating_obo_db(cfg, lo_db: float = 0.0, hi_db: float = 15.0, tol_db: float = 0.02) -> float | None:
+    """The preset operating rule applied to this 802.11ay waveform's own envelope (data/spec:
+    assumed.ay_operating_point): the back-off at which the PA alone on its 16-QAM payload reaches the
+    rule's EVM limit (``frontend.grid.operating_rule_evm_limit_db``); None when not even ``hi_db`` does."""
+    from .frontend.grid import operating_rule_evm_limit_db
+    target = operating_rule_evm_limit_db()
+    if ay_pa_alone_evm_db(cfg, lo_db) <= target:
+        return float(lo_db)
+    if ay_pa_alone_evm_db(cfg, hi_db) > target:
+        return None
+    lo, hi = float(lo_db), float(hi_db)
+    while hi - lo > tol_db:
+        mid = 0.5 * (lo + hi)
+        if ay_pa_alone_evm_db(cfg, mid) > target:
+            lo = mid
+        else:
+            hi = mid
+    return float(hi)
+
+
+def ay_array_budget(cfg, fe, array: Array60, label: str = "", obo_db: float | None = None,
+                    theta0_deg: float = 0.0, cal_cache: dict | None = None) -> ArrayBudget:
+    """``array_budget`` for an 802.11ay waveform (milestone 3): the same array and front end, each element
+    at ``obo_db`` from the PA's reference (default the front end's own back-off) or lower when the EIRP
+    limit asks for it.  No analytic floor: the floor of each payload constellation is read on the chain
+    wifitrx's sequence calibrated at the per-element back-off (``calcheck.run_cal_ay``; ``cal_cache``
+    shares runs between budgets at the same back-off — the chain does not depend on the waveform).  The
+    decoder cap is the be rows' rule (``decoder_cap``): the fastest MCS whose floor sits
+    assumed.decoder_cap_margin_db under the noise its threshold tolerates, the threshold from
+    assumed.ay_sensitivity (``ay_mcs_ranges``); no TX-conformance condition, as for the be rows."""
+    import copy
+    import dataclasses as dc
+
+    from .ay import edmg
+    from .calcheck import run_cal_ay
+    from .sim.link import LinkSim
+    eirp_cap = float(fe.eirp.avg_dbm)
+    base = float(fe.obo_db if obo_db is None else obo_db)
+    p_target = float(dc.replace(fe, obo_db=base).target_pout_dbm())
+    p_e = array.element_pout_dbm(p_target, eirp_cap, theta0_deg)
+    obo = float(base + (p_target - p_e))
+    fe_e = dc.replace(fe, obo_db=obo)
+    key = round(obo, 9)
+    run = None if cal_cache is None else cal_cache.get(key)
+    if run is None:
+        run = run_cal_ay(fe_e, _ay_cfg_at(cfg))
+        if cal_cache is not None:
+            cal_cache[key] = run
+    wf = cfg.waveform
+    by_order: dict = {}
+    for e in edmg.mcs_table(wf):
+        by_order[e.tone_order] = max(by_order.get(e.tone_order, 0), e.mcs)
+    floors = {}
+    for o, m in sorted(by_order.items()):
+        sim = LinkSim(_ay_cfg_at(cfg, m), frontend=fe_e, chains=copy.deepcopy(run.chains[:2]))
+        floors[o] = float(sim.packet(None, np.random.default_rng(cfg.seed)).rx.evm_db)
+    sim = LinkSim(_ay_cfg_at(cfg), frontend=fe_e, chains=copy.deepcopy(run.chains[:2]))
+    eirp = array.eirp_dbm(p_e, theta0_deg)
+    g_rx = float(array.rx_gain_db(theta0_deg, theta0_deg)[0])
+    ranges = ay_mcs_ranges(sim, floors, eirp, g_rx)
+    margin = float(spec.value("assumed.decoder_cap_margin_db"))
+    ok = [m for m, r in ranges.items() if -r["floor_db"] >= r["threshold_db"] + margin]
+    cap = max(ok, key=lambda m: (ranges[m]["rate_bps"], m)) if ok else None
+    noise = float(sim.rx_input_dbm_for_snr(0.0))
+    cap_order = None if cap is None else edmg.mcs_entry(wf, cap).tone_order
+    out = ArrayBudget(label=label, n_tx=array.n("tx"), n_rx=array.n("rx"), p_elem_dbm=p_e, obo_db=obo,
+                      pa_evm_db=ay_pa_alone_evm_db(cfg, obo), eirp_dbm=eirp, g_rx_db=g_rx,
+                      floor_db=floors[cap_order] if cap is not None else max(floors.values()), dec_mcs=cap,
+                      occupied_bw_hz=float(sim.occupied_bw_hz), nf_db=float(sim._rx_nf_db()), noise_dbm=noise)
+    out.floor_by_order = floors
+    out.rate_by_mcs = {m: r["rate_bps"] for m, r in ranges.items()}
+    if cap is not None:
+        for m, r in ranges.items():
+            if r["rate_bps"] <= ranges[cap]["rate_bps"] and r["sens_dbm"] is not None:
+                out.sens_by_mcs[m] = float(r["sens_dbm"])
+                out.range_by_mcs[m] = float(r["range_m"])
+    return out
+
+
 def array_power_report(cfg, fe, array: Array60, budget: "ArrayBudget",
                        coeffs: PowerCoefficients | None = None) -> PowerReport | None:
     """The array link's power per link direction, priced per bit at its
@@ -336,9 +454,13 @@ def array_power_report(cfg, fe, array: Array60, budget: "ArrayBudget",
     if budget.dec_mcs is None:
         return None
     k = coeffs or PowerCoefficients.from_spec()
-    phy = cfg.upclocked()
-    rate = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, budget.dec_mcs, phy.t_symbol_eff)
-    rep = power_report(cfg, fe, rate, k, phy=phy, mcs_index=budget.dec_mcs)
+    if getattr(cfg, "waveform", "").startswith("ay_"):
+        from .sim.ay_link import AyPhy
+        rep = power_report(cfg, fe, budget.rate_by_mcs[budget.dec_mcs], k, phy=AyPhy(cfg))
+    else:
+        phy = cfg.upclocked()
+        rate = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, budget.dec_mcs, phy.t_symbol_eff)
+        rep = power_report(cfg, fe, rate, k, phy=phy, mcs_index=budget.dec_mcs)
     n_tx, n_rx = array.n("tx"), array.n("rx")
     blocks = []
     for b in rep.blocks:
@@ -405,4 +527,5 @@ __all__ = ["fspl_db", "oxygen_db_per_km", "path_loss_db", "range_m", "required_s
            "selection_success",
            "required_training_snr_db", "ArrayBudget", "array_budget", "training_ranges", "sweep_time_s",
            "transmit_sweep_reach_db", "repetitions_to_reach", "hierarchical_training", "array_power_report",
-           "ay_mcs_ranges", "noise_dbm_per_tone", "C0"]
+           "ay_mcs_ranges", "ay_pa_alone_evm_db", "ay_operating_obo_db", "ay_array_budget", "noise_dbm_per_tone",
+           "C0"]

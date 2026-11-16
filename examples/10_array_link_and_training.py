@@ -26,6 +26,14 @@ array for both topologies (iron rule 2).  What the tables answer:
    4c: a two-stage sweep (an m-element sub-array's wide sectors, then the
    full array inside the chosen one) against the flat one at N = 64, at
    the MCS0 edge and at the decoder cap's distance;
+3d. the two 802.11ay waveforms on the same arrays and the same front end
+   (milestone 3): floors on the chain wifitrx's sequence calibrated at each
+   per-element back-off, thresholds from the DMG twins (data/spec:
+   assumed.ay_sensitivity), the be rows' decoder-cap rule; each element at
+   the shared preset back-off and at the waveform's own operating point (the
+   preset rule on its own envelope, data/spec: assumed.ay_operating_point);
+   then the smallest array that reaches the EIRP limit at each operating
+   point, and what it costs;
 5. the squint of phase-shifter steering across the occupied band (arraytx's
    beam response), against true time delay;
 6. the assumed inputs, one at a time.
@@ -48,7 +56,7 @@ sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, spec                          # noqa: E402
 from mmw60 import arraylink as al                                           # noqa: E402
-from mmw60.config import ChannelConfig, array_frontend, if_extender_60ghz, zero_if_60ghz  # noqa: E402
+from mmw60.config import ChannelConfig, array_frontend, ay_60ghz, if_extender_60ghz, zero_if_60ghz  # noqa: E402
 from mmw60.frontend import Frontend60                                       # noqa: E402
 from mmw60.frontend.array60 import Array60                                  # noqa: E402
 from mmw60.power import PowerCoefficients                                   # noqa: E402
@@ -178,6 +186,68 @@ def main(argv=None) -> int:
           "together from some N on, and PAE drops with it); PS = (N_tx + N_rx) phase shifters; rest = synthesizers, "
           "converters, FFT, decoder (and topology A's chip PA and DPD) as in the comparison table; LNA / mixer per "
           "receive element not counted, as in the single-element column; N = 1 is the comparison table's own column")
+
+    # ---------------------------------------------------------------- 3d. 802.11ay
+    ay_cfgs = {wf: dc.replace(ay_60ghz(wf, 1), channel=FLAT) for wf in ("ay_sc", "ay_ofdm")}
+    own = {wf: al.ay_operating_obo_db(c) for wf, c in ay_cfgs.items()}
+    common = {"ay_sc": 14, "ay_ofdm": 13}         # 16-QAM 3/4: the fastest MCS both have a threshold for
+    print("\n== 3d. the two 802.11ay waveforms (topology B, EDMG channel 2) on the same arrays and front end: floors "
+          "on the chain wifitrx's sequence calibrated at each per-element back-off; thresholds from the DMG twins "
+          "(assumed.ay_sensitivity); the decoder cap by the be rows' rule ==")
+    print("each element at the shared preset back-off, and at the waveform's own operating point — the preset rule "
+          "(the PA alone at the 802.11ad 16-QAM 3/4 TX EVM limit) on its own 16-QAM payload "
+          "(assumed.ay_operating_point): "
+          + "; ".join(f"{wf} {own[wf]:.2f} dB (the PA alone at the preset {fe.obo_db:g} dB: "
+                      f"{al.ay_pa_alone_evm_db(c, fe.obo_db):.1f} dB)" for wf, c in ay_cfgs.items()))
+    print(f"{'waveform':<8} {'point':<6} {'N':>3} {'Pe':>6} {'OBO':>6} {'PA EVM':>7} {'EIRP':>6} {'G_rx':>6} "
+          f"{'floor':>6} {'cap':>5} {'Mb/s':>6} {'d MCS1':>7} {'d 16Q3/4':>9} {'d cap':>7} {'pJ/b':>6}")
+    cal_cache = {}
+    for wf, c in ay_cfgs.items():
+        for view, ob in (("preset", None), ("own", own[wf])):
+            for n in sizes:
+                cn = array_frontend(c, n)
+                ar = Array60.from_config(cn, fe)
+                b = al.ay_array_budget(cn, fe, ar, wf, obo_db=ob, cal_cache=cal_cache)
+                rp = al.array_power_report(cn, fe, ar, b, coeffs)
+                rate = None if b.dec_mcs is None else b.rate_by_mcs[b.dec_mcs] / 1e6
+                print(f"{wf:<8} {view:<6} {n:>3} {b.p_elem_dbm:6.1f} {b.obo_db:6.2f} {b.pa_evm_db:7.1f} "
+                      f"{b.eirp_dbm:6.1f} {b.g_rx_db:6.1f} {b.floor_db:6.1f} {fmt(b.dec_mcs, 'MCS{}'):>5} "
+                      f"{fmt(rate, '{:.0f}'):>6} {fmt(b.range_by_mcs.get(1), '{:.0f}'):>7} "
+                      f"{fmt(b.range_by_mcs.get(common[wf]), '{:.0f}'):>9} "
+                      f"{fmt(b.range_by_mcs.get(b.dec_mcs), '{:.0f}'):>7} "
+                      f"{fmt(None if rp is None else rp.pj_per_bit, '{:.0f}'):>6}", flush=True)
+    print("PA EVM = the PA alone on the waveform's 16-QAM payload at the per-element back-off; floor = the cap "
+          "MCS's constellation on the calibrated chain; d = metres (free space plus oxygen) at MCS1 (the slowest), "
+          "at 16-QAM 3/4 (SC MCS14 / OFDM MCS13) and at the cap; pJ/b at the cap as in 3c.  SC's cap stops at "
+          "MCS14 because its 16-QAM 13/16, 7/8 and 64-QAM MCS have no DMG twin (no threshold), OFDM's 64-QAM "
+          "ones do: compare the two at 16-QAM 3/4, not at the cap")
+    print(f"\nthe smallest array that reaches the EIRP limit ({fe.eirp.avg_dbm:g} dBm) at each operating point, "
+          f"and its cost (PA = N x Pout / PAE; PS = 2N x {1e3 * coeffs.phase_shifter_w:g} mW; d and pJ/b at "
+          f"16-QAM 3/4):")
+    print(f"{'waveform':<8} {'point':<6} {'OBO':>6} {'N':>4} {'Pe':>6} {'PAE %':>6} {'PA mW':>7} {'PS mW':>7} "
+          f"{'G_rx':>6} {'d MCS1':>7} {'d 16Q3/4':>9} {'pJ/b':>6}")
+    for wf, c in ay_cfgs.items():
+        for view, ob in (("preset", fe.obo_db), ("own", own[wf])):
+            p_op = float(dc.replace(fe, obo_db=ob).target_pout_dbm())
+            n_min = next(n for n in range(1, 257)
+                         if p_op + Array60.from_config(array_frontend(c, n), fe).tx_gain_db(0.0, 0.0)[0]
+                         >= fe.eirp.avg_dbm)
+            cn = array_frontend(c, n_min)
+            ar = Array60.from_config(cn, fe)
+            b = al.ay_array_budget(cn, fe, ar, wf, obo_db=ob, cal_cache=cal_cache)
+            m16 = common[wf]
+            rp = (al.array_power_report(cn, fe, ar, dc.replace(b, dec_mcs=m16), coeffs)
+                  if m16 in b.range_by_mcs else None)
+            pae = float(fe.scaled_pa().pae(b.p_elem_dbm))
+            print(f"{wf:<8} {view:<6} {ob:6.2f} {n_min:>4} {b.p_elem_dbm:6.2f} {100 * pae:6.1f} "
+                  f"{1e3 * n_min * 10 ** (b.p_elem_dbm / 10) * 1e-3 / pae:7.0f} "
+                  f"{1e3 * 2 * n_min * coeffs.phase_shifter_w:7.0f} {b.g_rx_db:6.2f} "
+                  f"{fmt(b.range_by_mcs.get(1), '{:.0f}'):>7} {fmt(b.range_by_mcs.get(m16), '{:.0f}'):>9} "
+                  f"{fmt(None if rp is None else rp.pj_per_bit, '{:.0f}'):>6}", flush=True)
+    print("at the limit the PA's DC power hardly moves with the operating point: fewer elements at a smaller "
+          "back-off, each at a higher PAE (the class-B law: PAE grows with the output amplitude), the product "
+          "constant; what the smaller back-off saves is elements — phase shifters, area — and what it costs is "
+          "receive gain (the same array at both ends, a TDD link)")
 
     # ---------------------------------------------------------------- 4. training
     print(f"\n== 4. beam training, MLO-triggered: training field {tr['field']}, estimator {tr['estimator']}, "

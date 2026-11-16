@@ -335,3 +335,54 @@ def test_the_ay_range_is_the_be_budget_with_the_assumed_threshold():
     il = al.ay_mcs_ranges(sim, clean, 10.0, 3.0, keep_implementation_loss=True, oxygen_db_km=0.0)
     loss = spec.value("dmg.sensitivity_assumptions")["implementation_loss_db"]
     assert il[14]["range_m"] == pytest.approx(x["range_m"] * 10 ** (-loss / 20), rel=0.02)
+
+
+def test_the_ay_operating_point_is_the_preset_rule_on_its_own_envelope():
+    """assumed.ay_operating_point: the PA alone on the waveform's 16-QAM payload
+    reaches the preset rule's EVM limit at the returned back-off; the single
+    carrier's lower PAPR gives it a much smaller back-off than OFDM's, which
+    sits near the preset."""
+    from mmw60 import arraylink as al
+    from mmw60.frontend.grid import operating_rule_evm_limit_db
+    fe = Frontend60.from_config(ay_60ghz("ay_sc", 1))
+    lim = operating_rule_evm_limit_db()
+    own = {wf: al.ay_operating_obo_db(ay_60ghz(wf, 1)) for wf in edmg.WAVEFORMS}
+    for wf, ob in own.items():
+        assert al.ay_pa_alone_evm_db(ay_60ghz(wf, 1), ob) <= lim < al.ay_pa_alone_evm_db(ay_60ghz(wf, 1), ob - 0.1)
+    assert own["ay_sc"] < fe.obo_db - 2.0 and abs(own["ay_ofdm"] - fe.obo_db) < 1.0
+
+
+def test_the_ay_array_budget_runs_on_the_shared_instance_with_the_be_rule():
+    """arraylink.ay_array_budget: the same array and front end as the be rows;
+    every element at the operating point until the EIRP limit binds, then all
+    back off together and the chain is calibrated anew at that back-off; the
+    decoder cap is the be rows' rule over the assumed thresholds; the power
+    report prices the cap's rate with N PAs and the phase shifters."""
+    from mmw60 import arraylink as al
+    from mmw60.config import array_frontend, zero_if_60ghz
+    from mmw60.frontend.array60 import Array60
+    fe = Frontend60.from_config(zero_if_60ghz(k=8))
+    cfg = ay_60ghz("ay_sc", 1)
+    cache = {}
+    b = {}
+    for n in (1, 64):
+        cn = array_frontend(cfg, n)
+        ar = Array60.from_config(cn, fe)
+        b[n] = (cn, ar, al.ay_array_budget(cn, fe, ar, "sc", cal_cache=cache))
+    one, big = b[1][2], b[64][2]
+    assert one.p_elem_dbm == pytest.approx(fe.target_pout_dbm()) and one.obo_db == pytest.approx(fe.obo_db)
+    assert big.eirp_dbm == pytest.approx(fe.eirp.avg_dbm) and big.obo_db > fe.obo_db
+    assert len(cache) == 2                          # one calibration per per-element back-off
+    margin = spec.value("assumed.decoder_cap_margin_db")
+    for x in (one, big):
+        cap = x.dec_mcs
+        t = edmg.ideal_threshold_db("ay_sc", cap, x.occupied_bw_hz)
+        assert -x.floor_by_order[edmg.mcs_entry("ay_sc", cap).tone_order] >= t + margin
+        assert x.floor_db == x.floor_by_order[edmg.mcs_entry("ay_sc", cap).tone_order]
+        assert set(x.range_by_mcs) <= set(x.rate_by_mcs) and cap in x.range_by_mcs
+    # the array's gain buys distance; the back-off at the limit lowers the floor
+    assert big.range_by_mcs[1] > 50 * one.range_by_mcs[1] and big.floor_db < one.floor_db
+    cn64, ar64, _ = b[64]
+    rp = al.array_power_report(cn64, fe, ar64, big)
+    assert rp.bit_rate == pytest.approx(big.rate_by_mcs[big.dec_mcs])
+    assert rp.watts("phase_shifters") > 0 and "decoder" not in {blk.name for blk in rp.blocks}

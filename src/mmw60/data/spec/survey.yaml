@@ -593,6 +593,13 @@ entries:
     cite: "本库；mmw60.ay.edmg.dmg_twin / ideal_threshold_db，mmw60.arraylink.ay_mcs_ranges"
     note: "按功率换距离要每个 EDMG MCS 的解码门限，spec_sources#29 没有 EDMG 灵敏度。本库的取法：EDMG MCS 若在 DMG 表里有同样每符号比特数、码率与重复的一档（SC 对 dmg.sc_mcs，按调制阶数、码率、重复；OFDM 对 dmg.ofdm_mcs，按每子载波编码比特数与码率——EDMG 的 DCM BPSK / DCM QPSK 每子载波 1 / 2 比特，与 11ad 的 SQPSK / QPSK 相同，edmg.ofdm_mcs 的注释说它们在 18/1152r0 之前就叫这两个名字），就用那一档的最低灵敏度，减去 kT·B（B 取该波形的占用带宽：SC 1.76 GHz、OFDM 352 个音 × 5.15625 MHz，与 ay 链路的带内 SNR 同一口径）和参考接收机的 10 dB NF、5 dB 实现损耗，得理想解码器的带内 SNR 门限。实现损耗拿掉，是因为本库把发射与接收两侧的损伤读成 EVM 底板、按噪声项加回去（与 be 行用本库实测门限的做法一致）；留着它就重复计了，示例 15 §9 有留着它的灵敏度行。没有对应档的 EDMG MCS（各调制的 7/8、OFDM DCM BPSK 3/4 起、DCM QPSK 13/16 起、64-QAM 1/2、SC 64-QAM 全部）没有门限，不进距离表；DMG 扩展档 9.1、12.1–12.6 的调制与码率 spec_sources 没有原文（dmg.sc_mcs 的注释），不拿来配。交叉核对：同调制同码率时比本库实测的 11be LDPC 门限高约 1–2 dB（示例 15 §9）：DMG 的码长 672、参考接收机都偏保守。"
 
+  assumed.ay_operating_point:
+    value: {rule: assumed.pa60_operating_rule, payload: "the waveform's fastest 16-QAM MCS", measured_on: "the ideal chain with only the PA on, flat, no noise (arraylink.ay_pa_alone_evm_db)"}
+    unit: "-"
+    source: assumed
+    cite: "本库；mmw60.arraylink.ay_operating_obo_db，示例 10 §3d"
+    note: "阵列一节里 ay 两种波形“各自的工作点”：把预设的规则（PA 单独时 EVM 刚好到 802.11ad 16-QAM 3/4 的发射限值 −21 dB，assumed.pa60_operating_rule）用在该波形自己的 16-QAM 载荷包络上，而不是 OFDM 型的高斯包络。共享实例的预设回退（7.5 dB）不动：示例 10 §3d 两种读法并列，预设回退一行就是所有行同一个工作点的读法。SC 的包络峰均比低，同一条规则给出的回退小得多（约 4 dB）；OFDM 的与预设相近（约 7.1 dB）。规则只看 PA，不看校准残差与相噪；那些在每个单元回退上的校准链底板里。"
+
   assumed.ay_cal_probe:
     value: {standard: 11be, base_bandwidth_hz: 80.0e+6, k: 22, oversampling: 3}
     unit: "-, Hz, -, samples per probe sample"
