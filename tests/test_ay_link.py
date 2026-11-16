@@ -386,3 +386,24 @@ def test_the_ay_array_budget_runs_on_the_shared_instance_with_the_be_rule():
     rp = al.array_power_report(cn64, fe, ar64, big)
     assert rp.bit_rate == pytest.approx(big.rate_by_mcs[big.dec_mcs])
     assert rp.watts("phase_shifters") > 0 and "decoder" not in {blk.name for blk in rp.blocks}
+
+
+def test_the_sc_mmse_reads_the_noise_on_the_channel_estimates_scale():
+    """Under multipath the unbiased MMSE beats zero forcing at a moderate SNR;
+    on a flat channel the two agree.  Regression (2026-11-16): the MMSE took
+    1/SNR as the noise while the estimate carries the chain's gain, sixteen
+    times too much regularisation, and under multipath it read worse than ZF."""
+    cr = ChannelConfig()                     # the CR stand-in (assumed.cr_rms_delay_ns / cr_los_k_db)
+
+    def mean_evm(cfg, n=8):
+        sim = LinkSim(cfg)
+        rng = np.random.default_rng(1)
+        e = np.asarray([sim.packet(12.0, rng).rx.evm_db for _ in range(n)])
+        return float(10 * np.log10(np.mean(10 ** (e / 10))))
+    mp = {eq: mean_evm(dc.replace(_ideal("ay_sc", 16, sc_equalizer=eq), channel=cr)) for eq in ("mmse", "zf")}
+    flat = {eq: mean_evm(_ideal("ay_sc", 16, sc_equalizer=eq)) for eq in ("mmse", "zf")}
+    assert mp["mmse"] < mp["zf"] - 0.1, mp
+    assert abs(flat["mmse"] - flat["zf"]) < 0.1, flat
+    base = ay_60ghz("ay_sc", 16)
+    with pytest.raises(ValueError, match="sc_equalizer"):
+        dc.replace(base, ay=dc.replace(base.ay, sc_equalizer="lms"))

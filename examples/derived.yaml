@@ -349,6 +349,16 @@
     - {doc: cairn/ay.md, text: "15 dB 时从 {cal15 - away15} 缩到 {ex15 - away15} dB"}
     - {doc: ROADMAP.md, text: "7.5 dB 上的缺口从 {cal75 - away75} 缩到 {ex75 - away75} dB"}
 
+- name: ex15 under multipath — how much better SC reads than OFDM at an in-band SNR of 12 dB, flat and on the CR stand-in
+  values:
+    sc_flat: {example: "15", after: "== 10. under multipath", line: "ay_sc flat {*} ({*}) {*} ({*}) {} ({*})"}
+    of_flat: {example: "15", after: "== 10. under multipath", line: "ay_ofdm flat {*} ({*}) {*} ({*}) {} ({*})"}
+    sc_cr: {example: "15", after: "== 10. under multipath", line: "ay_sc CR 7 ns {*} ({*}) {*} ({*}) {} ({*})"}
+    of_cr: {example: "15", after: "== 10. under multipath", line: "ay_ofdm CR 7 ns {*} ({*}) {*} ({*}) {} ({*})"}
+  quotes:
+    - {doc: cairn/ay.md, text: "SC 在 12 dB 上比 OFDM 好：flat 时 {of_flat - sc_flat} dB，CR 7 ns 时 {of_cr - sc_cr} dB"}
+    - {doc: cairn/LOG.md, text: "SC 比 OFDM 好 {of_cr - sc_cr} dB（flat 时 {of_flat - sc_flat}）"}
+
 - name: ex15 rate against range — how much output power the SC low-order MCS gain over the preset, and the 16-QAM range-best back-off
   values:
     preset: {example: "15", line: "one front end for both: PA Psat {*} dBm at {} dB from psat"}

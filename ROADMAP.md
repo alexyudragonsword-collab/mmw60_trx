@@ -54,7 +54,9 @@ ay 不是第三条拓扑，是拓扑 B 的硬件配第三、四种波形，单�
 - **预设回退不是 16-QAM 射程最远的回退**（示例 15 §9）：SC MCS14 在 5.0 dB 到 1.82 m（预设 7.5 dB 时 1.43 m），OFDM MCS13 在 5.5 dB 到 1.77 m（1.55 m）。预设规则按 PA 单独的 EVM 定，不按距离定；不改预设，只记下。
 - **阵列表里 ay 行的距离两端用同一个阵列**（示例 10 §3d）：SC 按自己的工作点 30 个单元就顶到 EIRP 上限，接收增益也跟着少 1.5 dB，16-QAM 3/4 的距离从 OFDM 的 277 m 降到 219 m。不对称的阵列（发端少、收端多）没有建；要不要建看有没有人问。复现：`python examples/10_array_link_and_training.py` §3d（全量约 10 分钟）。
 - **SC 在 64-QAM 高码率上够不到限值**（示例 15 §5）：底板停在约 −27 dB，主要是相噪（两段 GI 之间插值后单开 −27.5 dB），MCS20 / 21 的 −28 / −29 dB 够不到。待做（按需）：块内更密的相位跟踪（如导频块），或换相噪更低的 LO 剖面再量。
-- **没建的**：DMG 混合速率前导（OFDM 包的前导以 1.76 GHz 单载波发，本库在 2.64 GHz 上发 Golay 训练场，`assumed.ay_preamble`）；ay 原生的 sector sweep（训练序列的 SNR 预算单算，和拓扑 B 靠 MLO 触发的那行对比）；多径下的 ay（示例 15 全是 flat）；编码 PER（第一轮不做）；信道绑定（第一轮不做）。
+- **没建的**：DMG 混合速率前导（OFDM 包的前导以 1.76 GHz 单载波发，本库在 2.64 GHz 上发 Golay 训练场，`assumed.ay_preamble`）；ay 原生的 sector sweep（训练序列的 SNR 预算单算，和拓扑 B 靠 MLO 触发的那行对比）；编码 PER（第一轮不做）；信道绑定（第一轮不做）。
+- **多径下 ay 的距离没有重算**（示例 15 §10，`cairn/ay.md` §9b）：CR 替身（rms 7 ns）下，带内 SNR 12 dB 时 SC 比 flat 差 0.78 dB、OFDM 差 0.86 dB；§9 的距离表与示例 10 §3d 的阵列表都是 flat、视距，门限是 AWGN 的。待做（按需）：在多径下量各档门限（要编码 PER，见下一条），或把这 0.8–0.9 dB 作为余量记进距离表。复现：`python examples/15_ay_on_the_shared_front_end.py` §10（全量约 4.5 分钟）。
+- **长 GI 在 rms 15 ns 时把底板拿回来，但在 12 dB 上不帮忙，OFDM 还更差**（示例 15 §10）：+1.53 对普通 GI 的 +1.41 dB。推测是信道估计截窗跟着 GI 变长、收进更多噪声，没有单独验证。
 - **理想链上 OFDM 只到 −36 … −38 dB**，SC 到 −40 … −50 dB，随 GI 不单调，原因没查（`cairn/ay.md` 的坑）。离限值有 8 dB 以上，不动结论。复现：`examples/15_ay_on_the_shared_front_end.py` §3 第一行；GI 换成 short / long 用 `ay_60ghz(..., gi=)`。
 不做：EDMG MIMO、ay 的 MAC 层、SC 与 OFDM 混合帧。
 

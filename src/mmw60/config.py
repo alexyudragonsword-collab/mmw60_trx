@@ -358,6 +358,9 @@ class AyConfig:
     #: SC phase tracking on the known guards: interp (between the guard before and after
     #: each block) | block (one phase per block) | off (data/spec: assumed.ay_receiver)
     sc_phase: str = "interp"
+    #: SC frequency-domain equaliser: mmse (bias removed, the noise per chip on the channel
+    #: estimate's own scale) | zf (data/spec: assumed.ay_receiver); without noise both are ZF
+    sc_equalizer: str = "mmse"
 
 
 @dataclass(frozen=True)
@@ -460,6 +463,8 @@ class Mmw60Config:
             raise ValueError("ay: units >= 2, sc_rolloff in (0, 1], sc_span_symbols >= 2")
         if a.sc_phase not in ("interp", "block", "off"):
             raise ValueError("ay.sc_phase must be interp | block | off")
+        if a.sc_equalizer not in ("mmse", "zf"):
+            raise ValueError("ay.sc_equalizer must be mmse | zf")
         if int(a.stf_length) & (int(a.stf_length) - 1) or int(a.stf_repeats) < 3:
             raise ValueError("ay: stf_length a power of two (a Golay sequence), stf_repeats >= 3")
 
