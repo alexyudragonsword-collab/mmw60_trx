@@ -262,3 +262,76 @@ def test_the_two_ay_rows_of_the_comparison_table():
     # the preset back-off: single carrier's lower floor reaches a faster MCS than OFDM's
     assert by["ay_sc"]["rate_cal_mbps"] > by["ay_ofdm"]["rate_cal_mbps"]
     assert "802.11ay rows" in compare.to_markdown(rep)
+
+
+def test_the_edmg_thresholds_come_from_the_dmg_twin_and_take_the_reference_receiver_out():
+    """assumed.ay_sensitivity: an EDMG MCS takes the minimum sensitivity of
+    the DMG MCS with the same bits per symbol, code rate and repetition, less
+    kT·B over the occupied bandwidth and the reference receiver's NF and
+    implementation loss; no twin, no threshold."""
+    from fractions import Fraction
+
+    from mmw60.vendor.wifitrx.units import KT_DBM_HZ
+    assert [edmg.dmg_twin("ay_sc", m) for m in (1, 2, 6, 7, 11, 12, 14, 15, 17)] == [1, 2, None, 6, None, 10, 12,
+                                                                                    None, None]
+    ofdm = [edmg.dmg_twin("ay_ofdm", m) for m in (1, 2, 3, 6, 8, 9, 13, 16, 17, 19, 20)]
+    assert ofdm == [13, 14, None, 15, 17, None, 20, None, 22, 24, None]
+    sc_t, of_t = spec.value("dmg.sc_mcs"), spec.value("dmg.ofdm_mcs")
+    for e in edmg.mcs_table("ay_sc"):
+        twin = edmg.dmg_twin("ay_sc", e.mcs)
+        if twin is not None:
+            i = sc_t["mcs"].index(twin)
+            # the same block (448 data chips at normal GI) and the same bits: the same rate
+            assert Fraction(sc_t["code_rate"][i]) == e.code_rate and sc_t["repetition"][i] == e.repetition
+            assert e.rate_bps() == pytest.approx(sc_t["rate_mbps"][i] * 1e6, rel=1e-3)
+    for e in edmg.mcs_table("ay_ofdm"):
+        twin = edmg.dmg_twin("ay_ofdm", e.mcs)
+        if twin is not None:
+            i = of_t["mcs"].index(twin)
+            # matched on bits per subcarrier, the twins carry the names edmg.ofdm_mcs's note gives: DCM BPSK /
+            # DCM QPSK were 11ad's SQPSK / QPSK
+            assert Fraction(of_t["code_rate"][i]) == e.code_rate
+            assert of_t["modulation"][i] == {"DCM BPSK": "SQPSK", "DCM QPSK": "QPSK"}.get(e.modulation, e.modulation)
+    ref = spec.value("dmg.sensitivity_assumptions")
+    t = edmg.ideal_threshold_db("ay_sc", 14, 1.76e9)
+    want = spec.ref("dmg.rx_sensitivity_dbm#dbm@mcs=12") - KT_DBM_HZ - 10 * np.log10(1.76e9) - ref["nf_db"] \
+        - ref["implementation_loss_db"]
+    assert t == pytest.approx(want) and 13.0 < t < 14.0
+    assert edmg.ideal_threshold_db("ay_sc", 14, 1.76e9, keep_implementation_loss=True) == pytest.approx(
+        t + ref["implementation_loss_db"])
+    assert edmg.ideal_threshold_db("ay_sc", 16, 1.76e9) is None
+    # within a modulation the threshold rises with the code rate
+    for wf in edmg.WAVEFORMS:
+        for o in {e.order for e in edmg.mcs_table(wf)}:
+            ts = [edmg.ideal_threshold_db(wf, e.mcs, 1.8e9) for e in edmg.mcs_table(wf)
+                  if e.order == o and e.repetition == 1 and edmg.dmg_twin(wf, e.mcs) is not None]
+            assert ts == sorted(ts)
+
+
+def test_the_ay_range_is_the_be_budget_with_the_assumed_threshold():
+    """arraylink.ay_mcs_ranges: the floor as a noise term over the threshold,
+    the receiver input from the shared front end's NF at the AGC state, the
+    path loss EIRP + G_rx − input, the distance by ``range_m``; a floor the
+    decoder cannot carry has no range; the TX EVM limit is reported."""
+    from mmw60 import arraylink as al
+    cfg = dc.replace(ay_60ghz("ay_sc", 1), channel=FLAT)
+    fe = Frontend60.from_config(cfg)
+    sim = LinkSim(cfg, frontend=fe)
+    clean = {o: -60.0 for o in (2, 4, 16, 64)}
+    r = al.ay_mcs_ranges(sim, clean, eirp_dbm=10.0, g_rx_db=3.0, oxygen_db_km=0.0)
+    assert set(r) == {e.mcs for e in edmg.mcs_table("ay_sc") if edmg.dmg_twin("ay_sc", e.mcs) is not None}
+    x = r[14]
+    assert x["req_db"] == pytest.approx(x["threshold_db"], abs=0.01)
+    assert x["sens_dbm"] == pytest.approx(sim.rx_input_dbm_for_snr(x["req_db"]))
+    assert x["pl_db"] == pytest.approx(13.0 - x["sens_dbm"])
+    assert x["range_m"] == pytest.approx(al.range_m(x["pl_db"], cfg.carrier_hz, 0.0))
+    assert all(v["conforms"] for v in r.values())
+    # the slowest MCS reaches farthest; each MCS's range shrinks as its floor rises
+    assert max(r, key=lambda m: r[m]["range_m"]) == 1
+    worse = al.ay_mcs_ranges(sim, {**clean, 16: -16.0}, eirp_dbm=10.0, g_rx_db=3.0, oxygen_db_km=0.0)
+    assert worse[14]["range_m"] < x["range_m"] and not worse[14]["conforms"]
+    assert al.ay_mcs_ranges(sim, {**clean, 16: -10.0}, 10.0, 3.0)[14]["range_m"] is None
+    # the implementation loss kept in costs its 5 dB of path loss: the free-space distance x 10^(-5/20)
+    il = al.ay_mcs_ranges(sim, clean, 10.0, 3.0, keep_implementation_loss=True, oxygen_db_km=0.0)
+    loss = spec.value("dmg.sensitivity_assumptions")["implementation_loss_db"]
+    assert il[14]["range_m"] == pytest.approx(x["range_m"] * 10 ** (-loss / 20), rel=0.02)

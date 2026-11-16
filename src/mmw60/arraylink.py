@@ -363,6 +363,39 @@ def _ltf_field_s(phy) -> float:
     return 2.0 * t_fft + 2.0 * float(phy.t_symbol_eff - t_fft)
 
 
+def ay_mcs_ranges(sim, floor_by_order: dict, eirp_dbm: float, g_rx_db: float = 0.0,
+                  keep_implementation_loss: bool = False, oxygen_db_km: float | None = None) -> dict:
+    """The data link of an 802.11ay waveform (``sim`` an ``AyLinkSim`` on the
+    shared front end), per EDMG MCS with a DMG twin: the decoder threshold
+    (``ay.edmg.ideal_threshold_db``; data/spec: assumed.ay_sensitivity), the
+    in-band SNR it needs over the floor of its constellation
+    (``floor_by_order[tone_order]``, a noise term as for the be rows'
+    measured thresholds), the receiver input that gives it (the front end's
+    noise figure at the AGC state, over the waveform's occupied bandwidth),
+    the path loss EIRP + G_rx − that input and the distance (free space plus
+    oxygen).  ``conforms`` says the floor meets the MCS's TX EVM limit;
+    ``range_m`` is None where the floor alone exceeds what the decoder
+    tolerates.  MCS without a twin are left out."""
+    from .ay import edmg
+    wf = sim.cfg.waveform
+    out = {}
+    for e in edmg.mcs_table(wf):
+        t = edmg.ideal_threshold_db(wf, e.mcs, sim.occupied_bw_hz, keep_implementation_loss)
+        if t is None:
+            continue
+        f = float(floor_by_order[e.tone_order])
+        req = required_snr_db(t, f)
+        row = {"mcs": e.mcs, "twin": edmg.dmg_twin(wf, e.mcs), "threshold_db": t, "floor_db": f, "req_db": req,
+               "conforms": f <= e.evm_limit_db, "rate_bps": e.rate_bps(sim.cfg.ay.gi), "sens_dbm": None,
+               "pl_db": None, "range_m": None}
+        if req is not None:
+            s_in = float(sim.rx_input_dbm_for_snr(req))
+            pl = float(eirp_dbm + g_rx_db - s_in)
+            row.update(sens_dbm=s_in, pl_db=pl, range_m=range_m(pl, sim.cfg.carrier_hz, oxygen_db_km))
+        out[e.mcs] = row
+    return out
+
+
 def noise_dbm_per_tone(nf_db: float, scs_hz: float) -> float:
     """kT + NF over one tone's bandwidth (a cross-check of the LinkSim reading)."""
     return float(KT_DBM_HZ + nf_db + 10.0 * np.log10(scs_hz))
@@ -372,4 +405,4 @@ __all__ = ["fspl_db", "oxygen_db_per_km", "path_loss_db", "range_m", "required_s
            "selection_success",
            "required_training_snr_db", "ArrayBudget", "array_budget", "training_ranges", "sweep_time_s",
            "transmit_sweep_reach_db", "repetitions_to_reach", "hierarchical_training", "array_power_report",
-           "noise_dbm_per_tone", "C0"]
+           "ay_mcs_ranges", "noise_dbm_per_tone", "C0"]

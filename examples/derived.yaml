@@ -319,6 +319,16 @@
     - {doc: cairn/LOG.md, text: "13.6 dBm 上 {sc1} 对 {of1} Gb/s"}
     - {doc: cairn/ay.md, text: "13.6 dBm 上 {sc1} 对 {of1} Gb/s"}
 
+- name: ex15 rate against range — how much output power the SC low-order MCS gain over the preset, and the 16-QAM range-best back-off
+  values:
+    preset: {example: "15", line: "one front end for both: PA Psat {*} dBm at {} dB from psat"}
+    edge: {example: "15", after: "== 9. rate against range", line: "ay_sc 1 π/2-BPSK 1/2 {*} {*} {*} {*} {*} {}*"}
+    sc14: {example: "15", after: "== 9. rate against range", line: "ay_sc 14 π/2-16-QAM 3/4 {*} {*} {*} {*} {*} {}"}
+    of13: {example: "15", after: "== 9. rate against range", line: "ay_ofdm 13 16-QAM 3/4 {*} {*} {*} {*} {*} {}"}
+  quotes:
+    - {doc: cairn/ay.md, text: "SC 的低阶星座能把回退压到 {edge} dB，多出 {preset - edge} dB 输出功率"}
+    - {doc: cairn/ay.md, text: "16-QAM 的最佳回退比预设小 {preset - of13}–{preset - sc14} dB"}
+
 - name: ex15 the conformance caps at the preset back-off with IQ and LO leakage calibrated away
   values:
     capsc: {example: "15", after: "== 4. the floor with everything on", line: "cap, IQ + LO leak calibrated away ay_sc MCS16 π/2-16-QAM 7/8 (limit -23 dB), {} Gb/s"}

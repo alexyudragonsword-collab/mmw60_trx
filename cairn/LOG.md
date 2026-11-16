@@ -3,6 +3,18 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-16 · 第二段 2b（下）：按功率换距离；近处两种波形相当，5 m 起 SC 领先（feat/ay-range）
+
+- `assumed.ay_sensitivity`：EDMG 门限借 DMG 同档（同每符号比特数、码率、重复）的最低灵敏度，减 kT·B、参考 NF 10 dB 与实现损耗 5 dB。SC、OFDM 各配上 12 档。
+- `arraylink.ay_mcs_ranges` 与 be 的 `array_budget` 同一套函数；示例 15 §9 在每个回退点各校一次的链上读底板。
+- 数（单天线 0 dBi，预设接收梯子 NF 3.5 dB）：
+  - 预设回退：SC MCS14 1.43 m，OFDM MCS13 1.55 m。最远的回退：SC 5.0 dB 1.82 m，OFDM 5.5 dB 1.77 m。
+  - 每个距离上最快的速率：5 m 处 SC 2.502、OFDM 2.188 Gb/s；8 m 处 1.925 对 1.459 Gb/s。SC 低阶档的最佳回退都在网格边 1 dB 上，SC MCS1 17.17 m 是下限。
+  - 灵敏度行：留实现损耗 0.73 / 0.70 m；查到的 60 GHz 前端 1.68 / 1.82 m。
+- 交叉核对：从 DMG 反推的门限比本库实测 11be LDPC 同档高 0.86–1.14 dB（OFDM），SC 16-QAM 3/4 高 2.27 dB。
+- 发现：SC 的 16-QAM 13/16、7/8 与 64-QAM 配不上 DMG（扩展档 9.1、12.1–12.6 的调制码率不在 spec_sources），1 m 那一行的比较因此不成立。记 ROADMAP。
+- 下一步：阵列与 EIRP 上限。
+
 ## 2026-11-16 · 第二段 2b（中）：同台表的 ay 两行；同一口径下 ay SC 比最好的 be 行快 1.3 倍、每比特省 1.4 倍（feat/ay-stage2b-table，叠在 #52 上）
 
 - `compare.evaluate_ay`：拓扑 B 上两行，同一个前端实例，底板读时域，原始链与 `run_cal_ay` 校准过的链各一列。示例 04 §1b 与 §4、`budget_report` 的 Markdown 都有了；`compare.PENDING` 清空。

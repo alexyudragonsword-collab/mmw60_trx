@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### 里程碑 3 第二段 2b（下）：按功率换距离（2026-11-16）—— 预设、同台表与指纹不变；示例 15 多 §9
+- 新 assumed `ay_sensitivity`：EDMG 门限借 DMG 同档灵敏度，参考接收机的 NF 与实现损耗拿掉；没有对应档的 EDMG MCS 不给门限。
+- `ay.edmg.dmg_twin`、`ay.edmg.ideal_threshold_db`、`arraylink.ay_mcs_ranges`（新）。
+- 示例 15 §9：每档射程最远的回退、每个距离上最快的速率、三行灵敏度（实现损耗留着、查到的 60 GHz 前端、对本库实测 11be 门限）。
+- 结论：单天线时近处两种波形相当，5 m 起 SC 领先（低阶星座能把回退压到 1 dB）；SC 的高阶档缺 DMG 对应档，记 ROADMAP。
+
 ### 里程碑 3 第二段 2b（中）：同台表的两行 802.11ay（2026-11-16）—— 指纹与 be 各行的数不变；示例 04 多 §1b
 - `compare.evaluate_ay`（新）：底板读时域，原始链与 `calcheck.run_cal_ay` 校准过的链各一列；合规上限照 be 行的余量规则（`assumed.mcs_evm_margin_db`），另给不留余量的读法；pJ/bit 不计解码器。`compare.build` 的报告多 `ay_rows`（**报告 JSON 加键**），`compare.PENDING` 清空，`scheme_matrix` 给出 ay 两行。
 - `compare.Row` 加 `power_cal`：be 行在校准后上限处的功耗（**报告 JSON 加键**），用来和 ay 行同口径比。

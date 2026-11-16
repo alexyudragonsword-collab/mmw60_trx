@@ -245,4 +245,50 @@ modulation  rate      SC   OFDM   ΔPout   sec. 5
 64-QAM     13/16   never  10.34    —        —
 64-QAM       7/8   never  12.92    —        —
 
+== 9. rate against range: one element, line of sight, the calibrated chain at every back-off (assumed.ay_sensitivity [assumed]: the DMG twin's sensitivity, its reference NF and implementation loss taken out; the floor as a noise term) ==
+wf       MCS  modulation    rate   Gb/s  DMG  T[dB]  @preset m   best m back-off   Pout  floor
+ay_sc      1  π/2-BPSK       1/2  0.385    1  -1.48       8.30    17.17     1.0*   13.6 -16.63
+ay_sc      2  π/2-BPSK       1/2  0.770    2   0.52       6.61    13.66     1.0*   13.6 -16.63
+ay_sc      3  π/2-BPSK       5/8  0.963    3   1.52       5.90    12.16     1.0*   13.6 -16.63
+ay_sc      4  π/2-BPSK       3/4  1.155    4   2.52       5.26    10.82     1.0*   13.6 -16.63
+ay_sc      5  π/2-BPSK     13/16  1.251    5   4.52       4.18     8.53     1.0*   13.6 -16.63
+ay_sc      7  π/2-QPSK       1/2  1.540    6   3.52       4.69     9.56     1.0*   13.6 -15.81
+ay_sc      8  π/2-QPSK       5/8  1.925    7   4.52       4.18     8.47     1.0*   13.6 -15.81
+ay_sc      9  π/2-QPSK       3/4  2.310    8   5.52       3.72     7.48     1.0*   13.6 -15.81
+ay_sc     10  π/2-QPSK     13/16  2.502    9   7.52       2.95     5.78     1.0*   13.6 -15.81
+ay_sc     12  π/2-16-QAM     1/2  3.080   10  11.52       1.83     2.58     4.0    10.6 -19.59
+ay_sc     13  π/2-16-QAM     5/8  3.850   11  12.52       1.62     2.17     4.5    10.1 -20.48
+ay_sc     14  π/2-16-QAM     3/4  4.620   12  13.52       1.43     1.82     5.0     9.6 -21.32
+ay_ofdm    1  DCM BPSK       1/2  0.729   13   0.39       6.59    12.90     1.0*   13.6  -9.18
+ay_ofdm    2  DCM BPSK       5/8  0.912   14   2.39       5.24     9.83     1.0*   13.6  -9.18
+ay_ofdm    6  DCM QPSK       1/2  1.459   15   3.39       4.66     8.32     1.5    13.1 -10.29
+ay_ofdm    7  DCM QPSK       5/8  1.824   16   4.39       4.15     7.03     2.0    12.6 -11.35
+ay_ofdm    8  DCM QPSK       3/4  2.188   17   6.39       3.28     5.11     2.5    12.1 -12.34
+ay_ofdm   11  16-QAM         1/2  2.918   18   8.39       2.58     3.52     4.0    10.6 -15.07
+ay_ofdm   12  16-QAM         5/8  3.647   19  10.39       2.01     2.47     5.0     9.6 -16.79
+ay_ofdm   13  16-QAM         3/4  4.377   20  12.39       1.55     1.77     5.5     9.1 -17.61
+ay_ofdm   14  16-QAM       13/16  4.742   21  13.39       1.35     1.47     6.0     8.6 -18.44
+ay_ofdm   17  64-QAM         5/8  5.471   22  15.39          —     0.95     8.5     6.1 -22.53
+ay_ofdm   18  64-QAM         3/4  6.565   23  17.39          —     0.69     9.0     5.6 -23.31
+ay_ofdm   19  64-QAM       13/16  7.112   24  19.39          —     0.46    10.5     4.1 -25.18
+(EIRP = Pout + 0 dBi, receive 0 dBi, the preset receive ladder: NF 3.5 dB at the sensitivity's AGC state, not a 60 GHz figure — ROADMAP C9; oxygen 15 dB/km; '—' at the preset = the floor misses the TX EVM limit there; * = the grid's smallest back-off (1 dB), the best may lie below it; MCS without a DMG twin are not listed)
+
+the fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at its best back-off):
+    m            ay_sc          ay_ofdm
+  1.0    4.620 (MCS14)    4.742 (MCS14)
+  1.5    4.620 (MCS14)    4.377 (MCS13)
+  2.0    3.850 (MCS13)    3.647 (MCS12)
+  3.0    2.502 (MCS10)    2.918 (MCS11)
+  5.0    2.502 (MCS10)     2.188 (MCS8)
+  8.0     1.925 (MCS8)     1.459 (MCS6)
+
+sensitivity rows, at the preset back-off, for the comparison table's calibrated caps (SC MCS14, OFDM MCS13; metres):
+  ay_sc    MCS14: preset 1.43; implementation loss kept in 0.73; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.68
+  ay_ofdm  MCS13: preset 1.55; implementation loss kept in 0.70; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.82
+the DMG-derived thresholds against this library's measured 11be LDPC thresholds (data/spec/per_thresholds.yaml, 80 MHz) at the same modulation and code rate:
+  QPSK 1/2   ay_ofdm  MCS6    3.39 dB   11be MCS1   2.25 dB   difference +1.14 dB
+  16-QAM 1/2 ay_ofdm  MCS11   8.39 dB   11be MCS3   7.53 dB   difference +0.86 dB
+  16-QAM 3/4 ay_ofdm  MCS13  12.39 dB   11be MCS4  11.25 dB   difference +1.14 dB
+  16-QAM 3/4 ay_sc    MCS14  13.52 dB   11be MCS4  11.25 dB   difference +2.27 dB
+
 [~s]

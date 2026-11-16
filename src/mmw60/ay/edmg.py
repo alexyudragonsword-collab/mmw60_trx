@@ -14,7 +14,14 @@ rule 5).  What this library chooses itself is an ``assumed`` entry:
   Golay sequence for the CFO, a Golay pair behind cyclic prefixes for the
   channel, Golay guards (the principle of the DMG preamble and guard, not
   their sequences, which are not in spec_sources);
-* ``assumed.ay_evm_payload`` — what the EVM-only payload carries.
+* ``assumed.ay_evm_payload`` — what the EVM-only payload carries;
+* ``assumed.ay_sensitivity`` — the decoder threshold of an EDMG MCS for the
+  range: spec_sources has no EDMG sensitivity, so an MCS whose DMG twin
+  (same bits per symbol, code rate and repetition) is in the DMG tables
+  takes that twin's minimum sensitivity, with the reference receiver's
+  noise figure and implementation loss taken back out (the floor enters as
+  a noise term, as for the be rows' measured thresholds); an MCS without a
+  twin has no threshold.
 
 The OFDM pilot tones move with the channel (``edmg.ofdm_pilot_tones_ncb1``),
 so a numerology is built for the channel the carrier is on.
@@ -27,6 +34,7 @@ from fractions import Fraction
 import numpy as np
 
 from .. import spec
+from ..vendor.wifitrx.units import KT_DBM_HZ
 from .ofdm import OfdmNumerology
 from .sc import ScNumerology
 
@@ -145,6 +153,51 @@ def conformance_cap(floor_db: float, waveform: str, gi: str = "normal") -> dict:
             "limit_db": best.evm_limit_db, "modulation": best.modulation, "code_rate": str(best.code_rate)}
 
 
+def dmg_twin(waveform: str, mcs: int) -> float | None:
+    """The DMG MCS with the same bits per symbol, code rate and repetition as
+    EDMG ``mcs`` (assumed.ay_sensitivity): SC against dmg.sc_mcs (modulation
+    order from the name, the repetition column), OFDM against dmg.ofdm_mcs
+    (its n_bpsc column: EDMG's DCM BPSK / DCM QPSK carry 1 / 2 coded bits per
+    subcarrier as 11ad's SQPSK / QPSK do — the names edmg.ofdm_mcs's note says
+    they had before 18/1152r0).  None when the DMG tables have no such MCS
+    (7/8, BPSK 3/4 … in OFDM, 64-QAM 1/2 …; the extended DMG MCS 9.1 / 12.1–12.6
+    are left out: their modulation and code rate are not in spec_sources)."""
+    e = mcs_entry(waveform, mcs)
+    if waveform == "ay_sc":
+        t = spec.value("dmg.sc_mcs")
+        rep = t.get("repetition", [1] * len(t["mcs"]))
+        for i, m in enumerate(t["mcs"]):
+            if (_order_of(t["modulation"][i])[0] == e.order and Fraction(t["code_rate"][i]) == e.code_rate
+                    and int(rep[i]) == e.repetition):
+                return m
+        return None
+    t = spec.value("dmg.ofdm_mcs")
+    bpsc = int(spec.value("edmg.ofdm_mcs")["n_bpsc"][[x.mcs for x in mcs_table(waveform)].index(e.mcs)])
+    for i, m in enumerate(t["mcs"]):
+        if int(t["n_bpsc"][i]) == bpsc and Fraction(t["code_rate"][i]) == e.code_rate:
+            return m
+    return None
+
+
+def ideal_threshold_db(waveform: str, mcs: int, occupied_bw_hz: float,
+                       keep_implementation_loss: bool = False) -> float | None:
+    """The in-band SNR an ideal decoder needs for EDMG ``mcs``
+    (assumed.ay_sensitivity): its DMG twin's minimum sensitivity
+    (dmg.rx_sensitivity_dbm) less kT·B over ``occupied_bw_hz`` and the
+    reference receiver's noise figure and implementation loss
+    (dmg.sensitivity_assumptions).  ``keep_implementation_loss`` leaves the
+    5 dB in — the sensitivity row: this library's floor already holds the
+    impairments the loss stands for, so keeping it counts them twice.
+    None without a twin."""
+    twin = dmg_twin(waveform, mcs)
+    if twin is None:
+        return None
+    sens = float(spec.ref(f"dmg.rx_sensitivity_dbm#dbm@mcs={twin}"))
+    ref = spec.value("dmg.sensitivity_assumptions")
+    loss = 0.0 if keep_implementation_loss else float(ref["implementation_loss_db"])
+    return float(sens - KT_DBM_HZ - 10.0 * np.log10(float(occupied_bw_hz)) - float(ref["nf_db"]) - loss)
+
+
 def chain_rate() -> dict:
     """The one sample rate both waveforms run on (assumed.ay_chain_rate)."""
     a = spec.value("assumed.ay_chain_rate")
@@ -157,4 +210,4 @@ def chain_rate() -> dict:
 
 
 __all__ = ["GIS", "WAVEFORMS", "AyMcs", "channel_spacing_hz", "channel_of", "ofdm_numerology", "sc_numerology",
-           "mcs_table", "mcs_entry", "conformance_cap", "chain_rate"]
+           "mcs_table", "mcs_entry", "conformance_cap", "chain_rate", "dmg_twin", "ideal_threshold_db"]

@@ -28,7 +28,17 @@ standard sets for each?
    sequence calibrated, the sequence run anew at every back-off (the TX
    LO-leak cancellation holds only at the gain state it was found at) — the
    check of section 4's "calibrated away"; one row shows what a single
-   calibration at the preset back-off reads at 15 dB.
+   calibration at the preset back-off reads at 15 dB;
+9. rate against range, one element, line of sight, the calibrated chain at
+   every back-off: each MCS's decoder threshold from its DMG twin's
+   sensitivity (data/spec: assumed.ay_sensitivity; spec_sources has no
+   EDMG sensitivity), the floor as a noise term, the shared front end's
+   noise figure, free space plus oxygen; per MCS the back-off that reaches
+   farthest while the transmitter meets its EVM limit, and the fastest rate
+   each waveform keeps at each distance.  Sensitivity rows: the reference
+   receiver's implementation loss kept in, the surveyed 60 GHz front end
+   (ROADMAP D4), and the thresholds against this library's measured 11be
+   LDPC ones.
 
     python examples/15_ay_on_the_shared_front_end.py [--quick]
 """
@@ -48,9 +58,10 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, spec                # noqa: E402
+from mmw60 import arraylink as al                                 # noqa: E402
 from mmw60.ay import edmg, papr                                   # noqa: E402
 from mmw60.calcheck import run_cal_ay                             # noqa: E402
-from mmw60.config import ChannelConfig, ay_60ghz                  # noqa: E402
+from mmw60.config import ChannelConfig, ay_60ghz, surveyed_frontend  # noqa: E402
 from mmw60.frontend import Frontend60                             # noqa: E402
 from mmw60.sim.link import LinkSim                                # noqa: E402
 
@@ -357,6 +368,84 @@ def main(argv=None) -> int:
         print(f"{eo.modulation:<10} {str(es.code_rate):>5}  {fmt(bs, '{:6.2f}', ' never')} "
               f"{fmt(bo, '{:6.2f}', ' never')}  "
               f"{fmt(dp, '{:6.2f}')}   {fmt(d5, '{:6.2f}')}")
+
+    # ---------------------------------------------------------------- 9. rate against range
+    print("\n== 9. rate against range: one element, line of sight, the calibrated chain at every back-off "
+          f"({tag('assumed.ay_sensitivity')}: the DMG twin's sensitivity, its reference NF and implementation "
+          "loss taken out; the floor as a noise term) ==")
+    orders = {"ay_sc": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_sc")},
+              "ay_ofdm": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_ofdm")}}
+    for wf, by_order in orders.items():
+        for o, m in by_order.items():
+            if (wf, o) not in cal_curves:
+                cal_curves[(wf, o)] = [cal_evm(dc.replace(ay_60ghz(wf, m), channel=FLAT), ob, n=1) for ob in obos8]
+    g_tx, g_rx = fe.antenna_gain_tx_dbi, fe.antenna_gain_rx_resolved_dbi
+    rx_sim = {wf: LinkSim(dc.replace(ay_60ghz(wf, 1), channel=FLAT), frontend=fe, chains=copy.deepcopy(run.chains[:2]))
+              for wf in orders}
+    i0 = int(np.argmin(np.abs(obos8 - fe.obo_db)))
+
+    def ranges_at(wf, i, sim=None, keep_il=False, gains=(g_tx, g_rx)):
+        f2, _ = cal_at(float(obos8[i]))
+        floors_i = {o: cal_curves[(wf, o)][i] for o in orders[wf]}
+        return al.ay_mcs_ranges(sim or rx_sim[wf], floors_i, f2.target_pout_dbm() + gains[0], gains[1],
+                                keep_implementation_loss=keep_il)
+
+    table = {wf: [ranges_at(wf, i) for i in range(len(obos8))] for wf in orders}
+    best = {}
+    print(f"{'wf':<8} {'MCS':>3}  {'modulation':<12} {'rate':>5} {'Gb/s':>6} {'DMG':>4} {'T[dB]':>6}  "
+          f"{'@preset m':>9}  {'best m':>7} {'back-off':>8} {'Pout':>6} {'floor':>6}")
+    for wf in orders:
+        for m in table[wf][0]:
+            e = edmg.mcs_entry(wf, m)
+            cands = [(r[m]["range_m"], i) for i, r in enumerate(table[wf]) if r[m]["conforms"] and r[m]["range_m"]]
+            b = max(cands) if cands else None
+            best[(wf, m)] = None if b is None else b[0]
+            r0 = table[wf][i0][m]
+            at_preset = r0["range_m"] if r0["conforms"] else None
+            bo = None if b is None else float(obos8[b[1]])
+            edge = "*" if b is not None and b[1] == 0 else " "
+            print(f"{wf:<8} {m:>3}  {e.modulation:<12} {str(e.code_rate):>5} {e.rate_bps() / 1e9:6.3f} "
+                  f"{table[wf][0][m]['twin']:>4} {table[wf][0][m]['threshold_db']:6.2f}  "
+                  f"{fmt(at_preset, '{:9.2f}', '        —')}  {fmt(None if b is None else b[0], '{:7.2f}', '      —')} "
+                  f"{fmt(bo, '{:7.1f}', '      —')}{edge} {fmt(None if b is None else psat - bo, '{:6.1f}', '     —')} "
+                  f"{fmt(None if b is None else table[wf][b[1]][m]['floor_db'], '{:6.2f}', '     —')}")
+    print(f"(EIRP = Pout + {g_tx:g} dBi, receive {g_rx:g} dBi, the preset receive ladder: NF "
+          f"{rx_sim['ay_sc']._rx_nf_db():.1f} dB at the sensitivity's AGC state, not a 60 GHz figure — ROADMAP C9; "
+          f"oxygen {al.oxygen_db_per_km():g} dB/km; '—' at the preset = the floor misses the TX EVM limit there; "
+          f"* = the grid's smallest back-off ({obos8[0]:g} dB), the best may lie below it; "
+          f"MCS without a DMG twin are not listed)")
+    dists = (1.0, 1.5, 2.0, 3.0, 5.0, 8.0)
+    print("\nthe fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at its best back-off):")
+    print(f"{'m':>5} " + " ".join(f"{wf:>16}" for wf in orders))
+    for d in dists:
+        cells = []
+        for wf in orders:
+            ok = [m for m in table[wf][0] if best[(wf, m)] is not None and best[(wf, m)] >= d]
+            top = max(ok, key=lambda m: edmg.mcs_entry(wf, m).rate_bps()) if ok else None
+            cells.append("—" if top is None else f"{edmg.mcs_entry(wf, top).rate_bps() / 1e9:.3f} (MCS{top})")
+        print(f"{d:5.1f} " + " ".join(f"{c:>16}" for c in cells))
+    caps = {"ay_sc": 14, "ay_ofdm": 13}
+    print("\nsensitivity rows, at the preset back-off, for the comparison table's calibrated caps "
+          "(SC MCS14, OFDM MCS13; metres):")
+    sv_cfg = {wf: surveyed_frontend(dc.replace(ay_60ghz(wf, 1), channel=FLAT)) for wf in orders}
+    sv_fe = {wf: Frontend60.from_config(c) for wf, c in sv_cfg.items()}
+    sv_sim = {wf: LinkSim(sv_cfg[wf], frontend=sv_fe[wf]) for wf in orders}
+    for wf, m in caps.items():
+        base_r = table[wf][i0][m]["range_m"]
+        il = ranges_at(wf, i0, keep_il=True)[m]["range_m"]
+        sv = ranges_at(wf, i0, sim=sv_sim[wf], gains=(sv_fe[wf].antenna_gain_tx_dbi,
+                                                      sv_fe[wf].antenna_gain_rx_resolved_dbi))[m]["range_m"]
+        print(f"  {wf:<8} MCS{m}: preset {base_r:.2f}; implementation loss kept in {il:.2f}; surveyed 60 GHz front end "
+              f"(NF {sv_sim[wf]._rx_nf_db():.1f} dB at its AGC state, {sv_fe[wf].antenna_gain_tx_dbi:g} + "
+              f"{sv_fe[wf].antenna_gain_rx_resolved_dbi:g} dBi) {sv:.2f}")
+    print("the DMG-derived thresholds against this library's measured 11be LDPC thresholds "
+          "(data/spec/per_thresholds.yaml, 80 MHz) at the same modulation and code rate:")
+    for lab, wf, m, be_mcs in (("QPSK 1/2", "ay_ofdm", 6, 1), ("16-QAM 1/2", "ay_ofdm", 11, 3),
+                               ("16-QAM 3/4", "ay_ofdm", 13, 4), ("16-QAM 3/4", "ay_sc", 14, 4)):
+        t = table[wf][0][m]["threshold_db"]
+        tb = spec.per_threshold_db("11be", 80e6, be_mcs)
+        print(f"  {lab:<10} {wf:<8} MCS{m:<2} {t:6.2f} dB   11be MCS{be_mcs} {tb:6.2f} dB   "
+              f"difference {t - tb:+5.2f} dB")
     print(f"\n[{time.time() - t0:.0f}s]")
     return 0
 
