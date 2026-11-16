@@ -5,7 +5,7 @@ summary: "同台表（ROADMAP A3）：每种方案（拓扑 × 波形）在同�
 tags: [mmw60, comparison-table, budget, power, evm-budget, law-2]
 contains: [comparison-table, finding, decision, pitfall]
 created: "2026-11-07"
-updated: "2026-11-13"
+updated: "2026-11-16"
 related: [topology-b.md, architecture-invariants.md, spec-sources.md, upclocking.md]
 authoring_mode: ai_generated
 ---
@@ -16,12 +16,13 @@ authoring_mode: ai_generated
 
 `mmw60.compare.scheme_matrix` 把 `TOPOLOGIES × WAVEFORMS` 的 8 个格子全部点名：建好的格子有配置和数字
 （拓扑 B × `be`：K = 1 的 WiFi 7 链；拓扑 B × `be_upclocked`：K = 1 / 4 / 8 / 16 / 32；拓扑 A × `be`：芯片原生波形；
-拓扑 A × `be_upclocked`：只改数字基带的升频，K × 基准带宽落在芯片信道上的那几个 K，2026-11-15），没建的写明哪个里程碑带来它
-（拓扑 B × `ay_ofdm` / `ay_sc`：里程碑 3），不成立的组合写 n/a（ay 是 B 的硬件；A 的升频超出芯片 320 MHz 信道的 K）。
+拓扑 A × `be_upclocked`：只改数字基带的升频，K × 基准带宽落在芯片信道上的那几个 K，2026-11-15；拓扑 B × `ay_ofdm` / `ay_sc`：EDMG 信道 2，2026-11-16，§2c），
+不成立的组合写 n/a（ay 是 B 的硬件；A 的升频超出芯片 320 MHz 信道的 K）。现在没有“待建”的格子（`compare.PENDING` 为空）。
 （更正 2026-11-15：此前这里写“拓扑 A × be：里程碑 1 / A1，另一会话”与“A 不改波形”，前者早已建好，后者从 A × be_upclocked 起不再成立。）`tests/test_compare.py::test_law2_matrix_names_every_topology_x_waveform_pair` 守着矩阵完整。
 
 **一个 `Frontend60` 实例给每一行**（铁律 2 的完整测试 `test_law2_every_scheme_on_the_shared_frontend_reads_the_k1_evm_when_ideal`：
-理想前端实例共用，ppm = 0 / 理想 LO / 理想 PA 下每种已建方案的 EVM 与 K = 1 差 < 0.1 dB；A 与 ay 的行以它们的里程碑为由 skip）。
+理想前端实例共用，ppm = 0 / 理想 LO / 理想 PA 下每种已建方案的 EVM 与 K = 1 差 < 0.1 dB；ay 是另一套数字学，锚是它自己的：同一个理想实例上 < −35 dB；skip 的只剩三个 n/a 格）。
+（更正 2026-11-16：此前写“A 与 ay 的行以它们的里程碑为由 skip”；A 的行早已在测，ay 的行从第二段 2b 起在测。）
 LO 链是该实例的一部分：6 GHz 的 K = 1 行也跑在共用的 60 GHz 剖面上（它自己的 `wifitrx_wifi7` 设置只在"单独仿真"时生效——§4）。
 这是有意的：表比较的是"同一套硬件、时钟 ×K"，不是"两颗不同的芯片"。
 
@@ -166,6 +167,31 @@ pJ/bit 依次 4557 / 1954 / 1257 / 864 / 948 / 830 / 483 / 472 / 560 / 1812。�
   11ac 的 BCC 比 11be 的 LDPC 在 MCS4 贵 3.0 dB（20 MHz：14.33 对 11.31）；4096-QAM（MCS 12 / 13）在理想链上要 32.2–37.3 dB，20 MHz 的 MCS12 到不了（链路自身 −40 dB 的底板：LPF 群时延 + 平滑偏差）。
   （2026-11-15 逼近之前，每点 ≤ 200 包 / 15 错：MCS 1–10 彼此差 ≤ 0.6 dB，20 MHz 的 MCS0 差 1.3 dB（0.3 对 −0.9 … −1.0），BCC 比 LDPC 贵 3.5 dB（14.5 对 11.0），4096-QAM 32–37 dB。78 个门限新减旧平均 +0.09 dB、标准差 0.22 dB，旧表平均偏乐观 0.1 dB：错包少的点 PER 读得低，穿越点提前。）
 - 11ac 40 / 80 / 160 MHz 基准没有编码数据域，这一列是 n/a（没有门限可比）。
+
+## 2c. 802.11ay 两行（示例 04 §1b；`compare.evaluate_ay`，2026-11-16，里程碑 3 第二段 2b）
+
+**读法**（铁律 2：同一个 `Frontend60` 实例，同一条余量规则；`tests/test_ay_link.py::test_the_two_ay_rows_of_the_comparison_table`）：
+- 拓扑 B 的硬件，EDMG 信道 2（60.48 GHz），一条 5.28 GS/s 的链，flat、不加噪声，EVM 口径（没有编码）。
+- 没有解析底板：底板是时域 EVM，按载荷星座各读一次（每种星座取最高的 MCS）。原始链一列，`calcheck.run_cal_ay` 真跑过 wifitrx 序列的链一列（铁律 4；两行共用一次校准，因为是同一条链）。
+- 合规上限照 be 行的规则：底板比该档 TX EVM 限值低 `assumed.mcs_evm_margin_db`（3 dB）。EDMG 的限值不单调，取通过的档里速率最高的。旁边一列是不留余量的上限，即示例 15 的读法。
+- pJ/bit 在校准链的上限处。ay 的解码器不计（EDMG LDPC 没建），be 行计。§6 的灵敏度不含这两行：它们没有解析侧。
+
+| 行 | 占用 | 单位时长 | CFO / STF 范围 | 底板 原始 / 校准（最差星座） | 上限 原始 / 校准 | Mb/s | pJ/bit | 不留余量 |
+|---|---|---|---|---|---|---|---|---|
+| ay_ofdm | 1.815 GHz | 230.3 ns | 2.42 / ±10.31 MHz | −6.21 / −20.80 dB | — / MCS13（16-QAM 3/4） | 4377 | 201 | MCS15，5106 Mb/s |
+| ay_sc | 1.760 GHz | 290.9 ns | 2.42 / ±6.88 MHz | −8.14 / −24.12 dB | — / MCS14（16-QAM 3/4） | 4620 | 188 | MCS16，5390 Mb/s |
+
+**读到的**：
+- 原始链上两行都到不了任何一档：底板 −6 … −8 dB，是未校准的 IQ（2.56 GHz 的 be 列同样如此）。只有校准过的链才有数。
+- SC 行 4620 Mb/s、188 pJ/bit，OFDM 行 4377 Mb/s、201 pJ/bit：SC 快 5.6 %，每比特省 6.5 %。SC 的底板低 3.3 dB，但它同调制同码率的限值严 4 dB（16-QAM 3/4：−21 对 −17 dB），两者几乎相抵，两行都停在 16-QAM 3/4。
+- **和 be 行比要用同一口径**：ay 行在校准后的上限处，be 行 §1 的 pJ/bit 在未校准的上限处。示例 04 §1b 末行给 be 行在校准后上限（IQcal 列）处的读数：最快也最省的是 11be 80 MHz × 32（2.56 GHz）：MCS2、3459 Mb/s、270 pJ/bit（其中解码器 14）。
+  SC 行快 1.3 倍，每比特省 1.4 倍；扣掉 be 的解码器也是 1.4 倍。拿 §1 未校准口径最好的 11be 80 MHz × 8（865 Mb/s、592 pJ/bit）比会得到 5 倍和 3 倍，那是口径错位，不是硬件差。
+- ay 行能到更高档，一部分是规范本身：EDMG 同调制同码率的限值比 WiFi 松，OFDM 16-QAM 3/4 是 −17 dB，11be（MCS4）是 −19 dB。
+- 功耗分项：转换器占大头（SC 143 / 188，OFDM 151 / 201 pJ/bit），频综和 PA 摊到 4.4–4.6 Gb/s 上各只剩 16–18 pJ/bit。
+
+**两边读法不对称，要标出来**（铁律 2）：be 行的校准列是示例 03 实测 IRR 的查表，再代入解析和（2.56 GHz：IRR 40.2 dB）；ay 行是在真跑过校准的链上读时域（IRR 43.6 dB）。
+要真正同口径，be 的宽带行也要在校准过的链上读时域。这是 ROADMAP A3 已有的一条（`calcheck.run_cal_at` 实跑进表），现在它决定 ay 对 be 的倍数，优先级随之上调。
+这两行读的是发射机的 EVM，不是链路：没有编码 PER、没有噪声、flat 信道、单天线（EIRP 余量 +33 dB）。距离与阵列在 ROADMAP 里程碑 3。
 
 ## 3. 三方对账
 

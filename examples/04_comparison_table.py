@@ -4,8 +4,11 @@ Rows: the WiFi 7 chain at K = 1 on a 6 GHz carrier, topology B at K = 1 / 4 /
 8 / 16 / 32 on 60.48 GHz (11ac 20 MHz base) and K = 4 … 32 on the 11be
 80 MHz base; topology A (the IF extender) on 11ac 20 MHz and 11be 80 / 320
 MHz, the 320 MHz row once more with the chip's PA bypassed; the two 802.11ay
-waveforms are listed with the milestone that brings them.  One ``Frontend60`` instance — PA, converters,
-IQ, LO chain, EIRP ceiling — is handed to every ``LinkSim`` (iron rule 2).
+waveforms on topology B (EDMG channel 2) in their own section 1b — no analytic
+sum there: the time-domain EVM, raw and on the chain wifitrx's sequence
+calibrated, the cap under the be rows' margin rule.  One ``Frontend60``
+instance — PA, converters, IQ, LO chain, EIRP ceiling — is handed to every
+``LinkSim`` (iron rule 2).
 Per row: numerology, CFO capture, the analytic EVM floor and its terms, the
 time-domain EVM of the same cell (flat channel, no noise), wifitrx's
 ``EvmBudget`` fed the same terms, the MCS cap (uncalibrated and at the IRR
@@ -32,7 +35,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, compare, spec                        # noqa: E402
-from mmw60.config import LoConfig, PhaseNoiseConfig, zero_if_60ghz                 # noqa: E402
+from mmw60.config import AY_WAVEFORMS, LoConfig, PhaseNoiseConfig, zero_if_60ghz   # noqa: E402
 from mmw60.frontend import Frontend60                                              # noqa: E402
 from mmw60.frontend.grid import analytic_floors, format_cap, max_mcs_for_floor, pa_isolated_evm_db  # noqa: E402
 from mmw60.impairments.phase_noise import load_clock_profile                        # noqa: E402
@@ -78,8 +81,9 @@ def main(argv=None) -> int:
     ks = (1, 8) if quick else (1, 4, 8, 16, 32)
     schemes = compare.scheme_matrix(ks=ks, standard="11ac", bandwidth_hz=20e6)
     if not quick:
+        # the 802.11ay rows do not depend on the WiFi base: they come once, with the first matrix
         schemes += [s for s in compare.scheme_matrix(ks=(4, 8, 16, 32), standard="11be", bandwidth_hz=80e6)
-                    if s.status == "built"]
+                    if s.status == "built" and s.waveform not in AY_WAVEFORMS]
         # topology A on the widest channel the chip has: the same 320 MHz at 60 GHz as 80 MHz × 4
         a320 = [s for s in compare.scheme_matrix(ks=(), standard="11be", bandwidth_hz=320e6)
                 if s.key == ("if_extender", "be")]
@@ -97,8 +101,8 @@ def main(argv=None) -> int:
           f"from ENOB {fe.converters.enob_ref:g} @ {fe.converters.fs_ref_hz / 1e9:g} GS/s; EIRP ceiling "
           f"{fe.eirp.avg_dbm:g} dBm avg (FCC 15.255)")
     rep = compare.build(schemes, fe, time_domain=not quick)
-    print(f"matrix: {len(rep['matrix'])} (topology, waveform) pairs; {len(rep['rows'])} rows with numbers, "
-          f"{len(rep['pending'])} without")
+    print(f"matrix: {len(rep['matrix'])} (topology, waveform) pairs; {len(rep['rows']) + len(rep['ay_rows'])} rows "
+          f"with numbers ({len(rep['ay_rows'])} of them 802.11ay, section 1b), {len(rep['pending'])} without")
     print("\n== 1. the table (floor / TD / EvmBudget in dB; CFO in subcarriers; rate at the uncalibrated cap; "
           "EIRP margin to 40 dBm avg; pJ/bit at the cap) ==")
     print(f"{'scheme':<44} {'BW[M]':>6} {'SCS[M]':>6} {'Tsym[ns]':>6} {'CFO':>6} STF  {'floor':>6} {'TD':>6} "
@@ -107,6 +111,41 @@ def main(argv=None) -> int:
         print(_row_line(r), flush=True)
     for p in rep["pending"]:
         print(f"{p['label']:<44} {p['reason']}")
+    print("\n== 1b. the two 802.11ay rows (same front end instance; EVM only; no analytic sum: the floor is the "
+          "time-domain EVM, raw and on the chains wifitrx's sequence calibrated, per payload constellation) ==")
+    print(f"{'scheme':<44} {'fs[GS/s]':>8} {'occ[GHz]':>8} {'unit[ns]':>8} {'CFO/STF[MHz]':>13} {'raw floor':>9} "
+          f"{'cal floor':>9} {'raw cap':>7} {'cal cap':>7} {'Mb/s':>6} {'pJ/bit':>7} {'at limit':>8} {'Mb/s':>6}")
+    for r in rep["ay_rows"]:
+        rf, cf = r["floor_raw_db"], r["floor_cal_db"]
+        pj = "—" if not r["power_cal"] else f"{r['power_cal']['pj_per_bit']:.0f}"
+        cap_raw = "—" if r["cap_raw"] is None else f"MCS{r['cap_raw']}"
+        cap_cal = "—" if r["cap_cal"] is None else f"MCS{r['cap_cal']}"
+        rate = "—" if r["rate_cal_mbps"] is None else f"{r['rate_cal_mbps']:.0f}"
+        cap_lim = "—" if r["cap_cal_at_limit"] is None else f"MCS{r['cap_cal_at_limit']}"
+        rate_lim = "—" if r["rate_cal_at_limit_mbps"] is None else f"{r['rate_cal_at_limit_mbps']:.0f}"
+        print(f"{r['label']:<44} {r['fs_eff_hz'] / 1e9:8.2f} {r['occupied_bw_hz'] / 1e9:8.3f} {r['unit_s'] * 1e9:8.1f} "
+              f"{r['cfo_hz'] / 1e6:5.2f}/{r['stf_range_hz'] / 1e6:<6.2f} {max(rf.values()):9.2f} {max(cf.values()):9.2f} "
+              f"{cap_raw:>7} {cap_cal:>7} {rate:>6} {pj:>7} {cap_lim:>8} {rate_lim:>6}")
+    if rep["ay_rows"]:
+        r0 = rep["ay_rows"][0]
+        print(f"(floors: the worst constellation's; cal = wifitrx's sequence on the ay chain at the preset back-off, "
+              f"IRR {r0['cal_irr_db']:.1f} dB, LO leak {r0['cal_lo_leak_dbc']:.1f} dBc; caps by the EDMG TX EVM limits "
+              f"under the be rows' rule, the floor {r0['cap_margin_db']:g} dB under the limit "
+              f"(assumed.mcs_evm_margin_db), the passing MCS with the highest rate; Mb/s and pJ/bit at the calibrated "
+              f"cap, no decoder counted; 'at limit' = the calibrated cap with no margin, example 15's reading; "
+              f"per constellation and back-off: example 15)")
+        # the be rows on the same footing: their calibrated cap (the IQcal column: the analytic floor at
+        # example 03's measured IRR), only rows that catch the CFO and sit in the 57-71 GHz plan
+        be_cal = [r for r in rep["rows"] if r["power_cal"] and r["cfo_captured"] and r["plan_ok"] is not False]
+        if be_cal:
+            fast = max(be_cal, key=lambda r: r["rate_cal_mbps"])
+            cheap = min(be_cal, key=lambda r: r["power_cal"]["pj_per_bit"])
+            pairs = [("fastest and fewest pJ/bit", fast)] if fast is cheap else [("fastest", fast),
+                                                                                  ("fewest pJ/bit", cheap)]
+            for what, r in pairs:
+                print(f"be rows at their calibrated cap, {what}: {r['label']} MCS{r['max_mcs_cal']} "
+                      f"{r['rate_cal_mbps']:.0f} Mb/s {r['power_cal']['pj_per_bit']:.0f} pJ/bit "
+                      f"(decoder {r['power_cal']['blocks'].get('decoder', {}).get('pj_per_bit', 0):.0f} of it)")
     print("\n== 2. cross-checks: analytic floor vs time-domain EVM (|Δ| ≤ 2 dB while the floor ≤ −8 dB and the CFO is "
           "caught), EvmBudget vs floor ==")
     for c in rep["cross_checks"]:
@@ -136,6 +175,17 @@ def main(argv=None) -> int:
         chip = f"; total includes the chip's PA as the driver, {bl['chip_pa']['pj_per_bit']:.0f}" if "chip_pa" in bl else ""
         print(f"{r['label']:<44} {p['bit_rate_bps'] / 1e6:6.0f} {g('pa')} {g('lo')} {g('converters')} {g('chip_dpd')} "
               f"{g('fft')} {g('decoder')} {p['pj_per_bit']:7.0f}  {'; '.join(p['omitted']) or '—'}{chip}")
+    # the 802.11ay rows have no uncalibrated cap: their blocks at the calibrated one (section 1b)
+    for r in rep["ay_rows"]:
+        p = r["power_cal"]
+        if not p:
+            print(f"{r['label']:<44}      —  (no MCS reachable on the calibrated chain)")
+            continue
+        bl = p["blocks"]
+        g = lambda n: f"{bl[n]['pj_per_bit']:6.0f}" if n in bl else "     —"  # noqa: E731
+        print(f"{r['label']:<44} {p['bit_rate_bps'] / 1e6:6.0f} {g('pa')} {g('lo')} {g('converters')} {g('chip_dpd')} "
+              f"{g('fft')} {g('decoder')} {p['pj_per_bit']:7.0f}  at the calibrated cap MCS{r['cap_cal']}; "
+              f"{'; '.join(p['omitted']) or '—'}")
     c = rep["coefficients"]
     print(f"coefficients: Walden {c['walden_fom_fj']:.0f} fJ/step; Horowitz {c['mult32_pj']:g} / {c['add32_pj']:g} pJ at 45 nm "
           f"(node scale {c['node_scale']:g}); {c['word_bits']} bit; synthesizers {c['pll60_mw']:g} / {c['pll_sub7_mw']:g} mW")

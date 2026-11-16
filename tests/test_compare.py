@@ -34,9 +34,11 @@ def test_law2_matrix_names_every_topology_x_waveform_pair():
     built = {s.key for s in MATRIX if s.status == "built"}
     # both topologies carry both be waveforms (topology A's upclocking changes only its digital
     # baseband, on the chip's own channels: 11ac 20 MHz x 32 = 640 MHz is past them, an n/a row);
-    # the ay waveforms are built (they run) but their table rows are milestone 3 stage 2
-    assert built == {(t, w) for t in TOPOLOGIES for w in ("be", "be_upclocked")}
-    assert set(WAVEFORMS_BUILT) == set(WAVEFORMS)
+    # the ay waveforms are topology B's (milestone 3; their rows since stage 2b)
+    assert built == ({(t, w) for t in TOPOLOGIES for w in ("be", "be_upclocked")}
+                     | {("upclock_zero_if", "ay_ofdm"), ("upclock_zero_if", "ay_sc")})
+    assert set(WAVEFORMS_BUILT) == set(WAVEFORMS) and not compare.PENDING
+    assert not [s for s in MATRIX if s.status == "pending"]
     beyond = [s for s in MATRIX if s.key == ("if_extender", "be_upclocked") and s.status == "n/a"]
     assert [s.label.split()[3] for s in beyond] == ["K=32"] and beyond[0].reason == compare.NOT_A_CHIP_CHANNEL
     for s in MATRIX:
@@ -47,13 +49,10 @@ def test_law2_matrix_names_every_topology_x_waveform_pair():
         else:
             assert s.cfg is not None and s.cfg.topology == s.topology and s.cfg.waveform == s.waveform
             LinkSim(s.cfg)
-    # the pending ones are the ay rows on topology B: they run (example 15), only the table row waits;
-    # on topology A they are not a scheme at all
-    from mmw60.config import ay_60ghz
+    # the ay rows on topology B run their own link; on topology A they are not a scheme at all
     for s in MATRIX:
-        if s.status == "pending":
-            assert s.topology == "upclock_zero_if" and s.waveform in ("ay_ofdm", "ay_sc") and "stage 2" in s.reason
-            assert type(LinkSim(ay_60ghz(s.waveform))).__name__ == "AyLinkSim"
+        if s.status == "built" and s.waveform in ("ay_ofdm", "ay_sc"):
+            assert s.topology == "upclock_zero_if" and type(LinkSim(s.cfg)).__name__ == "AyLinkSim"
         if s.key in {("if_extender", "ay_ofdm"), ("if_extender", "ay_sc")}:
             assert s.status == "n/a" and s.reason == compare.NOT_A_SCHEME
 
@@ -66,13 +65,19 @@ def test_law2_every_scheme_on_the_shared_frontend_reads_the_k1_evm_when_ideal(sc
     K = 1 chain at the scheme's own oversampling (topology A's chip runs at
     4×, the LPF's group-delay share of the floor depends on it).  Topology A
     ideal is that chain with a transparent 60 GHz stage after it.  The ay
-    waveforms skip with the milestone that builds them."""
+    waveforms have another numerology, so their anchor is their own: on the
+    same ideal instance they read below −35 dB."""
     if scheme.status != "built":
         pytest.skip(scheme.reason)
     # the hardware is the instance, not the config: the ideal front end is
     # built once and every scheme runs on it
     fe = Frontend60.from_config(zero_if_60ghz(k=8).ideal())
     assert not fe.pa_enabled and not fe.converters_enabled and fe.lo.profile is None and not fe.tx_iq.enabled
+    if scheme.waveform in ("ay_ofdm", "ay_sc"):
+        sim = LinkSim(dc.replace(scheme.cfg.ideal(), channel=FLAT), frontend=fe)
+        assert sim.frontend is fe and sim.frontend.eirp is fe.eirp and sim.frontend.lo is fe.lo
+        assert sim.packet(None, np.random.default_rng(0)).rx.evm_db < -35
+        return
     k1 = wifi7_chain_k1().ideal()
     k1 = dc.replace(k1, channel=FLAT, phy=dc.replace(k1.phy, oversampling=scheme.cfg.phy.oversampling))
     ref = evm_at(k1, None, n_packets=1, frontend=fe)["evm_db"]
@@ -88,8 +93,18 @@ def test_law2_report_hands_one_instance_to_every_row_and_the_k1_row_is_the_ancho
     assert rep["frontend_ids"]["frontend"] == id(fe) and rep["frontend_ids"]["eirp"] == id(fe.eirp)
     labels = [r["label"] for r in rep["rows"]]
     # rows: A be, A be_upclocked K=8 (the chip's 160 MHz channel), B be K=1, B be_upclocked K=1 / 8;
-    # not built: the two ay waveforms on both topologies
-    assert len(labels) == 5 and len(rep["pending"]) == 4 and len(rep["matrix"]) == 8
+    # the two ay rows on topology B (their own list, the same instance); not a scheme: ay on topology A
+    assert len(labels) == 5 and len(rep["ay_rows"]) == 2 and len(rep["pending"]) == 2 and len(rep["matrix"]) == 8
+    assert all(r["frontend_id"] == id(fe) for r in rep["ay_rows"])
+    assert all(p["status"] == "n/a" for p in rep["pending"])
+    # the be rows carry their power at the calibrated cap too (what the ay rows are compared against);
+    # where calibration does not move the cap it is the same report
+    for r in rep["rows"]:
+        assert (r["power_cal"] is None) == (r["rate_cal_mbps"] is None)
+        if r["power_cal"] and r["max_mcs_cal"] == r["max_mcs"]:
+            assert r["power_cal"] == r["power"]
+        if r["power_cal"]:
+            assert r["power_cal"]["bit_rate_bps"] == pytest.approx(r["rate_cal_mbps"] * 1e6)
     # the K = 1 chain row reads what evm_at reads for the same config on the same instance
     k1 = next(r for r in rep["rows"] if r["waveform"] == "be" and r["topology"] == "upclock_zero_if")
     e = evm_at(dc.replace(wifi7_chain_k1(), channel=FLAT), None, n_packets=1, frontend=fe)["evm_db"]
@@ -161,7 +176,7 @@ def test_markdown_lists_every_scheme_and_json_round_trips(tmp_path):
     md = compare.to_markdown(rep)
     for s in sch:
         assert s.label in md
-    assert "milestone 3" in md and "IF extender" in md
+    assert "802.11ay rows" in md and "IF extender" in md
     json.loads(json.dumps(compare.report_json(rep), default=str))
 
 
@@ -321,9 +336,10 @@ def test_budget_report_cli_writes_markdown_and_json(tmp_path):
     md, js = tmp_path / "t.md", tmp_path / "t.json"
     assert budget_report.main(["--k", "1,8", "--no-time-domain", "-o", str(md), "--json", str(js)]) == 0
     text = md.read_text(encoding="utf-8")
-    assert "be_upclocked 11ac 20M K=8 @60.48 GHz" in text and "pending" in text and "pJ/bit" in text
+    assert "be_upclocked 11ac 20M K=8 @60.48 GHz" in text and "pending or n/a" in text and "pJ/bit" in text
     d = json.loads(js.read_text(encoding="utf-8"))
-    assert len(d["rows"]) == 5 and len(d["pending"]) == 4 and "_rows" not in d
+    assert len(d["rows"]) == 5 and len(d["ay_rows"]) == 2 and len(d["pending"]) == 2 and "_rows" not in d
+    assert "802.11ay rows" in text
     with pytest.raises(ValueError, match="unique"):
         compare.build(compare.scheme_matrix(ks=(8, 8)), time_domain=False)
     assert budget_report.parse_base("11be:80e6") == ("11be", 80e6)

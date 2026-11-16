@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from . import spec
-from .config import (TOPOLOGIES, WAVEFORMS, ChannelConfig, Mmw60Config, if_extender_60ghz, ifext_chip_channels_hz,
+from .config import (AY_WAVEFORMS, TOPOLOGIES, WAVEFORMS, ChannelConfig, Mmw60Config, if_extender_60ghz, ifext_chip_channels_hz,
                      wifi7_chain_k1, zero_if_60ghz)
 from .frontend.frontend import Frontend60
 from .frontend.grid import (REASON_ZH, analytic_floors, data_rate_bps, decoder_cap, decoder_floor_db,
@@ -51,12 +51,8 @@ from .vendor.wifitrx.impairments.phase_noise import cpe_partition
 from .vendor.wifitrx.link.evm_budget import PN_BAND_HZ, EvmBudget
 
 #: why a (topology, waveform) cell has no numbers yet
-PENDING = {
-    ("upclock_zero_if", "ay_ofdm"): "pending: milestone 3 stage 2, the comparison-table row (the waveform runs on "
-                                    "the shared front end since stage 1: sim/ay_link.py, example 15)",
-    ("upclock_zero_if", "ay_sc"): "pending: milestone 3 stage 2, the comparison-table row (the waveform runs on "
-                                  "the shared front end since stage 1: sim/ay_link.py, example 15)",
-}
+#: the two 802.11ay rows are built since milestone 3 stage 2b (``evaluate_ay``); nothing is pending
+PENDING: dict = {}
 NOT_A_SCHEME = ("n/a: the ay waveforms are topology B's hardware; topology A's chip makes WiFi 7 numerologies "
                 "only, up to its widest channel")
 NOT_A_CHIP_CHANNEL = ("n/a: topology A upclocks only the digital baseband, so K x base bandwidth must be one of the "
@@ -110,11 +106,86 @@ def scheme_matrix(ks=(1, 4, 8, 16, 32), standard: str = "11ac", bandwidth_hz: fl
                         rows.append(Scheme(lab, topo, wf, None, "n/a", NOT_A_CHIP_CHANNEL))
                 if not any(r.key == (topo, wf) for r in rows):
                     rows.append(Scheme(f"{wf} on {topo}", topo, wf, None, "n/a", NOT_A_CHIP_CHANNEL))
+            elif topo == "upclock_zero_if" and wf in ("ay_ofdm", "ay_sc"):
+                from .config import ay_60ghz
+                cfg = ay_60ghz(wf, carrier_hz=carrier_hz)
+                rows.append(Scheme(f"{wf} EDMG channel {_ay_channel(carrier_hz)} @{carrier_hz / 1e9:g} GHz", topo, wf, cfg))
             elif (topo, wf) in PENDING:
                 rows.append(Scheme(f"{wf} on {topo}", topo, wf, None, "pending", PENDING[(topo, wf)]))
             else:
                 rows.append(Scheme(f"{wf} on {topo}", topo, wf, None, "n/a", NOT_A_SCHEME))
     return rows
+
+
+def _ay_channel(carrier_hz: float) -> int:
+    from .ay import edmg
+    return edmg.channel_of(carrier_hz)
+
+
+def evaluate_ay(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None = None, cal=None) -> dict:
+    """One 802.11ay row (milestone 3, EVM only): no analytic floor — the
+    time-domain EVM of the waveform on the shared front end, raw and on the
+    chains wifitrx's sequence calibrated at the preset back-off (iron rule 4;
+    ``calcheck.run_cal_ay``, ``cal`` lets both ay rows share one run: the
+    same chain).  The floor is read per payload constellation (the highest
+    MCS of each), and the conformance cap is the passing MCS with the
+    highest rate (``ay.edmg``) under the be rows' rule: the floor
+    ``assumed.mcs_evm_margin_db`` under the MCS's TX EVM limit (iron rule 2:
+    one reading for every row); ``cap_cal_at_limit`` is the cap with no
+    margin, example 15's reading.  pJ/bit at both caps; the decoder is not
+    counted (EVM only)."""
+    import copy
+
+    from .ay import edmg
+    from .calcheck import run_cal_ay
+    from .sim.link import LinkSim
+    cfg = dc.replace(s.cfg, channel=ChannelConfig(model="flat"))
+    wf = cfg.waveform
+    run = cal if cal is not None else run_cal_ay(fe, cfg)
+    table = edmg.mcs_table(wf)
+    rep_mcs = {}
+    for e in table:
+        rep_mcs[e.tone_order] = max(rep_mcs.get(e.tone_order, 0), e.mcs)
+
+    def floor(m, chains):
+        c = dc.replace(cfg, ay=dc.replace(cfg.ay, mcs=m))
+        sim = LinkSim(c, frontend=fe, chains=None if chains is None else copy.deepcopy(chains))
+        rng = np.random.default_rng(cfg.seed)
+        return float(sim.packet(None, rng).rx.evm_db)
+
+    raw = {o: floor(m, None) for o, m in sorted(rep_mcs.items())}
+    cald = {o: floor(m, run.chains[:2]) for o, m in sorted(rep_mcs.items())}
+
+    margin = float(spec.value("assumed.mcs_evm_margin_db"))
+
+    def cap(fl, m=margin):
+        ok = [e for e in table if fl[e.tone_order] <= e.evm_limit_db - m]
+        return max(ok, key=lambda e: (e.rate_bps(cfg.ay.gi), e.mcs)) if ok else None
+
+    c_raw, c_cal, c_lim = cap(raw), cap(cald), cap(cald, 0.0)
+    sim = LinkSim(cfg, frontend=fe)
+    phy = sim.phy
+    unit_s = (phy.num.symbol_samples / phy.num.fs_hz if wf == "ay_ofdm" else phy.num.block / phy.num.fs_hz)
+    stf_range = phy.native_fs / (2 * int(cfg.ay.stf_length))
+    out = {"label": s.label, "topology": s.topology, "waveform": wf, "channel": phy.channel, "gi": cfg.ay.gi,
+           "fs_eff_hz": phy.fs_eff, "bw_eff_hz": phy.bandwidth_eff, "occupied_bw_hz": phy.occupied_bw_hz,
+           "unit_s": unit_s, "scs_hz": phy.num.scs_hz if wf == "ay_ofdm" else None,
+           "cfo_hz": cfg.cfo_hz, "stf_range_hz": stf_range, "cfo_captured": abs(cfg.cfo_hz) < stf_range,
+           "floor_raw_db": raw, "floor_cal_db": cald,
+           "cap_raw": None if c_raw is None else c_raw.mcs, "cap_cal": None if c_cal is None else c_cal.mcs,
+           "rate_raw_mbps": None if c_raw is None else c_raw.rate_bps(cfg.ay.gi) / 1e6,
+           "rate_cal_mbps": None if c_cal is None else c_cal.rate_bps(cfg.ay.gi) / 1e6,
+           "cap_margin_db": margin, "cap_cal_at_limit": None if c_lim is None else c_lim.mcs,
+           "rate_cal_at_limit_mbps": None if c_lim is None else c_lim.rate_bps(cfg.ay.gi) / 1e6,
+           "cal_irr_db": min(r.value for r in run.rows if r.step in ("tx_iq", "rx_iq") and r.value is not None),
+           "cal_lo_leak_dbc": next((r.value for r in run.rows if r.step == "tx_lo_leak_loopback"), None),
+           "pout_dbm": sim.pout_dbm, "eirp": None, "power_raw": None, "power_cal": None, "frontend_id": id(sim.frontend)}
+    if fe.eirp is not None and fe.pa_enabled:
+        out["eirp"] = fe.eirp.check(fe.target_pout_dbm(), fe.antenna_gain_dbi)
+    for key, c in (("power_raw", c_raw), ("power_cal", c_cal)):
+        if c is not None:
+            out[key] = power_report(cfg, fe, c.rate_bps(cfg.ay.gi), coeffs, phy).as_dict()
+    return out
 
 
 def measured_irr_after_cal_db(bw_eff_hz: float) -> tuple[float, float]:
@@ -161,6 +232,9 @@ class Row:
     evm_budget: dict = field(default_factory=dict)
     eirp: dict | None = None
     power: dict | None = None
+    #: the power blocks at the calibrated cap (``max_mcs_cal``): the reading the 802.11ay rows,
+    #: whose uncalibrated chain reaches no MCS, are compared against (section 1b of example 04)
+    power_cal: dict | None = None
     pout_dbm: float | None = None
     #: the decoder's cap (``frontend/grid.py::decoder_cap``): uncalibrated, at
     #: the calibrated IRR, the SNR it needs there and what the floor costs
@@ -286,6 +360,8 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
             row.eirp = fe.eirp.check(row.pout_dbm, fe.antenna_gain_dbi)
     if rate is not None:
         row.power = power_report(cfg, fe, rate, coeffs, phy, mcs_index=mcs).as_dict()
+    if rate_cal is not None:
+        row.power_cal = power_report(cfg, fe, rate_cal, coeffs, phy, mcs_index=mcs_cal).as_dict()
     if time_domain:
         flat = dc.replace(cfg, channel=ChannelConfig(model="flat"))
         row.td_evm_db = evm_at(flat, None, n_packets=1, frontend=fe)["evm_db"]
@@ -310,8 +386,9 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
 # ------------------------------------------------------------------ the report
 def build(schemes: list[Scheme], fe: Frontend60 | None = None, coeffs: PowerCoefficients | None = None,
           time_domain: bool = True, progress=None) -> dict:
-    built = [s for s in schemes if s.status == "built"]
-    labels = [s.label for s in built]
+    built = [s for s in schemes if s.status == "built" and s.waveform not in AY_WAVEFORMS]
+    ay_built = [s for s in schemes if s.status == "built" and s.waveform in AY_WAVEFORMS]
+    labels = [s.label for s in built + ay_built]
     if len(set(labels)) != len(labels):
         raise ValueError(f"scheme labels must be unique (they key the report): {labels}")
     if fe is None:
@@ -323,10 +400,16 @@ def build(schemes: list[Scheme], fe: Frontend60 | None = None, coeffs: PowerCoef
         rows.append(evaluate_scheme(s, fe, coeffs, pa_evm, time_domain))
         if progress:
             progress(rows[-1])
+    ay_rows = []
+    if ay_built:
+        from .calcheck import run_cal_ay
+        cal = run_cal_ay(fe, ay_built[0].cfg)            # one chain, one calibration, both ay rows
+        ay_rows = [evaluate_ay(s, fe, coeffs, cal) for s in ay_built]
     rep = {"frontend": fe.describe(), "frontend_ids": {"frontend": id(fe), "lo": id(fe.lo), "eirp": id(fe.eirp),
                                                        "converters": id(fe.converters)},
            "pa_isolated_evm_db": pa_evm, "coefficients": coeffs.describe(),
            "rows": [row_dict(r) for r in rows],
+           "ay_rows": ay_rows,
            "pending": [{"label": s.label, "topology": s.topology, "waveform": s.waveform, "status": s.status,
                         "reason": s.reason} for s in schemes if s.status != "built"],
            "matrix": sorted({(s.topology, s.waveform) for s in schemes}),
@@ -391,6 +474,22 @@ def to_markdown(rep: dict) -> str:
             f"{_f(r['td_evm_db'])} | {_f(r['evm_budget'].get('predicted_evm_db'))} | {_f(r['max_mcs'], 'MCS{}')} | "
             f"{_f(r['max_mcs_cal'], 'MCS{}')} ({r['irr_cal_db']:.0f} dB) | {_f(r['rate_mbps'], '{:.0f} Mb/s')} | "
             f"{_f(r['bits_per_s_per_hz'], '{:.2f}')} | {eirp} | {pj} | {r['verdict']} {r['reason']} |")
+    if rep.get("ay_rows"):
+        lines += ["", "## the two 802.11ay rows (same front end instance; EVM only; time-domain floors, raw and on the "
+                  "chains wifitrx's sequence calibrated; caps under the be rows' rule, the floor "
+                  f"{rep['ay_rows'][0]['cap_margin_db']:g} dB under the EDMG TX EVM limit)", "",
+                  "| scheme | fs | occupied | unit | CFO / STF range | floor raw (worst) | floor calibrated (worst) | "
+                  "cap raw | cap calibrated | rate @cal cap | EIRP | pJ/bit @cal cap | cal cap at the limit (no margin) |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+        for r in rep["ay_rows"]:
+            eirp = "—" if not r["eirp"] else f"{r['pout_dbm']:.0f} dBm / {r['eirp']['margin_avg_db']:+.0f} dB"
+            pj = "—" if not r["power_cal"] else f"{r['power_cal']['pj_per_bit']:.0f}"
+            lines.append(f"| {r['label']} | {r['fs_eff_hz'] / 1e9:.2f} GS/s | {r['occupied_bw_hz'] / 1e9:.3f} GHz | "
+                         f"{r['unit_s'] * 1e9:.1f} ns | {r['cfo_hz'] / 1e6:.2f} / ±{r['stf_range_hz'] / 1e6:.2f} MHz | "
+                         f"{max(r['floor_raw_db'].values()):.1f} | {max(r['floor_cal_db'].values()):.1f} | "
+                         f"{_f(r['cap_raw'], 'MCS{}')} | {_f(r['cap_cal'], 'MCS{}')} | "
+                         f"{_f(r['rate_cal_mbps'], '{:.0f} Mb/s')} | {eirp} | {pj} | "
+                         f"{_f(r['cap_cal_at_limit'], 'MCS{}')} ({_f(r['rate_cal_at_limit_mbps'], '{:.0f} Mb/s')}) |")
     lines += ["", "## the decoder's cap (EVM floor as a noise term against the measured ideal thresholds)", "",
               "| scheme | floor used (worse of analytic / time-domain) | conformance cap | decoder cap | to the next MCS line | SNR needed there | floor costs | decoder cap, IQ calibrated | rate @dec cap | pJ/bit @dec cap |",
               "|---|---|---|---|---|---|---|---|---|---|"]
@@ -400,7 +499,7 @@ def to_markdown(rep: dict) -> str:
                      f"{format_cap(r['dec_mcs'], r['dec_mcs_range'])} | {_f(r['dec_next_margin_db'], '{:+.2f} dB')} | "
                      f"{_f(r['dec_required_snr_db'], '{:.1f} dB')} | {_f(r['dec_penalty_db'], '{:.1f} dB')} | "
                      f"{format_cap(r['dec_mcs_cal'], r['dec_mcs_cal_range'])} | {_f(r['dec_rate_mbps'], '{:.0f} Mb/s')} | {pjd} |")
-    lines += ["", "## rows without numbers yet", ""]
+    lines += ["", "## rows without numbers (pending or n/a)", ""]
     for p in rep["pending"]:
         lines.append(f"- **{p['label']}** — {p['reason']}")
     lines += ["", "## analytic terms [dB] and the EvmBudget reconciliation", "",
@@ -481,7 +580,8 @@ def sensitivity(schemes: list[Scheme], fe: Frontend60, coeffs: PowerCoefficients
     """The analytic side rerun at every knob end; per knob the rows whose MCS
     cap changed and whether the pJ/bit ranking of the rows changed."""
     coeffs = coeffs or PowerCoefficients.from_spec()
-    built = [s for s in schemes if s.status == "built"]
+    # the 802.11ay rows are measured on the calibrated chain only (no analytic side): not rerun here
+    built = [s for s in schemes if s.status == "built" and s.waveform not in AY_WAVEFORMS]
 
     def run(fe_, co_, irr_, margin_=None):
         pa_evm = pa_isolated_evm_db(fe_.pa_model, fe_.obo_db, fe_.obo_reference) if fe_.pa_enabled else None
@@ -542,4 +642,4 @@ def report_json(rep: dict) -> dict:
 
 __all__ = ["Scheme", "Row", "PENDING", "NOT_A_SCHEME", "NOT_A_CHIP_CHANNEL", "scheme_matrix", "measured_irr_after_cal_db",
            "evaluate_scheme", "build", "to_markdown", "cross_checks", "sensitivity", "sensitivity_knobs",
-           "sensitivity_markdown", "report_json", "PowerReport"]
+           "sensitivity_markdown", "report_json", "PowerReport", "evaluate_ay"]

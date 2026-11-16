@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### 里程碑 3 第二段 2b（中）：同台表的两行 802.11ay（2026-11-16）—— 指纹与 be 各行的数不变；示例 04 多 §1b
+- `compare.evaluate_ay`（新）：底板读时域，原始链与 `calcheck.run_cal_ay` 校准过的链各一列；合规上限照 be 行的余量规则（`assumed.mcs_evm_margin_db`），另给不留余量的读法；pJ/bit 不计解码器。`compare.build` 的报告多 `ay_rows`（**报告 JSON 加键**），`compare.PENDING` 清空，`scheme_matrix` 给出 ay 两行。
+- `compare.Row` 加 `power_cal`：be 行在校准后上限处的功耗（**报告 JSON 加键**），用来和 ay 行同口径比。
+- `power_report` 认得 ay 波形（变换按 512 点、按 OFDM 符号 / SC 块计；解码器记为未计）。
+- `compare.sensitivity` 不再重跑 ay 行（它们没有解析侧）；示例 04 与 `tools/budget_report.py` 多基准时 ay 两行只出现一次。
+- 结论：同在校准后上限，ay SC 4620 Mb/s、188 pJ/bit，be 最好的一行（11be 80 MHz × 32）3459 Mb/s、270 pJ/bit。两边校准读法不对称，见 `cairn/comparison-table.md` §2c 与 ROADMAP A3。
+
 ### 里程碑 3 第二段 2b（上）：§8 每个回退点各校一次（2026-11-16）—— 源码、预设与指纹不变；示例 15 §8 的数更正
 - 示例 15 §8：每个回退点各跑一次 `run_cal_ay`，不再只在预设回退校准一次；另加一行，给出单次校准跑到 15 dB 时读成什么。
 - 更正：同调制同码率时 SC 少退 0.14–0.32 dB（16-QAM），不是 #51 的 0.01–0.15 dB。原因是 wifitrx 的 TX LO 泄漏抵消只对它校准时的增益状态成立。

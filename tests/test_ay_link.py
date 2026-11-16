@@ -228,3 +228,37 @@ def test_the_tx_lo_leak_calibration_holds_only_at_its_gain_state():
     stale, stale_no_cfo = ev(low, once), ev(dc.replace(low, xo_ppm_tx=0.0, xo_ppm_rx=0.0), once)
     fresh = ev(low, here)
     assert fresh < -25 and stale > fresh + 6 and stale_no_cfo < fresh + 1.0, (stale, stale_no_cfo, fresh)
+
+
+def test_the_two_ay_rows_of_the_comparison_table():
+    """Milestone 3 stage 2b: the comparison table's ay rows — the same front-end
+    instance, one calibration shared by both, floors read per payload
+    constellation, the cap by the EDMG limits at its highest rate under the
+    be rows' rule (the floor assumed.mcs_evm_margin_db under the limit; iron
+    rule 2), and the power blocks with no decoder counted."""
+    from mmw60 import compare
+    from mmw60.config import zero_if_60ghz
+    fe = Frontend60.from_config(zero_if_60ghz(k=8))
+    rep = compare.build([s for s in compare.scheme_matrix(ks=(8,)) if s.status == "built"
+                         and s.waveform in ("ay_ofdm", "ay_sc")], fe, time_domain=False)
+    by = {r["waveform"]: r for r in rep["ay_rows"]}
+    assert set(by) == {"ay_sc", "ay_ofdm"} and not rep["rows"]
+    for wf, r in by.items():
+        assert r["frontend_id"] == id(fe) and r["cfo_captured"] and r["channel"] == 2
+        assert set(r["floor_cal_db"]) == {e.tone_order for e in edmg.mcs_table(wf)}
+        assert all(r["floor_cal_db"][o] < r["floor_raw_db"][o] - 10 for o in r["floor_cal_db"])
+        assert r["cap_margin_db"] == spec.value("assumed.mcs_evm_margin_db") > 0
+        cap = edmg.mcs_entry(wf, r["cap_cal"])
+        assert r["floor_cal_db"][cap.tone_order] <= cap.evm_limit_db - r["cap_margin_db"]
+        assert r["rate_cal_mbps"] == pytest.approx(cap.rate_bps() / 1e6)
+        # no faster MCS passes the same rule; without the margin (example 15's reading) one does
+        fl = r["floor_cal_db"]
+        assert not [e for e in edmg.mcs_table(wf) if fl[e.tone_order] <= e.evm_limit_db - r["cap_margin_db"]
+                    and e.rate_bps() > cap.rate_bps()]
+        assert r["rate_cal_at_limit_mbps"] > r["rate_cal_mbps"]
+        p = r["power_cal"]
+        assert "decoder" not in p["blocks"] and any("decoder" in o for o in p["omitted"])
+        assert p["pj_per_bit"] == pytest.approx(sum(b["pj_per_bit"] for b in p["blocks"].values()), rel=1e-6)
+    # the preset back-off: single carrier's lower floor reaches a faster MCS than OFDM's
+    assert by["ay_sc"]["rate_cal_mbps"] > by["ay_ofdm"]["rate_cal_mbps"]
+    assert "802.11ay rows" in compare.to_markdown(rep)

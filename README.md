@@ -91,7 +91,8 @@ python examples/11_topology_a_digital_upclock.py           # 全量约 17 分钟
 
 ## 里程碑 1 · A3：同台表（示例 04、`tools/budget_report.py`）
 
-`mmw60.compare` 把每种方案（拓扑 × 波形，8 格全部点名；没建的写明里程碑）放在**同一个** `Frontend60` 实例上：K = 1 的 WiFi 7 链、拓扑 B 的 K = 1 … 32，
+`mmw60.compare` 把每种方案（拓扑 × 波形，8 格全部点名；不成立的写明理由）放在**同一个** `Frontend60` 实例上：K = 1 的 WiFi 7 链、拓扑 B 的 K = 1 … 32、拓扑 A，
+以及拓扑 B 上的两种 802.11ay 波形（示例 04 §1b：时域底板，原始链与真跑过校准的链各一列，合规上限与 be 行同一条余量规则），
 每行 MCS 上限、吞吐、b/s/Hz、EIRP 余量、pJ/bit（`mmw60.power`，Halo 示例 41 口径，读比值）；解析底板 / 时域 EVM / wifitrx `EvmBudget` 三方对账；
 LO 三种剖面（11ad pole-zero、WiFi 7 频综、pllsim 6.048 GHz ×10 剖面，带倍频器底噪的四档）并排；`--sensitivity` 列出哪些系数和假设改写结论。
 
