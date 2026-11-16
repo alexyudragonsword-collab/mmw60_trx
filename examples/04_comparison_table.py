@@ -187,7 +187,7 @@ def main(argv=None) -> int:
               f"{g('fft')} {g('decoder')} {p['pj_per_bit']:7.0f}  at the calibrated cap MCS{r['cap_cal']}; "
               f"{'; '.join(p['omitted']) or '—'}")
     c = rep["coefficients"]
-    print(f"coefficients: Walden {c['walden_fom_fj']:.0f} fJ/step; Horowitz {c['mult32_pj']:g} / {c['add32_pj']:g} pJ at 45 nm "
+    print(f"coefficients: Walden {c['walden_fom_fj']:g} fJ/step; Horowitz {c['mult32_pj']:g} / {c['add32_pj']:g} pJ at 45 nm "
           f"(node scale {c['node_scale']:g}); {c['word_bits']} bit; synthesizers {c['pll60_mw']:g} / {c['pll_sub7_mw']:g} mW")
     print("c.dpd = the chip's own DPD (topology A: its calibration runs it and the floor's chip residual is read after it); "
           "no row pays for a DPD on the 60 GHz PA, whose floor term is the PA without predistortion (ROADMAP C8)")
@@ -237,7 +237,7 @@ def main(argv=None) -> int:
               "came from the time-domain floor starts one MCS higher in this section")
         for e in rep["sensitivity"]["knobs"]:
             ratio = "—" if e["pj_ratio_min"] is None else f"x{e['pj_ratio_min']:.2f} … x{e['pj_ratio_max']:.2f}"
-            print(f"  {e['knob']:<26} at {str(e['value']):<9} conformance cap moved on {len(e['mcs_moved']):>2} row(s), "
+            print(f"  {e['knob']:<26} at {compare.knob_value_text(e['value']):<9} conformance cap moved on {len(e['mcs_moved']):>2} row(s), "
                   f"decoder cap on {len(e['dec_mcs_moved']):>2}; pJ/bit {ratio:<18} ranking {'CHANGED' if e['ranking_changed'] else 'same'}")
             for kind, moved in (("conformance", e["mcs_moved"]), ("decoder", e["dec_mcs_moved"])):
                 if moved:

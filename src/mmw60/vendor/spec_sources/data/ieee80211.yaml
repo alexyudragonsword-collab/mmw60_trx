@@ -1,4 +1,4 @@
-# Vendored from spec_sources@3123b65072d21d374da518a0b2a81d97232f56b7: src/spec_sources/data/ieee80211.yaml
+# Vendored from spec_sources@76ee72a008e3f5ad65fcaa6119643914d0328622: src/spec_sources/data/ieee80211.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # ieee80211 —— IEEE 802.11 条文（VHT / EHT / DMG / EDMG）、TGad 评估方法学，与 ITU-R M.2003 的 DMG 条文。
 #
@@ -158,16 +158,20 @@ entries:
   ieee80211ac.n_sd:
     value: {20.0e+6: 52, 40.0e+6: 108, 80.0e+6: 234, 160.0e+6: 468}
     unit: data subcarriers
-    source: survey
-    cite: "IEEE 802.11-2020 VHT N_SD per bandwidth (Table 21-5)"
-    note: "未核实：原文表未贴入；20 MHz 的 52 与 phy/mcs.py 一致。"
+    source: spec
+    cite: "R. Stacey (Intel) ed., 'Proposed Specification Framework for TGac', IEEE 802.11-09/0992r21, 2011-01；mentor.ieee.org 公开文件，2026-11-16 读原文；20 / 40 MHz 的数读 IEEE 802.11-05/1102r4 'Joint Proposal: High throughput extension to the 802.11 Standard: PHY'（TGn 联合提案，2006-01）；mentor.ieee.org 公开文件，2026-11-16 读原文；80 MHz 的 234 另见 S. Azizi, E. Perahia, R. Stacey (Intel), J. Choi (LGE) et al., 'OFDMA Numerology and Structure', IEEE 802.11-15/0330r5, 2015-05-13；mentor.ieee.org 公开文件，2026-11-16 读原文"
+    section: "TGac 框架：3.2.3 VHT preamble、3.2.4.6 Pilot subcarriers、3.2.4.7 OFDM modulation、R3.1.C；TGn 联合提案：Table 1 Timing related constants；TGax 11-15/0330r5：slide 18 'Number of Guard Tones'"
+    quote: "(TGac) The number of subcarriers and pilots, including subcarrier positions, of VHT-LTF and VHT-DATA symbols in 20 and 40 MHz channels are the same as those for 11n HT-LTF and HT-DATA in 20 and 40 MHz channels. [...] The draft specification shall have 8 pilot tones, with the positions {±103, ±75, ±39, ±11}, for 80 MHz [...] The draft specification shall have 3 DC tones at (0, ±1) in the 80 MHz VHT data field. The draft specification shall have 5 null tones at the upper tone edges (tone indices 123, 124, 125, 126, 127) and 6 null tones at the lower tone edges (tone indices -128, -127, -126, -125, -124, -123) of the 80 MHz VHT data. [...] R3.1.C: Tone allocation for 160 MHz operation shall consist of two 80 MHz tone allocations. [...] (TGn, Table 1) NSD: Number of data subcarriers — legacy 20MHz 48, 20MHz HT 52, 40MHz HT 108 [...] (11-15/0330r5) The payload design of 4x Symbol 20MHz is exactly 11ac 80 MHz down-clocked by 4, meaning (6,5) guard tones, 3 DC nulls, payload 234 data, 8 pilots"
+    note: "VHT 每个带宽的数据子载波数。20 / 40 MHz：TGac 框架写明与 11n 的 HT 相同，TGn 联合提案的表是 52 / 108。80 MHz：256 点里 3 个 DC、上 5 下 6 个边带空子载波、8 个导频，剩 234（TGax 的 11-15/0330r5 也写明 11ac 80 MHz 是 'payload 234 data, 8 pilots'）。160 MHz：两个 80 MHz 拼成，468。20 MHz 的 52 与 mmw60_trx 的 phy/mcs.py 一致。用户 2026-11-16 对照标准核对一致（IEEE 802.11 标准的许可禁止输入 AI，本库没有读标准，只读公开文件）。"
 
   ieee80211be.n_sd:
     value: {20.0e+6: 234, 40.0e+6: 468, 80.0e+6: 980, 160.0e+6: 1960, 320.0e+6: 3920}
     unit: data subcarriers
-    source: survey
-    cite: "IEEE 802.11be EHT N_SD per bandwidth (RU 242/484/996/2×996/4×996 minus pilots)"
-    note: "未核实：原文表未贴入。"
+    source: spec
+    cite: "'Specification framework for TGbe', IEEE 802.11-19/1262r23, 2021-01；mentor.ieee.org 公开文件，2026-11-16 读原文；20 MHz 的 234 读 S. Azizi, E. Perahia, R. Stacey (Intel), J. Choi (LGE) et al., 'OFDMA Numerology and Structure', IEEE 802.11-15/0330r5, 2015-05-13；mentor.ieee.org 公开文件，2026-11-16 读原文"
+    section: "TGbe 框架：1.7.3 Segment parser（Nsd_total 表）；TGax 11-15/0330r5：slide 18"
+    quote: "(TGbe) 802.11be uses 80 MHz segment parser with the following parameters for the proportional round robin scheme: RU aggregation | Nsd_total | Proportional ratio: 484+996 1448 1s:2s; 484+2×996 2428; 484+3×996 3408; 2×996 1960 1s:1s; 3×996 2940; 4×996 3920 1s:1s:1s:1s [...] (11-15/0330r5) The payload design of 4x Symbol 20MHz is exactly 11ac 80 MHz down-clocked by 4, meaning (6,5) guard tones, 3 DC nulls, payload 234 data, 8 pilots"
+    note: "EHT 整带宽单个 RU 的数据子载波数：20 MHz = RU242 的 234（11-15/0330r5），160 / 320 MHz = 2×996 / 4×996 的 1960 / 3920（TGbe 框架的表）；80 MHz 的 980 = 1960 ÷ 2（同表比例 1s:1s），40 MHz 的 468 = 同表 484+996 的 1448 − 980。用户 2026-11-16 对照标准核对一致（IEEE 802.11 标准的许可禁止输入 AI，本库没有读标准，只读公开文件）。"
 
   # ------------------------------------------------------------ DMG 接收机：灵敏度表的前提、最大输入电平
   dmg.sensitivity_assumptions:
@@ -192,16 +196,20 @@ entries:
   ieee80211be.ldpc_tone_mapping_distance:
     value: {20.0e+6: 9, 40.0e+6: 12, 80.0e+6: 20, 160.0e+6: 20, 320.0e+6: 20}
     unit: tones
-    source: survey
-    cite: "IEEE 802.11ax-2021 Table 27-31 'LDPC tone mapping distance' by RU size（242: 9、484: 12、996: 20，2×996 / 4×996 每个 996 段各 20）；EHT 沿用（802.11be D3.0 §36.3.12.8）"
-    note: "未核实：原文表未贴入。D_TM 只影响频率选择性信道上的 PER（平坦信道不变）；N_SD 必须整除 D_TM（234/9、468/12、980/20）。"
+    source: spec
+    cite: "'Specification Framework for TGax', IEEE 802.11-15/0132r17（页眉印 r15），2016-05-25；mentor.ieee.org 公开文件，2026-11-16 读原文；EHT 沿用读 'Specification framework for TGbe', IEEE 802.11-19/1262r23, 2021-01；mentor.ieee.org 公开文件，2026-11-16 读原文"
+    section: "TGax 框架：3.3.2.1 Resource unit, edge and DC tones；3.3.3 Interleaver and encoder, Table 6；TGbe 框架：1.9 Interleaving for RUs and aggregated RUs"
+    quote: "(TGax) The 2x996-tone RU employs a segment parser (as in 11ac) between the two 996-tone frequency segments and the LDPC tone mapper in each 996-tone segment uses DTM = 20. [...] Table 6 - BCC interleaver and LDPC tone mapper parameters — RU size (tones) | LDPC DTM: 26 1; 52 3; 106 6; 242 9; 484 12; 996 20 [...] (TGbe) 802.11be supports the following LDPC tone mapper parameters: For RU52+RU26: D_TM = 4. For RU106+RU26: D_TM = 6. Existing RUs: identical to 802.11ax."
+    note: "LDPC 音调映射距离 D_TM：RU242 / 484 / 996 = 9 / 12 / 20；2×996 在每个 996 段内用 20，EHT 的 4×996 也按 80 MHz 分段，每段 20。TGbe 框架写明已有 RU 与 802.11ax 相同，只给新的组合 RU（52+26、106+26、484+242）另定。D_TM 只影响频率选择性信道上的 PER（平坦信道不变）；N_SD 必须整除 D_TM（234/9、468/12、980/20）。用户 2026-11-16 对照标准核对一致（IEEE 802.11 标准的许可禁止输入 AI，本库没有读标准，只读公开文件）。"
 
   ieee80211.ldpc_ppdu_encoding_thresholds:
     value: {l1296_over_648: 912, l1944_over_1296: 1464, l1944_over_1296_two_cw: 2916, punc_frac_a: 0.1, shrt_ratio_b: 1.2, punc_frac_c: 0.3}
     unit: bits / ratios
-    source: survey
-    cite: "IEEE 802.11-2020 §19.3.11.7.5 'LDPC PPDU encoding process' steps (b)–(e) and Table 19-16（码长与码字数选取、缩短 / 删余 / 重复及加一个符号的两个条件）；VHT / HE / EHT 沿用同一流程"
-    note: "未核实：原文未贴入。本库按 HT/VHT 的流程（预 FEC 填充到 N_SYM·N_DBPS，等价于 HE 的 a = 4），不建 HE/EHT 的 a 因子与 PE 字段（assumed.eht_prefec_padding）。"
+    source: spec
+    cite: "IEEE 802.11-05/1102r4 'Joint Proposal: High throughput extension to the 802.11 Standard: PHY'（TGn 联合提案，2006-01）；mentor.ieee.org 公开文件，2026-11-16 读原文"
+    section: "4.3.3.4 LDPCC PPDU encoding process, Table 13 PPDU Encoding Parameters 与步骤 (d)"
+    quote: "Table 13 - PPDU Encoding Parameters — Range (bits) | NCW | LLDPC: Navbits ≤ 648: 1, 1296 if Navbits ≥ Npld + 912 × (1-R), 648 otherwise; 648 < Navbits ≤ 1296: 1, 1944 if Navbits ≥ Npld + 1464 × (1-R), 1296 otherwise; 1296 < Navbits ≤ 1944: 1, 1944; 1944 < Navbits ≤ 2592: 2, 1944 if Navbits ≥ Npld + 2916 × (1-R), 1296 otherwise [...] d) Compute the number of bits to be punctured from the codewords after encoding [...] If ((Npunc > 0.1×NCW×LLDPC×(1-R)) AND (Nshrt < 1.2×Npunc×R/(1-R))) is true OR if (Npunc > 0.3×NCW×LLDPC×(1-R)) is true, then increment Navbits and recompute Npunc"
+    note: "HT 的 LDPC PPDU 编码流程：码长按 N_avbits 与 N_pld 选（门限 912 / 1464 / 2916 乘 (1 − R)），删余太多时多加一个符号（N_punc > 0.1·N_CW·L_LDPC·(1 − R) 且 N_shrt < 1.2·N_punc·R/(1 − R)，或 N_punc > 0.3·N_CW·L_LDPC·(1 − R)）。步骤 (d) 的判据原文是公式图，渲染出来读。VHT / HE / EHT 沿用同一流程是 mmw60_trx 的读法；它按 HT/VHT 的流程（预 FEC 填充到 N_SYM·N_DBPS，等价于 HE 的 a = 4），不建 HE/EHT 的 a 因子与 PE 字段（它的 assumed.eht_prefec_padding）。用户 2026-11-16 对照标准核对一致（IEEE 802.11 标准的许可禁止输入 AI，本库没有读标准，只读公开文件）。"
 
   # ------------------------------------------------------------ DMG PHY（802.11ad，单信道 2.16 GHz）：#29，公开材料
 
@@ -328,3 +336,111 @@ entries:
     source: derived
     cite: "edmg.sc_params 与 edmg.sc_mcs：码片率 × (块长 − GI) ÷ 块长 × N_CBPS × R ÷ 重复"
     note: "公式：rate = 1.76 GHz × (512 − GI) ÷ 512 × n_cbps × code_rate ÷ repetition，GI = 32 / 64 / 128 码片（短 / 普通 / 长）；单流、单信道，四舍五入到 0.01 Mbps。SFD 11-15/1358r9 的 Table 24 印出的 20 档速率与这个算法逐档相符。读法如 ref('edmg.sc_rate_mbps#normal_gi_mbps@mcs=2')。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  # ------------------------------------------------------------ #33：DMG / EDMG 的 LDPC、编码流程、扩展 SC MCS、控制 PHY 与扇区扫描（公开提案）
+
+  dmg.ldpc_matrices:
+    value: {z: 42, n: 672, r1_2: [[40, -1, 38, -1, 13, -1, 5, -1, 18, -1, -1, -1, -1, -1, -1, -1], [34, -1, 35, -1, 27, -1, -1, 30, 2, 1, -1, -1, -1, -1, -1, -1], [-1, 36, -1, 31, -1, 7, -1, 34, -1, 10, 41, -1, -1, -1, -1, -1], [-1, 27, -1, 18, -1, 12, 20, -1, -1, -1, 15, 6, -1, -1, -1, -1], [35, -1, 41, -1, 40, -1, 39, -1, 28, -1, -1, 3, 28, -1, -1, -1], [29, -1, 0, -1, -1, 22, -1, 4, -1, 28, -1, 27, -1, 23, -1, -1], [-1, 31, -1, 23, -1, 21, -1, 20, -1, -1, 12, -1, -1, 0, 13, -1], [-1, 22, -1, 34, 31, -1, 14, -1, 4, -1, -1, -1, 13, -1, 22, 24]], r5_8: [[20, 36, 34, 31, 20, 7, 41, 34, -1, 10, 41, -1, -1, -1, -1, -1], [30, 27, -1, 18, -1, 12, 20, 14, 2, 25, 15, 6, -1, -1, -1, -1], [35, -1, 41, -1, 40, -1, 39, -1, 28, -1, -1, 3, 28, -1, -1, -1], [29, -1, 0, -1, -1, 22, -1, 4, -1, 28, -1, 27, 24, 23, -1, -1], [-1, 31, -1, 23, -1, 21, -1, 20, -1, 9, 12, -1, -1, 0, 13, -1], [-1, 22, -1, 34, 31, -1, 14, -1, 4, -1, -1, -1, -1, -1, 22, 24]], r3_4: [[35, 19, 41, 22, 40, 41, 39, 6, 28, 18, 17, 3, 28, -1, -1, -1], [29, 30, 0, 8, 33, 22, 17, 4, 27, 28, 20, 27, 24, 23, -1, -1], [37, 31, 18, 23, 11, 21, 6, 20, 32, 9, 12, 29, -1, 0, 13, -1], [25, 22, 4, 34, 31, 3, 14, 15, 4, -1, 14, 18, 13, 13, 22, 24]], r13_16: [[29, 30, 0, 8, 33, 22, 17, 4, 27, 28, 20, 27, 24, 23, -1, -1], [37, 31, 18, 23, 11, 21, 6, 20, 32, 9, 12, 29, 10, 0, 13, -1], [25, 22, 4, 34, 31, 3, 14, 15, 4, 2, 14, 18, 13, 13, 22, 24]]}
+    unit: "Z × Z 循环移位量（-1 为零块）"
+    source: spec
+    cite: "IEEE 802.11-10/0433r2 'PHY/MAC Complete Proposal Specification'（TGad 采纳的完整提案规范文本，2010-05-18，C. Cordeiro et al.）；mentor.ieee.org 公开文件，2026-11-16 读原文（表格从 docx 逐格取，公式是嵌入图片、渲染出来读）"
+    section: "21.3.8 Common LDPC parity matrices, Table 69–72"
+    quote: "Four Low-Density Parity-Check (LDPC) codes are specified, each of a different rate but with a common codeword size of 672 bits. [...] A location with integer i denotes the cyclic-permutation sub-matrix Pi obtained from the Z x Z identity matrix by cyclically shifting the columns to the right by i elements. [...] Table 69 – Rate 1/2 LDPC code matrix: 40 - 38 - 13 - 5 - 18 - - - - - - -; 34 - 35 - 27 - - 30 2 1 - - - - - -; - 36 - 31 - 7 - 34 - 10 41 - - - - -; - 27 - 18 - 12 20 - - - 15 6 - - - -; 35 - 41 - 40 - 39 - 28 - - 3 28 - - -; 29 - 0 - - 22 - 4 - 28 - 27 - 23 - -; - 31 - 23 - 21 - 20 - - 12 - - 0 13 -; - 22 - 34 31 - 14 - 4 - - - 13 - 22 24 [...] Table 70 – Rate 5/8: 20 36 34 31 20 7 41 34 - 10 41 - - - - -; 30 27 - 18 - 12 20 14 2 25 15 6 - - - -; 35 - 41 - 40 - 39 - 28 - - 3 28 - - -; 29 - 0 - - 22 - 4 - 28 - 27 24 23 - -; - 31 - 23 - 21 - 20 - 9 12 - - 0 13 -; - 22 - 34 31 - 14 - 4 - - - - - 22 24 [...] Table 71 – Rate 3/4: 35 19 41 22 40 41 39 6 28 18 17 3 28 - - -; 29 30 0 8 33 22 17 4 27 28 20 27 24 23 - -; 37 31 18 23 11 21 6 20 32 9 12 29 - 0 13 -; 25 22 4 34 31 3 14 15 4 - 14 18 13 13 22 24 [...] Table 72 – Rate 13/16: 29 30 0 8 33 22 17 4 27 28 20 27 24 23 - -; 37 31 18 23 11 21 6 20 32 9 12 29 10 0 13 -; 25 22 4 34 31 3 14 15 4 2 14 18 13 13 22 24"
+    note: "DMG 的四个 LDPC 码，码长 672、Z = 42；每格 i 是把 Z × Z 单位阵各列循环右移 i 位，-1 是零块。行数 8 / 6 / 4 / 3 对应码率 1/2、5/8、3/4、13/16。TGay 的 SFD 把 1344 码长的提升矩阵作用在这四张表上（edmg.ldpc_1344_lifting），提升矩阵里 -1 的位置与这里的零块逐格相同；672 码长的 7/8 矩阵（edmg.ldpc_672_r7_8）正好是这里 3/4 矩阵第 1+3、2+4 行之和（本库生成条目时用程序核对过）。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  dmg.data_encoding:
+    value: {scrambler_polynomial: "x^7 + x^4 + 1", scrambler_period: 127, scrambler_init: "x1..x7 chosen per PPDU and sent in the 7-bit Scrambler Initialization header field", sc_n_cw: "ceil(Length*8 / ((L_CW/rho)*R))", sc_n_data_pad: "N_CW*(L_CW/rho)*R - Length*8", sc_n_blks: "ceil(N_CW*L_CW / N_CBPB)", sc_n_blk_pad: "N_BLKS*N_CBPB - N_CW*L_CW", ofdm_n_cw: "ceil(Length*8 / (L_CW*R))", ofdm_n_sym: "ceil(N_CW*L_CW / N_CBPS)", ofdm_n_pad: "R*N_SYM*N_CBPS - Length*8", ofdm_n_cw_recalc: "N_SYM*N_CBPS / L_CW", l_cw: 672}
+    unit: "formula"
+    source: spec
+    cite: "IEEE 802.11-10/0433r2 'PHY/MAC Complete Proposal Specification'（TGad 采纳的完整提案规范文本，2010-05-18，C. Cordeiro et al.）；mentor.ieee.org 公开文件，2026-11-16 读原文（表格从 docx 逐格取，公式是嵌入图片、渲染出来读）"
+    section: "21.3.9 Scrambler；21.5.3.2.2 Encoding（OFDM 的 LDPC encoding process）；21.6.3.2.2 Encoding（SC 的 LDPC encoding process）"
+    quote: "The header and data fields (including data padding bits but excluding the scrambler initialization field), shall be scrambled by XORing each bit in turn with a length 127 periodic sequence generated by the polynomial S(x) = x7 + x4 + 1. [...] For each PPDU, the transmitter selects values for bits x1 through x7 of the scrambler. [...] The values selected are sent in the Scrambler Initialization field. [...] (SC) First the total number of data pad bits NDATA_PAD is calculated, using the number of LDPC codewords NCW: NCW = ceil(Length·8 / ((LCW/ρ)·R)), NDATA_PAD = NCW·(LCW/ρ)·R − Length·8 [...] NBLKS = ceil(NCW·LCW / NCBPB), NBLK_PAD = NBLKS·NCBPB − NCW·LCW [...] (OFDM) NCW = ceil(Length×8 / (LCW×R)), NSYM = ceil(NCW×LCW / NCBPS), NPAD = R×NSYM×NCBPS − Length×8; Recalculate NCW = NSYM·NCBPS / LCW"
+    note: "DMG 数据域的扰码与填充。Length 是 PSDU 字节数，rho 是重复因子（1 或 2，MCS 1 为 2），N_CBPB 是每 SC 块的编码比特（π/2-BPSK 448），N_CBPS 是每 OFDM 符号的编码比特。填充的零与块填充比特都用扰码序列的延续来扰。rho = 2 时，每个码字的数据位后补 L_CW/(2 rho) 个零按 1/2 码编码，再把校验后半段换成数据位与一个每码字重置为全 1 的 PN 序列的异或（原文步骤 2.b）。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  dmg.sc_mcs_extended:
+    value: {mcs: [9.1, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6], modulation: ["π/2-QPSK", "π/2-16QAM", "π/2-16QAM", "π/2-64QAM", "π/2-64QAM", "π/2-64QAM", "π/2-64QAM"], n_cbps: [2, 4, 4, 6, 6, 6, 6], repetition: [1, 1, 1, 1, 1, 1, 1], code_rate: ["7/8", "13/16", "7/8", "5/8", "3/4", "13/16", "7/8"], rate_mbps: [2695.0, 5005.0, 5390.0, 5775.0, 6930.0, 7508.0, 8085.0]}
+    unit: "index, text, coded bits per symbol, -, text, Mbps"
+    source: spec
+    cite: "A. Kasher (Intel), 'Additional SC MCSs in clause 20 (DMG PHY)', IEEE 802.11-16/0233r0, 2016-02（802.11REVmc，即 802.11-2016 修订）；mentor.ieee.org 公开文件，2026-11-16 读原文；7/8 的打孔另见 Yan Xin et al. (Huawei), 'Rate 7/8 LDPC Code for 11ay', IEEE 802.11-16/1495r1, 2016-11；mentor.ieee.org 公开文件"
+    section: "slide 6 'Updated MCS table'、slide 9 'Constellation'"
+    quote: "Updated MCS table — MCS Index | Modulation | NCBPS | Repetition | Code Rate | Data Rate (Mbps): 9.1 π/2-QPSK 2 1 7/8 2695; 12.1 16-QAM 4 1 13/16 5005; 12.2 16-QAM 4 1 7/8 5390; 12.3 64-QAM 6 1 5/8 5775; 12.4 64-QAM 6 1 3/4 6930; 12.5 64-QAM 6 1 13/16 7508; 12.6 64-QAM 6 1 7/8 8085 [...] Constellation: Use the same constellation as in OFDM; Use constellation rotation as in lower SC modulation"
+    note: "802.11-2016 新增的 DMG SC 扩展 MCS（R&S 1MA220 的 Table 4-1 有这几档的 EVM 与灵敏度：dmg.tx_evm_db、dmg.rx_sensitivity_dbm）。原文表把调制写作 16-QAM / 64-QAM，同一份 slide 9 说沿用低阶 SC 的 π/2 旋转，所以登记为 π/2-16QAM / π/2-64QAM。速率是原文取整的数，12.5 的精确值 7507.5 与 edmg.sc_rate_mbps 普通 GI 的同档相同。码率 7/8 是 13/16 码打掉 48 个校验位，见 dmg.ldpc_r7_8_punctured。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  dmg.ldpc_r7_8_punctured:
+    value: {base_rate: "13/16", punctured_parity_bits: 48, codeword_bits: 624, info_bits: 546}
+    unit: "-, bits, bits, bits"
+    source: spec
+    cite: "A. Kasher (Intel), 'Additional SC MCSs in clause 20 (DMG PHY)', IEEE 802.11-16/0233r0, 2016-02（802.11REVmc，即 802.11-2016 修订）；mentor.ieee.org 公开文件，2026-11-16 读原文；被打掉的是前 48 个校验位，读 Yan Xin et al. (Huawei), 'Rate 7/8 LDPC Code for 11ay', IEEE 802.11-16/1495r1, 2016-11；mentor.ieee.org 公开文件"
+    section: "16/0233r0 slide 9 'Rate 7/8th'；16/1495r1 slide 'Rate 7/8 LDPC Code in 802.11REVmc'"
+    quote: "(16/0233r0) Generated by puncturing (not transmitting) 48 parity bits from rate 13/16 code words; uses existing LDPC matrix of rate 13/16; transmitter just does not transmit the bits; receiver put equal likelihood for 1/0 for these bits. [...] (16/1495r1) Rate 7/8 LDPC is generated by puncturing the first 48 parity bits from rate 13/16 code words specified in 802.11ad. [...] The lengths of a source word and a codeword of the rate 7/8 code are 546 and 624, respectively."
+    note: "DMG SC 扩展 MCS 的码率 7/8：用 13/16 的 672 位码字，发端不发前 48 个校验位（624 = 672 − 48，546 / 624 = 7/8），收端把这些位当等概率。EDMG 另有一个 672 位、588 信息位的 7/8 码（edmg.ldpc_672_r7_8），17/0214r1 的码率表把 7/8 的短码字写作 624/672。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  dmg.control_phy:
+    value: {chip_rate_hz: 1760000000.0, spreading_sequence: "Ga32", spreading_factor: 32, modulation: "DBPSK", effective_code_rate: 0.5, stf_chips: 5120, cef_chips: 1152, header_bits: 40, min_payload_octets: 14, max_payload_octets: 1023}
+    unit: "Hz, text, chips per symbol, text, -, chips, chips, bits, octets, octets"
+    source: spec
+    cite: "IEEE 802.11-10/0433r2 'PHY/MAC Complete Proposal Specification'（TGad 采纳的完整提案规范文本，2010-05-18，C. Cordeiro et al.）；mentor.ieee.org 公开文件，2026-11-16 读原文（表格从 docx 逐格取，公式是嵌入图片、渲染出来读）"
+    section: "21.4.1 Introduction；21.4.3.1 Preamble；21.4.3.2 Header, Table 73；21.4.3.3 Data field（Scrambler、Encoder、Modulation、Spreading）"
+    quote: "Control PHY uses the same chip rate as the SC PHY. [...] The Short Training field is composed of 38 repetitions of sequences Gb128(n) of length 128, followed by a single -Gb128(n) sequence (for synchronization) and then a single -Ga128(n) sequence. [...] The Channel Estimation field is the same as the Channel Estimation field of the SC PHY [...] Table 73 – Control PHY header fields: Reserved 1; Scrambler Initialization 4; Length 10 (Number of data octets in the PSDU. Range 14-1023.); Packet type 1; Training Length 5; Reserved bits 3; HCS 16 [...] The minimal payload length is 14 octets. [...] The control PHY header and data should be encoded using an effective LDPC code rate of ½, generated from the data PHY rate ¾ LDPC parity check matrix, with shortening. [...] Each data word is padded with zeros to create 504 total bits. [...] using differential binary phase shift keying (DBPSK) [...] The constellation points are spread using the sequence Ga32(n)"
+    note: "MCS 0。STF = 38 个 Gb128 + −Gb128 + −Ga128 = 40 × 128 码片（2.909 µs），CEF 与 SC 相同 = 9 × 128 码片；两者合计 6272 码片 = 3.564 µs，即 dmg.phy_timing 的 control_preamble_s。头部 40 位 = 保留 1、扰码初值 4、Length 10、包类型 1、训练长度 5、保留 3、HCS 16。编码用 3/4 码矩阵加缩短得等效 1/2（每个数据字补零到 504 位，编码后去掉补的零），DBPSK 后用 Ga32 扩频。数据率 = 1.76 GHz ÷ 32 × 1/2 = 27.5 Mb/s（dmg.control_phy_rate_bps）。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  dmg.control_phy_rate_bps:
+    value: 27500000.0
+    unit: "bit/s"
+    source: derived
+    cite: "dmg.control_phy 的 chip_rate_hz ÷ spreading_factor × effective_code_rate"
+    note: "公式：1.76e9 ÷ 32 × 0.5 = 27.5e6 bit/s（每个 DBPSK 符号 1 位，用 32 码片的 Ga32 扩频，等效码率 1/2）。"
+
+  dmg.phy_timing:
+    value: {rifs_s: 1.0e-06, sifs_s: 3.0e-06, sbifs_s: 1.0e-06, brpifs_s: 2.0e-05, slot_s: 3.0e-06, data_preamble_s: 1.745e-06, control_preamble_s: 3.564e-06, detection_threshold_dbm: -48.0}
+    unit: "s ×7, dBm"
+    source: spec
+    cite: "IEEE 802.11-10/0433r2 'PHY/MAC Complete Proposal Specification'（TGad 采纳的完整提案规范文本，2010-05-18，C. Cordeiro et al.）；mentor.ieee.org 公开文件，2026-11-16 读原文（表格从 docx 逐格取，公式是嵌入图片、渲染出来读）"
+    section: "21.10.4 PHY characteristics, Table 90；9.2.3.6 SBIFS"
+    quote: "Table 90 – mmWave PHY Characteristics: aRIFSTime 1usec; aSIFSTime 3usec; aDataPreambleLength 1745ns; aControlPHYPreambleLength 3564ns; aSBIFSTime 1usec; aAirPropagationTime << 1usec; aMmWaveDetectionThres -48 dBm; aBRPIFS 20usec; aSlotTime 3usec [...] SBIFS (Short Beamforming Interframe Spacing) shall be used to separate multiple transmissions from a single transmitter, during a receive sector sweep or when each transmission occurs with a different transmit antenna configuration"
+    note: "DMG PHY 的时间常数。SBIFS 用来隔开同一发端在扇区扫描中的相邻帧（容差 ±10%），BRPIFS 是 BRP 包之间的最大间隔。控制 PHY 前导 3564 ns = (5120 + 1152) 码片 ÷ 1.76 GHz。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  dmg.ssw_frame:
+    value: {ssw_frame_octets: 26, ssw_feedback_frame_octets: 29, ssw_ack_frame_octets: 29, ss_field_bits: [1, 9, 6, 2, 6], ss_field_names: ["Direction", "CDOWN", "Sector ID", "Antenna ID", "RXSS Length"]}
+    unit: "octets, octets, octets, bits, text"
+    source: spec
+    cite: "IEEE 802.11-10/0433r2 'PHY/MAC Complete Proposal Specification'（TGad 采纳的完整提案规范文本，2010-05-18，C. Cordeiro et al.）；mentor.ieee.org 公开文件，2026-11-16 读原文（表格从 docx 逐格取，公式是嵌入图片、渲染出来读）"
+    section: "7.2.1.16 Sector sweep (SS)、7.2.1.17 SS-Feedback、7.2.1.18 SS-ACK（Figure 9–11）；7.3a.1 Sector Sweep field（Figure 68）；9.6.0f Usage of mmWave Control modulation class"
+    quote: "Figure 9 – SS frame: FrameControl 2, Duration 2, RA 6, TA 6, SS 3, SS Feedback 3, FCS 4 (octets) [...] Figure 10 – SS-Feedback frame: Frame Control 2, Duration 2, RA 6, TA 6, SS 3, SS Feedback 3, BRP Request 3, FCS 4 [...] Figure 11 – SS-ACK frame: (same fields) [...] Figure 68 – SS field format: Direction 1, CDOWN 9, Sector ID 6, Antenna ID 2, RXSS Length 6 (bits) [...] The mmWave Beacon, Sector Sweep frame, SS-Feedback, SS-ACK, and the first BRP packet in beam refinement shall always be transmitted using the mmWave Control modulation class."
+    note: "扇区扫描帧（提案里叫 SS，标准里叫 SSW）= Frame Control 2 + Duration 2 + RA 6 + TA 6 + SS 3 + SS Feedback 3 + FCS 4 = 26 字节；SS-Feedback 与 SS-ACK 多一个 3 字节的 BRP Request，共 29。都用控制 PHY（MCS 0）发。按 27.5 Mb/s，26 字节的数据约 7.6 µs，加 3.564 µs 前导与头部（本库不登记这个和）。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  edmg.ldpc_672_r7_8:
+    value: {z: 42, n: 672, rows: [[[37, 35], [31, 19], [18, 41], [23, 22], [11, 40], [21, 41], [6, 39], [20, 6], [32, 28], [9, 18], [12, 17], [29, 3], [28], [0], [13], []], [[25, 29], [22, 30], [4, 0], [34, 8], [31, 33], [3, 22], [14, 17], [15, 4], [4, 27], [28], [14, 20], [18, 27], [13, 24], [13, 23], [22], [24]]]}
+    unit: "Z × Z 循环移位量（一格两个数为两个移位矩阵之和，空表为零块）"
+    source: spec
+    cite: "C. Cordeiro (Intel), 'Specification Framework for TGay', IEEE 802.11-15/1358r9；mentor.ieee.org 公开文件，2026-11-16 读原文（表格从 docx 逐格取）"
+    section: "6.3.6.1 General；6.3.6.2 Rate-7/8 LDPC code matrix H = 84 rows x 672 columns, Z = 42, Table 18"
+    quote: "The EDMG PHY defines a rate-7/8 LDPC code matrix for a codeword of size equal to 672 bits, which is the same codeword size used in the DMG PHY. [...] Table 18 — Rate 7/8 LDPC code matrix: 37⊕35 31⊕19 18⊕41 23⊕22 11⊕40 21⊕41 6⊕39 20⊕6 32⊕28 9⊕18 12⊕17 29⊕3 28 0 13 -; 25⊕29 22⊕30 4⊕0 34⊕8 31⊕33 3⊕22 14⊕17 15⊕4 4⊕27 28 14⊕20 18⊕27 13⊕24 13⊕23 22 24"
+    note: "EDMG 新增的 672 位、588 信息位的 7/8 码（与 DMG 扩展 MCS 用的 624 位打孔码 dmg.ldpc_r7_8_punctured 不同）。每格是一列移位量：两个数表示两个循环移位矩阵相加，一个数是单个循环移位，空表是零块。两行恰好等于 dmg.ldpc_matrices 的 3/4 矩阵第 1+3、2+4 行之和（本库用程序核对过）。17/0214r1 规定这个码用 DMG 编码步骤里 rho = 1 的流程。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  edmg.ldpc_1344_lifting:
+    value: {r1_2: [[0, -1, 1, -1, 0, -1, 1, -1, 0, -1, -1, -1, -1, -1, -1, -1], [0, -1, 0, -1, 1, -1, -1, 1, 0, 0, -1, -1, -1, -1, -1, -1], [-1, 0, -1, 1, -1, 0, -1, 1, -1, 1, 0, -1, -1, -1, -1, -1], [-1, 1, -1, 1, -1, 1, 0, -1, -1, -1, 0, 0, -1, -1, -1, -1], [0, -1, 1, -1, 1, -1, 0, -1, 0, -1, -1, 1, 0, -1, -1, -1], [1, -1, 1, -1, -1, 1, -1, 0, -1, 1, -1, 1, -1, 0, -1, -1], [-1, 0, -1, 0, -1, 1, -1, 0, -1, -1, 0, -1, -1, 1, 0, -1], [-1, 0, -1, 1, 0, -1, 0, -1, 0, -1, -1, -1, 1, -1, 0, 0]], r5_8: [[0, 0, 1, 1, 0, 0, 1, 1, -1, 1, 0, -1, -1, -1, -1, -1], [0, 1, -1, 1, -1, 1, 0, 0, 1, 1, 0, 0, -1, -1, -1, -1], [0, -1, 1, -1, 1, -1, 0, -1, 0, -1, -1, 1, 0, -1, -1, -1], [1, -1, 1, -1, -1, 1, -1, 0, -1, 1, -1, 1, 1, 0, -1, -1], [-1, 0, -1, 0, -1, 1, -1, 0, -1, 0, 0, -1, -1, 1, 0, -1], [-1, 0, -1, 1, 0, -1, 0, -1, 0, -1, -1, -1, -1, -1, 0, 0]], r3_4: [[0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, -1, -1, -1], [1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, -1, -1], [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, -1, 1, 0, -1], [1, 0, 1, 1, 0, 1, 0, 1, 0, -1, 1, 0, 1, 0, 0, 0]], r13_16: [[1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, -1, -1], [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, -1], [1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0]], r7_8_on_r3_4: [[1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, -1, -1, -1], [1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, -1, -1], [0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, -1, 0, 1, -1], [0, 1, 1, 0, 0, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0]]}
+    unit: "lifting bit per Z × Z block（0 / 1 / -1）"
+    source: spec
+    cite: "C. Cordeiro (Intel), 'Specification Framework for TGay', IEEE 802.11-15/1358r9；mentor.ieee.org 公开文件，2026-11-16 读原文（表格从 docx 逐格取）；7/8 读 Yan Xin et al. (Huawei, Politecnico di Torino), 'Draft text in 30.3.6.7 Rate-7/8 LDPC code matrix for generating 1344 bits codeword', IEEE 802.11-17/1061r1, 2017-06；TGay 动议 #264 采纳；mentor.ieee.org 公开文件"
+    section: "SFD 6.3.6.1 General、6.3.6.3–6.3.6.6, Table 19–22；17/1061r1 30.3.6.7, Table 30"
+    quote: "An LDPC codeword of size equal to 1344 bits is defined through the use of lifting matrices. [...] A '0' in the lifting matrix acts on the Z×Z cyclic-permutation matrix Pi in the code matrix (at the same location) to create the 2Z×2Z matrix: [Pi -1; -1 Pi] [...] A '1' in the lifting matrix acts on [...] to create the 2Z×2Z matrix: [-1 Pi; Pi -1] [...] A '-1' in the lifting matrix acts on the Z×Z zero matrix in the code matrix to create the 2Z×2Z zero matrix. [...] Table 19 — Rate-1/2 lifting matrix: 0 - 1 - 0 - 1 - 0 - - - - - - -; 0 - 0 - 1 - - 1 0 0 - - - - - -; - 0 - 1 - 0 - 1 - 1 0 - - - - -; - 1 - 1 - 1 0 - - - 0 0 - - - -; 0 - 1 - 1 - 0 - 0 - - 1 0 - - -; 1 - 1 - - 1 - 0 - 1 - 1 - 0 - -; - 0 - 0 - 1 - 0 - - 0 - - 1 0 -; - 0 - 1 0 - 0 - 0 - - - 1 - 0 0 [...] Table 20 — Rate-5/8: 0 0 1 1 0 0 1 1 - 1 0 - - - - -; 0 1 - 1 - 1 0 0 1 1 0 0 - - - -; 0 - 1 - 1 - 0 - 0 - - 1 0 - - -; 1 - 1 - - 1 - 0 - 1 - 1 1 0 - -; - 0 - 0 - 1 - 0 - 0 0 - - 1 0 -; - 0 - 1 0 - 0 - 0 - - - - - 0 0 [...] Table 21 — Rate-3/4: 0 0 1 1 1 0 0 1 0 0 1 1 0 - - -; 1 0 1 1 1 1 0 0 1 1 0 1 1 0 - -; 0 0 0 0 0 1 0 0 0 0 0 1 - 1 0 -; 1 0 1 1 0 1 0 1 0 - 1 0 1 0 0 0 [...] Table 22 — Rate-13/16: 1 0 1 1 1 1 0 0 1 1 0 1 1 0 - -; 0 0 0 0 0 1 0 0 0 0 0 1 1 1 0 -; 1 0 1 1 0 1 0 1 0 0 1 0 1 0 0 0 [...] (17/1061r1) The lifting matrix in Table 30 is applied to the rate-3/4 LDPC code matrix specified in Table 20-8. Table 30 — Rate-7/8 lifting matrix: 1 1 0 0 0 0 0 1 1 0 1 0 0 - - -; 1 0 0 1 1 1 1 1 1 1 1 0 1 1 - -; 0 0 1 1 1 1 1 0 0 1 0 1 - 0 1 -; 0 1 1 0 0 0 0 0 0 - 0 1 0 0 0 0. Summing the 1st& 5th, 2nd&6th, 3rd&7th and 4th&8th rows of the lifted matrix H = 336 rows x 1344 columns, Z=42, generated with the lifting matrixed specified in Table 30 yields the rate 7/8 LDPC code matrix H = 168 rows x 1344 columns, Z=42."
+    note: "1344 位长码字：把提升矩阵逐格作用到 dmg.ldpc_matrices 同码率的基矩阵上，每个 Z × Z 块变成 2Z × 2Z 块。提升位 0 → [[Pi, 0], [0, Pi]]，1 → [[0, Pi], [Pi, 0]]，-1 → 零块（与基矩阵的零块位置逐格相同，本库用程序核对过）。7/8 是例外：r7_8_on_r3_4 作用在 3/4 基矩阵上，提升后的 8 个块行再把第 1 与 5、2 与 6、3 与 7、4 与 8 行相加，得 168 × 1344 的 7/8 矩阵。Z 仍是 42。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  edmg.sc_encoding:
+    value: {code_rate: ["1/2", "5/8", "3/4", "13/16", "7/8"], short_cw_bits: ["672", "672", "672", "672", "624/672"], long_cw_bits: [1344, 1344, 1344, 1344, 1344], short_data_bits: [336, 420, 504, 546, 588], long_data_bits: [672, 840, 1008, 1092, 1176], n_cbpb_bpsk: [480, 448, 384], n_cbpb_qpsk: [960, 896, 768], n_cbpb_16qam: [1920, 1792, 1536], n_cbpb_64qam: [2880, 2688, 2304], gi_order: ["short", "normal", "long"], n_blks: "ceil(N_CW*L_CW / (N_CB*N_CBPB))", n_blk_pad: "N_BLKS*N_CBPB - N_CW*L_CW"}
+    unit: "-, bits, bits, bits, bits, bits per block ×4, text, formula, formula"
+    source: spec
+    cite: "A. Lomayev, A. Maltsev, C. da Silva, C. Cordeiro (Intel), '29.5.7.27 Encoding', IEEE 802.11-17/0214r1, 2017-02；TGay 动议 #178 采纳；mentor.ieee.org 公开文件，2026-11-16 读原文（公式是嵌入图片、渲染出来读）"
+    section: "29.5.7.27.4 General（Table 33 LDPC code rates）；29.5.7.27.6 LDPC encoding for SISO transmissions（Table 34 Values of NCBPB）"
+    quote: "The EDMG encoding supports two types of block size equal to 624 or 672 bits (short codeword) or and 1344 bits (long codeword). [...] LDPC code rates — Code rate | Codeword size Short / Long | Number of data bits Short / Long: ½ 672 1344 336 672; 5/8 672 1344 420 840; ¾ 672 1344 504 1008; 13/16 672 1344 546 1092; 7/8 624/672 1344 588 1176 [...] First, employ steps a) – c) as defined in subclause 20.6.3.2.3.3 for DMG encoding, assuming that LCW can be equal to 624, 672, or 1344 bits and LCW = 672, LCW = 672, R = 7/8 code shall use the b.1) encoding procedure. The number of SC symbol blocks, NBLKS, and the number of symbol block padding bits, NBLK_PAD, are calculated as follows: NBLKS = ceil(NCW·LCW / (NCB·NCBPB)), NBLK_PAD = NBLKS·NCBPB − NCW·LCW [...] Values of NCBPB for different types of GI — Short / Normal / Long: π/2-BPSK 480 448 384; π/2-QPSK 960 896 768; π/2-16QAM 1920 1792 1536; π/2-64QAM 2880 2688 2304"
+    note: "EDMG SC 单流（SISO）的编码：先按 DMG 的步骤 a)–c) 算 N_CW 与 N_DATA_PAD（L_CW 可为 624、672 或 1344；672 位的 7/8 码用 rho = 1 的流程），再按上式求块数与块填充，块填充比特用扰码序列的延续来扰。N_CBPB 按 GI（短 / 普通 / 长）列。原文 N_BLK_PAD 式里没乘 N_CB，单信道（N_CB = 1）时没有区别。码率表里 7/8 的短码字写作 624/672：624 是 13/16 打孔得的 DMG 码（dmg.ldpc_r7_8_punctured，信息 546 位），672 是 EDMG 新码（信息 588 位）。OFDM 的 EDMG 填充规则公开材料里没有找到。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"
+
+  edmg.short_ssw:
+    value: {packet_bits: 48, carried_in: "Data field of an EDMG PPDU", itxss_su_field_bits: [2, 1, 1, 8, 8, 11, 2, 11, 4], itxss_su_field_names: ["Packet Type", "Direction", "Addressing Mode", "Source AID", "Destination AID", "CDOWN", "RF Chain ID", "Reserved", "FCS"], rtxss_field_bits: [2, 1, 1, 8, 8, 11, 2, 11, 4], rtxss_field_names: ["Packet Type", "Direction", "Reserved", "Source AID", "Destination AID", "CDOWN", "RF Chain ID", "Short SSW Feedback", "FCS"]}
+    unit: "bits, text, bits, text, bits, text"
+    source: spec
+    cite: "C. Cordeiro (Intel), 'Specification Framework for TGay', IEEE 802.11-15/1358r9；mentor.ieee.org 公开文件，2026-11-16 读原文（表格从 docx 逐格取）"
+    section: "6.9.1 Short SSW packet（Figure 63–65）；3.2 DMG beamforming（LBIFS 一句）"
+    quote: "The Short SSW packet is transmitted in the Data field of an EDMG PPDU. [...] Figure 63 — Short SSW packet format when the Direction field is 0 (I-TXSS) and Addressing Mode field is 0: Packet Type 2, Direction 1, Addressing Mode 1, Source AID 8, Destination AID 8, CDOWN 11, RF Chain ID 2, Reserved 11, FCS 4 (bits) [...] Figure 65 — Short SSW packet format when the Direction field is 1 (R-TXSS): Packet Type 2, Direction 1, Reserved 1, Source AID 8, Destination AID 8, CDOWN 11, RF Chain ID 2, Short SSW Feedback 11, FCS 4 [...] For SLS using Short SSW frames, LBIFS is equal to 2×TXTIME(Short SSW) + 3×SBIFS."
+    note: "EDMG 的 Short SSW 包 48 位 = 6 字节（DMG 的 SSW 帧是 26 字节，dmg.ssw_frame），各种格式（I-TXSS 的 SU / MU、R-TXSS）都是 48 位。它放在 EDMG PPDU 的数据域里发。采用 Short SSW 的扇区扫描里 LBIFS = 2 × TXTIME(Short SSW) + 3 × SBIFS。用户 2026-11-16 对照 IEEE 802.11-2024 核对一致（该标准的许可禁止输入 AI，本库没有读标准，只读这份公开文件）。"

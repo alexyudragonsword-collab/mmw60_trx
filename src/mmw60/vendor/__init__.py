@@ -33,8 +33,9 @@ Pins:
 
 * ``wifitrx`` — wifi_trx_cal, the SHA in every file's first line.
 * ``spec_sources`` — ``alexyudragonsword-collab/spec_sources`` @
-  ``3123b65072d21d374da518a0b2a81d97232f56b7`` (its PR #30, answering
-  spec_sources#29; before: 7aae876 for spec_sources#26, 8e5f2e2 for
+  ``76ee72a008e3f5ad65fcaa6119643914d0328622`` (its PRs #35 / #36,
+  answering spec_sources#33, with its 0.5.0 and the 7th batch; before:
+  3123b65 for spec_sources#29, 7aae876 for spec_sources#26, 8e5f2e2 for
   mmw60_trx#27, 9a443ba for #25, e573d4d for #23, d7b4d1e for #21): ``src/spec_sources/__init__.py``,
   ``reader.py`` and seven of its data tables (``liu2025``,
   ``ieee802153c``, ``ieee80211``, ``regulatory``, ``frontend60``,

@@ -1,4 +1,4 @@
-# Vendored from spec_sources@3123b65072d21d374da518a0b2a81d97232f56b7: src/spec_sources/data/frontend60.yaml
+# Vendored from spec_sources@76ee72a008e3f5ad65fcaa6119643914d0328622: src/spec_sources/data/frontend60.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # frontend60 —— 60 GHz 收发前端的测量值：接收机（通信 / 雷达）、收发隔离、封装内天线。
 #

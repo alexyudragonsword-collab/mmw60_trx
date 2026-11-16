@@ -1,4 +1,4 @@
-# Vendored from spec_sources@3123b65072d21d374da518a0b2a81d97232f56b7: src/spec_sources/data/energy.yaml
+# Vendored from spec_sources@76ee72a008e3f5ad65fcaa6119643914d0328622: src/spec_sources/data/energy.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # energy —— 电路能耗与转换器的品质因数：运算能耗、ADC FoM 调查、工艺节点缩放。
 #
@@ -32,19 +32,28 @@ entries:
     note: "未核实。"
 
   # ------------------------------------------------------------ ADC 的 Walden FoM（Murmann ADC survey）
+  adc_survey.ti_sar_ge40gs_4to7nm:
+    value: {venue: ["ISSCC", "ISSCC", "ISSCC", "ISSCC", "VLSI", "VLSI"], year: [2021, 2022, 2024, 2026, 2022, 2024], paper: ["8.6", "6.1", "18.4", "23.2", "C19-1", "C24.3"], tech_nm: [7, 5, 5, 5, 4, 5], fs_gs: [100.0, 112.0, 200.0, 71.4, 56.0, 60.0], sndr_hf_db: [35.1, 28.85, 36.1, 31.0, 32.8, 34.3], fomw_hf_fj: [67.0, 74.63, 38.36, 74.85, 120.19, 42.98]}
+    unit: "venue, year, paper ID, nm, GS/s, dB, fJ/conv-step"
+    source: spec
+    cite: "B. Murmann, 'ADC Performance Survey 1997-2026', https://github.com/bmurmann/ADC-survey（BSD-3 许可），xls/ADCsurvey_rev20260801.xlsx 的 ISSCC 与 VLSI 两张表，仓库提交 00b4b85（2026-08-01）；2026-11-16 读原文件"
+    section: "ISSCC 与 VLSI 两张表中 ARCHITECTURE = SAR, TI、TECHNOLOGY 0.004–0.007（4–7 nm）、fs ≥ 40 GS/s 的全部行"
+    quote: "ISSCC / VLSI 表，列 YEAR | ID | ARCHITECTURE | TECHNOLOGY | fs [Hz] | SNDR_hf [dB] | FOMW_hf [fJ/conv-step]: ISSCC 2021 8.6 SAR, TI 0.007 1E+11 35.1 67.0; ISSCC 2022 6.1 SAR, TI 0.005 1.12E+11 28.85 74.625; ISSCC 2024 18.4 SAR, TI 0.005 2E+11 36.1 38.358; ISSCC 2026 23.2 SAR, TI 0.005 7.14E+10 31.0 74.853; VLSI 2022 C19-1 SAR, TI 0.004 5.6E+10 32.8 120.190; VLSI 2024 C24.3 SAR, TI 0.005 6E+10 34.3 42.984"
+    note: "≥ 40 GS/s、4–7 nm 的时间交织 SAR ADC，2026-08-01 版共 6 行（同条件下另有一行 time-based TI、一行 single-slope TI，不是 SAR，不收）。FoM 是表里的 FOMW_hf（Walden，高频输入），取到 0.01 fJ。Halo_Serdes 的功耗模型（它的 cairn/功耗建模.md）选的就是这 6 行。中位数与区间由这一条复算：adc_survey.walden_fom_fj、adc_survey.walden_fom_range_fj。"
+
   adc_survey.walden_fom_fj:
-    value: 70.0
+    value: 70.815
     unit: fJ/conv-step
-    source: survey
-    cite: "Murmann ADC survey（GitHub bmurmann/ADC-survey）≥ 40 GS/s、4–7 nm 时间交织 SAR 六行的中位数；经 Halo_Serdes analysis/power.py PowerCoefficients.adc_fom_walden_j 与 cairn/功耗建模.md"
-    note: "未核实：Halo 示例 41 的口径（P = FoM · 2^ENOB · fs）。本库的转换器在 0.04–20 GS/s、8–11 bit，不是那六行的角落；区间端点在 adc_survey.walden_fom_range_fj，同台表的灵敏度节两端都跑。"
+    source: derived
+    cite: "adc_survey.ti_sar_ge40gs_4to7nm 的 fomw_hf_fj 六个值的中位数"
+    note: "公式：median(67.00, 74.63, 38.36, 74.85, 120.19, 42.98) = (67.00 + 74.63) / 2 = 70.815 fJ/conv-step。迁入时是 70（survey），那是 Halo_Serdes 对同样 6 行中位数（70.8）取的整数；按原文件复算后改成 70.815（tests/test_extraction.py 的 CORRECTED）。用法照 Halo 示例 41 的口径（P = FoM · 2^ENOB · fs）。mmw60_trx 的转换器在 0.04–20 GS/s、8–11 bit，不是这 6 行的角落；区间端点在 adc_survey.walden_fom_range_fj，mmw60_trx 同台表的灵敏度节两端都跑。"
 
   adc_survey.walden_fom_range_fj:
-    value: [38.4, 120.2]
+    value: [38.36, 120.19]
     unit: fJ/conv-step
-    source: survey
-    cite: "同上六行的最小 / 最大值（Halo_Serdes cairn/功耗建模.md 表）"
-    note: "未核实。"
+    source: derived
+    cite: "adc_survey.ti_sar_ge40gs_4to7nm 的 fomw_hf_fj 的最小 / 最大值"
+    note: "公式：[min, max] = [38.36, 120.19] fJ/conv-step（ISSCC 2024 18.4、VLSI 2022 C19-1）。迁入时是 [38.4, 120.2]（survey，取到 0.1），按原文件复算后取到 0.01（CORRECTED）。"
 
   # ------------------------------------------------------------ 工艺节点缩放（DeepScaleTool）
   deepscale.node_scale_45_to_7nm:

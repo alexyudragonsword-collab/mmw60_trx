@@ -5,7 +5,7 @@ summary: "规范 / 文献数字的来源制度：四种标签、两张表（vend
 tags: [mmw60, spec, provenance, liu2025]
 contains: [reference, decision, open_question]
 created: "2026-11-06"
-updated: "2026-11-13"
+updated: "2026-11-16"
 related: [external-validation.md, upclocking.md]
 authoring_mode: ai_generated
 ---
@@ -17,7 +17,7 @@ authoring_mode: ai_generated
 一条一个数，`source` 四选一：`spec`（原文，必须带 quote + section）、`survey`（文献 / 搜索命中，一律"未核实"）、`assumed`（原文没说，本库定）、`derived`（公式推出）。
 代码只经 `mmw60.spec.value(key)` 取，`liu2025_table2()` 预设就是这样建的。
 
-**两张表（2026-11-13 起，mmw60_trx#21）**：关于外部世界的数——规范条文、论文与数据手册的数字、只由它们推出的 derived——在共享库 spec_sources 里，按完整 SHA（`d7b4d1e`）vendor 在 `src/mmw60/vendor/spec_sources/`（读取器加 6 张表：`liu2025`、`ieee80211`、`regulatory`、`frontend60`、`pa60`、`energy`；2026-11-15 起 7 张，加 `ieee802153c`，pin `7aae876`，spec_sources#26；2026-11-16 起 pin `3123b65`，spec_sources#29）。本库自己的取舍与产出留在 `src/mmw60/data/spec/survey.yaml`：assumed 56、derived 3、survey 3（2026-11-14 加 `survey.clock_profile_wu19_x9` 后 survey 4，共 63 条）。
+**两张表（2026-11-13 起，mmw60_trx#21）**：关于外部世界的数——规范条文、论文与数据手册的数字、只由它们推出的 derived——在共享库 spec_sources 里，按完整 SHA（`d7b4d1e`）vendor 在 `src/mmw60/vendor/spec_sources/`（读取器加 6 张表：`liu2025`、`ieee80211`、`regulatory`、`frontend60`、`pa60`、`energy`；2026-11-15 起 7 张，加 `ieee802153c`，pin `7aae876`，spec_sources#26；2026-11-16 起 pin `3123b65`，spec_sources#29；同日再 pin `76ee72a`，spec_sources#33）。本库自己的取舍与产出留在 `src/mmw60/data/spec/survey.yaml`：assumed 56、derived 3、survey 3（2026-11-14 加 `survey.clock_profile_wu19_x9` 后 survey 4，共 63 条）。
 `mmw60.spec` 是一层薄垫片：`all_entries()` 把两张表合起来，同一个键出现两次直接报错；公开名字一个没少，另加 `ref()`。迁移前后 125 个旧键逐条相同（8 个字段的 `repr`），只多了共享库新增的 `isolation.tx_rx_tue2018_no_ebg_min_db`；数值指纹逐位不变。
 外部的数要改，回 spec_sources 提，不改副本（`tools/vendor_check.py --strict` 连 YAML 一起逐字核对）。每张表、四个标签都按 `grep -c "source: <标签>"` 核对（`tests/test_spec_sources.py`），所以表头与注释里不写“标签词 + 冒号”。迁移前本地表的 spec 计数是 11 而条目只有 10：D4 一段注释里的那句话被多数了一次，当时的守卫只数 survey 与 assumed，没发现。
 
@@ -27,6 +27,8 @@ authoring_mode: ai_generated
 
 **DMG / EDMG 单信道 PHY（2026-11-16，spec_sources#29 → #30）**：重新 pin 到 `3123b65`。vendor 的 9 个文件里只有 `data/ieee80211.yaml` 变了（vendor_check 逐字核对），其余只改出处头的 SHA。新键（都在 `ieee80211`）：`edmg.ofdm_params`、`edmg.ofdm_pilot_tones_ncb1`（导频下标随信道变，表里带各信道的中心频率与 DC 偏移）、`edmg.ofdm_pilot_values_ncb1`、`edmg.ofdm_mcs`（MCS 1–20，含 EVM）、`edmg.sc_params`、`edmg.sc_mcs`（MCS 1–21，含 EVM）、`edmg.sc_mcs_variants`、`dmg.phy_params`、`dmg.sc_mcs`、`dmg.ofdm_mcs`、`dmg.tx_evm_db`（MCS 0–24 与扩展档）、`dmg.rx_sensitivity_dbm`（MCS 0–31）；两条 derived：`edmg.ofdm_rate_mbps`、`edmg.sc_rate_mbps`。`dmg.sensitivity_assumptions` 与 `ieee80211ay.channel_centres_ghz` 由 survey 改为 spec，值不变。共享表 83 → 97 条（spec 59 → 73、survey 18 → 16、derived 6 → 8）；`spec.unverified()` 22 → 20。
 出处：IEEE 802.11-2024 的许可禁止输入 AI 系统，spec_sources 改读公开的 TGad 提案文本 11-10/0433r2、R&S 白皮书 1MA220_3e（转引 802.11-2016 第 20 章）与 TGay 的六份贡献（11-17/0597r1、0628r1、0909r0、11-15/1358r9、11-18/0713r3、1152r0，动议号读自 11-17/0186r37），再由用户对照标准逐组核对一致。**EDMG 的接收灵敏度没有出处**（TGay CID 1620 只补了 EVM），要用就在本地写 assumed。DMG 的 EVM 是 2016 年标准的值（2010 年提案的旧值在条目 note 里）。本库代码读的现有键值一个没变，指纹逐位相同；示例 08 只有 `dmg.sensitivity_assumptions` 那一行的标签从 `[survey, unverified]` 变成 `[spec]`。
+
+**LDPC、扩展 SC 档、控制 PHY 与扇区扫描（2026-11-16，spec_sources#33 → #35 / #36，连同 0.5.0 与第 7 批）**：重新 pin 到 `76ee72a`。vendor 的 9 个文件里 5 个内容变了（`__init__.py`、`energy`、`ieee80211`、`liu2025`、`regulatory`），4 个只改出处头。新键（都在 `ieee80211`）：`dmg.ldpc_matrices`（码长 672、z = 42，码率 1/2、5/8、3/4、13/16，−1 是零块）、`dmg.ldpc_r7_8_punctured`、`dmg.sc_mcs_extended`（MCS 9.1、12.1–12.6）、`dmg.data_encoding`（扰码 x⁷ + x⁴ + 1、SC / OFDM 的码字数与填充）、`dmg.control_phy` 与 derived `dmg.control_phy_rate_bps`（27.5 Mb/s）、`dmg.phy_timing`、`dmg.ssw_frame`、`edmg.ldpc_672_r7_8`、`edmg.ldpc_1344_lifting`、`edmg.sc_encoding`、`edmg.short_ssw`。没给的：EDMG 的灵敏度（公开材料里没有，`assumed.ay_sensitivity` 留着）、EDMG OFDM 的填充、BRP / TRN。本库代码读的键里值变了的只有 `adc_survey.walden_fom_fj`（70 → 70.815，由 Murmann 表 6 行复算的中位数，改标 derived）与区间（[38.4, 120.2] → [38.36, 120.19]）：转换器功耗 ×1.0116，示例 02 / 04 / 06 / 09 / 10 / 11 的 pJ/bit 跟着涨 0.1–1 %（转换器占比越大涨得越多），MCS 上限、底板、排名一个不动（示例 04 §6 重跑核对）；指纹不含功耗列，逐位相同。其余是 survey 改 spec（`fcc15255.*`、`liu2025.per_target`、802.11 的 4 条），`spec.unverified()` 20 → 9。两处测试原把 Walden 写死成 70 fJ、拿 `liu2025.per_target` 当未核实的例子，已改。新键在下一个 PR 接（`cairn/ay.md` §9c / §9d）。
 
 **0.3.0（2026-11-13，mmw60_trx#25）**：重新 pin 到 spec_sources `9a443ba`。TGad 评估方法学的 9 条由 survey 改成 spec 并新增 4 条（见“原文没给、从别处拿的”一节的更正），0.2.0 的 17 个别名退役——旧名现在是 KeyError，本库在 #23 已改净。数值一个不变，指纹逐位不变。垫片的别名路径留着给下一次改名用，测试用一个人造别名守它；另加一条守卫：本地表说明文字里点名的键必须是现存的键。
 
@@ -110,7 +112,7 @@ fmcw_radar 从 0.2.8 起（它的 main@`7685bb3`，fmcw_radar#11）vendor 本库
 - VHT MCS 表（N_SD = 52、N_DBPS 26/52/156）、交织 N_COL = 13、BCC 133/171、扰码 x⁷+x⁴+1：802.11 的通用知识，原文未贴入。
 - FCC 15.255 的 40 / 43 dBm：里程碑 1 用。
 - 802.11 LDPC 的 12 张原型矩阵（`data/spec/ldpc_80211.yaml`，A2）：规范 Annex F 原文未贴入，取两份独立公开转录（simgunz/802.11n-ldpc、tavildar/LDPC，MIT）逐项比对相同，再按双对角结构逐张校验；EHT 的 N_SD、D_TM、LDPC PPDU 流程阈值（912 / 1464 / 2916、10 % / 1.2 / 30 %）同样 survey。
-- 同台表 pJ/bit 列（A3）：Walden FoM 70 fJ（38.4–120.2）与 45 → 7 nm 能量比 0.175 经 Halo 的 `PowerCoefficients` 转引 Murmann / DeepScaleTool；pllsim wu19 时钟剖面是 Halo 随库数据（模型输出，不是实测）。
+- 同台表 pJ/bit 列（A3）：Walden FoM 70.815 fJ（38.36–120.19，`derived`：Murmann 表里 6 行 TI-SAR 的中位数与两端；spec_sources@76ee72a 按原文件复算，之前是取整的 70 fJ、survey）与 45 → 7 nm 能量比 0.175 经 Halo 的 `PowerCoefficients` 转引 Murmann / DeepScaleTool；pllsim wu19 时钟剖面是 Halo 随库数据（模型输出，不是实测）。
 - PA 记忆研究（示例 07，2026-11-11）：`assumed.pa_memory_model`（wifitrx / PA_DPD 的参考 PA，sub-7 GHz WiFi PA 的模型，不是 60 GHz 器件）、`assumed.pa_memory_fir_fs_hz`（80 MS/s，即 12.5 ns 一个抽头）及其灵敏度档、回退扫描的格点（细 / 粗）、目标 EVM（−25 / −27 dB）、DPD 抽头间隔候选，全部是本库的 assumed；60 GHz PA 的记忆时间常数没有查到出处。
 - pllsim ×10 剖面（`survey.clock_profile_wu19_x10`，2026-11-11）：pll_simulator@d67043e 的 CLI 在本地生成（命令在条目的 cite 里），wu19 预设重调到 6.048 GHz 再过对方的 ×10 倍频器模型；同样是模型输出，不是实测。倍频器底噪 −150 dBc/Hz 与谐波抑制 40 dB 是本库的 assumed，没有出处。
 - 前端的三个面（示例 08，2026-11-12，ROADMAP D4）里还没读到原文的三条：`rx60.comm_iscas2015`（ISCAS 2015，NF 7.1 dB；64 dB 是含基带的整机增益，不用）、`antenna60.okada2013_dbi`（JSSC 2013，6 dBi）——这两条在 IEEE Xplore，对脚本访问返回空页，没有去绕；`dmg.sensitivity_assumptions`（802.11ad 灵敏度表的前提 NF 10 dB / 实现损耗 5 dB，二手转引；ITU-R M.2003 里没有这两个数）。三条都只作灵敏度档。**更正（2026-11-16，spec_sources#29）**：`dmg.sensitivity_assumptions` 已对原文核过、改为 spec（值不变），没读到的只剩前两条。没有查到任何数据手册直接给收发隔离度。**已删的一条**：`survey.antenna60_bgt60_an600_dbi`（2 / 3.5 / 5 dBi）。这组数是 fmcw_radar 在 mmw60_trx#14 上贴的搜索摘要，对方读了 AN600 原文（Rev. 2.40）后撤回：文件里没有天线增益，只有归一化方向图。教训：转引别人的搜索摘要，等于未核实再套一层。

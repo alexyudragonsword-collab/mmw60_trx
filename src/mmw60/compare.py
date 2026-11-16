@@ -523,7 +523,7 @@ def to_markdown(rep: dict) -> str:
         lines.append(f"| {r['label']} | {p['bit_rate_bps'] / 1e6:.0f} Mb/s | {cell('pa')} | {cell('lo')} | {cell('converters')} | "
                      f"{cell('chip_dpd')} | {cell('fft')} | {cell('decoder')} | {p['pj_per_bit']:.0f} | {'; '.join(p['omitted']) or '—'} |")
     c = rep["coefficients"]
-    lines += ["", f"coefficients: Walden {c['walden_fom_fj']:.0f} fJ/step, Horowitz {c['mult32_pj']:g} / {c['add32_pj']:g} pJ "
+    lines += ["", f"coefficients: Walden {c['walden_fom_fj']:g} fJ/step, Horowitz {c['mult32_pj']:g} / {c['add32_pj']:g} pJ "
               f"(32-bit mult / add, 45 nm) × node scale {c['node_scale']:g}, {c['word_bits']} bit; synthesizers "
               f"{c['pll60_mw']:g} mW (60 GHz) / {c['pll_sub7_mw']:g} mW (sub-7); DPD {c['dpd_model']}", ""]
     if rep.get("sensitivity"):
@@ -617,6 +617,12 @@ def sensitivity(schemes: list[Scheme], fe: Frontend60, coeffs: PowerCoefficients
     return out
 
 
+def knob_value_text(v) -> str:
+    """A knob end as printed: floats to 12 significant digits (an end computed from a spec value in
+    fJ, × 1e-15, carries a binary tail otherwise), anything else as it is."""
+    return repr(float(f"{v:.12g}")) if isinstance(v, float) else str(v)
+
+
 def _rank(pj: dict) -> list[str]:
     return [lab for lab, v in sorted(pj.items(), key=lambda kv: (kv[1] is None, kv[1] or 0))]
 
@@ -630,7 +636,7 @@ def sensitivity_markdown(sens: dict) -> str:
         moved = ", ".join(f"{lab}: {a}→{b}" for lab, (a, b) in e["mcs_moved"].items()) or "none"
         dmoved = ", ".join(f"{lab}: {a}→{b}" for lab, (a, b) in e["dec_mcs_moved"].items()) or "none"
         ratio = ("—" if e["pj_ratio_min"] is None else f"{e['pj_ratio_min']:.2f} … {e['pj_ratio_max']:.2f}")
-        lines.append(f"| {e['knob']} ({e['source']}) | {e['value']} | {moved} | {dmoved} | {ratio} | "
+        lines.append(f"| {e['knob']} ({e['source']}) | {knob_value_text(e['value'])} | {moved} | {dmoved} | {ratio} | "
                      f"{'YES' if e['ranking_changed'] else 'no'} |")
     return "\n".join(lines) + "\n"
 
@@ -642,4 +648,4 @@ def report_json(rep: dict) -> dict:
 
 __all__ = ["Scheme", "Row", "PENDING", "NOT_A_SCHEME", "NOT_A_CHIP_CHANNEL", "scheme_matrix", "measured_irr_after_cal_db",
            "evaluate_scheme", "build", "to_markdown", "cross_checks", "sensitivity", "sensitivity_knobs",
-           "sensitivity_markdown", "report_json", "PowerReport", "evaluate_ay"]
+           "sensitivity_markdown", "report_json", "PowerReport", "evaluate_ay", "knob_value_text"]

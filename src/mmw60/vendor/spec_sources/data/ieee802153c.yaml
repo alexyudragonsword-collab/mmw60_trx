@@ -1,4 +1,4 @@
-# Vendored from spec_sources@3123b65072d21d374da518a0b2a81d97232f56b7: src/spec_sources/data/ieee802153c.yaml
+# Vendored from spec_sources@76ee72a008e3f5ad65fcaa6119643914d0328622: src/spec_sources/data/ieee802153c.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # ieee802153c —— IEEE 802.15.3c（TG3c，60 GHz WPAN）的 RF 损伤模型提案里的数：相噪模型、PA 模型与参数。
 #

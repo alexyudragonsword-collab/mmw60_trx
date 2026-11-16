@@ -149,13 +149,13 @@ isolation 读法只有 −7.65 dB，是 ROADMAP D5 那个宽带捕获对齐的�
 - 拓扑 B 上两行，同一个前端实例；底板按载荷星座读时域 EVM，原始链与真跑过校准的链各一列（两行共用一次 `run_cal_ay`）。数和读法见 `comparison-table.md` §2c。
 - **合规上限按 be 行的规则**：底板比限值低 `assumed.mcs_evm_margin_db`（3 dB）。这样 OFDM 是 MCS13（4377 Mb/s），SC 是 MCS14（4620 Mb/s），两行都停在 16-QAM 3/4。
   示例 15 读的是限值本身（不留余量），同一条链上是 OFDM MCS15、SC MCS16；表里旁边一列给这个读法。两种读法并存，不是矛盾：示例 15 问的是“这个波形离规范多远”，同台表问的是“各方案按同一规则能发什么”。
-- **和 be 行比要在同一口径**：两边都取校准后的上限。be 行最快也最省的是 11be 80 MHz × 32（2.56 GHz）的 MCS2，3459 Mb/s、270 pJ/bit。ay 的 SC 行快 1.3 倍、每比特省 1.4 倍，不计解码器。
+- **和 be 行比要在同一口径**：两边都取校准后的上限。be 行最快也最省的是 11be 80 MHz × 32（2.56 GHz）的 MCS2，3459 Mb/s、272 pJ/bit。ay 的 SC 行快 1.3 倍、每比特省 1.4 倍，不计解码器。
 - 两边读法仍不对称：be 行的校准列是 IRR 查表加解析和，ay 行是校准链上的时域读数。ROADMAP A3 那条“`run_cal_at` 实跑进表”现在决定这个倍数。
 - 敏感度一节（示例 04 §6）不含 ay 行，因为它们没有解析侧。`tools/budget_report.py` 多基准时，ay 两行只随第一个基准出现一次。
 
 ### 坑：两种上限读法（contains: 合规余量、mcs_evm_margin_db、口径错位）
 - 第一版 ay 行用“底板 ≤ 限值”，与 be 行的 3 dB 余量不是同一规则，结果偏高两档：OFDM MCS15 / SC MCS16 对 MCS13 / MCS14。铁律 2 要求同一条规则，所以改了，旧读法留作旁列。
-- 第一版拿 ay 行校准后的 pJ/bit 去比 be 行 §1 未校准的 pJ/bit（592，11be 80 MHz × 8），得到 3 倍。换成 be 行校准后的口径只有 1.4 倍。
+- 第一版拿 ay 行校准后的 pJ/bit 去比 be 行 §1 未校准的 pJ/bit（596，11be 80 MHz × 8），得到 3 倍。换成 be 行校准后的口径只有 1.4 倍。
 
 ## 7. 第二段 2b（下）：按功率换距离（2026-11-16，feat/ay-range；示例 15 §9）
 
@@ -204,12 +204,12 @@ isolation 读法只有 −7.65 dB，是 ROADMAP D5 那个宽带捕获对齐的�
 
 | 波形 | 工作点 | 单元 | 单元输出 | PAE | PA 直流 | 移相器 | 接收增益 | 16-QAM 3/4 距离 | pJ/b |
 |---|---|---|---|---|---|---|---|---|---|
-| SC | 自己的 3.97 dB | 30 | 10.54 dBm | 10.2 % | 3325 mW | 900 mW | 14.85 dB | 219 m | 1086 |
-| SC | 预设 7.5 dB | 45 | 6.96 dBm | 6.8 % | 3304 mW | 1350 mW | 16.48 dB | 267 m | 1179 |
-| OFDM | 自己的 7.12 dB | 43 | 7.37 dBm | 7.1 % | 3308 mW | 1290 mW | 16.32 dB | 277 m | 1235 |
+| SC | 自己的 3.97 dB | 30 | 10.54 dBm | 10.2 % | 3325 mW | 900 mW | 14.85 dB | 219 m | 1088 |
+| SC | 预设 7.5 dB | 45 | 6.96 dBm | 6.8 % | 3304 mW | 1350 mW | 16.48 dB | 267 m | 1181 |
+| OFDM | 自己的 7.12 dB | 43 | 7.37 dBm | 7.1 % | 3308 mW | 1290 mW | 16.32 dB | 277 m | 1237 |
 
 - 读法：顶到上限时，PA 的直流功率与工作点几乎无关（3304–3325 mW）。回退小，单元就少，但每个单元的 PAE 更高（class-B 的规律：PAE 随输出幅度涨），两者相乘不变。SC 的回退余量换来的是更少的单元：少 13 个单元、26 个移相器、390 mW，每比特少 12 %。代价是接收增益（TDD，两端同一个阵列）：16-QAM 3/4 的距离从 277 m 到 219 m。
-- 与 be 行同一张表（N = 64，示例 10 §2–§3c）：B 11be 80M × 4 是 MCS6、1297 Mb/s、368 m、4277 pJ/b；ay SC 的 16-QAM 3/4 是 4620 Mb/s、303 m、1299 pJ/b。
+- 与 be 行同一张表（N = 64，示例 10 §2–§3c）：B 11be 80M × 4 是 MCS6、1297 Mb/s、368 m、4279 pJ/b；ay SC 的 16-QAM 3/4 是 4620 Mb/s、303 m、1301 pJ/b。
 
 **更正（被推翻的判断）**：ROADMAP 原写“SC 的回退余量变成更少的单元或更少的直流功率”。单元更少成立；PA 直流功率不变，省下的是移相器（每单元的 LNA / 混频器没有计，单元少它们也少）。
 
@@ -280,12 +280,12 @@ RX DC 单开等于底板，没有贡献。直接读数：`dc_pre` 之后剩的�
 - ay 自己的扇区扫描和 be 靠 MLO 触发的训练是同一类缺口：N ≥ 16 时，远端单单元的发端扫描够不到最慢数据档的边，差得也差不多（N = 64 时 −8.0 对 −8.8 dB）。控制 PHY 的扩频正好抵消了 1.76 GHz 比 320 MHz 宽出来的噪声带宽。
 - 所以示例 10 §4b（重复训练场）与 §4c（两级扫描）的补法对 ay 一样适用；ay 的 TRN 字段与 short SSW 没有建。
 - 收端扫描在所有尺寸上都够得着（在选好的发端波束后面）。
-- 扫一轮要多久（控制 PHY 的前导与头、SSW 帧长、扇区间隔）等 spec_sources#33。
+- 扫一轮要多久（控制 PHY 的前导与头、SSW 帧长、扇区间隔）等 spec_sources#33。#33 已到（2026-11-16，pin `76ee72a`：`dmg.control_phy`、`dmg.phy_timing`、`dmg.ssw_frame`、`edmg.short_ssw`），还没算。
 
 ### 9d. 编码 PER：机器先建，矩阵等 spec_sources#33（`ay/coding.py`，feat/ay-coded）
 - **已建**：`phy.ldpc.qc_code` 能从任意基矩阵与提升因子构造准循环码（802.11 的码改走它，边数组逐位相同；DMG / EDMG 的是 16 列、z = 42）。SC 载荷装整数个码字，不够一个码字的比特用随机填充，接收端丢掉。接收端从均衡后的码片求 max-log LLR，不做逐码片加权：SC 的 MMSE 让每个码片 SINR 相同，归一化 min-sum 又对 LLR 的整体缩放不敏感。任一码字的任一信息比特错就算丢包。`AyLinkSim.transmit(rng, bits=)` 接收载荷比特（只对 SC）。
 - **替身验证**：用 802.11 的 648 码（码率 1/2）、π/2-QPSK、行为模型的理想链：不加噪声时零错，−3 dB 全丢，6 dB 全对；把 LLR 的符号翻过来测试就变红（`test_the_coded_sc_path_with_an_80211_code_standing_in`）。替身码的 PER 曲线不打印：它不是 EDMG 的码，打出来容易被当成 EDMG 的数。
-- **等 spec_sources#33**（铁律 5）：DMG / EDMG 的 LDPC 基矩阵、码率 7/8 的打孔、扰码、填充与缩短规则。`coding.dmg_code` 在矩阵进来之前报 `PendingSpec`，不出任何 EDMG 档的 PER。键名 `dmg.ldpc_base_matrices` 是占位，spec_sources 定了名字再改。
+- **等 spec_sources#33**（铁律 5）：DMG / EDMG 的 LDPC 基矩阵、码率 7/8 的打孔、扰码、填充与缩短规则。`coding.dmg_code` 在矩阵进来之前报 `PendingSpec`，不出任何 EDMG 档的 PER。键名 `dmg.ldpc_base_matrices` 是占位，spec_sources 定了名字再改。#33 已到（2026-11-16，pin `76ee72a`）：键名是 `dmg.ldpc_matrices`（z = 42，`r1_2` / `r5_8` / `r3_4` / `r13_16`，−1 是零块），码率 7/8 是 `dmg.ldpc_r7_8_punctured` 与 `edmg.ldpc_672_r7_8`（一格可叠两个移位），扰码与填充在 `dmg.data_encoding` / `edmg.sc_encoding`；还没接。
 - **没建**：OFDM 的编码载荷（DCM 配对、tone mapping）。
 
 ## 10. 剩下的（ROADMAP 里程碑 3）

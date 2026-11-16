@@ -84,7 +84,9 @@ def test_spec_source_needs_a_quote_and_survey_needs_unverified():
     with pytest.raises(ValueError, match="未核实"):
         spec.SpecNumber("x", 1, "u", "survey", "cite", note="fine")
     ok = spec.SpecNumber("x", 1, "u", "spec", "cite", quote="the text", section="3.1")
-    assert ok.verified and not spec.survey("liu2025.per_target").verified
+    # an entry still read only second-hand (liu2025.per_target was the example until spec_sources#33 / 0.5.0
+    # read it in the original)
+    assert ok.verified and not spec.survey("horowitz2014.mult32_pj").verified
 
 
 def test_derived_entries_follow_their_formulas():

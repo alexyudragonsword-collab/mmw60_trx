@@ -55,20 +55,20 @@ presets           10    4.6      -25.0    -27.7    2.6     -31.1
 
 == 5. the comparison table's 11be 80 MHz rows with each PA (decoder cap, uncalibrated IQ) ==
 row                                            PA         floor  MCS    rate  pJ/bit   EIRP   limited by
-be 11be 80M IF extender @60.48 GHz             11ad EM    -17.3    4     216    3153   33.0   pa
-                                               presets    -19.6    5     288    2411   32.9   pa
-be_upclocked 11be 80M K=4 IF extender @60.48 GHz 11ad EM    -17.3    4     865    1125   33.0   pa
-                                               presets    -19.6    5    1153     860   32.9   pa
-be 11be 80M K=1 @6 GHz (WiFi 7 chain)          11ad EM    -17.1    4     216    1033      —   pa
-                                               presets    -19.4    5     288     821      —   pa
-be_upclocked 11be 80M K=4 @60.48 GHz           11ad EM    -16.6    4     865     457   33.0   pa
-                                               presets    -18.5    5    1153     358   32.9   pa
-be_upclocked 11be 80M K=8 @60.48 GHz           11ad EM    -14.9    4    1729     296   33.0   pa
-                                               presets    -16.2    4    1729     303   32.9   iq_image
-be_upclocked 11be 80M K=16 @60.48 GHz          11ad EM    -10.9    3    2306     300   33.0   iq_image
-                                               presets    -11.3    3    2306     305   32.9   iq_image
-be_upclocked 11be 80M K=32 @60.48 GHz          11ad EM     -4.7    0    1153     779   33.0   iq_image
-                                               presets     -4.7    0    1153     789   32.9   iq_image
+be 11be 80M IF extender @60.48 GHz             11ad EM    -17.3    4     216    3162   33.0   pa
+                                               presets    -19.6    5     288    2418   32.9   pa
+be_upclocked 11be 80M K=4 IF extender @60.48 GHz 11ad EM    -17.3    4     865    1130   33.0   pa
+                                               presets    -19.6    5    1153     863   32.9   pa
+be 11be 80M K=1 @6 GHz (WiFi 7 chain)          11ad EM    -17.1    4     216    1039      —   pa
+                                               presets    -19.4    5     288     826      —   pa
+be_upclocked 11be 80M K=4 @60.48 GHz           11ad EM    -16.6    4     865     460   33.0   pa
+                                               presets    -18.5    5    1153     361   32.9   pa
+be_upclocked 11be 80M K=8 @60.48 GHz           11ad EM    -14.9    4    1729     298   33.0   pa
+                                               presets    -16.2    4    1729     305   32.9   iq_image
+be_upclocked 11be 80M K=16 @60.48 GHz          11ad EM    -10.9    3    2306     303   33.0   iq_image
+                                               presets    -11.3    3    2306     308   32.9   iq_image
+be_upclocked 11be 80M K=32 @60.48 GHz          11ad EM     -4.7    0    1153     786   33.0   iq_image
+                                               presets     -4.7    0    1153     796   32.9   iq_image
 (floor dB (the decoder's: analytic, or the time-domain EVM when that reads worse), MCS at the decoder cap, Mb/s, pJ/bit at that rate, average EIRP margin dB.  The PA-isolated EVM at each PA's own back-off: 11ad EM -18.1 dB at 8, presets -21.1 dB at 7.5)
 
 [~s]
