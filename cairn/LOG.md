@@ -3,6 +3,12 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-16 · spec_sources#33 验收并关闭（docs/close-spec-33）
+
+- 对方 PR #37（main `b16245a`）把 `consumers.yaml` 里本库的登记改为 pin `76ee72a`、at `53a9a16`、issue `mmw60_trx#60`、9 个文件；本库核对与 vendor 的文件一致，main `50f30df` 上合并表 193 条、未核实 9 条，与对方复核一致。按约定由本库关闭 #33。
+- 对方回复里 survey 条数的更正（14 → 3 应为 16 → 5）是它自己的数，本库文档没引用。
+- 没给的两处（控制 PHY 码字切分、EDMG PPDU 前导长度）留在 ROADMAP，按需另开 issue。
+
 ## 2026-11-16 · 接上 spec_sources#33 的键：DMG / EDMG 的码、EDMG SC 实测门限、扩展 SC 档、扫描时长（feat/ay-33-keys）
 
 - 码：`dmg_code`（四个码率；7/8 打孔成 624 / 546）、`edmg_code`（7/8 是 672 / 588 的新码）；`qc_code` 一格可叠多个移位。EDMG 7/8 = DMG 3/4 第 1+3、2+4 块行之和，逐位复现。
