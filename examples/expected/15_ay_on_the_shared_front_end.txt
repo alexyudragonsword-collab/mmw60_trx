@@ -230,17 +230,19 @@ ay_ofdm  64-QAM                     calibrated  -21.04   section 4: raw   -6.57,
 cap, calibrated chain ay_ofdm  MCS15 16-QAM 7/8 (limit -19 dB), 5.106 Gb/s
 cap, calibrated chain ay_sc    MCS16 π/2-16-QAM 7/8 (limit -23 dB), 5.390 Gb/s
 
+one calibration at 7.5 dB, run at 15 dB (drive re-trimmed, π/2-16-QAM): -16.56 dB; the same without the CFO -26.09 dB; calibrated at 15 dB -26.41 dB — the TX LO-leak cancellation found at one gain state does not hold at another, and what is left is DC that only the CFO carries past the receiver's DC removal
+
 SC against OFDM at the same modulation and code rate on the calibrated chains (back-off from Psat; ΔPout = SC − OFDM; section 5's ΔPout beside it):
 modulation  rate      SC   OFDM   ΔPout   sec. 5
-16-QAM       1/2    3.82   3.96    0.14     0.64
-16-QAM       5/8    4.41   4.55    0.14     0.68
-16-QAM       3/4    4.98   5.13    0.15     0.66
-16-QAM     13/16    5.65   5.73    0.09     0.61
-16-QAM       7/8    6.35   6.36    0.01     0.50
-64-QAM       1/2    7.41   7.47    0.06     0.36
-64-QAM       5/8    8.44   8.10   -0.34    -0.01
-64-QAM       3/4   never   8.77    —       -4.15
-64-QAM     13/16   never  10.49    —        —
-64-QAM       7/8   never  never    —        —
+16-QAM       1/2    3.67   3.96    0.29     0.64
+16-QAM       5/8    4.23   4.55    0.32     0.68
+16-QAM       3/4    4.81   5.13    0.32     0.66
+16-QAM     13/16    5.45   5.73    0.28     0.61
+16-QAM       7/8    6.20   6.34    0.14     0.50
+64-QAM       1/2    7.40   7.47    0.07     0.36
+64-QAM       5/8    8.70   8.16   -0.55    -0.01
+64-QAM       3/4   never   8.80    —       -4.15
+64-QAM     13/16   never  10.34    —        —
+64-QAM       7/8   never  12.92    —        —
 
 [~s]

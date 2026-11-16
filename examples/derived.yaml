@@ -294,7 +294,7 @@
     d64h: {example: "15", after: "(ΔPout = SC − OFDM; Δrate", line: "64-QAM 1/2 17 {*} {*} 16 {*} {*} {} {*}"}
     d16q: {example: "15", after: "(ΔPout = SC − OFDM; Δrate", line: "16-QAM 5/8 13 {*} {*} 12 {*} {*} {} {*}"}
   quotes:
-    - {doc: cairn/LOG.md, text: "SC 少退 {d64h}–{d16q} dB"}
+    - {doc: cairn/LOG.md, text: "同调制同码率：SC 少退 {d64h}–{d16q} dB（64-QAM 5/8 持平）"}
     - {doc: cairn/ay.md, text: "SC 少退 {d64h}–{d16q} dB（16-QAM 1/2 … 7/8、64-QAM 1/2）"}
 
 - name: ex15 the best EVM-limited rate at 1 dB back-off (13.6 dBm), SC against OFDM
@@ -313,13 +313,21 @@
     - {doc: cairn/LOG.md, text: "合规上限：SC MCS16（{capsc} Gb/s），OFDM MCS15（{capof} Gb/s）"}
     - {doc: cairn/ay.md, text: "上限 SC MCS16（π/2-16-QAM 7/8，{capsc} Gb/s）、OFDM MCS15（16-QAM 7/8，{capof} Gb/s）"}
 
-- name: ex15 on the calibrated chains — the SC back-off saving at matched 16-QAM (smallest and largest) and the 64-QAM 5/8 deficit
+- name: ex15 on the calibrated chains (calibrated at every back-off) — the SC back-off saving at matched 16-QAM (smallest and largest) and the 64-QAM 5/8 deficit
   values:
     c78: {example: "15", after: "on the calibrated chains (back-off from Psat", line: "16-QAM 7/8 {*} {*} {} {*}"}
     c34: {example: "15", after: "on the calibrated chains (back-off from Psat", line: "16-QAM 3/4 {*} {*} {} {*}"}
     c58: {example: "15", after: "on the calibrated chains (back-off from Psat", line: "64-QAM 5/8 {*} {*} {} {*}"}
   quotes:
-    - {doc: cairn/ay.md, text: "SC 少退 {c78}–{c34} dB（16-QAM 1/2 … 7/8）"}
-    - {doc: cairn/LOG.md, text: "只剩 {c78}–{c34} dB（16-QAM）"}
-    - {doc: cairn/ay.md, text: "64-QAM 5/8 多退 {-c58} dB"}
+    - {doc: cairn/ay.md, text: "SC 少退 {c78}–{c34} dB（16-QAM 1/2 … 7/8），64-QAM 1/2"}
+    - {doc: cairn/ay.md, text: "64-QAM 5/8 多退 {-c58} dB；"}
+    - {doc: cairn/LOG.md, text: "每点各校一次后 SC 少退 {c78}–{c34} dB（16-QAM）"}
+
+- name: ex15 one calibration at the preset back-off, run at 15 dB, with and without the CFO, against calibrating there
+  values:
+    st: {example: "15", line: "one calibration at 7.5 dB, run at 15 dB (drive re-trimmed, π/2-16-QAM): {} dB; the same without the CFO {*} dB; calibrated at 15 dB {*} dB"}
+    sn: {example: "15", line: "one calibration at 7.5 dB, run at 15 dB (drive re-trimmed, π/2-16-QAM): {*} dB; the same without the CFO {} dB; calibrated at 15 dB {*} dB"}
+    fr: {example: "15", line: "one calibration at 7.5 dB, run at 15 dB (drive re-trimmed, π/2-16-QAM): {*} dB; the same without the CFO {*} dB; calibrated at 15 dB {} dB"}
+  quotes:
+    - {doc: cairn/ay.md, text: "带 CFO {st} dB、不带 {sn} dB；在 15 dB 重新校准 {fr} dB"}
 

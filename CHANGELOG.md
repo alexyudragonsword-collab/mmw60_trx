@@ -4,6 +4,11 @@
 
 ## 未发布
 
+### 里程碑 3 第二段 2b（上）：§8 每个回退点各校一次（2026-11-16）—— 源码、预设与指纹不变；示例 15 §8 的数更正
+- 示例 15 §8：每个回退点各跑一次 `run_cal_ay`，不再只在预设回退校准一次；另加一行，给出单次校准跑到 15 dB 时读成什么。
+- 更正：同调制同码率时 SC 少退 0.14–0.32 dB（16-QAM），不是 #51 的 0.01–0.15 dB。原因是 wifitrx 的 TX LO 泄漏抵消只对它校准时的增益状态成立。
+- 新测试 `test_the_tx_lo_leak_calibration_holds_only_at_its_gain_state`。
+
 ### 里程碑 3 第二段 2a：在 ay 的链上真跑 wifitrx 的校准（2026-11-16）—— be 方案与指纹不变；示例 15 多 §7–§8
 - `calcheck.ay_probe_config`、`calcheck.run_cal_ay`（新）；新 assumed `ay_cal_probe`。
 - `LinkSim(cfg, frontend=, chains=)`：ay 配置可以传进一对建好的（校准过的）链（**公开签名加参数**，be 不接受）；`describe()` 多 `calibrated`。
