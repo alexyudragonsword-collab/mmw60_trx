@@ -306,4 +306,17 @@ the DMG-derived thresholds against this library's measured 11be LDPC thresholds 
   16-QAM 3/4 ay_ofdm  MCS13  12.39 dB   11be MCS4  11.25 dB   difference +1.14 dB
   16-QAM 3/4 ay_sc    MCS14  13.52 dB   11be MCS4  11.25 dB   difference +2.27 dB
 
+== 10. under multipath: the CR stand-in (exponential PDP, rms 7 ns, K 10 dB, one realisation per packet; assumed.cr_rms_delay_ns [assumed]), the calibrated chain at the preset back-off, 16-QAM payloads; EVM dB over 40 packets, mean (90th percentile) ==
+waveform channel                            no noise        SNR 20 dB        SNR 12 dB  12 dB vs flat
+ay_sc    flat                        -24.17 (-23.92)  -18.26 (-18.19)  -11.30 (-11.21)          +0.00
+ay_sc    CR 7 ns                     -23.69 (-23.36)  -17.45 (-17.22)  -10.52 (-10.35)          +0.78
+ay_sc    CR 15 ns                    -18.77 (-17.80)  -15.77 (-15.35)  -10.17 ( -9.97)          +1.14
+ay_sc    CR 15 ns, long GI           -23.39 (-23.09)  -17.17 (-16.98)  -10.27 (-10.12)          +1.04
+ay_sc    CR 7 ns, zero forcing       -23.69 (-23.36)  -17.42 (-17.18)  -10.35 (-10.10)          +0.96
+ay_ofdm  flat                        -21.04 (-20.90)  -17.12 (-17.03)  -10.88 (-10.79)          +0.00
+ay_ofdm  CR 7 ns                     -20.79 (-20.64)  -16.50 (-16.32)  -10.03 ( -9.70)          +0.86
+ay_ofdm  CR 15 ns                    -17.53 (-17.13)  -14.94 (-14.41)   -9.48 ( -9.33)          +1.41
+ay_ofdm  CR 15 ns, long GI           -20.50 (-20.33)  -15.96 (-15.76)   -9.35 ( -8.94)          +1.53
+(the in-band SNR is the received signal over the noise in the occupied band; SC equalises with the unbiased MMSE on the channel estimate's scale, OFDM zero-forces per tone; the GI is 36.4 ns normal, 72.7 ns long)
+
 [~s]
