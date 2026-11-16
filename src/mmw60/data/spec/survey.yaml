@@ -586,6 +586,13 @@ entries:
     cite: "本库；mmw60.sim.ay_link"
     note: "ay 接收机的选择。信道估计只用一对 Golay 序列，不平滑时它自己的噪声在 in-band SNR 20 dB 上把 EVM 拉到 SC −18.4 / OFDM −17.4 dB；把估计的冲激响应截在 GI 以内（再留 GI/8 的前驱），噪声降 512 / 72 ≈ 8.5 dB，信道短于 GI 时什么也不丢——DMG 接收机的通常做法，标准不规定。SC 的相位跟踪在每块前后两段已知 GI 之间线性插值（sc_phase: interp）：每块只取尾部 GI 一个相位时，60 GHz 的相噪在 291 ns 的块里漂，预设回退上单开相噪，SC 64-QAM 每块一个相位读 −25.1 dB、插值读 −27.5 dB，OFDM（每个符号 16 个导频）−27.7 dB；插值是 OFDM 逐符号导频的对应做法。示例 15 给 block 的灵敏度行。"
 
+  assumed.ay_sensitivity:
+    value: {sensitivity: dmg.rx_sensitivity_dbm, reference_receiver: dmg.sensitivity_assumptions, sc_twin_by: [modulation order, code rate, repetition], ofdm_twin_by: [n_bpsc, code rate], implementation_loss: taken out, bandwidth: occupied}
+    unit: "-"
+    source: assumed
+    cite: "本库；mmw60.ay.edmg.dmg_twin / ideal_threshold_db，mmw60.arraylink.ay_mcs_ranges"
+    note: "按功率换距离要每个 EDMG MCS 的解码门限，spec_sources#29 没有 EDMG 灵敏度。本库的取法：EDMG MCS 若在 DMG 表里有同样每符号比特数、码率与重复的一档（SC 对 dmg.sc_mcs，按调制阶数、码率、重复；OFDM 对 dmg.ofdm_mcs，按每子载波编码比特数与码率——EDMG 的 DCM BPSK / DCM QPSK 每子载波 1 / 2 比特，与 11ad 的 SQPSK / QPSK 相同，edmg.ofdm_mcs 的注释说它们在 18/1152r0 之前就叫这两个名字），就用那一档的最低灵敏度，减去 kT·B（B 取该波形的占用带宽：SC 1.76 GHz、OFDM 352 个音 × 5.15625 MHz，与 ay 链路的带内 SNR 同一口径）和参考接收机的 10 dB NF、5 dB 实现损耗，得理想解码器的带内 SNR 门限。实现损耗拿掉，是因为本库把发射与接收两侧的损伤读成 EVM 底板、按噪声项加回去（与 be 行用本库实测门限的做法一致）；留着它就重复计了，示例 15 §9 有留着它的灵敏度行。没有对应档的 EDMG MCS（各调制的 7/8、OFDM DCM BPSK 3/4 起、DCM QPSK 13/16 起、64-QAM 1/2、SC 64-QAM 全部）没有门限，不进距离表；DMG 扩展档 9.1、12.1–12.6 的调制与码率 spec_sources 没有原文（dmg.sc_mcs 的注释），不拿来配。交叉核对：同调制同码率时比本库实测的 11be LDPC 门限高约 1–2 dB（示例 15 §9）：DMG 的码长 672、参考接收机都偏保守。"
+
   assumed.ay_cal_probe:
     value: {standard: 11be, base_bandwidth_hz: 80.0e+6, k: 22, oversampling: 3}
     unit: "-, Hz, -, samples per probe sample"
