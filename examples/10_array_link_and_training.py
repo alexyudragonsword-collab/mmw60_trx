@@ -23,6 +23,9 @@ array for both topologies (iron rule 2).  What the tables answer:
    link's, and how long the sweeps last; 4b: how many repetitions of the
    training field the transmit sweep needs to reach the MCS0 edge (data/
    spec: assumed.array_training_repetition) and what that costs in time;
+   4c: a two-stage sweep (an m-element sub-array's wide sectors, then the
+   full array inside the chosen one) against the flat one at N = 64, at
+   the MCS0 edge and at the decoder cap's distance;
 5. the squint of phase-shifter steering across the occupied band (arraytx's
    beam response), against true time delay;
 6. the assumed inputs, one at a time.
@@ -237,6 +240,37 @@ def main(argv=None) -> int:
           "data link's path loss (1 = the field as it is); TXSS - MCS0 at that R; TX sweep = every sector's R fields "
           "plus the switch (the receive sweep stays at one field).  Non-coherent: the R powers summed, nR tones' worth "
           "of statistics, no phase needed across repetitions; coherent: 2R symbols per tone, needs the phase to hold")
+
+    # ---------------------------------------------------------------- 4c. two-stage sweep
+    n_h = 16 if quick else 64
+    ms = (8,) if quick else (8, 16)
+    print(f"\n== 4c. a two-stage transmit sweep at N = {n_h}: the first m elements' wide sectors, then the full array "
+          "inside the chosen one (the ceil(N/m) narrow sectors with the most gain toward the station), each stage "
+          f"repeated until it reaches the target alone ({rep_cfg['combining']}); against the flat sweep of 4b ==")
+    print(f"{'scheme':<26} {'target':<10} {'PL':>6} {'flat':>14} {'m':>3} {'wide EIRP':>10} {'wide':>16} "
+          f"{'narrow':>14} {'two-stage':>10}")
+    for lab, cfg in schemes():
+        c, _, b = budgets[(lab, n_h)]
+        n_tones = LinkSim(c, frontend=fe).n_active
+        targets = (("MCS0 edge", b.eirp_dbm + b.g_rx_db - b.sens_by_mcs[0]),
+                   ("cap", b.eirp_dbm + b.g_rx_db - b.sens_by_mcs[b.dec_mcs]))
+        for tname, tgt in targets:
+            for m in ms:
+                h = al.hierarchical_training(cfg, fe, n_h, m, n_tones, tgt, trials=trials, n_users=users)
+
+                def st(x):
+                    if x["repetitions"] is None:
+                        return f"{x['sectors']}x short {x['pl_db']:.1f}"
+                    return f"{x['sectors']}xR{x['repetitions']} {1e6 * x['time_s']:.0f}us"
+                tot = h["hierarchical_time_s"]
+                print(f"{lab:<26} {tname:<10} {tgt:6.1f} {st(h['flat']):>14} {m:>3} {h['wide']['eirp_dbm']:10.1f} "
+                      f"{st(h['wide']):>16} {st(h['narrow']):>14} {'—' if tot is None else f'{1e6 * tot:.0f}us':>10}",
+                      flush=True)
+    print("PL = the target path loss (dB): the MCS0 data link's edge, or the decoder cap's; flat / wide / narrow = "
+          "sectors x repetitions and the sweep time (one direction), or 'short' and the path loss the stage takes at "
+          "the most repetitions; wide EIRP = the m-element sub-array at its own per-element output (dBm).  The wide "
+          "stage loses 20 log10(N/m) of EIRP, which repetitions buy back only at about 1.5 dB per doubling: the two "
+          "stages save time where the link has margin, not at its edge")
 
     # ---------------------------------------------------------------- 5. squint
     print(f"\n== 5. squint across the occupied band at a {SCAN_DEG:g} deg beam (phase shifters vs true time "

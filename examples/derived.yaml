@@ -254,3 +254,14 @@
     - {doc: cairn/topology-b.md, text: "2.56 GHz 时域 flat {tdf}、CR 替身 {tdc} dB"}
     - {doc: cairn/topology-b.md, text: "多径只多 {tdf - tdc} dB"}
     - {doc: cairn/topology-b.md, text: "2.56 GHz 列的 genie 口径回环 EVM 校准前后是 22.0 / {iso} dB，modem 口径 {mod} dB"}
+
+- name: ex10 the two-stage sweep at N = 64 against the flat one (B 11be 80 MHz x 4)
+  values:
+    flat_cap: {example: "10", after: "== 4c.", line: "B 11be 80M x4 (320 MHz) cap {*} 64xR1 {}us 16 {*} 16xR1 {*}us 4xR1 {*}us {*}us"}
+    two_cap: {example: "10", after: "== 4c.", line: "B 11be 80M x4 (320 MHz) cap {*} 64xR1 {*}us 16 {*} 16xR1 {*}us 4xR1 {*}us {}us"}
+    narrow_edge: {example: "10", after: "== 4c.", line: "B 11be 80M x4 (320 MHz) MCS0 edge {*} 64xR64 {*}us 16 {*} 16x short {*} 4xR64 {}us —"}
+    wide_short: {example: "10", after: "== 4c.", line: "B 11be 80M x4 (320 MHz) MCS0 edge {*} 64xR64 {*}us 16 {*} 16x short {} 4xR64 {*}us —"}
+  quotes:
+    - {doc: cairn/array-layer.md, text: "16 × 1 次 110 µs / 28 µs / **{two_cap} µs**"}
+    - {doc: cairn/array-layer.md, text: "| B 11be 80M × 4 | 解码器上限（124.9 dB） | 64 × 1 次，{flat_cap} µs |"}
+    - {doc: cairn/array-layer.md, text: "够不到（{wide_short}）/ 4 × 64 次 {narrow_edge / 1000} ms / — |"}

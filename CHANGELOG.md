@@ -4,6 +4,11 @@
 
 ## 未发布
 
+### B：两级波束训练（2026-11-16）—— 引擎、预设与指纹不变；示例 10 多 §4c
+- `arraylink.hierarchical_training`（新）与 `required_training_snr_db(candidates=)`（新参数，默认不变）。
+- 结论：两级扫描在 N = 64 的 MCS0 边上补不了距离（宽扫子阵少 9–15 dB EIRP），只在有余量的距离上快 1.8–3.2 倍；边上缩短训练要的是不靠 60 GHz SNR 的粗方向（第二级只扫 4 个扇区时快 16 倍）。
+- ROADMAP：删优先级第 1 条（分层训练），B 的“N = 64 的训练太长”改写成“粗方向来自 sub-7 链路”一档（待测向精度的出处）。
+
 ### C7：2.56 GHz 列两种读法差 10 dB 的原因（2026-11-16）—— 引擎、预设与指纹不变；示例 03 多两节
 - `calcheck.loopback_views`（新）：最终检查的回环三种读法（wifitrx 的 isolation、先均衡的 isolation、modem）与信道相位斜坡、公共相位的相干度；`CalRun.chains`（新字段）留下校准后的链。
 - **被推翻的判断**：2.56 GHz 上 genie（isolation）比 modem 差 10 dB 不是接收机吸收的线性项，是 isolation 读法在回环残余时延（6.06 rad 相位斜坡）下的估计偏差；先均衡读 −24.4 dB（modem −23.4）。

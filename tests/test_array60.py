@@ -237,3 +237,33 @@ def test_the_array_power_column_is_the_single_element_one_at_n1_and_counts_n_pas
     assert b64.p_elem_dbm < fe.target_pout_dbm() and r64.watts("pa") < 64 * one_pa
     assert al.array_power_report(array_frontend(cfg, 16), fe, Array60.from_config(array_frontend(cfg, 16), fe), b16,
                                  k.with_(phase_shifter_w=0.0)).watts("phase_shifters") == 0.0
+
+
+def test_a_two_stage_sweep_saves_time_with_margin_but_cannot_reach_further():
+    """ROADMAP B (user's pick 2026-11-16): the wide stage is an m-element
+    sub-array, 20 log10(N/m) dB short of the full array's EIRP, so where the
+    flat sweep needs repetitions to reach the MCS0 edge the wide stage needs
+    far more; with margin (the decoder cap's distance) both stages need one
+    field and the two-stage sweep is shorter.  ``candidates`` restricts the
+    refining stage to the sectors with the most gain toward the station."""
+    cfg = dc.replace(zero_if_60ghz(k=4, standard="11be", bandwidth_hz=80e6), channel=FLAT)
+    fe = Frontend60.from_config(cfg)
+    n = 16
+    c = array_frontend(cfg, n)
+    ar = Array60.from_config(c, fe)
+    b = al.array_budget(c, fe, ar)
+    n_tones = LinkSim(c, frontend=fe).n_active
+    kw = dict(trials=300, n_users=5, seed=2)
+    base = al.required_training_snr_db(ar, "tx", n_tones, **kw)
+    assert al.required_training_snr_db(ar, "tx", n_tones, candidates=None, **kw)["snr_db"] == base["snr_db"]
+    assert al.required_training_snr_db(ar, "tx", n_tones, candidates=2, **kw)["snr_db"] <= base["snr_db"]
+    cap = b.eirp_dbm + b.g_rx_db - b.sens_by_mcs[b.dec_mcs]
+    h = al.hierarchical_training(cfg, fe, n, 8, n_tones, cap, **kw)
+    assert h["wide"]["sectors"] == 8 and h["narrow"]["sectors"] == 2 and h["flat"]["sectors"] == 16
+    assert h["wide"]["eirp_dbm"] == pytest.approx(h["flat"]["eirp_dbm"] - 20 * np.log10(n / 8), abs=0.6)
+    assert h["flat"]["repetitions"] == h["wide"]["repetitions"] == h["narrow"]["repetitions"] == 1
+    assert h["hierarchical_time_s"] < h["flat"]["time_s"]
+    edge = b.eirp_dbm + b.g_rx_db - b.sens_by_mcs[0]
+    e = al.hierarchical_training(cfg, fe, n, 8, n_tones, edge, max_repetitions=16, **kw)
+    assert e["flat"]["repetitions"] is not None and e["wide"]["repetitions"] is None
+    assert e["hierarchical_time_s"] is None and e["wide"]["pl_db"] < edge
