@@ -194,7 +194,9 @@ def test_power_model_bookkeeping_matches_its_coefficients():
     assert rep.pj_per_bit == pytest.approx(rep.total_w / 156e6 * 1e12)
     phy = cfg.upclocked()
     enob = fe.converters.enob(phy.fs_eff)
-    assert rep.watts("converters") == pytest.approx(4 * 70e-15 * 2 ** enob * phy.fs_eff)
+    # the Walden figure is read, not written here (70.815 fJ since spec_sources 0.5.0; 70 before)
+    assert k.walden_fom_j == pytest.approx(spec.value("adc_survey.walden_fom_fj") * 1e-15)
+    assert rep.watts("converters") == pytest.approx(4 * k.walden_fom_j * 2 ** enob * phy.fs_eff)
     assert rep.watts("lo") == pytest.approx(2 * 40e-3)
     # one more ENOB bit doubles the converters (Walden), the digital blocks follow the node scale
     rep7 = power_report(cfg, fe, 156e6, k.with_(node_scale=0.175))

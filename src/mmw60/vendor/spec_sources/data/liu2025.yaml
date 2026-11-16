@@ -1,4 +1,4 @@
-# Vendored from spec_sources@3123b65072d21d374da518a0b2a81d97232f56b7: src/spec_sources/data/liu2025.yaml
+# Vendored from spec_sources@76ee72a008e3f5ad65fcaa6119643914d0328622: src/spec_sources/data/liu2025.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # liu2025 —— Liu 2025（Wi-Fi 8 毫米波 upclocking）论文里的数，与只由它们推出的 derived。
 #
@@ -17,7 +17,7 @@
 # 迁入时读的是 arXiv:2309.16813 v1 (2023-09-28, 含 PER 图 Fig. 4) 与 v2 (2024-07-08, 图被删、正文仍引用)；
 # 2026-11-15 读了刊出版（用户从 IEEE Xplore 下载，PDF 只放本地；mmw60_trx 在本库 #26 里请求）：
 # 21 条对上原文改成 spec，其中 3 条的值随刊出版改了（tests/test_extraction.py 的 VERIFIED 与 CORRECTED），
-# per_target 刊出版没有那句、仍是 survey；另新收 4 条。
+# per_target 刊出版没有那句，2026-11-16 按 arXiv v1 的原句改成 spec；另新收 4 条。
 # 前缀：liu2025.*。
 
 entries:
@@ -138,7 +138,7 @@ entries:
     cite: "Liu et al., IEEE Commun. Mag. 63(3), pp. 69–75, 2025（刊出版，doi 10.1109/MCOM.002.2400059；2026-11-15 读原文）"
     section: "Performance Evaluation of mmWave — Simulation Results（p. 73）"
     quote: "The conventional subcarrier spacing of Non-HT STF (L-STF) is 4 × 312.5 KHz, so the threshold for CFO correction can be obtained by dividing the minimum subcarrier spacing 5.88 MHz by the 1250 KHz. Therefore, only a larger upclocking version than 4.7 can rectify the CFO correctly, which is also reflected in Fig. 3, because both 8× upclocking and 16× upclocking achieve better performance under each MCS."
-    note: "5.88 MHz / 1.25 MHz = 4.704。刊出版明写了 L-STF 的间距是 4 × 312.5 kHz（arXiv 版只写'the 1250 KHz'）。"
+    note: "5.88 MHz / 1.25 MHz = 4.704。刊出版与 arXiv v1 都明写 L-STF 的间距是 4 × 312.5 kHz（2026-11-16 更正：此前这里说 arXiv 版只写 'the 1250 KHz'，是错的）。"
 
   liu2025.pn_f_pole_hz:
     value: 1.0e+6
@@ -197,9 +197,11 @@ entries:
   liu2025.per_target:
     value: 1.0e-2
     unit: PER
-    source: survey
-    cite: "Liu 2025, Sec. V-B 'the SNR required to achieve the specified PER (10^-2)'"
-    note: "未核实。本库 external_check 的比较点。刊出版（2026-11-15 读）正文没有'specified PER (10^-2)'这句，Simulation Results 只说'the SNR required to achieve the same PER'；Fig. 3 纵轴 10^0–10^-3。"
+    source: spec
+    cite: "X. Liu et al., 'Wi-Fi 8: Embracing the Millimeter-Wave Era', arXiv:2309.16813v1 (2023-09-28)；arxiv.org 公开，2026-11-16 读原文"
+    section: "V. Performance Evaluation of mmWave（Fig. 4 一段）"
+    quote: "The smaller the MCS, the lower the SNR required to achieve the specified PER (10−2 ), and the system performance is better."
+    note: "比较 SNR 用的 PER 门限 10^-2，出自 arXiv v1 的 Fig. 4 一段。刊出版（2026-11-15 读）正文没有这句，Simulation Results 只说 'the SNR required to achieve the same PER'，Fig. 3 纵轴 10^0–10^-3。mmw60_trx 的 external_check 拿它作比较点。"
 
   liu2025.receiver_cfo_statement:
     value: "refrained from using estimation and compensation algorithms for CFO and used phase tracking only on the receiving end"

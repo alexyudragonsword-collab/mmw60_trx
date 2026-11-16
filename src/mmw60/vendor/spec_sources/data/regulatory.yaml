@@ -1,4 +1,4 @@
-# Vendored from spec_sources@3123b65072d21d374da518a0b2a81d97232f56b7: src/spec_sources/data/regulatory.yaml
+# Vendored from spec_sources@76ee72a008e3f5ad65fcaa6119643914d0328622: src/spec_sources/data/regulatory.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # regulatory —— 频谱规管条文（47 CFR §15.255 等）。
 #
@@ -13,6 +13,8 @@
 # assumed.* 是它本地表里的条目；这些写法在条目下一次因核实而改动时改成明确的库名（ROADMAP）。
 #
 # 前缀：fcc15255.*。
+#
+# 2026-11-16 读了 eCFR 的现行条文（第 7 批），4 条都改成 spec，值不变。
 
 entries:
 
@@ -20,27 +22,35 @@ entries:
   fcc15255.eirp_avg_dbm:
     value: 40.0
     unit: dBm
-    source: survey
-    cite: "47 CFR §15.255(c)(1): average EIRP 40 dBm, peak 43 dBm (57–71 GHz, non-fixed)"
-    note: "未核实：条文原文未贴入；里程碑 0 不用。"
+    source: spec
+    cite: "47 CFR §15.255 'Operation within the band 57-71 GHz'，eCFR（www.ecfr.gov，美国政府公开文本）2026-11-12 版的现行条文（该节最近一次修订 2023-08-23）；2026-11-16 读原文"
+    section: "§15.255(c)(1)(i)"
+    quote: "(c) Radiated power limits. Within the 57-71 GHz band, emission levels shall not exceed the following equivalent isotropically radiated power (EIRP): (1) Devices other than field disturbance sensors shall comply with one of the following power limits, as measured during the transmit interval: (i) The average power of any emission shall not exceed 40 dBm and the peak power of any emission shall not exceed 43 dBm; or (ii) For fixed point-to-point transmitters located outdoors, the average power of any emission shall not exceed 82 dBm, and shall be reduced by 2 dB for every dB that the antenna gain is less than 51 dBi."
+    note: "雷达以外器件的平均 EIRP 上限（发射期间测量），(c)(1)(i)；室外固定点对点按 (c)(1)(ii) 可到 82 dBm（天线增益低于 51 dBi 时每 dB 降 2 dB）。雷达类器件（field disturbance sensors）另见 (c)(2)：默认峰值 EIRP 10 dBm、峰值传导 −10 dBm，按频段与关断时间可放宽（ROADMAP）。"
 
   fcc15255.eirp_peak_dbm:
     value: 43.0
     unit: dBm
-    source: survey
-    cite: "47 CFR §15.255(c)(1)（同上）"
-    note: "未核实。"
+    source: spec
+    cite: "47 CFR §15.255 'Operation within the band 57-71 GHz'，eCFR（www.ecfr.gov，美国政府公开文本）2026-11-12 版的现行条文（该节最近一次修订 2023-08-23）；2026-11-16 读原文"
+    section: "§15.255(c)(1)(i)"
+    quote: "(c) Radiated power limits. Within the 57-71 GHz band, emission levels shall not exceed the following equivalent isotropically radiated power (EIRP): (1) Devices other than field disturbance sensors shall comply with one of the following power limits, as measured during the transmit interval: (i) The average power of any emission shall not exceed 40 dBm and the peak power of any emission shall not exceed 43 dBm; or (ii) For fixed point-to-point transmitters located outdoors, the average power of any emission shall not exceed 82 dBm, and shall be reduced by 2 dB for every dB that the antenna gain is less than 51 dBi."
+    note: "雷达以外器件的峰值 EIRP 上限，(c)(1)(i)；与平均值 40 dBm（fcc15255.eirp_avg_dbm）同一句。"
 
   fcc15255.band_low_hz:
     value: 57.0e+9
     unit: Hz
-    source: survey
-    cite: "47 CFR §15.255(a): 57–71 GHz"
-    note: "未核实：条文原文未贴入。"
+    source: spec
+    cite: "47 CFR §15.255 'Operation within the band 57-71 GHz'，eCFR（www.ecfr.gov，美国政府公开文本）2026-11-12 版的现行条文（该节最近一次修订 2023-08-23）；2026-11-16 读原文"
+    section: "§15.255 节标题；(c) Radiated power limits 首句"
+    quote: "§ 15.255 Operation within the band 57-71 GHz. [...] (c) Radiated power limits. Within the 57-71 GHz band, emission levels shall not exceed the following equivalent isotropically radiated power (EIRP):"
+    note: "57–71 GHz 的下边。频段写在节标题与 (c) 首句；迁入时 cite 写的 '(a)' 在现行条文里是'卫星上的设备不适用本节'，出处已改正。"
 
   fcc15255.band_high_hz:
     value: 71.0e+9
     unit: Hz
-    source: survey
-    cite: "47 CFR §15.255(a): 57–71 GHz"
-    note: "未核实。"
+    source: spec
+    cite: "47 CFR §15.255 'Operation within the band 57-71 GHz'，eCFR（www.ecfr.gov，美国政府公开文本）2026-11-12 版的现行条文（该节最近一次修订 2023-08-23）；2026-11-16 读原文"
+    section: "§15.255 节标题；(c) Radiated power limits 首句"
+    quote: "§ 15.255 Operation within the band 57-71 GHz. [...] (c) Radiated power limits. Within the 57-71 GHz band, emission levels shall not exceed the following equivalent isotropically radiated power (EIRP):"
+    note: "57–71 GHz 的上边。频段写在节标题与 (c) 首句；迁入时 cite 写的 '(a)' 在现行条文里是'卫星上的设备不适用本节'，出处已改正。"
