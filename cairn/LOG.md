@@ -3,6 +3,14 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-16 · spec_sources#29 回了：重新 pin 到 3123b65（feat/repin-spec-sources-3123b65）
+
+- spec_sources#30 合并，答 #29：EDMG OFDM / SC 单信道数字学、MCS（含 EVM）、DMG 的 PHY 参数 / MCS / TX EVM / 灵敏度。出处是公开的 TGad / TGay 贡献与 R&S 白皮书（802.11-2024 的许可禁止输入 AI），用户对照标准核过。EDMG 灵敏度没有公开出处。
+- 动手前核过：两个 pin 之间 vendor 的 9 个文件只有 `ieee80211.yaml` 变（+140 / −7 行）；手算对上 Δf 2.64 GHz / 512 = 5.15625 MHz、355 = 336 + 16 + 3、GI 48 / 96 / 192 样本、OFDM MCS1 速率 168 bit ÷ 230.3 ns = 729.47 Mb/s、SC MCS21 1.76 GHz × 448/512 × 6 × 7/8 = 8085 Mb/s、各信道 DC 偏移每档 0.46875 MHz（= 2.16 GHz 对 Δf 取模，公共子载波栅格要的就是这个）。都属实。
+- 结果：vendor_check --strict 250 / 250 verbatim；共享表 83 → 97（spec 59 → 73、survey 18 → 16、derived 6 → 8），unverified 22 → 20；指纹对 main 逐位相同；示例 08 只有一行标签 survey → spec。
+- 顺带：`dmg.tx_evm_db` 的 MCS12 是 −21 dB，正是 C10 工作点规则从幻灯片上读的那条线，与原文一致；规则改引它放在接线的提交里（ROADMAP C10）。
+- 下一步：把 `ay_ofdm` / `ay_sc` 接到新键（单独的提交 / PR），之后在 #29 回合并 SHA、指纹与 vendor_check 摘要，由本库关。
+
 ## 2026-11-16 · C12：列出的三类候选单独都不偏罚 16-QAM；改进接收机 + 硬判决对上原文 MCS0 / 1，MCS4 仍差 2.3–3.0 dB（feat/c12-ideal-receiver，叠在 #47 上）
 
 - 优先级第 5 条。`RxConfig` 加三个诊断开关（默认关，原接收机逐位不变）：`ce_ltf_symbols`、`llr_channel_weighting`、`hard_decision`。示例 14 在原文 ideal 定义（CFO 留着）、flat 信道上逐项改，每点续跑到 60 错（4 核 63 分钟）。

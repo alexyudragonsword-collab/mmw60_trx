@@ -4,6 +4,10 @@
 
 ## 未发布
 
+### spec_sources 重新 pin 到 3123b65（2026-11-16，spec_sources#29）—— 代码读的键值、预设、同台表与指纹不变
+- vendor 副本跟进 spec_sources#30：`ieee80211.yaml` 新增 DMG / EDMG 单信道 PHY 的 14 个键（2 个 derived），`dmg.sensitivity_assumptions` 与 `ieee80211ay.channel_centres_ghz` 改为 spec；其余 8 个文件只改出处头。
+- 示例 08：`dmg.sensitivity_assumptions` 一行的标签变为 `[spec]`。ROADMAP C9 的未核实条数改成 20、没读到原文的剩两条；C10 记下 −21 dB 已有条文出处。
+
 ### C12：原文 ideal 16-QAM 门槛的候选逐项量（2026-11-16）—— 预设、引擎默认路径与指纹不变；新示例 14
 - `RxConfig` 新字段（默认值即原行为）：`ce_ltf_symbols`（1 = 只用第一个 L-LTF 估信道）、`llr_channel_weighting`（False = LLR 不乘 |H|²）、`hard_decision`（只送 LLR 符号进 Viterbi，仅 BCC）；`phy.ppdu.decode_data_field(hard=)`（**公开签名加参数**，默认不变）。
 - 示例 14：原文 ideal 定义下逐项改信道 K 因子 / 信道估计 / LLR 加权 / 硬判决，再看改进接收机 + 硬判决对原文。结论：三类候选单独都不偏罚 16-QAM（最大选择性 1.05 dB，原文要 4.42）；组合对上原文 MCS0 / 1（≤ 0.04 dB），MCS4 仍差 2.3–3.0 dB。

@@ -3,9 +3,9 @@
 **这份文件只写还没做的事。** 做完即删，并在 `CHANGELOG.md` 记一笔、`cairn/LOG.md` 记数字。每条带证据（复现方式与数字）。
 
 ## 当前优先级（2026-11-16 用户定：按下面的顺序做；做完一条就从这里和正文一起删）
-1. **里程碑 3（802.11ay）**：ay_ofdm / ay_sc 两种波形，同台表多两行。与数字无关的骨架已建（`src/mmw60/ay/`、`cairn/ay.md`）；剩下的全等 spec_sources#29 的 EDMG 数字。
+1. **里程碑 3（802.11ay）**：ay_ofdm / ay_sc 两种波形，同台表多两行。与数字无关的骨架已建（`src/mmw60/ay/`、`cairn/ay.md`）；spec_sources#29 已回、已 pin 到 `3123b65`，剩下的是把 EDMG 数字接上。
 
-其余（A1 的 DPD 学习方式与没建的损伤、A2 / A3 的口径统一、C6、C9、C11、C12 剩下的解映射幅度基准）按需再做。卡在外部原文上的不排进度：C4、C10 的 802.11ad 条文与 AM/PM、C8 的 PA 记忆时间常数、B 的氧吸收、A2 的 Murmann 表；其中 11-09/0334、802.11ad EVM 表、Murmann 表能拿到原文，可以打包给 spec_sources。
+其余（A1 的 DPD 学习方式与没建的损伤、A2 / A3 的口径统一、C6、C9、C11、C12 剩下的解映射幅度基准）按需再做。卡在外部原文上的不排进度：C4、C10 的 802.11ad 条文与 AM/PM、C8 的 PA 记忆时间常数、B 的氧吸收、A2 的 Murmann 表；其中 11-09/0334、Murmann 表能拿到原文，可以打包给 spec_sources（802.11ad 的 EVM 表 2026-11-16 已随 spec_sources#29 进来：`dmg.tx_evm_db`）。
 
 ## A. 里程碑 1 —— 两条拓扑同台（主体都已落地；下面是剩余项）
 
@@ -43,9 +43,9 @@
 
 ## 里程碑 3：802.11ay
 ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、四种波形：`waveform: ay_ofdm | ay_sc`，不进 polar_tx。同台表多两行，不多列。
-**卡在 spec_sources#29 上**（2026-11-16 发，还没回）：EDMG OFDM / SC 单信道数字学、MCS 表、DMG / EDMG TX EVM 限值、灵敏度表。用户定第一轮只做 EVM 口径、只做单信道（绑定以后再说）。与数字无关的骨架已建（Golay 互补对、单载波块 + 频域均衡 + 尾 G 相位跟踪、任意子载波排布的 OFDM、PAPR 与回退搜索；`cairn/ay.md` §2），下面各条都是接数字之后的事。
+**spec_sources#29 已回（2026-11-16，pin `3123b65`）**：EDMG OFDM / SC 单信道数字学、MCS 表、DMG / EDMG TX EVM 限值、DMG 灵敏度表都进来了（`cairn/spec-sources.md`）；**EDMG 灵敏度没有出处**，按距离换算要本地写 assumed（例如沿用 DMG 同调制档）并说明理由。验收与关 issue 在接线之后。用户定第一轮只做 EVM 口径、只做单信道（绑定以后再说）。与数字无关的骨架已建（Golay 互补对、单载波块 + 频域均衡 + 尾 G 相位跟踪、任意子载波排布的 OFDM、PAPR 与回退搜索；`cairn/ay.md` §2），下面各条是接数字的事。
 - 接线：EDMG 数字学成为 `OfdmNumerology` / `ScNumerology` 的实例，`WAVEFORMS_BUILT` 加两种，`LinkSim` 接上同一前端实例；单载波成形的滚降标 `assumed` 并带灵敏度行（标准只有频谱模板）。
-- `ay_ofdm`：数字学按 spec_sources#29 来（ROADMAP 原写的 512 点、5.15625 MHz、2.64 GS/s 留给 spec_sources 对原文核，不直接进代码）；导频和前导（CEF）按 ay 的来，不复用 be 的表——所以它不等 D 节的 wifitrx 非标准带宽导频需求。信道绑定（2 / 3 / 4 信道、前端带宽 × 绑定数一列）第一轮不做。
+- `ay_ofdm`：数字学读 `edmg.ofdm_params`（512 点、5.15625 MHz、2.64 GS/s，与原写的一致）；导频下标随信道变（`edmg.ofdm_pilot_tones_ncb1`），载频定了信道才定；导频和前导（CEF）按 ay 的来，不复用 be 的表——所以它不等 D 节的 wifitrx 非标准带宽导频需求。信道绑定（2 / 3 / 4 信道、前端带宽 × 绑定数一列）第一轮不做。
 - `ay_sc`：单载波 PHY，π/2-BPSK 到 64-QAM，Golay 前导。最有价值的一行：SC 的 PAPR 低，正打在 PA 的 Psat 墙上；要回答"SC 用回退换来的 EIRP，够不够抵掉丢掉的频谱效率"。合成数字学上（`cairn/ay.md` §3）：同为 16-QAM 时 SC 比 OFDM 少退 2.7 dB（预设 PA，−20 dB EVM），与 PAPR 差 2.9 dB 一致；QPSK / π/2-BPSK 差 4–6 dB。原写的"低 3–4 dB"只对低阶星座成立。
 - 链路口径还要算训练场（CEF）过 PA：骨架里量到训练值的峰值能让 OFDM 的回退差 1.5 dB（`cairn/ay.md` §3 的坑）；ay 的前导是单载波 Golay，应当小，接数字后实测。
 - CFO：SCS 5.16 MHz 天然接住 2.4 MHz，不用 MLO 预补偿（铁律 3 仍要声明并有测试）。
@@ -88,7 +88,7 @@ Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、
 - **`fir_fs` 是整件事的未知数**：12.5 ns 是 sub-7 GHz WiFi PA 的时间常数原样搬过来。没有 60 GHz PA 记忆时间常数的出处，查到之前这张表只能读趋势。
 
 ### C9. 前端三个面（示例 08）发现的（见 `cairn/LOG.md` 2026-11-12 两条、`cairn/topology-b.md` §5）
-- **还有三条文献数字没读到原文**：`python -c "from mmw60 import spec; print(len(spec.unverified()))"` 是 42（D4 前 48，D4 后 51；2026-11-13 spec_sources 0.3.0 把 TGad 评估方法学的 9 条读成原文，降到 42）。读过原文、已是 `spec` 的五条：`rx60.comm_asada2011`、`rx60.radar_iwr6843`、`rx60.radar_iwr6843_fig7_2`（读图）、`isolation.tx_rx_tue2018`（只读了摘要）、`dmg.rx_max_input_dbm`。没读到的三条：`rx60.comm_iscas2015`、`antenna60.okada2013_dbi`（都在 IEEE Xplore，对脚本访问返回空页，没有去绕）、`dmg.sensitivity_assumptions`（802.11 条文）。都只作灵敏度档，基准档不用它们。原来的第四条（“Infineon AN600”的天线增益）已删：提供方读了原文后撤回，那份文件里没有这组数。
+- **还有两条文献数字没读到原文**：`python -c "from mmw60 import spec; print(len(spec.unverified()))"` 是 20（D4 前 48，D4 后 51；2026-11-13 spec_sources 0.3.0 把 TGad 评估方法学的 9 条读成原文，降到 42；2026-11-15 spec_sources#26 后 22；2026-11-16 spec_sources#29 后 20）。读过原文、已是 `spec` 的五条：`rx60.comm_asada2011`、`rx60.radar_iwr6843`、`rx60.radar_iwr6843_fig7_2`（读图）、`isolation.tx_rx_tue2018`（只读了摘要）、`dmg.rx_max_input_dbm`。没读到的两条：`rx60.comm_iscas2015`、`antenna60.okada2013_dbi`（都在 IEEE Xplore，对脚本访问返回空页，没有去绕）；`dmg.sensitivity_assumptions` 2026-11-16 已随 spec_sources#29 改为 spec。都只作灵敏度档，基准档不用它们。原来的第四条（“Infineon AN600”的天线增益）已删：提供方读了原文后撤回，那份文件里没有这组数。
 - **最大输入电平 −33 dBm 是 2012 年版的写法**：ITU-R M.2003 (03/2012) §2.4.6 是 −33 dBm；现行版 M.2003-2 (01/2018) 同一节改成接收天线处 10 µW/cm²。按 60.48 GHz 换算是 −37.1 dBm（0 dBi）/ −35.1 dBm（2 dBi）/ −31.1 dBm（6 dBi）。示例 08 §3 那一列还按 −33 dBm 画；要不要改成按天线增益换算的功率密度线，待定。
 - **梯子的形状是假设**：原文只给高 / 低两档（变频增益 27 / 17 dB）和一个 NF 上界、一个 IIP3（没说哪一档），其余档位是 wifitrx 梯子整体平移（`assumed.rx60_ladder_shape`）。wifitrx 梯子的调节范围 42 dB，Asada 的接收机 10 dB、雷达芯片 18 dB。增益取 27 dB 后，灵敏度电平上基带 VGA 顶在 40 dB 的上限（ADC 输入比目标低约 7.5 dB），SNR 2 / 10 / 30 dB 上的链路 EVM 与 37 dB 时相同；增益再低到 17 dB，SNR 30 dB 上差 0.18 dB。查到的 IIP3（−20 dBm）与 wifitrx 顶档恰好相同，所以压缩这个面眼下和预设没有差别。
 - **“校准读到的 RX NF”对换档电平很敏感**：回环电平正好落在第 1、2 档的换档点附近。换档电平按 wifitrx 的平衡点规则随 NF 移动 ΔNF / 3，换 PA 后回环电平也变了：现在 NF 6.1 dB 那一行读 13.4 dB、预设读 11.1 dB，顺序正常（2026-11-13 改在预设工作点上校准之前 13.5 / 11.2 dB）。（2026-11-12 预设换成测量的 PA 之前：NF 6.1 dB 那一行落在第 1 档、读 9.6 dB，比预设的 10.8 dB 还低。）读这一列时仍要连着档位读：回环电平一挪，档位就可能跳。
@@ -97,7 +97,7 @@ Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、
 
 ### C10. PA 对照原文（示例 09）发现的（见 `cairn/LOG.md` 2026-11-12、2026-11-13，`cairn/comparison-table.md` §8）
 （形状与回退两件已做：2026-11-12 预设换成测量的 PA；2026-11-13 回退按工作点规则取从 Psat 7.5 dB，`assumed.pa60_operating_rule`。下面是剩下的。）
-- **工作点规则的 −21 dB 是从幻灯片上读的**：`pa60.wu_isscc2015` 的 TX EVM 图上标着 “IEEE802.11ad MCS12(16QAM) specification” 的 −21 dB 线，802.11ad 条文本身（DMG 发射 EVM 表）没有读。待做：读到条文后把限值改成 `spec` 条目，规则改引它。
+- **工作点规则的 −21 dB 是从幻灯片上读的**：`pa60.wu_isscc2015` 的 TX EVM 图上标着 “IEEE802.11ad MCS12(16QAM) specification” 的 −21 dB 线。2026-11-16 条文的值进来了：`dmg.tx_evm_db` 的 MCS12 是 −21 dB（spec，spec_sources#29），与幻灯片一致。待做：规则改引这条 spec（值不变，工作点与同台表不动；`assumed.pa60_operating_rule` 的说明与示例 09 打印的出处会变）。
 - **规则读出来的数取决于两个没出处的选择**：`python examples/09_pa_against_the_literature.py` §2 的规则一节。同一个 −21 dB，测量形状 7.46 dB，去掉 AM/PM 7.06 dB（AM/PM 没有出处，下一条），换汇编表中位的形状（Psat − P1dB 3.3 dB）6.74 dB，11ad 形状 9.97 dB；包络的随机种子只动 0.13 dB。规则读的是 PA 单独、OFDM 样的高斯包络，读到的发射机是单载波 16-QAM（峰均比低得多），所以那篇只印证“按 EVM 限值定额定输出”这个读法，不印证 7.5 这个数。
 - **TGad 原文推荐的 OFDM 回退是 8 dB**（`tgad_em.pa_backoff_recommended_db`，spec_sources 0.3.0 读原文，2026-11-13）：Liu 的 8 dB 就是它，回退也按它定义从 Psat 算。但那是配它自己那颗 PA 的（11ad 形状，P1dB 在 Psat 下 9.5 dB）：同一颗 PA 按本库的工作点规则要 10.0 dB 才到 −21 dB（示例 09 §2）。预设的 7.5 dB 是规则在测量的 PA 上的读数，与 TGad 的推荐值不同不算矛盾；要不要改成“按 TGad 推荐值、换 PA 也不动”，原文没有说推荐值依据什么。
 - **旧预设回退上 DPD 拿不回东西，原因是形状**：示例 09 §4，K = 8 回退 8 dB 上 wifitrx 的 DPD 步对 11ad 形状拿回 0.8 dB（−18.8 → −19.6），对测量形状（现在的预设）拿回 2.0 dB（−22.2 → −24.2）；回退 10 dB 时 4.5 / 2.6 dB。11ad 形状在 8 dB 处已在 P1dB 之上 1.5 dB。

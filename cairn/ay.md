@@ -5,7 +5,7 @@
 ## 1. 范围（用户 2026-11-16 定）
 
 - ay 不是第三条拓扑：拓扑 B 的硬件（零中频链、同一前端实例）配第三、四种波形 `ay_ofdm` / `ay_sc`。
-- 数字（EDMG OFDM / SC 单信道数字学、MCS 表、DMG / EDMG 的 TX EVM 限值、灵敏度表）只从 spec_sources 进来（铁律 5）。已发 spec_sources#29，本库是发起方，合并后由本库验收并关。
+- 数字（EDMG OFDM / SC 单信道数字学、MCS 表、DMG / EDMG 的 TX EVM 限值、灵敏度表）只从 spec_sources 进来（铁律 5）。已发 spec_sources#29，本库是发起方，合并后由本库验收并关。2026-11-16 已回（spec_sources#30，pin `3123b65`；键见 `cairn/spec-sources.md`），EDMG 灵敏度没有出处。
 - 第一轮只做 EVM 口径（不做编码 PER），只做单信道（不做 2 / 3 / 4 信道绑定）。
 - 数字到之前先建与数字无关的部分；`config.WAVEFORMS_BUILT` 不含 ay，`LinkSim` 照样拒绝（`tests/test_laws.py::test_law1_waveform_enum_is_complete_and_ay_refuses`）。
 

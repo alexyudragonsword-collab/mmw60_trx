@@ -229,10 +229,10 @@ def test_law1_no_front_end_figure_is_typed_outside_the_spec_file():
 
 
 def test_law5_d4_figures_read_in_the_original_carry_the_quote_and_the_rest_say_unverified():
+    # dmg.sensitivity_assumptions: read in the original since spec_sources#29 (2026-11-16), value unchanged
     read = ("rx60.comm_asada2011", "rx60.radar_iwr6843", "rx60.radar_iwr6843_fig7_2", "isolation.tx_rx_tue2018",
-            "dmg.rx_max_input_dbm")
-    snippet_only = ("rx60.comm_iscas2015", "dmg.sensitivity_assumptions",
-                    "antenna60.okada2013_dbi")
+            "dmg.rx_max_input_dbm", "dmg.sensitivity_assumptions")
+    snippet_only = ("rx60.comm_iscas2015", "antenna60.okada2013_dbi")
     # withdrawn by the party that supplied it: the application note it cited holds no antenna gain
     assert "survey.antenna60_bgt60_an600_dbi" not in spec.all_entries()
     for k in read:
@@ -244,6 +244,9 @@ def test_law5_d4_figures_read_in_the_original_carry_the_quote_and_the_rest_say_u
     assert "−33 dBm" in spec.survey("dmg.rx_max_input_dbm").quote
     assert "40 dB" in spec.survey("isolation.tx_rx_tue2018").quote
     assert "12 dB" in spec.survey("rx60.radar_iwr6843").quote
+    sens = spec.survey("dmg.sensitivity_assumptions")
+    assert "5 dB implementation loss" in sens.quote and "10 dB noise factor" in sens.quote
+    assert sens.value == {"nf_db": 10.0, "implementation_loss_db": 5.0}
     for k in snippet_only:
         e = spec.survey(k)
         assert e.source == "survey" and "未核实" in e.note, k
