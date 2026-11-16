@@ -34,7 +34,7 @@ sys.path.insert(0, str(HERE.parent / "src"))
 from mmw60 import ENGINE_BANNER, __version__, compare, spec                        # noqa: E402
 from mmw60.config import LoConfig, PhaseNoiseConfig, zero_if_60ghz                 # noqa: E402
 from mmw60.frontend import Frontend60                                              # noqa: E402
-from mmw60.frontend.grid import analytic_floors, max_mcs_for_floor, pa_isolated_evm_db  # noqa: E402
+from mmw60.frontend.grid import analytic_floors, format_cap, max_mcs_for_floor, pa_isolated_evm_db  # noqa: E402
 from mmw60.impairments.phase_noise import load_clock_profile                        # noqa: E402
 from mmw60.sim.link import evm_at                                                   # noqa: E402
 
@@ -144,18 +144,25 @@ def main(argv=None) -> int:
 
     print("\n== 4b. the decoder's cap: the EVM floor as one more noise term against the measured ideal PER thresholds "
           "(data/spec/per_thresholds.yaml); reachable while -floor >= threshold + margin ==")
-    print(f"{'scheme':<44} {'floor':>6} {'conf':>5} {'dec':>5} {'T[dB]':>6} {'SNRreq':>6} {'costs':>6} {'dec-cal':>7} {'Mb/s':>6} {'pJ/bit':>7}")
+    print(f"{'scheme':<44} {'floor':>6} {'conf':>5} {'dec':>6} {'next':>6} {'T[dB]':>6} {'SNRreq':>6} {'costs':>6} "
+          f"{'dec-cal':>7} {'next':>6} {'Mb/s':>6} {'pJ/bit':>7}")
     for r in rep["rows"]:
         g = lambda v, fmt: "    —" if v is None else fmt.format(v)  # noqa: E731
         thr = None if r["dec_mcs"] is None else r["dec_required_snr_db"] - r["dec_penalty_db"]
         pjd = "      —" if not r["power_dec"] else f"{r['power_dec']['pj_per_bit']:7.0f}"
-        print(f"{r['label']:<44} {g(r['dec_floor_db'], '{:6.1f}'):>6} {g(r['max_mcs'], 'MCS{}'):>5} {g(r['dec_mcs'], 'MCS{}'):>5} "
+        print(f"{r['label']:<44} {g(r['dec_floor_db'], '{:6.1f}'):>6} {g(r['max_mcs'], 'MCS{}'):>5} "
+              f"{format_cap(r['dec_mcs'], r['dec_mcs_range']):>6} {g(r['dec_next_margin_db'], '{:+6.2f}'):>6} "
               f"{g(thr, '{:6.2f}'):>6} {g(r['dec_required_snr_db'], '{:6.2f}'):>6} {g(r['dec_penalty_db'], '{:6.2f}'):>6} "
-              f"{g(r['dec_mcs_cal'], 'MCS{}'):>7} {g(r['dec_rate_mbps'], '{:6.0f}'):>6} {pjd}")
+              f"{format_cap(r['dec_mcs_cal'], r['dec_mcs_cal_range']):>7} {g(r['dec_cal_next_margin_db'], '{:+6.2f}'):>6} "
+              f"{g(r['dec_rate_mbps'], '{:6.0f}'):>6} {pjd}")
     print("floor = the worse of the analytic floor and the time-domain EVM of table 1 (the analytic sum is optimistic once the "
           "IQ image is no small perturbation; dec-cal has only the analytic floor at the calibrated IRR)")
     print("conf = the transmitter-conformance cap of table 1 (floor 3 dB under the standard's TX-EVM limit); dec = what the "
           "decoder carries; the rate and pJ/bit here are at the decoder cap (table 1 and 4 stay at the conformance cap)")
+    print("MCS5–6 = the cap with every threshold at the upper / lower end of its 95 % interval (counting statistics "
+          "only, spec.per_threshold_ci_db): the floor sits on an MCS line inside the measurement's own scatter; next = "
+          "-floor - (T + margin) of the MCS above the cap, how far the floor is from one more MCS (a few hundredths "
+          "of a dB is the same reading, whatever the interval says)")
 
     print("\n== 5. the LO models side by side (each its own Frontend60; analytic floor + MCS cap"
           f"{'' if quick else ' + TD EVM'}) ==")

@@ -98,28 +98,29 @@ coefficients: Walden 70 fJ/step; Horowitz 3.1 / 0.1 pJ at 45 nm (node scale 1); 
 c.dpd = the chip's own DPD (topology A: its calibration runs it and the floor's chip residual is read after it); no row pays for a DPD on the 60 GHz PA, whose floor term is the PA without predistortion (ROADMAP C8)
 
 == 4b. the decoder's cap: the EVM floor as one more noise term against the measured ideal PER thresholds (data/spec/per_thresholds.yaml); reachable while -floor >= threshold + margin ==
-scheme                                        floor  conf   dec  T[dB] SNRreq  costs dec-cal   Mb/s  pJ/bit
-be 11ac 20M IF extender @60.48 GHz            -19.7  MCS3  MCS4  14.33  15.82   1.49    MCS4     39   14949
-be_upclocked 11ac 20M K=4 IF extender @60.48 GHz  -20.0  MCS3  MCS4  14.33  15.71   1.38    MCS4    156    4426
-be_upclocked 11ac 20M K=8 IF extender @60.48 GHz  -20.2  MCS3  MCS4  14.33  15.62   1.29    MCS4    312    2559
-be_upclocked 11ac 20M K=16 IF extender @60.48 GHz  -20.4  MCS3  MCS4  14.33  15.56   1.23    MCS4    624    1560
-be 11ac 20M K=1 @6 GHz (WiFi 7 chain)         -18.9  MCS3  MCS4  14.33  16.21   1.88    MCS4     39    4427
-be_upclocked 11ac 20M K=1 @60.48 GHz          -19.5  MCS3  MCS4  14.33  15.92   1.59    MCS4     39    5453
-be_upclocked 11ac 20M K=4 @60.48 GHz          -19.3  MCS3  MCS4  14.33  16.00   1.67    MCS4    156    1744
-be_upclocked 11ac 20M K=8 @60.48 GHz          -19.1  MCS3  MCS4  14.33  16.08   1.75    MCS4    312    1033
-be_upclocked 11ac 20M K=16 @60.48 GHz         -19.1  MCS3  MCS4  14.33  16.11   1.78    MCS4    624     633
-be_upclocked 11ac 20M K=32 @60.48 GHz         -16.5  MCS2  MCS3  11.01  12.46   1.45    MCS4    832     598
-be 11be 80M IF extender @60.48 GHz            -19.6  MCS3  MCS5  15.11  17.03   1.92    MCS5    288    2411
-be_upclocked 11be 80M K=4 IF extender @60.48 GHz  -19.6  MCS3  MCS5  15.11  17.02   1.91    MCS5   1153     860
-be 11be 80M K=1 @6 GHz (WiFi 7 chain)         -19.4  MCS3  MCS5  15.11  17.16   2.05    MCS6    288     821
-be_upclocked 11be 80M K=4 @60.48 GHz          -18.5  MCS2  MCS5  15.11  17.77   2.66    MCS6   1153     358
-be_upclocked 11be 80M K=8 @60.48 GHz          -16.2  MCS2  MCS4  11.25  12.94   1.69    MCS6   1729     303
-be_upclocked 11be 80M K=16 @60.48 GHz         -11.3  MCS0  MCS3   7.53   9.89   2.36    MCS6   2306     305
-be_upclocked 11be 80M K=32 @60.48 GHz          -4.7     —  MCS0  -0.80   0.62   1.42    MCS5   1153     789
-be 11be 320M IF extender @60.48 GHz           -19.5  MCS3  MCS5  15.00  16.90   1.90    MCS5   1153     862
-be 11be 320M IF ext. PA bypass @60.48 GHz     -19.5  MCS3  MCS5  15.00  16.90   1.90    MCS5   1153     477
+scheme                                        floor  conf    dec   next  T[dB] SNRreq  costs dec-cal   next   Mb/s  pJ/bit
+be 11ac 20M IF extender @60.48 GHz            -19.7  MCS3   MCS4  -2.23  14.33  15.82   1.49    MCS4  -2.23     39   14949
+be_upclocked 11ac 20M K=4 IF extender @60.48 GHz  -20.0  MCS3   MCS4  -1.94  14.33  15.71   1.38    MCS4  -1.94    156    4426
+be_upclocked 11ac 20M K=8 IF extender @60.48 GHz  -20.2  MCS3   MCS4  -1.70  14.33  15.62   1.29    MCS4  -1.70    312    2559
+be_upclocked 11ac 20M K=16 IF extender @60.48 GHz  -20.4  MCS3   MCS4  -1.52  14.33  15.56   1.23    MCS4  -1.52    624    1560
+be 11ac 20M K=1 @6 GHz (WiFi 7 chain)         -18.9  MCS3   MCS4  -3.06  14.33  16.21   1.88    MCS4  -2.16     39    4427
+be_upclocked 11ac 20M K=1 @60.48 GHz          -19.5  MCS3   MCS4  -2.46  14.33  15.92   1.59    MCS4  -2.16     39    5453
+be_upclocked 11ac 20M K=4 @60.48 GHz          -19.3  MCS3   MCS4  -2.63  14.33  16.00   1.67    MCS4  -1.90    156    1744
+be_upclocked 11ac 20M K=8 @60.48 GHz          -19.1  MCS3   MCS4  -2.80  14.33  16.08   1.75    MCS4  -1.65    312    1033
+be_upclocked 11ac 20M K=16 @60.48 GHz         -19.1  MCS3   MCS4  -2.87  14.33  16.11   1.78    MCS4  -1.44    624     633
+be_upclocked 11ac 20M K=32 @60.48 GHz         -16.5  MCS2   MCS3  -0.85  11.01  12.46   1.45    MCS4  -2.37    832     598
+be 11be 80M IF extender @60.48 GHz            -19.6  MCS3   MCS5  -0.04  15.11  17.03   1.92    MCS5  -0.04    288    2411
+be_upclocked 11be 80M K=4 IF extender @60.48 GHz  -19.6  MCS3 MCS5–6  -0.02  15.11  17.02   1.91  MCS5–6  -0.02   1153     860
+be 11be 80M K=1 @6 GHz (WiFi 7 chain)         -19.4  MCS3   MCS5  -0.28  15.11  17.16   2.05  MCS5–6  -1.78    288     821
+be_upclocked 11be 80M K=4 @60.48 GHz          -18.5  MCS2   MCS5  -1.13  15.11  17.77   2.66    MCS6  -1.72   1153     358
+be_upclocked 11be 80M K=8 @60.48 GHz          -16.2  MCS2   MCS4  -1.94  11.25  12.94   1.69    MCS6  -1.65   1729     303
+be_upclocked 11be 80M K=16 @60.48 GHz         -11.3  MCS0   MCS3  -2.95   7.53   9.89   2.36    MCS6  -1.55   2306     305
+be_upclocked 11be 80M K=32 @60.48 GHz          -4.7     —   MCS0  -0.52  -0.80   0.62   1.42    MCS5  -0.65   1153     789
+be 11be 320M IF extender @60.48 GHz           -19.5  MCS3   MCS5  -0.01  15.00  16.90   1.90    MCS5  -0.01   1153     862
+be 11be 320M IF ext. PA bypass @60.48 GHz     -19.5  MCS3   MCS5  -0.01  15.00  16.90   1.90    MCS5  -0.01   1153     477
 floor = the worse of the analytic floor and the time-domain EVM of table 1 (the analytic sum is optimistic once the IQ image is no small perturbation; dec-cal has only the analytic floor at the calibrated IRR)
 conf = the transmitter-conformance cap of table 1 (floor 3 dB under the standard's TX-EVM limit); dec = what the decoder carries; the rate and pJ/bit here are at the decoder cap (table 1 and 4 stay at the conformance cap)
+MCS5–6 = the cap with every threshold at the upper / lower end of its 95 % interval (counting statistics only, spec.per_threshold_ci_db): the floor sits on an MCS line inside the measurement's own scatter; next = -floor - (T + margin) of the MCS above the cap, how far the floor is from one more MCS (a few hundredths of a dB is the same reading, whatever the interval says)
 
 == 5. the LO models side by side (each its own Frontend60; analytic floor + MCS cap + TD EVM) ==
 LO model                                               K  IPN[dBc]  pn ICI  floor     TD  max MCS

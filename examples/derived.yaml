@@ -56,8 +56,8 @@
 
 - name: ex04 decoder cap vs conformance cap on 11be 80 MHz x 4 (rate doubles, pJ/bit halves)
   values:
-    rate_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} MCS{*} {} {*}"}
-    pj_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} MCS{*} {*} {}"}
+    rate_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} {*} MCS{*} {*} {} {*}"}
+    pj_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} {*} MCS{*} {*} {*} {}"}
     pj_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} — {*} {*} {}"}
     rate_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} — {*} {*} {*}"}
   quotes:
@@ -78,8 +78,8 @@
 
 - name: ex04 the improved receiver moves the best decoder-cap row to 11be 80 MHz x 8
   values:
-    rate8: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} MCS{*} {} {*}"}
-    pj8: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} MCS{*} {*} {}"}
+    rate8: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} {*} MCS{*} {*} {} {*}"}
+    pj8: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=8 @60.48 GHz {*} MCS{*} MCS4 {*} {*} {*} {*} MCS{*} {*} {*} {}"}
   quotes:
     - {doc: cairn/comparison-table.md, text: "640 MHz 的格从 MCS3 升到 MCS4（{rate8} Mb/s、{pj8} pJ/bit）"}
 
@@ -94,8 +94,8 @@
 
 - name: ex04 topology A against topology B on the same 320 MHz (decoder cap, pJ/bit)
   values:
-    a_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be 11be 320M IF extender @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} MCS{*} {*} {}"}
-    b_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} MCS{*} {*} {}"}
+    a_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be 11be 320M IF extender @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} {*} MCS{*} {*} {*} {}"}
+    b_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} {*} MCS{*} {*} {*} {}"}
   quotes:
     - {doc: cairn/topology-a.md, text: "拓扑 A（11be 320 MHz，K = 1）{a_pj} pJ/bit，拓扑 B（80 MHz × 4）{b_pj} pJ/bit"}
     - {doc: cairn/topology-a.md, text: "A 每比特贵 {a_pj / b_pj} 倍"}
