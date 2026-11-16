@@ -310,10 +310,11 @@ def test_the_edmg_thresholds_come_from_the_dmg_twin_and_take_the_reference_recei
             assert ts == sorted(ts)
 
 
-def test_the_ay_range_is_the_be_budget_with_the_assumed_threshold():
-    """arraylink.ay_mcs_ranges: the floor as a noise term over the threshold,
-    the receiver input from the shared front end's NF at the AGC state, the
-    path loss EIRP + G_rx − input, the distance by ``range_m``; a floor the
+def test_the_ay_range_is_the_be_budget_with_the_decoder_threshold():
+    """arraylink.ay_mcs_ranges: the floor as a noise term over the threshold
+    (SC: measured, MCS 1 the DMG twin's; ``source`` says which), the
+    receiver input from the shared front end's NF at the AGC state, the path
+    loss EIRP + G_rx − input, the distance by ``range_m``; a floor the
     decoder cannot carry has no range; the TX EVM limit is reported."""
     from mmw60 import arraylink as al
     cfg = dc.replace(ay_60ghz("ay_sc", 1), channel=FLAT)
@@ -321,8 +322,10 @@ def test_the_ay_range_is_the_be_budget_with_the_assumed_threshold():
     sim = LinkSim(cfg, frontend=fe)
     clean = {o: -60.0 for o in (2, 4, 16, 64)}
     r = al.ay_mcs_ranges(sim, clean, eirp_dbm=10.0, g_rx_db=3.0, oxygen_db_km=0.0)
-    assert set(r) == {e.mcs for e in edmg.mcs_table("ay_sc") if edmg.dmg_twin("ay_sc", e.mcs) is not None}
+    assert set(r) == {e.mcs for e in edmg.mcs_table("ay_sc")}
+    assert {m for m in r if r[m]["source"] == "twin"} == {1}
     x = r[14]
+    assert x["threshold_db"] == spec.ay_per_threshold_db("ay_sc", 14)
     assert x["req_db"] == pytest.approx(x["threshold_db"], abs=0.01)
     assert x["sens_dbm"] == pytest.approx(sim.rx_input_dbm_for_snr(x["req_db"]))
     assert x["pl_db"] == pytest.approx(13.0 - x["sens_dbm"])
@@ -333,10 +336,14 @@ def test_the_ay_range_is_the_be_budget_with_the_assumed_threshold():
     worse = al.ay_mcs_ranges(sim, {**clean, 16: -16.0}, eirp_dbm=10.0, g_rx_db=3.0, oxygen_db_km=0.0)
     assert worse[14]["range_m"] < x["range_m"] and not worse[14]["conforms"]
     assert al.ay_mcs_ranges(sim, {**clean, 16: -10.0}, 10.0, 3.0)[14]["range_m"] is None
-    # the implementation loss kept in costs its 5 dB of path loss: the free-space distance x 10^(-5/20)
-    il = al.ay_mcs_ranges(sim, clean, 10.0, 3.0, keep_implementation_loss=True, oxygen_db_km=0.0)
+    # the twin rule (assumed.ay_sensitivity) everywhere; with its implementation loss kept in, that costs
+    # 5 dB of path loss: the free-space distance x 10^(-5/20)
+    tw = al.ay_mcs_ranges(sim, clean, 10.0, 3.0, oxygen_db_km=0.0, rule="twin")
+    assert set(tw) == {e.mcs for e in edmg.mcs_table("ay_sc") if edmg.dmg_twin("ay_sc", e.mcs) is not None}
+    assert {v["source"] for v in tw.values()} == {"twin"} and tw[14]["range_m"] < x["range_m"]
+    il = al.ay_mcs_ranges(sim, clean, 10.0, 3.0, keep_implementation_loss=True, oxygen_db_km=0.0, rule="twin")
     loss = spec.value("dmg.sensitivity_assumptions")["implementation_loss_db"]
-    assert il[14]["range_m"] == pytest.approx(x["range_m"] * 10 ** (-loss / 20), rel=0.02)
+    assert il[14]["range_m"] == pytest.approx(tw[14]["range_m"] * 10 ** (-loss / 20), rel=0.02)
 
 
 def test_the_ay_operating_point_is_the_preset_rule_on_its_own_envelope():
@@ -378,7 +385,7 @@ def test_the_ay_array_budget_runs_on_the_shared_instance_with_the_be_rule():
     margin = spec.value("assumed.decoder_cap_margin_db")
     for x in (one, big):
         cap = x.dec_mcs
-        t = edmg.ideal_threshold_db("ay_sc", cap, x.occupied_bw_hz)
+        t, _ = edmg.threshold_db("ay_sc", cap, x.occupied_bw_hz)
         assert -x.floor_by_order[edmg.mcs_entry("ay_sc", cap).tone_order] >= t + margin
         assert x.floor_db == x.floor_by_order[edmg.mcs_entry("ay_sc", cap).tone_order]
         assert set(x.range_by_mcs) <= set(x.rate_by_mcs) and cap in x.range_by_mcs

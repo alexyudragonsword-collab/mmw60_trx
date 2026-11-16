@@ -1,8 +1,9 @@
 source: derived
 cite: 'tools/measure_ay_thresholds.py (mmw60 0.1.0): PER 0.01 crossing of a 4096-byte PSDU in whole 672-bit codewords (ay.coding.sc_code: spec_sources#33''s dmg.ldpc_matrices,
   edmg.ldpc_672_r7_8 at 7/8) on the ideal SC chain (ay.coding.threshold_config: ay_60ghz ideal, flat channel), in-band SNR over the chip rate, 0.5 dB steps from 0.5
-  dB under the Shannon bound, up to 200 packets or 15 errors per point; the two points bracketing PER 0.01 run on to 60 errors or 3000 packets, log-linear interpolation;
-  ci_db = 95 % bootstrap interval of the crossing from the counts'
+  dB under the Shannon bound, up to 200 packets or 15 errors per point; the two points bracketing PER 0.01 run on to 60 errors or 3000 packets (a sweep left without
+  a crossing that way is run again from two steps under its last point on a new seed, up to 3 times), log-linear interpolation; ci_db = 95 % bootstrap interval of
+  the crossing from the counts'
 note: 本库接收机自己的 EDMG SC 门限（Golay 信道估计、SC MMSE、max-log LLR、归一化 min-sum），不是规范数；接收机或码一改就要重量（tests/test_ay_link.py 复量一个点）。MCS 1（重复 2）没有：重复的编码步骤没建。不含扰码与填充规则（载荷是随机比特，扰码不改
   PER；PSDU 按整数个码字发）。
 packet_bytes: 4096
@@ -25,7 +26,7 @@ thresholds_db:
     15: 13.58
     16: 14.35
     17: 13.34
-    18: null
+    18: 15.61
     19: 17.59
     20: 19.22
     21: 20.18
@@ -79,7 +80,9 @@ ci_db:
     17:
     - 13.28
     - 13.41
-    18: null
+    18:
+    - 15.53
+    - 15.71
     19:
     - 17.55
     - 17.65
