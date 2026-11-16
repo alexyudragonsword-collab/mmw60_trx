@@ -81,11 +81,12 @@ def build_data_field(mcs: VhtMcs, psdu_bits: np.ndarray, n_active: int,
 
 def decode_data_field(eq_symbols: np.ndarray, field: DataField,
                       weight: np.ndarray | float = 1.0,
-                      kernel: str | None = None) -> tuple[np.ndarray, int]:
+                      kernel: str | None = None, hard: bool = False) -> tuple[np.ndarray, int]:
     """Equalised (n_symbols, n_active) points → (decoded PSDU bits, bit errors).
 
     ``weight`` is per data tone (length N_SD) or scalar: |H_k|²/σ² after
-    zero-forcing, so a faded tone's LLRs count less."""
+    zero-forcing, so a faded tone's LLRs count less.  ``hard``: only the
+    sign of each LLR reaches the Viterbi decoder (hard-decision decoding)."""
     mcs = field.mcs
     y = np.asarray(eq_symbols, dtype=complex)[:, field.data_cols]       # (n_sym, n_sd)
     n_sym = y.shape[0]
@@ -93,6 +94,8 @@ def decode_data_field(eq_symbols: np.ndarray, field: DataField,
     if w.ndim:
         w = np.broadcast_to(w.reshape(1, -1), (n_sym, mcs.n_sd)).reshape(-1)
     soft = mapper.llr(y.reshape(-1), mcs.qam_order, w)                  # (n_sym*n_sd*m,)
+    if hard:
+        soft = np.sign(soft)
     soft = interleaver.deinterleave(soft.reshape(n_sym, mcs.n_cbps), mcs.n_bpscs, mcs.n_sd)
     n_info = field.tx_bits.size
     llr_full = bcc.depuncture(soft.reshape(-1), (mcs.rate.numerator, mcs.rate.denominator),
