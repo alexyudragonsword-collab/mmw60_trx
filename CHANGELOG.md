@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### C7：2.56 GHz 列两种读法差 10 dB 的原因（2026-11-16）—— 引擎、预设与指纹不变；示例 03 多两节
+- `calcheck.loopback_views`（新）：最终检查的回环三种读法（wifitrx 的 isolation、先均衡的 isolation、modem）与信道相位斜坡、公共相位的相干度；`CalRun.chains`（新字段）留下校准后的链。
+- **被推翻的判断**：2.56 GHz 上 genie（isolation）比 modem 差 10 dB 不是接收机吸收的线性项，是 isolation 读法在回环残余时延（6.06 rad 相位斜坡）下的估计偏差；先均衡读 −24.4 dB（modem −23.4）。
+- 示例 03：“read three ways”一节与“calibrated column in a link over multipath”一节（IQ 缩到同台表用的校准后残差；2.56 GHz 多径只多 0.7 dB，即 ISI）。
+- 测试守住这个上游现象；ROADMAP 删 C7 第一条、优先级重编号，D 节加候选 D5（是否报 wifi_trx_cal 待定）。
+
 ### C6：解码器上限标出踩在门限区间里的格（2026-11-16）—— 上限、速率、pJ/bit 与指纹不变；示例 02 / 04 的列格式变
 - `frontend/grid.py::decoder_cap` 的返回多 `mcs_range`、`next_margin_db` 两键（**公开返回值变化**，原有键不变）；新 `format_cap`。`Cell` 与 `compare.Row` 多四个字段（区间两端的上限与离下一档的余量，未校准 / 校准后）。
 - 示例 02：dec / dec-cal 两端不同时印 MCS5–6（5 格）。示例 04 §4b 与 markdown：同样标注，另加 next 列。

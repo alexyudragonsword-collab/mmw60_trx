@@ -115,6 +115,23 @@ mmw60 0.1.0; full; profile poweron; front end rapp_11ad Pout 7.1 dBm, TX leak -3
   scoring waveform: 11be 80 MHz x32 upclocked (996 tones at 2.5 MHz, the base's 16 pilots); loopback EVM before/after: 22.0 / -13.5 dB  [~s]
   final EVM as a standard receiver reads it: loopback -23.4, TX alone -23.9, RX alone -28.8 dB; RX NF 18.0 dB
 
+== the final check's loopback read three ways (ROADMAP C7; dB) ==
+column            isolation  EQ first   modem  phase ramp  coherence
+K=1 20M               -25.7     -26.4   -21.7      0.00 rad       0.99
+K=4 80M               -22.7     -23.4   -22.4      0.03 rad       0.98
+K=8 160M              -22.6     -23.2   -22.1      0.01 rad       0.98
+K=16 320M             -24.5     -25.1   -22.8      0.00 rad       0.99
+K=32 640M             -22.4     -23.1   -21.0      0.00 rad       0.99
+K=32 2560M            -13.5     -24.4   -23.4      6.06 rad       0.08
+isolation = wifitrx's isolation view as it computes it (each symbol's common phase over all tones, then the per-tone equaliser); EQ first = the same with the equaliser first; modem = wifitrx's modem view (LTF channel estimate, pilot CPE).  phase ramp = the linear part of the loopback's channel phase across the band (a residual delay the capture alignment leaves); coherence = |mean of e^(j phase)| over the tones: near 0 the common-phase-first estimate is pulled by the 64-QAM amplitudes and the isolation view reads the estimator, not the chain
+
+== the calibrated column in a link over multipath (ROADMAP C7): the library's receiver, per-packet estimates, IQ mismatch scaled to the calibrated residual the comparison table uses; EVM at no noise, dB ==
+cell                     IRR  scale  floor CR  floor flat  TD flat  TD CR  ideal CR
+11be 80M x8 (0.64 GHz)  48.1  0.048     -19.8       -19.8    -20.4  -20.4     -49.2
+11be 80M x16 (1.28 GHz)  48.1  0.024     -19.9       -19.9    -20.6  -20.4     -43.2
+11be 80M x32 (2.56 GHz)  40.2  0.029     -19.0       -20.0    -19.6  -18.9     -33.2
+IRR = the calibrated residual per side (example 03's, derived.irr_after_cal_measured_db); scale = the factor on every IQ mismatch term that puts the analytic image there; floor CR includes the ISI beyond the guard interval on the stand-in (7 ns rms, LOS K 10 dB), floor flat does not; TD = 16 packets each; ideal CR = the ideal chain on the same channel (ISI and the receiver's estimates alone)
+
 == sensitivity: capture length at K = 32, base 20 MHz (assumed.cal_capture_symbols) ==
  symbols  samples     dpd  loopback  TX alone  RX alone   (EVM dB; the first row is the column above)
        8     1280   -22.1     -21.0     -21.9     -29.8

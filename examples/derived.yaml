@@ -239,3 +239,18 @@
   quotes:
     - {doc: cairn/array-layer.md, text: "N = 64 差 8.8 dB 要 {r64} 次"}
     - {doc: cairn/array-layer.md, text: "N = 64 时 B 11be × 4 一个方向 {t64 / 1000} ms"}
+
+- name: ex03 the 2.56 GHz final check read three ways, and the calibrated column over multipath (ROADMAP C7)
+  values:
+    iso: {example: "03", after: "== the final check's loopback read three ways", line: "K=32 2560M {} {*} {*} {*} rad {*}"}
+    eqf: {example: "03", after: "== the final check's loopback read three ways", line: "K=32 2560M {*} {} {*} {*} rad {*}"}
+    mod: {example: "03", after: "== the final check's loopback read three ways", line: "K=32 2560M {*} {*} {} {*} rad {*}"}
+    ramp: {example: "03", after: "== the final check's loopback read three ways", line: "K=32 2560M {*} {*} {*} {} rad {*}"}
+    tdf: {example: "03", after: "== the calibrated column in a link over multipath", line: "11be 80M x32 (2.56 GHz) {*} {*} {*} {*} {} {*} {*}"}
+    tdc: {example: "03", after: "== the calibrated column in a link over multipath", line: "11be 80M x32 (2.56 GHz) {*} {*} {*} {*} {*} {} {*}"}
+  quotes:
+    - {doc: cairn/topology-b.md, text: "先均衡再估公共相位读 {eqf} dB，比 modem 读法好 {mod - eqf} dB"}
+    - {doc: cairn/topology-b.md, text: "各音信道相位有 {ramp} rad 的线性斜坡"}
+    - {doc: cairn/topology-b.md, text: "2.56 GHz 时域 flat {tdf}、CR 替身 {tdc} dB"}
+    - {doc: cairn/topology-b.md, text: "多径只多 {tdf - tdc} dB"}
+    - {doc: cairn/topology-b.md, text: "2.56 GHz 列的 genie 口径回环 EVM 校准前后是 22.0 / {iso} dB，modem 口径 {mod} dB"}
