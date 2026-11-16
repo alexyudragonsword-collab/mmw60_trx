@@ -336,6 +336,19 @@
     - {doc: ROADMAP.md, text: "接收增益也跟着少 {g_of - g_sc} dB"}
     - {doc: cairn/ay.md, text: "OFDM 自己的工作点与预设只差 {obo_pre - obo_of} dB"}
 
+- name: ex15 the SC gap on the calibrated chain, with the sequence's dc_pre and with dc_pre solved to cancel the leak exactly
+  values:
+    away75: {example: "15", after: "back-off 7.5 dB:", line: "ay_sc none {*} TX IQ {*} TX LO leak {*} RX IQ {*} RX DC {*} TX LO leak without the CFO {*}, without the lead-in DC removal {*}; calibrated away {} + these"}
+    cal75: {example: "15", after: "back-off 7.5 dB:", line: "ay_sc the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on {} / {*}"}
+    ex75: {example: "15", after: "back-off 7.5 dB:", line: "ay_sc the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on {*} / {}"}
+    away15: {example: "15", after: "back-off 15 dB:", line: "ay_sc none {*} TX IQ {*} TX LO leak {*} RX IQ {*} RX DC {*} TX LO leak without the CFO {*}, without the lead-in DC removal {*}; calibrated away {} + these"}
+    cal15: {example: "15", after: "back-off 15 dB:", line: "ay_sc the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on {} / {*}"}
+    ex15: {example: "15", after: "back-off 15 dB:", line: "ay_sc the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on {*} / {}"}
+  quotes:
+    - {doc: cairn/ay.md, text: "整条链上的缺口从 {cal75 - away75} 缩到 {ex75 - away75} dB"}
+    - {doc: cairn/ay.md, text: "15 dB 时从 {cal15 - away15} 缩到 {ex15 - away15} dB"}
+    - {doc: ROADMAP.md, text: "7.5 dB 上的缺口从 {cal75 - away75} 缩到 {ex75 - away75} dB"}
+
 - name: ex15 rate against range — how much output power the SC low-order MCS gain over the preset, and the 16-QAM range-best back-off
   values:
     preset: {example: "15", line: "one front end for both: PA Psat {*} dBm at {} dB from psat"}
