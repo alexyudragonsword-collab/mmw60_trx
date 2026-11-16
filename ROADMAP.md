@@ -3,7 +3,7 @@
 **这份文件只写还没做的事。** 做完即删，并在 `CHANGELOG.md` 记一笔、`cairn/LOG.md` 记数字。每条带证据（复现方式与数字）。
 
 ## 当前优先级（2026-11-16 用户定：按下面的顺序做；做完一条就从这里和正文一起删）
-1. **里程碑 3（802.11ay）第二段剩下的**：同台表两行、按功率换距离（本地 assumed 的 EDMG 灵敏度）、阵列与 EIRP 上限。第一段（spec 数字接线、两种波形跑在共享前端上）与第二段 2a（在 ay 的链上真跑校准，铁律 4）已做，见 `cairn/ay.md` §4–§5、示例 15。
+1. **里程碑 3（802.11ay）第二段剩下的**：按功率换距离（本地 assumed 的 EDMG 灵敏度）、阵列与 EIRP 上限。第一段（spec 数字接线、两种波形跑在共享前端上）、第二段 2a（在 ay 的链上真跑校准，铁律 4）与同台表两行（示例 04 §1b）已做，见 `cairn/ay.md` §4–§6、示例 15。
 
 其余（A1 的 DPD 学习方式与没建的损伤、A2 / A3 的口径统一、C6、C9、C11、C12 剩下的解映射幅度基准）按需再做。卡在外部原文上的不排进度：C4、C10 的 AM/PM、C8 的 PA 记忆时间常数、B 的氧吸收、A2 的 Murmann 表；其中 11-09/0334、Murmann 表能拿到原文，可以打包给 spec_sources（802.11ad 的 EVM 表 2026-11-16 已随 spec_sources#29 进来：`dmg.tx_evm_db`）。
 
@@ -32,7 +32,8 @@
 ### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
 - WiFi 7 全链路四条整合：PA_DPD 的 PA / DPD 进 wifitrx 链在 K > 1 上已作为灵敏度研究接通（`pamemory.py`、示例 07：参考 PA 带记忆、wifitrx 的 DPD 步、抽头间隔透传），但预设与同台表的 PA 仍是无记忆的 Rapp（2026-11-12 起是测量 PA 的幅度与压缩形状），带记忆的 PA 没有进任何一行（C8）。还没做的一条：Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（A1 更正单边带换算后每行差 0.0 dB，相噪项差 0.1–1.3 dB）。
 - 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；示例 04 §6 的灵敏度从解析底板起算（每个旋钮不跑时域），2.56 GHz 行在那一节的基线是 MCS1、§4b 用时域底板是 MCS0；`per_thresholds.yaml` 是本库接收机的测量值，接收机再改要 `python tools/measure_thresholds.py --jobs 4 --cache DIR` 重量（2026-11-15 起夹点续跑到 60 错包，4 核约 2.3 小时，可分段）。
-- 校准列现在是示例 03 实测 IRR 的查表，`calcheck.run_cal_at` 实跑进表要几分钟一列，留给需要它的那次。
+- **校准列现在是示例 03 实测 IRR 的查表**，代入解析和；ay 两行（2026-11-16）读的是真跑过校准的链上的时域 EVM，两边读法不对称（`cairn/comparison-table.md` §2c）。这个不对称现在决定 ay 对 be 的倍数：同在校准后上限，ay SC 4620 Mb/s、188 pJ/bit，be 最好的 11be 80 MHz × 32 是 3459 Mb/s、270 pJ/bit（IRR 查表 40.2 dB；ay 的链实跑 43.6 dB）。
+  待做：be 的宽带行（至少 1.28 / 2.56 GHz）也用 `calcheck.run_cal_at` 实跑，在校准过的链上读时域。be 的 `LinkSim` 要先加一个 `chains=` 入口，现在只有 ay 有（2a）。复现：`python examples/04_comparison_table.py` §1b 末行（约 1 分钟）。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
 
 ## B. 里程碑 2：阵列层（主体已落地：vendor array_tx @ `5815c5a`、`frontend/array60.py`、`arraylink.py`、示例 10、`cairn/array-layer.md`）
@@ -41,9 +42,8 @@
 - **逐单元 PA 没进时域**：PA 只按 EIRP 上限下的回退进底板；单元误差让各 PA 驱动不同、远场合成后的失真没算。待做：时域里 N 路 PA + `arraytx.beam.far_field` 合成的一档。
 - 多径下的扇区选择、双向各一次扫描、码本以外的波束细化（BRP 类）都没建。
 
-## 里程碑 3：802.11ay（第一段与第二段 2a 已落地：`ay/edmg.py`、`sim/ay_link.py`、`config.ay_60ghz`、`calcheck.run_cal_ay`、示例 15、`cairn/ay.md` §4–§5）
+## 里程碑 3：802.11ay（第一段、第二段 2a 与同台表两行已落地：`ay/edmg.py`、`sim/ay_link.py`、`config.ay_60ghz`、`calcheck.run_cal_ay`、`compare.evaluate_ay`、示例 15、示例 04 §1b、`cairn/ay.md` §4–§6）
 ay 不是第三条拓扑，是拓扑 B 的硬件配第三、四种波形，单信道、EVM 口径（用户 2026-11-16 定）。数字来自 spec_sources#29（2026-11-16 已验收并关闭，pin `3123b65`）。下面是第二段。
-- **同台表两行**（示例 04；`compare.PENDING` 现在写的是“第二段”）：底板、合规上限、速率、pJ/bit（转换器在 5.28 GS/s）。读法照 be 行：原始链的时域 EVM，加一列校准过的链（`calcheck.run_cal_ay`，示例 15 §8）。
 - **SC 在校准过的链上比“当作校准掉”多损失 0.2–0.8 dB，原因没完全找到**（示例 15 §8，每个回退点各校一次）：
   - 数：回退 5 / 7.5 / 10 / 12.5 / 15 dB 时 SC +0.45 / +0.38 / +0.21 / +0.44 / +0.78 dB；OFDM 在 ±0.07 dB 内。它把同调制同码率时 SC 的回退优势从 0.50–0.68 dB 吃到 0.14–0.32 dB（16-QAM）。
   - 已排除：带着 CFO 进来的残余 LO 泄漏（关掉 CFO 差不变）；探针外推带边的 IQ 校正（滚降 0.10–0.40 时差 0.31–0.40 dB）。

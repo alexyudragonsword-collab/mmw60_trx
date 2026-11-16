@@ -224,14 +224,27 @@ def power_report(cfg, fe, bit_rate_bps: float, coeffs: PowerCoefficients | None 
                                  f"read after it): {m.terms} terms at {rate / 1e9:.2f} GS/s "
                                  f"({m.instances_for(rate):.1f} P=4 datapaths)"))
     # FFT / IFFT at the base size, symbol rate × K
-    n = int(phy.base.fft_size)
-    sym_rate = 1.0 / phy.t_symbol_eff
+    ay = getattr(cfg, "waveform", "").startswith("ay_")
+    if ay:
+        # the 802.11ay waveforms (milestone 3): OFDM an IFFT and an FFT of 512 per symbol; single
+        # carrier no transform at the transmitter and an FFT + IFFT of 512 per block at the
+        # receiver (the frequency-domain equaliser) — two transforms per unit either way
+        n = int(phy.num.n_fft if cfg.waveform == "ay_ofdm" else phy.num.block)
+        unit = phy.num.symbol_samples / phy.num.fs_hz if cfg.waveform == "ay_ofdm" else phy.num.block / phy.num.fs_hz
+        sym_rate = 1.0 / unit
+        what = ("IFFT + FFT" if cfg.waveform == "ay_ofdm" else "FDE: FFT + IFFT at the receiver")
+    else:
+        n = int(phy.base.fft_size)
+        sym_rate = 1.0 / phy.t_symbol_eff
+        what = "IFFT + FFT"
     bfly = (n / 2) * math.log2(n)
     e_sym = bfly * (BUTTERFLY_MULT * k.mult_j() + BUTTERFLY_ADD * k.add_j())
     blocks.append(PowerBlock("fft", 2 * e_sym * sym_rate,
-                             f"IFFT + FFT, N = {n}, {sym_rate / 1e6:.2f} Msym/s, {k.word_bits} bit"))
+                             f"{what}, N = {n}, {sym_rate / 1e6:.2f} M{'sym' if not ay else 'units'}/s, {k.word_bits} bit"))
     # decoder
-    if cfg.coded and cfg.phy.standard == "11be":
+    if ay:
+        omitted.append("decoder (802.11ay, EVM only in milestone 3: the EDMG LDPC is not built)")
+    elif cfg.coded and cfg.phy.standard == "11be":
         from .phy.eht import eht_mcs, ldpc_decoder_ops_per_info_bit
         m = eht_mcs(cfg.phy.mcs if mcs_index is None else mcs_index, cfg.phy.bandwidth_hz)
         ops = ldpc_decoder_ops_per_info_bit(m.rate_str)

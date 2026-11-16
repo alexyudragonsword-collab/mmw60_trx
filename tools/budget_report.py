@@ -30,7 +30,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
 from mmw60 import compare                                   # noqa: E402
-from mmw60.config import zero_if_60ghz                      # noqa: E402
+from mmw60.config import AY_WAVEFORMS, zero_if_60ghz        # noqa: E402
 from mmw60.frontend import Frontend60                       # noqa: E402
 
 
@@ -56,7 +56,8 @@ def main(argv=None) -> int:
     for i, (std, bw) in enumerate(bases):
         m = compare.scheme_matrix(ks=ks, standard=std, bandwidth_hz=bw, carrier_hz=args.carrier,
                                   k1_carrier_hz=args.k1_carrier)
-        schemes += m if i == 0 else [s for s in m if s.status == "built"]
+        # the 802.11ay rows do not depend on the WiFi base: they come once, with the first base
+        schemes += m if i == 0 else [s for s in m if s.status == "built" and s.waveform not in AY_WAVEFORMS]
     fe = Frontend60.from_config(zero_if_60ghz(k=ks[0], carrier_hz=args.carrier))
     rep = compare.build(schemes, fe, time_domain=not args.no_time_domain)
     if args.sensitivity:

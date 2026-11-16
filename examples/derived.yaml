@@ -37,6 +37,20 @@
     - {doc: cairn/comparison-table.md, text: "11be 80 MHz × 8（640 MHz）以 {rate} Mb/s、{pj} pJ/bit 居首；第二是 11ac 20 MHz × 32（{rate32} Mb/s、{pj32} pJ/bit）"}
     - {doc: cairn/comparison-table.md, text: "合规口径降到 MCS2，{rate4} Mb/s、{pj4} pJ/bit"}
 
+- name: ex04 the 802.11ay rows against each other and against the best be row, both at their calibrated cap
+  values:
+    sc_rate: {example: "04", after: "== 4. power blocks per bit", line: "ay_sc EDMG channel 2 @60.48 GHz {} {*} {*} {*} — {*} — {*}"}
+    sc_pj: {example: "04", after: "== 4. power blocks per bit", line: "ay_sc EDMG channel 2 @60.48 GHz {*} {*} {*} {*} — {*} — {}"}
+    of_rate: {example: "04", after: "== 4. power blocks per bit", line: "ay_ofdm EDMG channel 2 @60.48 GHz {} {*} {*} {*} — {*} — {*}"}
+    of_pj: {example: "04", after: "== 4. power blocks per bit", line: "ay_ofdm EDMG channel 2 @60.48 GHz {*} {*} {*} {*} — {*} — {}"}
+    be_rate: {example: "04", line: "be rows at their calibrated cap, fastest and fewest pJ/bit: be_upclocked 11be 80M K=32 @60.48 GHz MCS2 {} Mb/s {*} pJ/bit"}
+    be_pj: {example: "04", line: "be rows at their calibrated cap, fastest and fewest pJ/bit: be_upclocked 11be 80M K=32 @60.48 GHz MCS2 {*} Mb/s {} pJ/bit"}
+    be_dec: {example: "04", line: "be rows at their calibrated cap, fastest and fewest pJ/bit: be_upclocked 11be 80M K=32 @60.48 GHz MCS2 {*} Mb/s {*} pJ/bit (decoder {} of it)"}
+  quotes:
+    - {doc: cairn/comparison-table.md, text: "SC 行 {sc_rate} Mb/s、{sc_pj} pJ/bit，OFDM 行 {of_rate} Mb/s、{of_pj} pJ/bit：SC 快 {100 * (sc_rate / of_rate - 1)} %，每比特省 {100 * (1 - sc_pj / of_pj)} %"}
+    - {doc: cairn/comparison-table.md, text: "MCS2、{be_rate} Mb/s、{be_pj} pJ/bit（其中解码器 {be_dec}）"}
+    - {doc: cairn/comparison-table.md, text: "SC 行快 {sc_rate / be_rate} 倍，每比特省 {be_pj / sc_pj} 倍；扣掉 be 的解码器也是 {(be_pj - be_dec) / sc_pj} 倍"}
+
 - name: ex04 20 MHz base, K = 16 vs K = 32 pJ/bit at the conformance cap (K = 32 is cheaper since the measured PA)
   values:
     k16: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11ac 20M K=16 @60.48 GHz {*} {*} {*} {*} — {*} {*} {}"}
