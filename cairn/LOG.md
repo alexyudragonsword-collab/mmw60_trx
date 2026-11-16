@@ -3,6 +3,13 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-16 · 第三段 9c：ay 自己的扇区扫描，能扫多远（feat/ay-sector-sweep）
+
+- 新 assumed `ay_sector_sweep`：SSW 帧走 DMG 控制 PHY（MCS 0），门限按 `ay_sensitivity` 的规则从 MCS 0 灵敏度反推，−11.48 dB（1.76 GHz 带内）。`edmg.dmg_threshold_db` 成为各档共用的一条规则（数值不变）。
+- 示例 10 §4d：发端扫描对 SC MCS1 边的余量 N = 4 / 16 / 64 时 +4.3 / −2.3 / −8.0 dB；be 靠 MLO 的训练对它 MCS0 边 +3.1 / −2.5 / −8.8 dB。同一类缺口，控制 PHY 的扩频抵消了更宽的噪声带宽。
+- 扫描时长、TRN、short SSW 等 spec_sources#33。
+- 下一步：编码 PER（机器先用 802.11 的码当替身验证，DMG 矩阵等 #33）。
+
 ## 2026-11-16 · 第三段 9b：多径下的 ay；修 SC MMSE 的噪声标度（feat/ay-multipath）
 
 - **bug**：SC 的 MMSE 用 1/SNR 当噪声方差，信道估计却带着链的增益（mean|h|² ≈ 0.064），正则化大 16 倍。flat 上被去偏抵消；CR 信道、SNR 12 dB 时白丢约 1.4 dB，比 ZF 还差。改成 mean|h|²/SNR。已发布的数都是 flat 或不加噪声，一个都不动。新配置 `ay.sc_equalizer`（mmse / zf）。

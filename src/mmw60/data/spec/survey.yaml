@@ -600,6 +600,13 @@ entries:
     cite: "本库；mmw60.arraylink.ay_operating_obo_db，示例 10 §3d"
     note: "阵列一节里 ay 两种波形“各自的工作点”：把预设的规则（PA 单独时 EVM 刚好到 802.11ad 16-QAM 3/4 的发射限值 −21 dB，assumed.pa60_operating_rule）用在该波形自己的 16-QAM 载荷包络上，而不是 OFDM 型的高斯包络。共享实例的预设回退（7.5 dB）不动：示例 10 §3d 两种读法并列，预设回退一行就是所有行同一个工作点的读法。SC 的包络峰均比低，同一条规则给出的回退小得多（约 4 dB）；OFDM 的与预设相近（约 7.1 dB）。规则只看 PA，不看校准残差与相噪；那些在每个单元回退上的校准链底板里。"
 
+  assumed.ay_sector_sweep:
+    value: {frame: "DMG control PHY (MCS 0) per sector", threshold: "dmg.rx_sensitivity_dbm at MCS 0, the reference receiver taken out as in assumed.ay_sensitivity", transmit_sweep: "the far end on one element", receive_sweep: "behind the chosen transmit beam", bandwidth: "the SC chip rate (the control PHY is single carrier)", timing: "pending spec_sources#33"}
+    unit: "-"
+    source: assumed
+    cite: "本库；mmw60.ay.edmg.control_threshold_db，示例 10 §4d"
+    note: "ay 自己的扇区扫描：每个扇区发一个 SSW 帧，用 DMG 控制 PHY（MCS 0，SC 加 Golay 扩频）发，远端要把最好那个扇区的帧解出来。门限按 assumed.ay_sensitivity 同一条规则从 MCS 0 的最低灵敏度反推（拿掉参考接收机的 NF 与实现损耗），带宽取 SC 的码片速率；注意灵敏度表对 MCS 0 的判据是 256 octets 上 PER 5 %，其他档是 4096 octets 上 1 %。发端扫描时远端只用一个单元（与 be 行靠 MLO 触发的训练同样的设定，assumed.array_training），收端扫描在选好的发端波束后面。这里只算覆盖；扫一轮要多久（控制 PHY 的前导与头、SSW 帧长、SBIFS）等 spec_sources#33。EDMG 的 short SSW 与 TRN 字段没有建。"
+
   assumed.ay_cal_probe:
     value: {standard: 11be, base_bandwidth_hz: 80.0e+6, k: 22, oversampling: 3}
     unit: "-, Hz, -, samples per probe sample"
