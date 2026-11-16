@@ -245,6 +245,21 @@ modulation  rate      SC   OFDM   ΔPout   sec. 5
 64-QAM     13/16   never  10.34    —        —
 64-QAM       7/8   never  12.92    —        —
 
+== 8b. what the single carrier loses on the calibrated chain, item by item: each calibration residual alone on the calibrated chain, every other impairment off (converters, phase noise, receiver noise; the PA switched off after the VGA was trimmed with it in), the CFO on (EVM dB, 16-QAM payloads) ==
+back-off 7.5 dB:
+  ay_sc    none  -53.52  TX IQ  -43.94  TX LO leak  -34.51  RX IQ  -45.74  RX DC  -53.52  TX LO leak without the CFO  -53.50, without the lead-in DC removal  -36.27;  calibrated away  -24.85 + these =  -24.32, the calibrated chain  -24.47
+  ay_sc    the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -24.47 /  -24.72;  CFO off  -24.31 /  -24.71
+  ay_ofdm  none  -47.24  TX IQ  -37.96  TX LO leak  -40.97  RX IQ  -38.46  RX DC  -47.24  TX LO leak without the CFO  -47.58, without the lead-in DC removal  -44.16;  calibrated away  -20.88 + these =  -20.68, the calibrated chain  -20.92
+  ay_ofdm  the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -20.92 /  -20.95;  CFO off  -20.91 /  -20.96
+  direct: TX LO leak left after dc_pre -42.1 dBc (without dc_pre -23.9); TX image rejection at 0.5, 0.86, 1, 1.1 GHz: 52.0, 53.7, 40.9, 27.1 dB (uncorrected 13.0, 7.7, 6.1, 5.1; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)
+back-off 15 dB:
+  ay_sc    none  -53.52  TX IQ  -40.24  TX LO leak  -41.78  RX IQ  -41.78  RX DC  -53.52  TX LO leak without the CFO  -53.47, without the lead-in DC removal  -43.59;  calibrated away  -27.20 + these =  -26.70, the calibrated chain  -26.41
+  ay_sc    the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -26.41 /  -26.78;  CFO off  -26.74 /  -26.80
+  ay_ofdm  none  -47.24  TX IQ  -36.64  TX LO leak  -46.00  RX IQ  -37.41  RX DC  -47.24  TX LO leak without the CFO  -47.58, without the lead-in DC removal  -46.78;  calibrated away  -27.09 + these =  -26.21, the calibrated chain  -27.01
+  ay_ofdm  the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -27.01 /  -26.99;  CFO off  -27.12 /  -27.13
+  direct: TX LO leak left after dc_pre -42.9 dBc (without dc_pre -16.4); TX image rejection at 0.5, 0.86, 1, 1.1 GHz: 45.1, 43.0, 43.3, 28.3 dB (uncorrected 13.0, 7.7, 6.1, 5.1; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)
+isolation: one residual at a time, read directly (contributions do not add up as powers in general; the power sum is a check, not a decomposition).  Alone, the leak left after dc_pre costs only with the CFO (without it the receiver's DC removal on its quiet lead-in takes it out exactly), and on SC it reads above its own power (the direct reading); on the whole chain it costs SC without the CFO too, so it acts together with another impairment, not yet located (ROADMAP milestone 3).  Either way the cost is the residual's: dc_pre solved to cancel the leak exactly takes it away.  OFDM puts the leak on its three empty DC tones
+
 == 9. rate against range: one element, line of sight, the calibrated chain at every back-off (assumed.ay_sensitivity [assumed]: the DMG twin's sensitivity, its reference NF and implementation loss taken out; the floor as a noise term) ==
 wf       MCS  modulation    rate   Gb/s  DMG  T[dB]  @preset m   best m back-off   Pout  floor
 ay_sc      1  π/2-BPSK       1/2  0.385    1  -1.48       8.30    17.17     1.0*   13.6 -16.63

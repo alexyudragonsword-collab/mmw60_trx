@@ -4,6 +4,11 @@
 
 ## 未发布
 
+### 里程碑 3 第三段 9a：SC 校准残差逐项（2026-11-16）—— 源码、预设与指纹不变；示例 15 多 §8b
+- 示例 15 §8b：在校准过的链上逐项隔离 TX IQ、TX 泄漏、RX IQ、RX DC 的残差；泄漏不带 CFO、不去前导直流两行；直接读出 `dc_pre` 之后的泄漏与 TX 镜像抑制随频率；整条链上序列的 `dc_pre` 对“恰好抵消”的 `dc_pre`。
+- 结论：SC 的缺口是 wifitrx 泄漏校准留下的 −42 dBc 残差（7.5 dB 时为主）与 IQ 残差（15 dB 时相当）；泄漏恰好抵消时 7.5 dB 的缺口从 0.38 缩到 0.13 dB。残差和哪项损伤一起起作用还没定位（ROADMAP）。
+- 外部请求：spec_sources#33。
+
 ### 里程碑 3 第二段 2b（末）：802.11ay 两种波形上阵列（2026-11-16）—— be 各行、预设与指纹不变；示例 10 多 §3d
 - `arraylink.ay_array_budget`、`ay_operating_obo_db`、`ay_pa_alone_evm_db`（新）；`array_power_report` 认得 ay 的预算；`ArrayBudget` 加 `floor_by_order`、`rate_by_mcs`（**公开数据类加字段**，有默认值）。
 - 新 assumed `ay_operating_point`：预设的回退规则用在各波形自己的 16-QAM 包络上。
