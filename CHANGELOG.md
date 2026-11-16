@@ -4,6 +4,16 @@
 
 ## 未发布
 
+### 里程碑 3 第三段：接上 spec_sources#33 的键——DMG / EDMG 的码、EDMG SC 实测门限、扩展 SC 档、扇区扫描时长（2026-11-16）—— 指纹不变；SC 的距离与阵列上限变了
+- `ay.coding`：`dmg_code`（`dmg.ldpc_matrices` 的四个码率；7/8 是 `dmg.ldpc_r7_8_punctured` 的打孔码，新类 `PuncturedCode`）、`edmg_code`（7/8 用 `edmg.ldpc_672_r7_8`）、`sc_code`、`codewords_for`、`threshold_config`、`sweep_packet`；`coded_sc_packet` 加 `n_codewords`；**删掉 `PendingSpec`**（公开名字变化）。
+- `phy.ldpc.qc_code`：一格可以是一组移位（其和）；相等移位拒收；802.11 的码逐位不变。
+- `sim.link.per_sweep` 加 `packet=` 钩子（**公开签名加参数**；不传时逐位不变）。
+- 新工具 `tools/measure_ay_thresholds.py`（`--cache` 可续跑、`--check`）与新数据文件 `data/spec/ay_per_thresholds.yaml`（derived）：EDMG SC 各档（重复 1）的 PER 1e-2 门限与 95 % 区间；`spec.ay_per_threshold_db` / `ay_per_threshold_ci_db` / `ay_per_threshold_document`（新）。
+- `ay.edmg.threshold_db(…, rule="measured" | "twin")`（新）：预设 SC 取实测、OFDM 与 SC MCS 1 取孪生规则；`dmg_twin` 也在 `dmg.sc_mcs_extended` 里找（EDMG SC MCS 11、15、16、18–21 有了孪生档）。`arraylink.ay_mcs_ranges` 加 `rule`，每档带 `source`（**返回值加键**）。
+- `arraylink.ssw_frame_s`、`ay_sweep_time_s`（新）：控制 PHY 的 SSW 帧与一轮扫描的时长（下限）。
+- `assumed.ay_sensitivity` 的说明改为只管 OFDM 与 SC MCS 1；`assumed.ay_sector_sweep` 的 `timing` 写上规则。
+- 示例 10 §3d（SC 用实测门限）、§4d（多两列扫描时长）；示例 15 §9（门限来源列、SC 的孪生规则灵敏度行、孪生对实测对 11be 的门限对照）。
+
 ### 重新 pin spec_sources 到 `76ee72a`（spec_sources#33，连同 0.5.0 与第 7 批，2026-11-16）—— 指纹不变；pJ/bit 涨 0.1–1 %
 - vendored spec_sources 换成 `76ee72a`：新键 `dmg.ldpc_matrices`、`dmg.ldpc_r7_8_punctured`、`dmg.sc_mcs_extended`、`dmg.data_encoding`、`dmg.control_phy`、`dmg.phy_timing`、`dmg.ssw_frame`、`edmg.ldpc_672_r7_8`、`edmg.ldpc_1344_lifting`、`edmg.sc_encoding`、`edmg.short_ssw`（本 PR 只 pin，不接线）；11 条 survey 读成原文，`spec.unverified()` 20 → 9。
 - `adc_survey.walden_fom_fj` 70 → 70.815、区间 [38.36, 120.19]：转换器功耗 ×1.0116，示例 02 / 04 / 06 / 09 / 10 / 11 的期望输出重新接受，文档引用的数跟着改；MCS 上限、底板、排名不动。
