@@ -29,6 +29,11 @@ standard sets for each?
    LO-leak cancellation holds only at the gain state it was found at) — the
    check of section 4's "calibrated away"; one row shows what a single
    calibration at the preset back-off reads at 15 dB;
+8b. what the single carrier loses on the calibrated chain, item by item:
+   each calibration residual (TX IQ, TX LO leak, RX IQ, RX DC) alone on the
+   calibrated chain with every other impairment off — the isolation reading,
+   not everything-minus-one — and two direct readings: the leak left after
+   dc_pre and the TX image rejection across the band;
 9. rate against range, one element, line of sight, the calibrated chain at
    every back-off: each MCS's decoder threshold from its DMG twin's
    sensitivity (data/spec: assumed.ay_sensitivity; spec_sources has no
@@ -63,7 +68,7 @@ from mmw60.ay import edmg, papr                                   # noqa: E402
 from mmw60.calcheck import run_cal_ay                             # noqa: E402
 from mmw60.config import ChannelConfig, ay_60ghz, surveyed_frontend  # noqa: E402
 from mmw60.frontend import Frontend60                             # noqa: E402
-from mmw60.sim.link import LinkSim                                # noqa: E402
+from mmw60.sim.link import DIGITAL_DRIVE_RMS, LinkSim             # noqa: E402
 
 FLAT = ChannelConfig(model="flat")
 #: one MCS per payload constellation (the EVM payload carries its points; assumed.ay_evm_payload)
@@ -368,6 +373,84 @@ def main(argv=None) -> int:
         print(f"{eo.modulation:<10} {str(es.code_rate):>5}  {fmt(bs, '{:6.2f}', ' never')} "
               f"{fmt(bo, '{:6.2f}', ' never')}  "
               f"{fmt(dp, '{:6.2f}')}   {fmt(d5, '{:6.2f}')}")
+
+    # ---------------------------------------------------------------- 8b. the residual, item by item
+    print("\n== 8b. what the single carrier loses on the calibrated chain, item by item: each calibration residual "
+          "alone on the calibrated chain, every other impairment off (converters, phase noise, receiver noise; the "
+          "PA switched off after the VGA was trimmed with it in), the CFO on (EVM dB, 16-QAM payloads) ==")
+    items = {"tx_iq": "TX IQ", "tx_leak": "TX LO leak", "rx_iq": "RX IQ", "rx_dc": "RX DC"}
+
+    def stripped(cfg, f2, r, keep):
+        tx, rx = copy.deepcopy(r.chains[:2])
+        tx.params.dac.enabled = False
+        tx.params.lo.enabled = False
+        rx.params.adc.enabled = False
+        rx.params.lo.enabled = False
+        rx.noise_enabled = False
+        rx.params.nonlin_enabled = False
+        if "tx_iq" not in keep:
+            tx.params.iq.enabled, tx.w1, tx.w2 = False, None, None
+        if "tx_leak" not in keep:
+            tx.params.lo_leak_dbm, tx.dc_pre = None, 0j
+        if "rx_iq" not in keep:
+            rx.params.iq.enabled, rx.w1, rx.w2, rx.w2_by_state, rx.frac_delay_iq = False, None, None, {}, 0.0
+        if "rx_dc" not in keep:
+            rx.params.dc_offset, rx.dc_ana, rx.dc_post = tuple(0j for _ in rx.params.dc_offset), {}, {}
+        sim = LinkSim(cfg, frontend=f2, chains=[tx, rx])
+        sim.tx.params.pa_enabled = False          # after the VGA trim: dc_pre holds at that gain state only
+        rng = np.random.default_rng(0)
+        e = [sim.packet(None, rng).rx.evm_db for _ in range(n_pk)]
+        return float(10 * np.log10(np.mean(10 ** (np.asarray(e) / 10))))
+
+    def irr_db(tx, fs, f_hz, n=8192):
+        t = copy.deepcopy(tx)
+        t.params.lo_leak_dbm, t.dc_pre, t.params.pa_enabled, t.params.lo.enabled = None, 0j, False, False
+        k = int(round(f_hz / fs * n))
+        y = np.fft.fft(t(0.05 * np.exp(2j * np.pi * k * np.arange(n) / n)))
+        return float(10 * np.log10(abs(y[k]) ** 2 / max(abs(y[-k]) ** 2, 1e-30)))
+
+    edges = (0.5e9, 0.86e9, 1.0e9, 1.1e9)
+    for ob in (fe.obo_db, 15.0):
+        f2, r = cal_at(ob)
+        print(f"back-off {ob:g} dB:")
+        for wf, m in (("ay_sc", SC_REP["π/2-16-QAM"]), ("ay_ofdm", OFDM_REP["16-QAM"])):
+            c = at_obo(dc.replace(ay_60ghz(wf, m), channel=FLAT), ob)
+            alone = {k: stripped(c, f2, r, (k,)) for k in items}
+            base_e = stripped(c, f2, r, ())
+            no_cfo = stripped(dc.replace(c, xo_ppm_tx=0.0, xo_ppm_rx=0.0), f2, r, ("tx_leak",))
+            no_rm = stripped(dc.replace(c, rx=dc.replace(c.rx, dc_removal=False)), f2, r, ("tx_leak",))
+            away_e = evm(calibrated(c), n=n_pk)
+            full = cal_evm(dc.replace(ay_60ghz(wf, m), channel=FLAT), ob)
+            psum = 10 * np.log10(10 ** (away_e / 10) + sum(10 ** (v / 10) for v in alone.values()))
+            print(f"  {wf:<8} none {base_e:7.2f}  " + "  ".join(f"{items[k]} {v:7.2f}" for k, v in alone.items())
+                  + f"  TX LO leak without the CFO {no_cfo:7.2f}, without the lead-in DC removal {no_rm:7.2f};  "
+                    f"calibrated away {away_e:7.2f} + these = "
+                    f"{psum:7.2f}, the calibrated chain {full:7.2f}")
+        sim = LinkSim(at_obo(dc.replace(base["ay_sc"], channel=FLAT), ob), frontend=f2,
+                      chains=copy.deepcopy(r.chains[:2]))
+        _, fr = sim.transmit(np.random.default_rng(0))
+        tx = copy.deepcopy(sim.tx)
+        tx.params.lo.enabled = False
+        sig = tx(fr.x * DIGITAL_DRIVE_RMS)
+        leak = copy.deepcopy(tx)(np.zeros_like(fr.x))[-1000:]
+        raw = copy.deepcopy(tx)
+        raw.dc_pre = 0j
+        raw_leak = raw(np.zeros_like(fr.x))[-1000:]
+        p_sig = float(np.mean(abs(sig) ** 2))
+        uncorr = copy.deepcopy(sim.tx)
+        uncorr.w1 = uncorr.w2 = None
+        print(f"  direct: TX LO leak left after dc_pre {10 * np.log10(np.mean(abs(leak) ** 2) / p_sig):.1f} dBc "
+              f"(without dc_pre {10 * np.log10(np.mean(abs(raw_leak) ** 2) / p_sig):.1f}); TX image rejection at "
+              + ", ".join(f"{f / 1e9:g}" for f in edges) + " GHz: "
+              + ", ".join(f"{irr_db(sim.tx, sim.phy.fs_eff, f):.1f}" for f in edges)
+              + " dB (uncorrected " + ", ".join(f"{irr_db(uncorr, sim.phy.fs_eff, f):.1f}" for f in edges)
+              + "; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)")
+    print("isolation: one residual at a time, read directly (contributions do not add up as powers in general; the "
+          "power sum is a check, not a decomposition).  The leak costs only with the CFO (without it the receiver's "
+          "DC removal on its quiet lead-in takes the leak out exactly), and on SC 6-8 dB more than its own power: "
+          "part of that is the lead-in DC removal subtracting a leak that turns at the CFO there, the rest is not "
+          "attributed yet (not the SC phase tracking, not the channel-estimate window: ROADMAP milestone 3).  OFDM "
+          "puts the leak on its three empty DC tones")
 
     # ---------------------------------------------------------------- 9. rate against range
     print("\n== 9. rate against range: one element, line of sight, the calibrated chain at every back-off "
