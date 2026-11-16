@@ -128,13 +128,16 @@ def selection_success(gains_db: np.ndarray, snr_best_db: float, n_tones: int, rn
 def required_training_snr_db(array: Array60, side: str, n_tones: int, seed: int = 0, trials: int = 2000,
                              estimator: str | None = None, within_db: float | None = None,
                              p_target: float | None = None, n_users: int = 25,
-                             grid_db=None, repetitions: int = 1, combining: str | None = None) -> dict:
+                             grid_db=None, repetitions: int = 1, combining: str | None = None,
+                             candidates: int | None = None) -> dict:
     """The lowest per-tone SNR of the best sector at which a sweep of
     ``side``'s codebook picks a good sector with probability ``p_target``,
     averaged over stations spread uniformly in sin(theta) across the scan.
     ``repetitions`` R > 1 repeats the training field per sector, combined
     ``combining`` = "noncoherent" (powers summed: n R tones) or "coherent"
-    (2 R symbols per tone); default assumed.array_training_repetition."""
+    (2 R symbols per tone); default assumed.array_training_repetition.
+    ``candidates`` restricts each station's sweep to the sectors with the
+    highest gain toward it (a refining stage inside a chosen wide sector)."""
     tr = spec.value("assumed.array_training")
     est = tr["estimator"] if estimator is None else estimator
     within = float(tr["success_within_db"]) if within_db is None else float(within_db)
@@ -155,6 +158,8 @@ def required_training_snr_db(array: Array60, side: str, n_tones: int, seed: int 
     smax = np.sin(np.deg2rad(array.scan_max_deg))
     users = np.rad2deg(np.arcsin(np.linspace(-smax, smax, n_users)))
     gains = [array.sector_gains_db(side, float(u)) for u in users]
+    if candidates is not None:
+        gains = [np.sort(g)[::-1][:int(candidates)] for g in gains]
     rng = np.random.default_rng(seed)
     curve = []
     for snr in grid_db:
@@ -274,6 +279,53 @@ def repetitions_to_reach(budget: "ArrayBudget", array: Array60, n_tones: int, ta
     return {**(last or {"req_db": None, "pl_db": None, "margin_db": None}), "repetitions": None}
 
 
+def hierarchical_training(cfg, fe, n: int, m: int, n_tones: int, target_pl_db: float,
+                          combining: str | None = None, max_repetitions: int | None = None, **kw) -> dict:
+    """A two-stage transmit sweep toward ``target_pl_db`` of path loss, the
+    far end on one element as in the flat sweep (ROADMAP B, user's pick
+    2026-11-16): first the first ``m`` elements of the ``n``-element array as
+    an m-element sub-array at its own per-element output (the EIRP limit for
+    m elements), sweeping its m wide sectors; then the full array inside the
+    chosen wide sector, over the ``ceil(n / m)`` narrow sectors with the
+    highest gain toward the station.  Each stage gets the fewest
+    repetitions (a power of two) that reach the target on its own.  Returns
+    both stages and the flat sweep for comparison: sectors, repetitions,
+    EIRP, required per-tone SNR, path loss reached and sweep time."""
+    from .config import array_frontend
+    from .frontend.array60 import Array60
+    phy = cfg.upclocked()
+    out = {}
+    stages = (("wide", m, None), ("narrow", n, int(np.ceil(n / m))), ("flat", n, None))
+    rep_cfg = spec.value("assumed.array_training_repetition")
+    r_max = int(rep_cfg["max_repetitions"]) if max_repetitions is None else int(max_repetitions)
+    tr = spec.value("assumed.array_training")
+    for name, size, cand in stages:
+        c = array_frontend(cfg, size)
+        ar = Array60.from_config(c, fe)
+        b = array_budget(c, fe, ar)
+        sectors = int(ar.codebook_deg("tx").size) if cand is None else cand
+        r, got = 1, None
+        while r <= r_max:
+            rt = required_training_snr_db(ar, "tx", n_tones, repetitions=r, combining=combining, candidates=cand,
+                                          **kw)
+            if rt["snr_db"] is not None:
+                pl = transmit_sweep_reach_db(b, ar, rt["snr_db"])
+                got = {"repetitions": r, "req_db": rt["snr_db"], "pl_db": pl}
+                if pl >= target_pl_db:
+                    break
+            r *= 2
+        reached = got is not None and got["pl_db"] >= target_pl_db
+        reps = got["repetitions"] if reached else None
+        t = None if reps is None else sectors * (reps * _ltf_field_s(phy) + float(tr["sector_switch_s"]))
+        out[name] = {"elements": size, "sectors": sectors, "eirp_dbm": b.eirp_dbm, "repetitions": reps,
+                     "req_db": None if got is None else got["req_db"], "pl_db": None if got is None else got["pl_db"],
+                     "time_s": t}
+    w, nr = out["wide"], out["narrow"]
+    out["hierarchical_time_s"] = (None if w["time_s"] is None or nr["time_s"] is None
+                                  else w["time_s"] + nr["time_s"])
+    return out
+
+
 def array_power_report(cfg, fe, array: Array60, budget: "ArrayBudget",
                        coeffs: PowerCoefficients | None = None) -> PowerReport | None:
     """The array link's power per link direction, priced per bit at its
@@ -319,4 +371,5 @@ def noise_dbm_per_tone(nf_db: float, scs_hz: float) -> float:
 __all__ = ["fspl_db", "oxygen_db_per_km", "path_loss_db", "range_m", "required_snr_db", "sweep_statistic",
            "selection_success",
            "required_training_snr_db", "ArrayBudget", "array_budget", "training_ranges", "sweep_time_s",
-           "transmit_sweep_reach_db", "repetitions_to_reach", "array_power_report", "noise_dbm_per_tone", "C0"]
+           "transmit_sweep_reach_db", "repetitions_to_reach", "hierarchical_training", "array_power_report",
+           "noise_dbm_per_tone", "C0"]
