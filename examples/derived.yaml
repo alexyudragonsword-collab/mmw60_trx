@@ -265,3 +265,26 @@
     - {doc: cairn/array-layer.md, text: "16 × 1 次 110 µs / 28 µs / **{two_cap} µs**"}
     - {doc: cairn/array-layer.md, text: "| B 11be 80M × 4 | 解码器上限（124.9 dB） | 64 × 1 次，{flat_cap} µs |"}
     - {doc: cairn/array-layer.md, text: "够不到（{wide_short}）/ 4 × 64 次 {narrow_edge / 1000} ms / — |"}
+
+- name: ex14 hard decisions, the most selective single candidate (sel = Δ4 − mean Δ0/1; ROADMAP C12)
+  values:
+    h0: {example: "14", after: "== 1. one candidate", line: "hard decisions {*} {} {*} {*} {*} {*} {*}"}
+    h1: {example: "14", after: "== 1. one candidate", line: "hard decisions {*} {*} {*} {} {*} {*} {*}"}
+    h4: {example: "14", after: "== 1. one candidate", line: "hard decisions {*} {*} {*} {*} {*} {} {*}"}
+    hs: {example: "14", after: "== 1. one candidate", line: "hard decisions {*} {*} {*} {*} {*} {*} {}"}
+  quotes:
+    - {doc: cairn/LOG.md, text: "硬判决 +{hs}（+{h0} / +{h1} / +{h4}）"}
+
+- name: ex14 the improved receiver with hard decisions against the paper's ideal set, K = 8 and 16
+  values:
+    a0: {example: "14", after: "== 2. receiver combinations", line: "8 improved receiver + hard {} {*} {*} {*} {*} {*} {*}"}
+    a1: {example: "14", after: "== 2. receiver combinations", line: "8 improved receiver + hard {*} {*} {} {*} {*} {*} {*}"}
+    a4: {example: "14", after: "== 2. receiver combinations", line: "8 improved receiver + hard {*} {*} {*} {*} {} {*} {*}"}
+    b0: {example: "14", after: "== 2. receiver combinations", line: "16 improved receiver + hard {} {*} {*} {*} {*} {*} {*}"}
+    b1: {example: "14", after: "== 2. receiver combinations", line: "16 improved receiver + hard {*} {*} {} {*} {*} {*} {*}"}
+    b4: {example: "14", after: "== 2. receiver combinations", line: "16 improved receiver + hard {*} {*} {*} {*} {} {*} {*}"}
+  quotes:
+    - {doc: cairn/LOG.md, text: "K = 8 是 {a0} / {a1} / {a4}，K = 16 是 {b0} / {b1} / {b4}"}
+    - {doc: cairn/external-validation.md, text: "K = 8 是 {a0} / {a1} dB，K = 16 是 {b0} / {b1} dB"}
+    - {doc: cairn/external-validation.md, text: "MCS4 是 {a4} / {b4} dB"}
+
