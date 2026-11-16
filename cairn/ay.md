@@ -280,7 +280,16 @@ RX DC 单开等于底板，没有贡献。直接读数：`dc_pre` 之后剩的�
 - ay 自己的扇区扫描和 be 靠 MLO 触发的训练是同一类缺口：N ≥ 16 时，远端单单元的发端扫描够不到最慢数据档的边，差得也差不多（N = 64 时 −8.0 对 −8.8 dB）。控制 PHY 的扩频正好抵消了 1.76 GHz 比 320 MHz 宽出来的噪声带宽。
 - 所以示例 10 §4b（重复训练场）与 §4c（两级扫描）的补法对 ay 一样适用；ay 的 TRN 字段与 short SSW 没有建。
 - 收端扫描在所有尺寸上都够得着（在选好的发端波束后面）。
-- 扫一轮要多久（控制 PHY 的前导与头、SSW 帧长、扇区间隔）等 spec_sources#33。#33 已到（2026-11-16，pin `76ee72a`：`dmg.control_phy`、`dmg.phy_timing`、`dmg.ssw_frame`、`edmg.short_ssw`），还没算。
+- 扫一轮要多久（2026-11-16，spec_sources#33，feat/ay-33-keys；`arraylink.ssw_frame_s` / `ay_sweep_time_s`）：每个扇区一个 SSW 帧，帧长 = 控制 PHY 前导 3.564 µs（`dmg.phy_timing`，STF + CEF 共 6272 码片）+ 头部 40 位与 26 字节的帧按 27.5 Mb/s（`dmg.control_phy`、`dmg.ssw_frame`、`dmg.control_phy_rate_bps`）= 12.582 µs，帧间隔 SBIFS 1 µs，每扇区 13.582 µs。
+  控制 PHY 每个 LDPC 码字的校验位数固定，没填满的码字等效码率低于 1/2；切分规则不在 spec_sources 里，按每个码字都填满算，所以这是**下限**。
+
+  | N | ay 发端 + 收端扫描 | be 行（B 11be 80M × 4，示例 10 §4） |
+  |---|---|---|
+  | 4 | 108.7 µs | 55.2 µs |
+  | 16 | 434.6 µs | 220.8 µs |
+  | 64 | 1738.5 µs | 883.2 µs |
+
+  ay 的一个扇区（13.6 µs）是 be 训练场的 2 倍（6.9 µs：320 MHz 升频后的 GI2 + 2 个 L-LTF 符号加 0.1 µs 切换）：控制 PHY 的帧带着前导、头和 26 字节的 MAC 帧，be 的训练场只是一段 LTF（扇区号由 MLO 带外传）。N = 64 时扫一轮约 1.7 ms。EDMG 的 short SSW（48 位，`edmg.short_ssw`）在 EDMG PPDU 的数据域里发，那个 PPDU 的前导长度不在 spec_sources 里，没算；TRN 也没建。
 
 ### 9d. 编码 PER：机器先建，矩阵等 spec_sources#33（`ay/coding.py`，feat/ay-coded）
 - **已建**：`phy.ldpc.qc_code` 能从任意基矩阵与提升因子构造准循环码（802.11 的码改走它，边数组逐位相同；DMG / EDMG 的是 16 列、z = 42）。SC 载荷装整数个码字，不够一个码字的比特用随机填充，接收端丢掉。接收端从均衡后的码片求 max-log LLR，不做逐码片加权：SC 的 MMSE 让每个码片 SINR 相同，归一化 min-sum 又对 LLR 的整体缩放不敏感。任一码字的任一信息比特错就算丢包。`AyLinkSim.transmit(rng, bits=)` 接收载荷比特（只对 SC）。

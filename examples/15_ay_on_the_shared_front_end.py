@@ -484,9 +484,11 @@ def main(argv=None) -> int:
           "empty DC tones")
 
     # ---------------------------------------------------------------- 9. rate against range
-    print("\n== 9. rate against range: one element, line of sight, the calibrated chain at every back-off "
-          f"({tag('assumed.ay_sensitivity')}: the DMG twin's sensitivity, its reference NF and implementation "
-          "loss taken out; the floor as a noise term) ==")
+    print("\n== 9. rate against range: one element, line of sight, the calibrated chain at every back-off; the "
+          "decoder thresholds: SC measured on the ideal chain with spec_sources#33's codes "
+          "(data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; SC MCS 1, repetition 2, not coded "
+          f"here), OFDM from the DMG twin ({tag('assumed.ay_sensitivity')}: its sensitivity, reference NF and "
+          "implementation loss taken out; the coded OFDM payload is not built); the floor as a noise term ==")
     orders = {"ay_sc": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_sc")},
               "ay_ofdm": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_ofdm")}}
     for wf, by_order in orders.items():
@@ -498,15 +500,15 @@ def main(argv=None) -> int:
               for wf in orders}
     i0 = int(np.argmin(np.abs(obos8 - fe.obo_db)))
 
-    def ranges_at(wf, i, sim=None, keep_il=False, gains=(g_tx, g_rx)):
+    def ranges_at(wf, i, sim=None, keep_il=False, gains=(g_tx, g_rx), rule="measured"):
         f2, _ = cal_at(float(obos8[i]))
         floors_i = {o: cal_curves[(wf, o)][i] for o in orders[wf]}
         return al.ay_mcs_ranges(sim or rx_sim[wf], floors_i, f2.target_pout_dbm() + gains[0], gains[1],
-                                keep_implementation_loss=keep_il)
+                                keep_implementation_loss=keep_il, rule=rule)
 
     table = {wf: [ranges_at(wf, i) for i in range(len(obos8))] for wf in orders}
     best = {}
-    print(f"{'wf':<8} {'MCS':>3}  {'modulation':<12} {'rate':>5} {'Gb/s':>6} {'DMG':>4} {'T[dB]':>6}  "
+    print(f"{'wf':<8} {'MCS':>3}  {'modulation':<12} {'rate':>5} {'Gb/s':>6} {'DMG':>4} {'T[dB]':>6} {'src':>3}  "
           f"{'@preset m':>9}  {'best m':>7} {'back-off':>8} {'Pout':>6} {'floor':>6}")
     for wf in orders:
         for m in table[wf][0]:
@@ -519,7 +521,8 @@ def main(argv=None) -> int:
             bo = None if b is None else float(obos8[b[1]])
             edge = "*" if b is not None and b[1] == 0 else " "
             print(f"{wf:<8} {m:>3}  {e.modulation:<12} {str(e.code_rate):>5} {e.rate_bps() / 1e9:6.3f} "
-                  f"{table[wf][0][m]['twin']:>4} {table[wf][0][m]['threshold_db']:6.2f}  "
+                  f"{str(table[wf][0][m]['twin'] or '—'):>4} {table[wf][0][m]['threshold_db']:6.2f} "
+                  f"{table[wf][0][m]['source'][0]:>3}  "
                   f"{fmt(at_preset, '{:9.2f}', '        —')}  {fmt(None if b is None else b[0], '{:7.2f}', '      —')} "
                   f"{fmt(bo, '{:7.1f}', '      —')}{edge} {fmt(None if b is None else psat - bo, '{:6.1f}', '     —')} "
                   f"{fmt(None if b is None else table[wf][b[1]][m]['floor_db'], '{:6.2f}', '     —')}")
@@ -527,7 +530,7 @@ def main(argv=None) -> int:
           f"{rx_sim['ay_sc']._rx_nf_db():.1f} dB at the sensitivity's AGC state, not a 60 GHz figure — ROADMAP C9; "
           f"oxygen {al.oxygen_db_per_km():g} dB/km; '—' at the preset = the floor misses the TX EVM limit there; "
           f"* = the grid's smallest back-off ({obos8[0]:g} dB), the best may lie below it; "
-          f"MCS without a DMG twin are not listed)")
+          f"src = m measured / t the DMG twin's; OFDM MCS without a DMG twin are not listed)")
     dists = (1.0, 1.5, 2.0, 3.0, 5.0, 8.0)
     print("\nthe fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at its best back-off):")
     print(f"{'m':>5} " + " ".join(f"{wf:>16}" for wf in orders))
@@ -546,20 +549,30 @@ def main(argv=None) -> int:
     sv_sim = {wf: LinkSim(sv_cfg[wf], frontend=sv_fe[wf]) for wf in orders}
     for wf, m in caps.items():
         base_r = table[wf][i0][m]["range_m"]
-        il = ranges_at(wf, i0, keep_il=True)[m]["range_m"]
+        il = ranges_at(wf, i0, keep_il=True, rule="twin")[m]["range_m"]
+        tw = ranges_at(wf, i0, rule="twin")[m]["range_m"]
         sv = ranges_at(wf, i0, sim=sv_sim[wf], gains=(sv_fe[wf].antenna_gain_tx_dbi,
                                                       sv_fe[wf].antenna_gain_rx_resolved_dbi))[m]["range_m"]
-        print(f"  {wf:<8} MCS{m}: preset {base_r:.2f}; implementation loss kept in {il:.2f}; surveyed 60 GHz front end "
+        twin_txt = "" if wf != "ay_sc" else f"the DMG twin's threshold (as OFDM's) {tw:.2f}; "
+        print(f"  {wf:<8} MCS{m}: preset {base_r:.2f}; {twin_txt}the twin's with its implementation loss kept in "
+              f"{il:.2f}; surveyed 60 GHz front end "
               f"(NF {sv_sim[wf]._rx_nf_db():.1f} dB at its AGC state, {sv_fe[wf].antenna_gain_tx_dbi:g} + "
               f"{sv_fe[wf].antenna_gain_rx_resolved_dbi:g} dBi) {sv:.2f}")
-    print("the DMG-derived thresholds against this library's measured 11be LDPC thresholds "
-          "(data/spec/per_thresholds.yaml, 80 MHz) at the same modulation and code rate:")
-    for lab, wf, m, be_mcs in (("QPSK 1/2", "ay_ofdm", 6, 1), ("16-QAM 1/2", "ay_ofdm", 11, 3),
-                               ("16-QAM 3/4", "ay_ofdm", 13, 4), ("16-QAM 3/4", "ay_sc", 14, 4)):
-        t = table[wf][0][m]["threshold_db"]
-        tb = spec.per_threshold_db("11be", 80e6, be_mcs)
-        print(f"  {lab:<10} {wf:<8} MCS{m:<2} {t:6.2f} dB   11be MCS{be_mcs} {tb:6.2f} dB   "
-              f"difference {t - tb:+5.2f} dB")
+    print("the DMG-derived thresholds against this library's measured ones at the same modulation and code rate: "
+          "the EDMG SC codes (data/spec/ay_per_thresholds.yaml) and the 11be LDPC (data/spec/per_thresholds.yaml, "
+          "80 MHz; its SNR is per active subcarrier):")
+    print(f"  {'':<10} {'':<8} {'':<4} {'twin':>7} {'SC meas':>8} {'11be':>7}  twin - SC   twin - 11be")
+    for lab, wf, m, be_mcs in (("BPSK 1/2", "ay_sc", 2, None), ("QPSK 1/2", "ay_sc", 7, 1),
+                               ("QPSK 1/2", "ay_ofdm", 6, 1), ("16-QAM 1/2", "ay_sc", 12, 3),
+                               ("16-QAM 1/2", "ay_ofdm", 11, 3), ("16-QAM 3/4", "ay_sc", 14, 4),
+                               ("16-QAM 3/4", "ay_ofdm", 13, 4), ("16-QAM 13/16", "ay_sc", 15, None),
+                               ("64-QAM 3/4", "ay_sc", 19, 6), ("64-QAM 7/8", "ay_sc", 21, None)):
+        t, _ = edmg.threshold_db(wf, m, rx_sim[wf].occupied_bw_hz, rule="twin")
+        tm = spec.ay_per_threshold_db(wf, m)
+        tb = None if be_mcs is None else spec.per_threshold_db("11be", 80e6, be_mcs)
+        print(f"  {lab:<12} {wf:<8} MCS{m:<2} {t:6.2f} {fmt(tm, '{:8.2f}', '       —')} "
+              f"{fmt(tb, '{:7.2f}', '      —')}  {fmt(None if tm is None else t - tm, '{:+8.2f}', '       —')}  "
+              f"{fmt(None if tb is None else t - tb, '{:+11.2f}', '          —')}")
 
     # ---------------------------------------------------------------- 10. multipath
     n_mp = 4 if quick else 40

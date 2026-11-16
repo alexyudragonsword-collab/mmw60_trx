@@ -155,21 +155,25 @@ def conformance_cap(floor_db: float, waveform: str, gi: str = "normal") -> dict:
 
 def dmg_twin(waveform: str, mcs: int) -> float | None:
     """The DMG MCS with the same bits per symbol, code rate and repetition as
-    EDMG ``mcs`` (assumed.ay_sensitivity): SC against dmg.sc_mcs (modulation
-    order from the name, the repetition column), OFDM against dmg.ofdm_mcs
-    (its n_bpsc column: EDMG's DCM BPSK / DCM QPSK carry 1 / 2 coded bits per
-    subcarrier as 11ad's SQPSK / QPSK do — the names edmg.ofdm_mcs's note says
-    they had before 18/1152r0).  None when the DMG tables have no such MCS
-    (7/8, BPSK 3/4 … in OFDM, 64-QAM 1/2 …; the extended DMG MCS 9.1 / 12.1–12.6
-    are left out: their modulation and code rate are not in spec_sources)."""
+    EDMG ``mcs`` (assumed.ay_sensitivity): SC against dmg.sc_mcs and then the
+    extended MCS 9.1 / 12.1–12.6 of dmg.sc_mcs_extended (modulation order from
+    the name, the repetition column), OFDM against dmg.ofdm_mcs (its n_bpsc
+    column: EDMG's DCM BPSK / DCM QPSK carry 1 / 2 coded bits per subcarrier
+    as 11ad's SQPSK / QPSK do — the names edmg.ofdm_mcs's note says they had
+    before 18/1152r0).  None when the DMG tables have no such MCS (SC BPSK
+    7/8 and 64-QAM 1/2; OFDM 7/8, BPSK 3/4 …).  A twin at rate 7/8 is a
+    different code: DMG's is the 13/16 codeword punctured to 624 bits
+    (dmg.ldpc_r7_8_punctured), EDMG's its own 672-bit code
+    (edmg.ldpc_672_r7_8)."""
     e = mcs_entry(waveform, mcs)
     if waveform == "ay_sc":
-        t = spec.value("dmg.sc_mcs")
-        rep = t.get("repetition", [1] * len(t["mcs"]))
-        for i, m in enumerate(t["mcs"]):
-            if (_order_of(t["modulation"][i])[0] == e.order and Fraction(t["code_rate"][i]) == e.code_rate
-                    and int(rep[i]) == e.repetition):
-                return m
+        for key in ("dmg.sc_mcs", "dmg.sc_mcs_extended"):
+            t = spec.value(key)
+            rep = t.get("repetition", [1] * len(t["mcs"]))
+            for i, m in enumerate(t["mcs"]):
+                if (_order_of(t["modulation"][i])[0] == e.order and Fraction(t["code_rate"][i]) == e.code_rate
+                        and int(rep[i]) == e.repetition):
+                    return m
         return None
     t = spec.value("dmg.ofdm_mcs")
     bpsc = int(spec.value("edmg.ofdm_mcs")["n_bpsc"][[x.mcs for x in mcs_table(waveform)].index(e.mcs)])
@@ -212,6 +216,31 @@ def ideal_threshold_db(waveform: str, mcs: int, occupied_bw_hz: float,
     return None if twin is None else dmg_threshold_db(twin, occupied_bw_hz, keep_implementation_loss)
 
 
+THRESHOLD_RULES = ("measured", "twin")
+
+
+def threshold_db(waveform: str, mcs: int, occupied_bw_hz: float, rule: str = "measured",
+                 keep_implementation_loss: bool = False) -> tuple[float | None, str | None]:
+    """``(in-band SNR, source)`` an ideal decoder needs for EDMG ``mcs``.
+    ``rule="measured"`` (the preset) takes this library's own threshold
+    where the payload is coded here (``spec.ay_per_threshold_db``: the SC
+    MCS at repetition 1, measured with spec_sources#33's codes on the ideal
+    chain, the way the be rows' thresholds are) and the DMG twin's
+    (``ideal_threshold_db``, assumed.ay_sensitivity) elsewhere — OFDM, SC
+    MCS 1; ``rule="twin"`` takes the twin's everywhere (the reading before
+    the measurement, and the one that treats SC and OFDM alike).
+    ``keep_implementation_loss`` applies to the twin's only.  Source is
+    "measured", "twin" or None (no threshold)."""
+    if rule not in THRESHOLD_RULES:
+        raise ValueError(f"rule must be one of {THRESHOLD_RULES}")
+    if rule == "measured" and waveform == "ay_sc":
+        t = spec.ay_per_threshold_db(waveform, mcs)
+        if t is not None:
+            return float(t), "measured"
+    t = ideal_threshold_db(waveform, mcs, occupied_bw_hz, keep_implementation_loss)
+    return (None, None) if t is None else (t, "twin")
+
+
 def chain_rate() -> dict:
     """The one sample rate both waveforms run on (assumed.ay_chain_rate)."""
     a = spec.value("assumed.ay_chain_rate")
@@ -225,4 +254,5 @@ def chain_rate() -> dict:
 
 __all__ = ["GIS", "WAVEFORMS", "AyMcs", "channel_spacing_hz", "channel_of", "ofdm_numerology", "sc_numerology",
            "mcs_table", "mcs_entry", "conformance_cap", "chain_rate", "dmg_twin", "ideal_threshold_db",
+           "THRESHOLD_RULES", "threshold_db",
            "dmg_threshold_db", "control_threshold_db"]

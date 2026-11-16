@@ -315,7 +315,7 @@ class LinkSim:
 def per_sweep(cfg: Mmw60Config, snr_db: list[float], max_packets: int = 400,
               min_errors: int = 20, stop_below: float = 1e-3, seed: int | None = None,
               progress=None, refine_errors: int = 0, refine_max_packets: int = 0,
-              target: float = 1e-2) -> dict:
+              target: float = 1e-2, packet=None) -> dict:
     """PER at each SNR (ascending).  Each point stops at ``min_errors`` packet
     errors or ``max_packets``; the sweep stops once a point's PER is below
     ``stop_below`` with zero errors (the curve is past the target).
@@ -325,20 +325,30 @@ def per_sweep(cfg: Mmw60Config, snr_db: list[float], max_packets: int = 400,
     still deterministic — until each has that many packet errors or
     ``refine_max_packets`` packets; the bracket is re-read once, since
     better statistics can move it by a grid step.  The crossing then rests
-    on tens of errors per point instead of a handful."""
+    on tens of errors per point instead of a handful.
+
+    ``packet(sim, snr_db, rng) -> (packet_error, evm_db)`` runs one packet
+    of a link whose coding lives outside ``LinkSim`` (the 802.11ay SC
+    payload, ``ay.coding.sweep_packet``); left out, the sweep runs
+    ``sim.packet``."""
     sim = LinkSim(cfg)
-    if not sim.coded:
-        raise ValueError("per_sweep needs the coded VHT 20 MHz base; use evm_at for other bases")
+    if packet is None:
+        if not sim.coded:
+            raise ValueError("per_sweep needs the coded VHT 20 MHz base; use evm_at for other bases")
+
+        def packet(sim, s, rng):
+            r = sim.packet(s, rng)
+            return r.rx.packet_error, r.rx.evm_db
     rng = np.random.default_rng(cfg.seed if seed is None else seed)
     out = {"snr_db": [], "per": [], "n_packets": [], "n_errors": [], "evm_db": []}
     for s in snr_db:
         n = err = 0
         evm = []
         while n < max_packets and err < min_errors:
-            r = sim.packet(s, rng)
+            pe, ev = packet(sim, s, rng)
             n += 1
-            err += int(r.rx.packet_error)
-            evm.append(r.rx.evm_db)
+            err += int(pe)
+            evm.append(ev)
         per = err / n
         out["snr_db"].append(float(s))
         out["per"].append(per)
@@ -361,9 +371,9 @@ def per_sweep(cfg: Mmw60Config, snr_db: list[float], max_packets: int = 400,
             for i in todo:
                 n, err = out["n_packets"][i], out["n_errors"][i]
                 while n < cap and err < refine_errors:
-                    r = sim.packet(out["snr_db"][i], rng)
+                    pe, _ = packet(sim, out["snr_db"][i], rng)
                     n += 1
-                    err += int(r.rx.packet_error)
+                    err += int(pe)
                 out["n_packets"][i], out["n_errors"][i], out["per"][i] = n, err, err / n
                 if progress:
                     progress(out["snr_db"][i], err / n, n, err)

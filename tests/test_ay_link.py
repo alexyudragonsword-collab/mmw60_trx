@@ -268,18 +268,20 @@ def test_the_edmg_thresholds_come_from_the_dmg_twin_and_take_the_reference_recei
     """assumed.ay_sensitivity: an EDMG MCS takes the minimum sensitivity of
     the DMG MCS with the same bits per symbol, code rate and repetition, less
     kT·B over the occupied bandwidth and the reference receiver's NF and
-    implementation loss; no twin, no threshold."""
+    implementation loss; no twin, no threshold.  SC looks in dmg.sc_mcs and
+    then in the extended MCS 9.1 / 12.1–12.6 (spec_sources#33)."""
     from fractions import Fraction
 
     from mmw60.vendor.wifitrx.units import KT_DBM_HZ
-    assert [edmg.dmg_twin("ay_sc", m) for m in (1, 2, 6, 7, 11, 12, 14, 15, 17)] == [1, 2, None, 6, None, 10, 12,
-                                                                                    None, None]
+    sc = [edmg.dmg_twin("ay_sc", m) for m in (1, 2, 6, 7, 11, 12, 14, 15, 16, 17, 18, 21)]
+    assert sc == [1, 2, None, 6, 9.1, 10, 12, 12.1, 12.2, None, 12.3, 12.6]
     ofdm = [edmg.dmg_twin("ay_ofdm", m) for m in (1, 2, 3, 6, 8, 9, 13, 16, 17, 19, 20)]
     assert ofdm == [13, 14, None, 15, 17, None, 20, None, 22, 24, None]
-    sc_t, of_t = spec.value("dmg.sc_mcs"), spec.value("dmg.ofdm_mcs")
+    of_t = spec.value("dmg.ofdm_mcs")
     for e in edmg.mcs_table("ay_sc"):
         twin = edmg.dmg_twin("ay_sc", e.mcs)
         if twin is not None:
+            sc_t = spec.value("dmg.sc_mcs" if twin in spec.value("dmg.sc_mcs")["mcs"] else "dmg.sc_mcs_extended")
             i = sc_t["mcs"].index(twin)
             # the same block (448 data chips at normal GI) and the same bits: the same rate
             assert Fraction(sc_t["code_rate"][i]) == e.code_rate and sc_t["repetition"][i] == e.repetition
@@ -299,7 +301,7 @@ def test_the_edmg_thresholds_come_from_the_dmg_twin_and_take_the_reference_recei
     assert t == pytest.approx(want) and 13.0 < t < 14.0
     assert edmg.ideal_threshold_db("ay_sc", 14, 1.76e9, keep_implementation_loss=True) == pytest.approx(
         t + ref["implementation_loss_db"])
-    assert edmg.ideal_threshold_db("ay_sc", 16, 1.76e9) is None
+    assert edmg.ideal_threshold_db("ay_sc", 17, 1.76e9) is None and edmg.ideal_threshold_db("ay_sc", 6, 1.76e9) is None
     # within a modulation the threshold rises with the code rate
     for wf in edmg.WAVEFORMS:
         for o in {e.order for e in edmg.mcs_table(wf)}:
@@ -425,6 +427,17 @@ def test_the_sector_sweep_threshold_is_the_control_phys_with_the_reference_recei
     assert t < min(x for x in data if x is not None) - 8.0
     # the data MCS go through the same function: one rule
     assert edmg.ideal_threshold_db("ay_sc", 14, 1.76e9) == edmg.dmg_threshold_db(12, 1.76e9)
+    # how long a sweep lasts (spec_sources#33): the control PHY's preamble, then the header and the
+    # 26-octet SSW frame at 27.5 Mb/s; one frame per sector, SBIFS apart
+    from mmw60 import arraylink as al
+    from mmw60.frontend.array60 import Array60
+    frame = 3.564e-6 + (40 + 26 * 8) / 27.5e6
+    assert al.ssw_frame_s() == pytest.approx(frame, rel=1e-12)
+    cfg = ay_60ghz("ay_sc", 14)
+    cfg = dc.replace(cfg, frontend=dc.replace(cfg.frontend, array=dc.replace(cfg.frontend.array, tx_nx=16, rx_nx=16)))
+    ar = Array60.from_config(cfg, Frontend60.from_config(cfg))
+    n = ar.codebook_deg("tx").size
+    assert n > 1 and al.ay_sweep_time_s(ar, "tx") == pytest.approx(n * (frame + 1e-6), rel=1e-12)
 
 
 def test_the_coded_sc_path_with_an_80211_code_standing_in():
@@ -450,6 +463,46 @@ def test_the_coded_sc_path_with_an_80211_code_standing_in():
         sim.transmit(np.random.default_rng(0), bits=np.zeros(10, dtype=np.uint8))
     with pytest.raises(NotImplementedError):
         LinkSim(_ideal("ay_ofdm", 13, model="behavioural")).transmit(np.random.default_rng(0), bits=np.zeros(8))
-    # iron rule 5: no EDMG PER without spec_sources' matrices
-    with pytest.raises(coding.PendingSpec, match="spec_sources#33"):
-        coding.dmg_code("1/2")
+
+
+def test_the_dmg_and_edmg_codes_are_spec_sources_matrices_and_agree_with_each_other():
+    """spec_sources#33 (iron rule 5): the four DMG codes from dmg.ldpc_matrices
+    (672 bits, z = 42); DMG's 7/8 is the 13/16 codeword with its first 48
+    parity bits not sent (624 / 546), EDMG's 7/8 its own 672-bit code (588
+    information bits, two shifted identities in most cells), which is DMG's
+    3/4 with block rows 1 + 3 and 2 + 4 added (the cross-check spec_sources
+    ran).  Every code encodes to a zero syndrome and decodes clean words."""
+    from mmw60.ay import coding
+    from mmw60.phy import ldpc
+
+    def dense(c):
+        h = np.zeros((c.m, c.n), dtype=np.uint8)
+        h[c.edge_row, c.edge_col] = 1
+        return h
+
+    for rate, rows in (("1/2", 8), ("5/8", 6), ("3/4", 4), ("13/16", 3)):
+        c = coding.dmg_code(rate)
+        assert (c.n, c.m, c.base.shape) == (672, 42 * rows, (rows, 16)) and coding.edmg_code(rate) is c
+        assert np.array_equal(c.base, spec.value("dmg.ldpc_matrices")["r" + rate.replace("/", "_")])
+    p, e = coding.dmg_code("7/8"), coding.edmg_code("7/8")
+    assert (p.n, p.k, p.rate) == (624, 546, "7/8") and p.drop == tuple(range(546, 594))
+    assert (e.n, e.k) == (672, 588) and e.base.dtype == object and len(e.base[0, 0]) == 2
+    h34, h78 = dense(coding.dmg_code("3/4")), dense(e)
+    assert np.array_equal(h78[:42], h34[:42] ^ h34[84:126]) and np.array_equal(h78[42:], h34[42:84] ^ h34[126:])
+    rng = np.random.default_rng(3)
+    for rate in ("1/2", "5/8", "3/4", "13/16", "7/8"):
+        for c in (coding.dmg_code(rate), coding.edmg_code(rate)):
+            info = rng.integers(0, 2, (2, c.k), dtype=np.uint8)
+            word = c.encode(info)
+            mother = getattr(c, "mother", c)
+            assert not mother.syndrome(mother.encode(info)).any()
+            assert np.array_equal(word[:, :c.k], info) and word.shape == (2, c.n)
+            dec, _ = c.decode(4.0 * (1.0 - 2.0 * word))           # LLR > 0 is a 0
+            assert np.array_equal(dec, word), rate
+    # a cell with two equal shifts would cancel over GF(2): refused
+    with pytest.raises(ValueError, match="distinct"):
+        ldpc.qc_code([[[3, 3]] + [-1] * 15], 42, "15/16")
+    # the code of an SC MCS: EDMG's at its rate; repetition 2 and OFDM are not built
+    assert coding.sc_code(LinkSim(_ideal("ay_sc", 16, model="behavioural"))) is e
+    with pytest.raises(NotImplementedError, match="repetition"):
+        coding.sc_code(LinkSim(_ideal("ay_sc", 1, model="behavioural")))

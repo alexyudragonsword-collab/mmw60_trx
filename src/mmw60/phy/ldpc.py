@@ -74,7 +74,7 @@ class LdpcCode:
     n: int
     rate: str
     z: int
-    base: np.ndarray            # (m_b, 24) base matrix, -1 = zero block
+    base: np.ndarray            # (m_b, n_b) base matrix, -1 = zero block (object cells: tuples of shifts)
     edge_row: np.ndarray        # (E,) check-node index of every edge, sorted by row
     edge_col: np.ndarray        # (E,) variable-node index of every edge
     row_edges: np.ndarray       # (m, dc_max) edge indices per check node, -1 padded
@@ -293,12 +293,17 @@ def code(n: int, rate: str) -> LdpcCode:
 
 
 def qc_code(base, z: int, rate: str) -> LdpcCode:
-    """A quasi-cyclic code from any base matrix (−1 = zero block, s ≥ 0 = the
-    z × z identity cyclically shifted right by s) and lifting factor ``z``:
-    the 802.11 codes (24 columns) and the DMG / EDMG ones (16 columns, z = 42)
-    are built the same way.  ``rate`` must agree with the base's shape."""
-    base = np.asarray(base, dtype=np.int64)
-    m_b, n_b = base.shape
+    """A quasi-cyclic code from any base matrix and lifting factor ``z``: the
+    802.11 codes (24 columns) and the DMG / EDMG ones (16 columns, z = 42) are
+    built the same way.  A cell is a shift s ≥ 0 (the z × z identity
+    cyclically shifted right by s), −1 (a zero block), or a list of shifts:
+    the sum of those shifted identities (EDMG's 7/8 code has two in most
+    cells; an empty list is a zero block).  ``rate`` must agree with the
+    base's shape."""
+    cells = [[_shifts(c) for c in row] for row in base]
+    m_b, n_b = len(cells), len(cells[0])
+    if any(len(row) != n_b for row in cells):
+        raise ValueError("the base matrix's rows differ in length")
     n = n_b * int(z)
     num, den = (int(v) for v in rate.split("/"))
     if (n_b - m_b) * den != n_b * num:
@@ -306,12 +311,10 @@ def qc_code(base, z: int, rate: str) -> LdpcCode:
     rows, cols = [], []
     for i in range(m_b):
         for j in range(n_b):
-            s = int(base[i, j])
-            if s < 0:
-                continue
-            r = np.arange(z)
-            rows.append(i * z + r)
-            cols.append(j * z + (r + s) % z)          # identity cyclically shifted right by s
+            for s in cells[i][j]:
+                r = np.arange(z)
+                rows.append(i * z + r)
+                cols.append(j * z + (r + s) % z)      # identity cyclically shifted right by s
     edge_row = np.concatenate(rows)
     edge_col = np.concatenate(cols)
     order = np.lexsort((edge_col, edge_row))
@@ -323,8 +326,26 @@ def qc_code(base, z: int, rate: str) -> LdpcCode:
     h = np.zeros((m, n), dtype=np.uint8)
     h[edge_row, edge_col] = 1
     hs, hp = h[:, :k], h[:, k:]
-    return LdpcCode(n=n, rate=rate, z=z, base=base, edge_row=edge_row, edge_col=edge_col,
+    if all(len(c) <= 1 for row in cells for c in row):
+        stored = np.array([[c[0] if c else -1 for c in row] for row in cells], dtype=np.int64)
+    else:
+        stored = np.empty((m_b, n_b), dtype=object)
+        for i in range(m_b):
+            for j in range(n_b):
+                stored[i, j] = tuple(cells[i][j])
+    return LdpcCode(n=n, rate=rate, z=z, base=stored, edge_row=edge_row, edge_col=edge_col,
                     row_edges=row_edges, col_edges=col_edges, hs=hs, hp_inv=_gf2_inverse(hp))
+
+
+def _shifts(cell) -> tuple[int, ...]:
+    """A base-matrix cell as its shifts: () for a zero block."""
+    if np.ndim(cell) == 0:
+        s = int(cell)
+        return () if s < 0 else (s,)
+    out = tuple(int(s) for s in cell)
+    if any(s < 0 for s in out) or len(set(out)) != len(out):
+        raise ValueError(f"a cell's shifts must be distinct and >= 0 (two equal ones cancel): {list(out)}")
+    return out
 
 
 def _padded_groups(keys: np.ndarray, n_groups: int) -> np.ndarray:
