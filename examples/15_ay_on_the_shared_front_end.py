@@ -43,7 +43,12 @@ standard sets for each?
    each waveform keeps at each distance.  Sensitivity rows: the reference
    receiver's implementation loss kept in, the surveyed 60 GHz front end
    (ROADMAP D4), and the thresholds against this library's measured 11be
-   LDPC ones.
+   LDPC ones;
+10. under multipath: the CR stand-in channel (data/spec:
+   assumed.cr_rms_delay_ns / cr_los_k_db, one realisation per packet) on the
+   calibrated chain, EVM without noise and at two in-band SNRs against the
+   flat channel; sensitivity rows: a longer delay spread, the long GI, and
+   zero forcing for SC.
 
     python examples/15_ay_on_the_shared_front_end.py [--quick]
 """
@@ -555,6 +560,44 @@ def main(argv=None) -> int:
         tb = spec.per_threshold_db("11be", 80e6, be_mcs)
         print(f"  {lab:<10} {wf:<8} MCS{m:<2} {t:6.2f} dB   11be MCS{be_mcs} {tb:6.2f} dB   "
               f"difference {t - tb:+5.2f} dB")
+
+    # ---------------------------------------------------------------- 10. multipath
+    n_mp = 4 if quick else 40
+    cr = ChannelConfig()
+    snrs = (None, 20.0, 12.0)
+    print(f"\n== 10. under multipath: the CR stand-in (exponential PDP, rms {cr.rms_delay_ns:g} ns, K "
+          f"{cr.los_k_db:g} dB, one realisation per packet; {tag('assumed.cr_rms_delay_ns')}), the calibrated chain "
+          f"at the preset back-off, 16-QAM payloads; EVM dB over {n_mp} packets, mean (90th percentile) ==")
+    print(f"{'waveform':<8} {'channel':<26} " + " ".join(f"{('no noise' if v is None else f'SNR {v:g} dB'):>16}"
+                                                        for v in snrs) + f" {'12 dB vs flat':>14}")
+    mp_rows = [("flat", FLAT, {}), ("CR 7 ns", cr, {}), ("CR 15 ns", dc.replace(cr, rms_delay_ns=15.0), {}),
+               ("CR 15 ns, long GI", dc.replace(cr, rms_delay_ns=15.0), {"gi": "long"}),
+               ("CR 7 ns, zero forcing", cr, {"sc_equalizer": "zf"})]
+    for wf, m in (("ay_sc", SC_REP["π/2-16-QAM"]), ("ay_ofdm", OFDM_REP["16-QAM"])):
+        flat12 = None
+        for lab, ch, opt in mp_rows:
+            if opt.get("sc_equalizer") and wf != "ay_sc":
+                continue
+            c = ay_60ghz(wf, m, gi=opt.get("gi", "normal"))
+            if "sc_equalizer" in opt:
+                c = dc.replace(c, ay=dc.replace(c.ay, sc_equalizer=opt["sc_equalizer"]))
+            sim = LinkSim(dc.replace(c, channel=ch), frontend=fe, chains=copy.deepcopy(run.chains[:2]))
+            cells, mean12 = [], None
+            for snr in snrs:
+                rng = np.random.default_rng(1)              # the same realisations in every row
+                e = np.asarray([sim.packet(snr, rng).rx.evm_db for _ in range(n_mp)])
+                mean = float(10 * np.log10(np.mean(10 ** (e / 10))))
+                cells.append(f"{mean:7.2f} ({np.percentile(e, 90):6.2f})")
+                if snr == 12.0:
+                    mean12 = mean
+            if lab == "flat":
+                flat12 = mean12
+            print(f"{wf:<8} {lab:<26} " + " ".join(f"{x:>16}" for x in cells) + f" {mean12 - flat12:+14.2f}",
+                  flush=True)
+    print(f"(the in-band SNR is the received signal over the noise in the occupied band; SC equalises with the "
+          f"unbiased MMSE on the channel estimate's scale, OFDM zero-forces per tone; the GI is "
+          f"{edmg.sc_numerology('normal').guard / edmg.sc_numerology().fs_hz * 1e9:.1f} ns normal, "
+          f"{edmg.sc_numerology('long').guard / edmg.sc_numerology().fs_hz * 1e9:.1f} ns long)")
     print(f"\n[{time.time() - t0:.0f}s]")
     return 0
 

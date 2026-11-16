@@ -580,11 +580,11 @@ entries:
     note: "EVM 口径的载荷：随机星座点，不编码、不扰码。每包 64 个 SC 块（28672 个数据符号，普通 GI）或 64 个 OFDM 符号（21504 个数据音）。DCM 两档按每个音实际承载的点数取星座（DCM BPSK 每音是 QPSK 点，DCM QPSK 是 16-QAM 点），OFDM 的 EVM 对星座几乎不敏感（包络是高斯的）。导频每个符号都是第 1 流的 P16，不乘逐符号的伪随机序列。"
 
   assumed.ay_receiver:
-    value: {cfo: "STF lag-L autocorrelation, then pilots (OFDM) / the guards (SC)", ce_window_to_gi: true, sc_phase: interp, equaliser: "MMSE with the known noise variance (ZF with no noise) for SC; ZF per tone for OFDM", timing: "the chain's group delay from the envelopes (sim/link.envelope_lag)"}
+    value: {cfo: "STF lag-L autocorrelation, then pilots (OFDM) / the guards (SC)", ce_window_to_gi: true, sc_phase: interp, equaliser: "MMSE with the known noise variance on the channel estimate's scale (ZF with no noise; ay.sc_equalizer zf the sensitivity row) for SC; ZF per tone for OFDM", timing: "the chain's group delay from the envelopes (sim/link.envelope_lag)"}
     unit: rule
     source: assumed
     cite: "本库；mmw60.sim.ay_link"
-    note: "ay 接收机的选择。信道估计只用一对 Golay 序列，不平滑时它自己的噪声在 in-band SNR 20 dB 上把 EVM 拉到 SC −18.4 / OFDM −17.4 dB；把估计的冲激响应截在 GI 以内（再留 GI/8 的前驱），噪声降 512 / 72 ≈ 8.5 dB，信道短于 GI 时什么也不丢——DMG 接收机的通常做法，标准不规定。SC 的相位跟踪在每块前后两段已知 GI 之间线性插值（sc_phase: interp）：每块只取尾部 GI 一个相位时，60 GHz 的相噪在 291 ns 的块里漂，预设回退上单开相噪，SC 64-QAM 每块一个相位读 −25.1 dB、插值读 −27.5 dB，OFDM（每个符号 16 个导频）−27.7 dB；插值是 OFDM 逐符号导频的对应做法。示例 15 给 block 的灵敏度行。"
+    note: "ay 接收机的选择。信道估计只用一对 Golay 序列，不平滑时它自己的噪声在 in-band SNR 20 dB 上把 EVM 拉到 SC −18.4 / OFDM −17.4 dB；把估计的冲激响应截在 GI 以内（再留 GI/8 的前驱），噪声降 512 / 72 ≈ 8.5 dB，信道短于 GI 时什么也不丢——DMG 接收机的通常做法，标准不规定。SC 的相位跟踪在每块前后两段已知 GI 之间线性插值（sc_phase: interp）：每块只取尾部 GI 一个相位时，60 GHz 的相噪在 291 ns 的块里漂，预设回退上单开相噪，SC 64-QAM 每块一个相位读 −25.1 dB、插值读 −27.5 dB，OFDM（每个符号 16 个导频）−27.7 dB；插值是 OFDM 逐符号导频的对应做法。示例 15 给 block 的灵敏度行。2026-11-16 更正：SC 的 MMSE 噪声方差原按单位标度给（1/SNR），而信道估计带着链的增益（mean|h|² ≈ 0.064），正则化大了约 16 倍；flat 信道上只是整体缩放、被去偏抵消，多径下白丢约 1.4 dB（in-band SNR 12 dB、CR 信道）。现在按估计自己的标度给（mean|h|²/SNR）。"
 
   assumed.ay_sensitivity:
     value: {sensitivity: dmg.rx_sensitivity_dbm, reference_receiver: dmg.sensitivity_assumptions, sc_twin_by: [modulation order, code rate, repetition], ofdm_twin_by: [n_bpsc, code rate], implementation_loss: taken out, bandwidth: occupied}

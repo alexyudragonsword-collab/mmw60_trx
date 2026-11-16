@@ -235,7 +235,12 @@ class AyLinkSim(LinkSim):
             h = sc.channel_estimate(body, ref.sc_frame)
             if self.cfg.ay.ce_window:
                 h = sc.window_estimate(h, cp, max(4, cp // 8))
-            nv = None if snr_db is None else 10.0 ** (-snr_db / 10.0)
+            # the in-band SNR is the received signal over the noise, and the estimate carries the
+            # chain's gain: the noise per chip on the estimate's own scale is mean|h|² / SNR.  (Until
+            # 2026-11-16 it was 1 / SNR: harmless on a flat channel, where the MMSE only rescales and
+            # the bias removal undoes it, but 16 times too much regularisation under multipath.)
+            nv = (None if snr_db is None or self.cfg.ay.sc_equalizer == "zf"
+                  else float(np.mean(np.abs(h) ** 2)) * 10.0 ** (-snr_db / 10.0))
             eq = sc.equalize(body, ref.sc_frame, h, noise_var=nv,
                              track_phase=self.cfg.ay.sc_phase if rxc.cpe_tracking else "off")
         else:
