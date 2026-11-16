@@ -55,6 +55,15 @@ class RxResult:
     ce_span: int = 0              # channel-estimate smoothing span used (0 = genie CSI)
 
 
+def _single_ltf_estimate(y: np.ndarray, frame: Frame) -> np.ndarray:
+    """``channel_estimate`` from the first L-LTF repeat alone (RxConfig.ce_ltf_symbols = 1)."""
+    s1, _ = frame.ltf_starts()
+    n = frame.ltf_len
+    cfg = frame.config
+    spec = np.fft.fft(y[s1:s1 + n]) / (n / np.sqrt(cfg.n_active)) * frame.data.scale
+    return spec[cfg.active_tone_indices() % n] / frame.ltf
+
+
 def receive(y: np.ndarray, frame: Frame, ref, phy: UpclockedPhy,
             rxc: RxConfig, keep_symbols: bool = False, kernel: str | None = None,
             true_h: np.ndarray | None = None) -> RxResult:
@@ -82,7 +91,7 @@ def receive(y: np.ndarray, frame: Frame, ref, phy: UpclockedPhy,
             raise ValueError("genie_csi needs the true per-tone channel")
         h = np.asarray(true_h, dtype=complex)
     else:
-        h = channel_estimate(y, frame)
+        h = channel_estimate(y, frame) if rxc.ce_ltf_symbols == 2 else _single_ltf_estimate(y, frame)
         segments = frame.config.plan().segments()
         if rxc.ce_smooth_auto:
             ce_span = auto_smooth_span(h, segments, rxc.ce_smooth_max_tones)
@@ -101,11 +110,13 @@ def receive(y: np.ndarray, frame: Frame, ref, phy: UpclockedPhy,
     rx_d = eq[:, ref.data_cols]
     evm_db = float(10 * np.log10(np.mean(np.abs(rx_d - tx) ** 2) / np.mean(np.abs(tx) ** 2)))
     errors = None
+    if rxc.hard_decision and not isinstance(ref, DataField):
+        raise NotImplementedError("hard decisions are a BCC (VHT 20 MHz) diagnostic")
     if isinstance(ref, DataField):
-        weight = np.abs(h[ref.data_cols]) ** 2
-        _, errors = decode_data_field(eq, ref, weight, kernel=kernel)
+        weight = np.abs(h[ref.data_cols]) ** 2 if rxc.llr_channel_weighting else 1.0
+        _, errors = decode_data_field(eq, ref, weight, kernel=kernel, hard=rxc.hard_decision)
     elif isinstance(ref, EhtDataField):
-        weight = np.abs(h[ref.data_cols]) ** 2
+        weight = np.abs(h[ref.data_cols]) ** 2 if rxc.llr_channel_weighting else 1.0
         _, errors = ref.decode(eq, weight, kernel=kernel, max_iter=rxc.ldpc_max_iterations,
                                alpha=rxc.ldpc_minsum_scale)
     return RxResult(bit_errors=errors, packet_error=None if errors is None else errors > 0,

@@ -316,6 +316,14 @@ class RxConfig:
     #: diagnostic only: equalise with the true channel (flat channel: ones)
     #: instead of the L-LTF estimate, to separate decoder loss from CSI loss
     genie_csi: bool = False
+    #: diagnostics for ROADMAP C12 (which receiver choice costs only 16-QAM):
+    #: L-LTF repeats the channel estimate averages (2 = wifitrx's estimate;
+    #: 1 = the first repeat only, a single-LTF estimate like a one-stream VHT-LTF);
+    #: LLRs weighted by the per-tone |H|² (False = every tone weight 1); hard
+    #: decisions into the Viterbi decoder (sign of the LLR; BCC only)
+    ce_ltf_symbols: int = 2
+    llr_channel_weighting: bool = True
+    hard_decision: bool = False
     #: the 11be LDPC decoder (normalised min-sum; data/spec: assumed.ldpc_*)
     ldpc_max_iterations: int = 30
     ldpc_minsum_scale: float = 0.8
