@@ -34,6 +34,11 @@ array for both topologies (iron rule 2).  What the tables answer:
    preset rule on its own envelope, data/spec: assumed.ay_operating_point);
    then the smallest array that reaches the EIRP limit at each operating
    point, and what it costs;
+4d. the 802.11ay waveforms' own sector sweep: one SSW frame per sector in
+   the DMG control PHY (data/spec: assumed.ay_sector_sweep), its threshold
+   from the MCS 0 sensitivity, how far the transmit and receive sweeps reach
+   on the same arrays against the ay data link's edges, next to the
+   MLO-triggered be row; the sweep's duration waits for spec_sources#33;
 5. the squint of phase-shifter steering across the occupied band (arraytx's
    beam response), against true time delay;
 6. the assumed inputs, one at a time.
@@ -56,6 +61,7 @@ sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, spec                          # noqa: E402
 from mmw60 import arraylink as al                                           # noqa: E402
+from mmw60.ay import edmg                                                   # noqa: E402
 from mmw60.config import ChannelConfig, array_frontend, ay_60ghz, if_extender_60ghz, zero_if_60ghz  # noqa: E402
 from mmw60.frontend import Frontend60                                       # noqa: E402
 from mmw60.frontend.array60 import Array60                                  # noqa: E402
@@ -202,12 +208,14 @@ def main(argv=None) -> int:
     print(f"{'waveform':<8} {'point':<6} {'N':>3} {'Pe':>6} {'OBO':>6} {'PA EVM':>7} {'EIRP':>6} {'G_rx':>6} "
           f"{'floor':>6} {'cap':>5} {'Mb/s':>6} {'d MCS1':>7} {'d 16Q3/4':>9} {'d cap':>7} {'pJ/b':>6}")
     cal_cache = {}
+    ay_budgets = {}
     for wf, c in ay_cfgs.items():
         for view, ob in (("preset", None), ("own", own[wf])):
             for n in sizes:
                 cn = array_frontend(c, n)
                 ar = Array60.from_config(cn, fe)
                 b = al.ay_array_budget(cn, fe, ar, wf, obo_db=ob, cal_cache=cal_cache)
+                ay_budgets[(wf, view, n)] = (cn, ar, b)
                 rp = al.array_power_report(cn, fe, ar, b, coeffs)
                 rate = None if b.dec_mcs is None else b.rate_by_mcs[b.dec_mcs] / 1e6
                 print(f"{wf:<8} {view:<6} {n:>3} {b.p_elem_dbm:6.1f} {b.obo_db:6.2f} {b.pa_evm_db:7.1f} "
@@ -341,6 +349,45 @@ def main(argv=None) -> int:
           "the most repetitions; wide EIRP = the m-element sub-array at its own per-element output (dBm).  The wide "
           "stage loses 20 log10(N/m) of EIRP, which repetitions buy back only at about 1.5 dB per doubling: the two "
           "stages save time where the link has margin, not at its edge")
+
+    # ---------------------------------------------------------------- 4d. the 802.11ay sector sweep
+    occ = ay_budgets[("ay_sc", "preset", sizes[0])][2].occupied_bw_hz
+    t_ctl = edmg.control_threshold_db(occ)
+    loss = float(spec.value("dmg.sensitivity_assumptions")["implementation_loss_db"])
+    be_lab = schemes()[0][0]
+    print(f"\n== 4d. the 802.11ay waveforms' own sector sweep: one SSW frame per sector in the DMG control PHY "
+          f"(MCS 0), decoded at the far end; threshold {t_ctl:.2f} dB in-band over {occ / 1e9:.2f} GHz from its "
+          f"sensitivity with the reference receiver taken out (assumed.ay_sector_sweep); the same arrays at the "
+          f"preset back-off as 3d; one sweep serves both ay waveforms ==")
+    print(f"{'N':>3} {'EIRP':>6} {'PL TXSS':>8} {'PL RXSS':>8}   " + "   ".join(
+        f"{wf + ' MCS1':>12} {'TXSS-MCS1':>10} {'cap':>5} {'TXSS-cap':>9}" for wf in ay_cfgs)
+        + f"   {'be TXSS':>8} {'TXSS-MCS0':>10}")
+    for n in sizes:
+        if n == 1:
+            print(f"{n:>3}   (one sector: no sweep)")
+            continue
+        _, ar, b = ay_budgets[("ay_sc", "preset", n)]
+        pl_tx = al.transmit_sweep_reach_db(b, ar, t_ctl)
+        pl_rx = b.eirp_dbm + b.g_rx_db - (b.noise_dbm + t_ctl)
+        cells = []
+        for wf in ay_cfgs:
+            bw = ay_budgets[(wf, "preset", n)][2]
+            pl1 = bw.eirp_dbm + bw.g_rx_db - bw.sens_by_mcs[1] if 1 in bw.sens_by_mcs else None
+            plc = (bw.eirp_dbm + bw.g_rx_db - bw.sens_by_mcs[bw.dec_mcs]
+                   if bw.dec_mcs is not None and bw.dec_mcs in bw.sens_by_mcs else None)
+            cells.append(f"{fmt(pl1):>12} {fmt(None if pl1 is None else pl_tx - pl1, '{:+.1f}'):>10} "
+                         f"{fmt(bw.dec_mcs, 'MCS{}'):>5} {fmt(None if plc is None else pl_tx - plc, '{:+.1f}'):>9}")
+        _, ar_be, b_be = budgets[(be_lab, n)]
+        rt = train.get((be_lab, n))
+        be_tx = (None if rt is None or rt[0]["snr_db"] is None
+                 else al.transmit_sweep_reach_db(b_be, ar_be, rt[0]["snr_db"]))
+        print(f"{n:>3} {b.eirp_dbm:6.1f} {pl_tx:8.1f} {pl_rx:8.1f}   " + "   ".join(cells)
+              + f"   {fmt(be_tx):>8} {fmt(None if rt is None else rt[2], '{:+.1f}'):>10}", flush=True)
+    print(f"PL = the path loss the sweep's frame still decodes at (dB): TXSS with the far end on one element, RXSS "
+          f"behind the chosen transmit beam; MCS1 / cap = the ay data link's edges at that MCS (3d, preset); positive "
+          f"= the sweep reaches further.  be TXSS / TXSS-MCS0 = section 4's MLO-triggered row for {be_lab}.  The "
+          f"implementation loss kept in the threshold takes {loss:g} dB off every PL.  How long a sweep lasts (the "
+          f"control PHY's preamble and header, the SSW frame, the spacing between sectors) waits for spec_sources#33")
 
     # ---------------------------------------------------------------- 5. squint
     print(f"\n== 5. squint across the occupied band at a {SCAN_DEG:g} deg beam (phase shifters vs true time "

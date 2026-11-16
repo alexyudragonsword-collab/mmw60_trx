@@ -407,3 +407,21 @@ def test_the_sc_mmse_reads_the_noise_on_the_channel_estimates_scale():
     base = ay_60ghz("ay_sc", 16)
     with pytest.raises(ValueError, match="sc_equalizer"):
         dc.replace(base, ay=dc.replace(base.ay, sc_equalizer="lms"))
+
+
+def test_the_sector_sweep_threshold_is_the_control_phys_with_the_reference_receiver_out():
+    """assumed.ay_sector_sweep: the SSW frame's threshold is DMG MCS 0's
+    sensitivity less kT·B and the reference receiver, the same rule as the
+    data MCS; the control PHY's spreading puts it below every data MCS's."""
+    from mmw60.vendor.wifitrx.units import KT_DBM_HZ
+    ref = spec.value("dmg.sensitivity_assumptions")
+    t = edmg.control_threshold_db(1.76e9)
+    want = (spec.ref("dmg.rx_sensitivity_dbm#dbm@mcs=0") - KT_DBM_HZ - 10 * np.log10(1.76e9) - ref["nf_db"]
+            - ref["implementation_loss_db"])
+    assert t == pytest.approx(want) and t < -10.0
+    assert edmg.control_threshold_db(1.76e9, keep_implementation_loss=True) == pytest.approx(
+        t + ref["implementation_loss_db"])
+    data = [edmg.ideal_threshold_db(wf, e.mcs, 1.76e9) for wf in edmg.WAVEFORMS for e in edmg.mcs_table(wf)]
+    assert t < min(x for x in data if x is not None) - 8.0
+    # the data MCS go through the same function: one rule
+    assert edmg.ideal_threshold_db("ay_sc", 14, 1.76e9) == edmg.dmg_threshold_db(12, 1.76e9)

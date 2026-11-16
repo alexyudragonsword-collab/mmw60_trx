@@ -179,6 +179,25 @@ def dmg_twin(waveform: str, mcs: int) -> float | None:
     return None
 
 
+def dmg_threshold_db(dmg_mcs, occupied_bw_hz: float, keep_implementation_loss: bool = False) -> float:
+    """The in-band SNR an ideal decoder needs for DMG MCS ``dmg_mcs``: its
+    minimum sensitivity (dmg.rx_sensitivity_dbm) less kT·B over
+    ``occupied_bw_hz`` and the reference receiver's noise figure and
+    implementation loss (dmg.sensitivity_assumptions; ``keep_implementation_loss``
+    leaves the loss in)."""
+    sens = float(spec.ref(f"dmg.rx_sensitivity_dbm#dbm@mcs={dmg_mcs}"))
+    ref = spec.value("dmg.sensitivity_assumptions")
+    loss = 0.0 if keep_implementation_loss else float(ref["implementation_loss_db"])
+    return float(sens - KT_DBM_HZ - 10.0 * np.log10(float(occupied_bw_hz)) - float(ref["nf_db"]) - loss)
+
+
+def control_threshold_db(occupied_bw_hz: float, keep_implementation_loss: bool = False) -> float:
+    """The DMG control PHY's (MCS 0) threshold, what a sector-sweep frame needs
+    (assumed.ay_sector_sweep; the table's criterion for MCS 0 is a 5 % PER on
+    256 octets, the other MCS 1 % on 4096)."""
+    return dmg_threshold_db(0, occupied_bw_hz, keep_implementation_loss)
+
+
 def ideal_threshold_db(waveform: str, mcs: int, occupied_bw_hz: float,
                        keep_implementation_loss: bool = False) -> float | None:
     """The in-band SNR an ideal decoder needs for EDMG ``mcs``
@@ -190,12 +209,7 @@ def ideal_threshold_db(waveform: str, mcs: int, occupied_bw_hz: float,
     impairments the loss stands for, so keeping it counts them twice.
     None without a twin."""
     twin = dmg_twin(waveform, mcs)
-    if twin is None:
-        return None
-    sens = float(spec.ref(f"dmg.rx_sensitivity_dbm#dbm@mcs={twin}"))
-    ref = spec.value("dmg.sensitivity_assumptions")
-    loss = 0.0 if keep_implementation_loss else float(ref["implementation_loss_db"])
-    return float(sens - KT_DBM_HZ - 10.0 * np.log10(float(occupied_bw_hz)) - float(ref["nf_db"]) - loss)
+    return None if twin is None else dmg_threshold_db(twin, occupied_bw_hz, keep_implementation_loss)
 
 
 def chain_rate() -> dict:
@@ -210,4 +224,5 @@ def chain_rate() -> dict:
 
 
 __all__ = ["GIS", "WAVEFORMS", "AyMcs", "channel_spacing_hz", "channel_of", "ofdm_numerology", "sc_numerology",
-           "mcs_table", "mcs_entry", "conformance_cap", "chain_rate", "dmg_twin", "ideal_threshold_db"]
+           "mcs_table", "mcs_entry", "conformance_cap", "chain_rate", "dmg_twin", "ideal_threshold_db",
+           "dmg_threshold_db", "control_threshold_db"]
