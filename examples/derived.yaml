@@ -288,3 +288,27 @@
     - {doc: cairn/external-validation.md, text: "K = 8 是 {a0} / {a1} dB，K = 16 是 {b0} / {b1} dB"}
     - {doc: cairn/external-validation.md, text: "MCS4 是 {a4} / {b4} dB"}
 
+
+- name: ex15 SC against OFDM at matched modulation and code rate — the smallest and largest SC back-off saving (ΔPout)
+  values:
+    d64h: {example: "15", after: "SC against OFDM at the same modulation", line: "64-QAM 1/2 17 {*} {*} 16 {*} {*} {} {*}"}
+    d16q: {example: "15", after: "SC against OFDM at the same modulation", line: "16-QAM 5/8 13 {*} {*} 12 {*} {*} {} {*}"}
+  quotes:
+    - {doc: cairn/LOG.md, text: "SC 少退 {d64h}–{d16q} dB"}
+    - {doc: cairn/ay.md, text: "SC 少退 {d64h}–{d16q} dB"}
+
+- name: ex15 the best EVM-limited rate at 1 dB back-off (13.6 dBm), SC against OFDM
+  values:
+    sc1: {example: "15", after: "== 6. the best EVM-limited rate", line: "13.60 1.0 {} (MCS11) {*} (MCS2)"}
+    of1: {example: "15", after: "== 6. the best EVM-limited rate", line: "13.60 1.0 {*} (MCS11) {} (MCS2)"}
+  quotes:
+    - {doc: cairn/LOG.md, text: "13.6 dBm 上 {sc1} 对 {of1} Gb/s"}
+    - {doc: cairn/ay.md, text: "13.6 dBm 上 {sc1} 对 {of1} Gb/s"}
+
+- name: ex15 the conformance caps at the preset back-off with IQ and LO leakage calibrated away
+  values:
+    capsc: {example: "15", after: "== 4. the floor with everything on", line: "cap, IQ + LO leak calibrated away ay_sc MCS16 π/2-16-QAM 7/8 (limit -23 dB), {} Gb/s"}
+    capof: {example: "15", after: "== 4. the floor with everything on", line: "cap, IQ + LO leak calibrated away ay_ofdm MCS15 16-QAM 7/8 (limit -19 dB), {} Gb/s"}
+  quotes:
+    - {doc: cairn/LOG.md, text: "合规上限：SC MCS16（{capsc} Gb/s），OFDM MCS15（{capof} Gb/s）"}
+    - {doc: cairn/ay.md, text: "上限 SC MCS16（π/2-16-QAM 7/8，{capsc} Gb/s）、OFDM MCS15（16-QAM 7/8，{capof} Gb/s）"}

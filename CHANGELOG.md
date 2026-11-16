@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### 里程碑 3 第一段：两种 802.11ay 波形接上 EDMG 数字，跑在共享前端上（2026-11-16）—— be 方案、预设与指纹不变；新示例 15
+- `config.WAVEFORMS_BUILT` 加 `ay_ofdm`、`ay_sc`。新增 `AY_WAVEFORMS`、`AyConfig`（`Mmw60Config.ay`，**配置 schema 变化**）、预设 `ay_60ghz`。ay 只在拓扑 B、EDMG 信道中心、K = 1 上，配置拒绝其余组合。
+- `mmw60.ay.edmg`（新）：EDMG 单信道数字学（导频随信道）、MCS 表、限值、速率、合规上限（限值不单调，取通过的里最快的）、共用的链速率。
+- `mmw60.sim.ay_link`（新）：`LinkSim(cfg)` 遇到 ay 时构造 `AyLinkSim`，调用方不用改。帧是 STF + Golay 对 CEF + 载荷；接收机是 STF 估 CFO、截到 GI 的信道估计、SC MMSE 加 GI 间插值的相位跟踪、OFDM ZF 加导频。
+- `ay.sc` 加 `pair_estimate`、`window_estimate`，`equalize` 加 `track_phase="interp"`；`ay.ofdm.receive` 加 `h=`，`modulate` 可以不带训练场。
+- 新 assumed 五条：`ay_chain_rate`、`ay_sc_pulse`、`ay_preamble`、`ay_evm_payload`、`ay_receiver`。`assumed.pa60_operating_rule` 的值改成指向 `dmg.tx_evm_db#evm_db@mcs=12` 的引用（**值的形状变化**；读它用 `frontend.grid.operating_rule_evm_limit_db()`），回退不变。
+- 铁律 3 的 ay 一句更正。`compare.PENDING` 的 ay 两格改成“第二段：同台表行”。
+
 ### spec_sources 重新 pin 到 3123b65（2026-11-16，spec_sources#29）—— 代码读的键值、预设、同台表与指纹不变
 - vendor 副本跟进 spec_sources#30：`ieee80211.yaml` 新增 DMG / EDMG 单信道 PHY 的 14 个键（2 个 derived），`dmg.sensitivity_assumptions` 与 `ieee80211ay.channel_centres_ghz` 改为 spec；其余 8 个文件只改出处头。
 - 示例 08：`dmg.sensitivity_assumptions` 一行的标签变为 `[spec]`。ROADMAP C9 的未核实条数改成 20、没读到原文的剩两条；C10 记下 −21 dB 已有条文出处。

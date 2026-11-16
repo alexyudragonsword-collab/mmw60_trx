@@ -3,9 +3,9 @@
 **这份文件只写还没做的事。** 做完即删，并在 `CHANGELOG.md` 记一笔、`cairn/LOG.md` 记数字。每条带证据（复现方式与数字）。
 
 ## 当前优先级（2026-11-16 用户定：按下面的顺序做；做完一条就从这里和正文一起删）
-1. **里程碑 3（802.11ay）**：ay_ofdm / ay_sc 两种波形，同台表多两行。与数字无关的骨架已建（`src/mmw60/ay/`、`cairn/ay.md`）；spec_sources#29 已回、已 pin 到 `3123b65`，剩下的是把 EDMG 数字接上。
+1. **里程碑 3（802.11ay）第二段**：同台表两行、校准列、按功率换距离（本地 assumed 的 EDMG 灵敏度）、阵列与 EIRP 上限。第一段（spec 数字接线、两种波形跑在共享前端上、示例 15）已做，见 `cairn/ay.md` §4。
 
-其余（A1 的 DPD 学习方式与没建的损伤、A2 / A3 的口径统一、C6、C9、C11、C12 剩下的解映射幅度基准）按需再做。卡在外部原文上的不排进度：C4、C10 的 802.11ad 条文与 AM/PM、C8 的 PA 记忆时间常数、B 的氧吸收、A2 的 Murmann 表；其中 11-09/0334、Murmann 表能拿到原文，可以打包给 spec_sources（802.11ad 的 EVM 表 2026-11-16 已随 spec_sources#29 进来：`dmg.tx_evm_db`）。
+其余（A1 的 DPD 学习方式与没建的损伤、A2 / A3 的口径统一、C6、C9、C11、C12 剩下的解映射幅度基准）按需再做。卡在外部原文上的不排进度：C4、C10 的 AM/PM、C8 的 PA 记忆时间常数、B 的氧吸收、A2 的 Murmann 表；其中 11-09/0334、Murmann 表能拿到原文，可以打包给 spec_sources（802.11ad 的 EVM 表 2026-11-16 已随 spec_sources#29 进来：`dmg.tx_evm_db`）。
 
 ## A. 里程碑 1 —— 两条拓扑同台（主体都已落地；下面是剩余项）
 
@@ -41,21 +41,17 @@
 - **逐单元 PA 没进时域**：PA 只按 EIRP 上限下的回退进底板；单元误差让各 PA 驱动不同、远场合成后的失真没算。待做：时域里 N 路 PA + `arraytx.beam.far_field` 合成的一档。
 - 多径下的扇区选择、双向各一次扫描、码本以外的波束细化（BRP 类）都没建。
 
-## 里程碑 3：802.11ay
-ay 不是第三条拓扑，是拓扑 B 的硬件（zero_if_chain）配第三、四种波形：`waveform: ay_ofdm | ay_sc`，不进 polar_tx。同台表多两行，不多列。
-**spec_sources#29 已回（2026-11-16，pin `3123b65`）**：EDMG OFDM / SC 单信道数字学、MCS 表、DMG / EDMG TX EVM 限值、DMG 灵敏度表都进来了（`cairn/spec-sources.md`）；**EDMG 灵敏度没有出处**，按距离换算要本地写 assumed（例如沿用 DMG 同调制档）并说明理由。验收与关 issue 在接线之后。用户定第一轮只做 EVM 口径、只做单信道（绑定以后再说）。与数字无关的骨架已建（Golay 互补对、单载波块 + 频域均衡 + 尾 G 相位跟踪、任意子载波排布的 OFDM、PAPR 与回退搜索；`cairn/ay.md` §2），下面各条是接数字的事。
-- 接线：EDMG 数字学成为 `OfdmNumerology` / `ScNumerology` 的实例，`WAVEFORMS_BUILT` 加两种，`LinkSim` 接上同一前端实例；单载波成形的滚降标 `assumed` 并带灵敏度行（标准只有频谱模板）。
-- `ay_ofdm`：数字学读 `edmg.ofdm_params`（512 点、5.15625 MHz、2.64 GS/s，与原写的一致）；导频下标随信道变（`edmg.ofdm_pilot_tones_ncb1`），载频定了信道才定；导频和前导（CEF）按 ay 的来，不复用 be 的表——所以它不等 D 节的 wifitrx 非标准带宽导频需求。信道绑定（2 / 3 / 4 信道、前端带宽 × 绑定数一列）第一轮不做。
-- `ay_sc`：单载波 PHY，π/2-BPSK 到 64-QAM，Golay 前导。最有价值的一行：SC 的 PAPR 低，正打在 PA 的 Psat 墙上；要回答"SC 用回退换来的 EIRP，够不够抵掉丢掉的频谱效率"。合成数字学上（`cairn/ay.md` §3）：同为 16-QAM 时 SC 比 OFDM 少退 2.7 dB（预设 PA，−20 dB EVM），与 PAPR 差 2.9 dB 一致；QPSK / π/2-BPSK 差 4–6 dB。原写的"低 3–4 dB"只对低阶星座成立。
-- 链路口径还要算训练场（CEF）过 PA：骨架里量到训练值的峰值能让 OFDM 的回退差 1.5 dB（`cairn/ay.md` §3 的坑）；ay 的前导是单载波 Golay，应当小，接数字后实测。
-- CFO：SCS 5.16 MHz 天然接住 2.4 MHz，不用 MLO 预补偿（铁律 3 仍要声明并有测试）。
-- 波束训练：ay 原生自己做 sector sweep，没有 sub-7 链路；训练序列的 SNR 预算单算，和拓扑 B 靠 MLO 触发的那行对比。
-- 校准：依赖 be 导频 / 音的步骤（逐音 ρ(f)、LO 泄漏环回、group_delay）为 ay 重写探针信号；算法和 `deps.py` 顺序不变；结果进"校准步骤 × 方案"表（示例 03 的表加列）。
-- 数字来源：ay 的数字学、MCS、灵敏度表经 spec_sources 进来（#29），拿不到原文的由对方标 survey；本库只放自己的取舍（滚降等 `assumed`）。
-
-验收：ay_ofdm 理想链路的 PAPR 和带内 EVM 与公开文献同量级；同一星座下 ay_sc 的 PAPR 比 ay_ofdm 低，低阶星座（π/2-BPSK / QPSK）低 ≥ 3 dB（物理，不对就是波形生错了；16 / 64-QAM 在滚降 0.25 时约 2.6–2.9 dB）；同一 PA、同一 EIRP 上限下 ay_sc 对 ay_ofdm 的回退差和 EIRP 差进 LOG，"净吞吐 × 距离"谁赢一句话；校准表每步对 ay 的状态有记录；现有两拓扑的行逐位不变（指纹）。
+## 里程碑 3：802.11ay（第一段已落地：`ay/edmg.py`、`sim/ay_link.py`、`config.ay_60ghz`、示例 15、`cairn/ay.md` §4）
+ay 不是第三条拓扑，是拓扑 B 的硬件配第三、四种波形，单信道、EVM 口径（用户 2026-11-16 定）。数字来自 spec_sources#29（2026-11-16 已验收并关闭，pin `3123b65`）。下面是第二段。
+- **同台表两行**（示例 04；`compare.PENDING` 现在写的是“第二段”）：底板、合规上限、速率、pJ/bit（转换器在 5.28 GS/s）。读法照 be 行：原始链的时域 EVM，加一列 IQ 与 LO 泄漏按校准后残差算的。
+- **校准列**（铁律 4）：wifitrx 序列要在 ay 的链上真跑。依赖 be 导频 / 音的步骤（逐音 ρ(f)、LO 泄漏环回、group_delay）要为 ay 重写探针，算法和 `deps.py` 顺序不变。在这之前示例 15 只能把 IQ 与 LO 泄漏“当作校准掉”。
+  原始链上 IQ 让两种波形都只有 −4 … −5 dB（be 的 2.56 GHz 行也是 −4.6 dB）。TX LO 泄漏（−30 dBc）带着 CFO 时，SC 单开读 −24.5 dB、OFDM −32.1 dB（示例 15 §3）。所以 SC 需要的 LO 泄漏残差比 OFDM 严，校准列要按波形读。
+- **距离**：EDMG 灵敏度没有出处（spec_sources#29），要在本地写 assumed（沿用 DMG 同调制档，`dmg.rx_sensitivity_dbm`），再把示例 15 §6 的“速率 × 输出功率”换成“速率 × 距离”。
+- **阵列与 EIRP 上限**：单天线时 EIRP = Pout，离上限很远。阵列上上限先到，SC 的回退余量变成更少的单元或更少的直流功率，要和阵列层的功率列一起算。
+- **SC 在 64-QAM 高码率上够不到限值**（示例 15 §5）：底板停在约 −27 dB，主要是相噪（两段 GI 之间插值后单开 −27.5 dB），MCS20 / 21 的 −28 / −29 dB 够不到。待做（按需）：块内更密的相位跟踪（如导频块），或换相噪更低的 LO 剖面再量。
+- **没建的**：DMG 混合速率前导（OFDM 包的前导以 1.76 GHz 单载波发，本库在 2.64 GHz 上发 Golay 训练场，`assumed.ay_preamble`）；ay 原生的 sector sweep（训练序列的 SNR 预算单算，和拓扑 B 靠 MLO 触发的那行对比）；多径下的 ay（示例 15 全是 flat）；编码 PER（第一轮不做）；信道绑定（第一轮不做）。
+- **理想链上 OFDM 只到 −36 … −38 dB**，SC 到 −40 … −50 dB，随 GI 不单调，原因没查（`cairn/ay.md` 的坑）。离限值有 8 dB 以上，不动结论。复现：`examples/15_ay_on_the_shared_front_end.py` §3 第一行；GI 换成 short / long 用 `ay_60ghz(..., gi=)`。
 不做：EDMG MIMO、ay 的 MAC 层、SC 与 OFDM 混合帧。
-前置：A3 同台表已出。A2 里"11be 编码 PER 排在 ay 波形之前"保留。
 
 ## C. 里程碑 0 过程中发现的问题
 
@@ -96,8 +92,7 @@ Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、
 - **查到的前端不在数值指纹里**：`tools/fingerprint.py` 只跑 `configs/*.yaml`。加一份配置会改指纹文件，要用一次逃生口；现在由 `tests/test_frontend_faces.py` 守着。
 
 ### C10. PA 对照原文（示例 09）发现的（见 `cairn/LOG.md` 2026-11-12、2026-11-13，`cairn/comparison-table.md` §8）
-（形状与回退两件已做：2026-11-12 预设换成测量的 PA；2026-11-13 回退按工作点规则取从 Psat 7.5 dB，`assumed.pa60_operating_rule`。下面是剩下的。）
-- **工作点规则的 −21 dB 是从幻灯片上读的**：`pa60.wu_isscc2015` 的 TX EVM 图上标着 “IEEE802.11ad MCS12(16QAM) specification” 的 −21 dB 线。2026-11-16 条文的值进来了：`dmg.tx_evm_db` 的 MCS12 是 −21 dB（spec，spec_sources#29），与幻灯片一致。待做：规则改引这条 spec（值不变，工作点与同台表不动；`assumed.pa60_operating_rule` 的说明与示例 09 打印的出处会变）。
+（形状与回退两件已做：2026-11-12 预设换成测量的 PA；2026-11-13 回退按工作点规则取从 Psat 7.5 dB，`assumed.pa60_operating_rule`；2026-11-16 规则的 −21 dB 改读条文 `dmg.tx_evm_db` 的 MCS12（spec，与幻灯片上那条线相同，回退不动）。下面是剩下的。）
 - **规则读出来的数取决于两个没出处的选择**：`python examples/09_pa_against_the_literature.py` §2 的规则一节。同一个 −21 dB，测量形状 7.46 dB，去掉 AM/PM 7.06 dB（AM/PM 没有出处，下一条），换汇编表中位的形状（Psat − P1dB 3.3 dB）6.74 dB，11ad 形状 9.97 dB；包络的随机种子只动 0.13 dB。规则读的是 PA 单独、OFDM 样的高斯包络，读到的发射机是单载波 16-QAM（峰均比低得多），所以那篇只印证“按 EVM 限值定额定输出”这个读法，不印证 7.5 这个数。
 - **TGad 原文推荐的 OFDM 回退是 8 dB**（`tgad_em.pa_backoff_recommended_db`，spec_sources 0.3.0 读原文，2026-11-13）：Liu 的 8 dB 就是它，回退也按它定义从 Psat 算。但那是配它自己那颗 PA 的（11ad 形状，P1dB 在 Psat 下 9.5 dB）：同一颗 PA 按本库的工作点规则要 10.0 dB 才到 −21 dB（示例 09 §2）。预设的 7.5 dB 是规则在测量的 PA 上的读数，与 TGad 的推荐值不同不算矛盾；要不要改成“按 TGad 推荐值、换 PA 也不动”，原文没有说推荐值依据什么。
 - **旧预设回退上 DPD 拿不回东西，原因是形状**：示例 09 §4，K = 8 回退 8 dB 上 wifitrx 的 DPD 步对 11ad 形状拿回 0.8 dB（−18.8 → −19.6），对测量形状（现在的预设）拿回 2.0 dB（−22.2 → −24.2）；回退 10 dB 时 4.5 / 2.6 dB。11ad 形状在 8 dB 处已在 P1dB 之上 1.5 dB。

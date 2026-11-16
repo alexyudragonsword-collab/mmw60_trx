@@ -47,7 +47,7 @@ from mmw60.calcheck import run_cal_at                                         # 
 from mmw60.compare import Scheme                                              # noqa: E402
 from mmw60.config import tgad_em_pa, zero_if_60ghz                           # noqa: E402
 from mmw60.frontend import Frontend60                                         # noqa: E402
-from mmw60.frontend.grid import obo_for_isolated_evm, pa_isolated_evm_db      # noqa: E402
+from mmw60.frontend.grid import obo_for_isolated_evm, operating_rule_evm_limit_db, pa_isolated_evm_db  # noqa: E402
 from mmw60.pa.rapp import ModifiedRappPA                                       # noqa: E402
 from scipy.optimize import brentq                                              # noqa: E402
 
@@ -156,8 +156,7 @@ def main(argv=None) -> int:
     print(f"(at its own back-off the 11ad EM PA ({fe_p.obo_db:g} dB from Psat) runs "
           f"{pa_p.p1db_out_dbm - fe_p.target_pout_dbm():+.1f} dB from its P1dB, the presets' ({fe_s.obo_db:g} dB) "
           f"{pa_s.p1db_out_dbm - fe_s.target_pout_dbm():+.1f} dB; the medium-gap row is a sensitivity only)")
-    rule = spec.value("assumed.pa60_operating_rule")
-    lim = float(rule["evm_limit_db"])
+    lim = operating_rule_evm_limit_db()
     print(f"\n-- the operating rule: the back-off at which the PA alone reads {lim:g} dB, the 802.11ad 16-QAM "
           f"TX EVM limit ({tag('assumed.pa60_operating_rule')}) --")
     no_ampm = ModifiedRappPA(p=fe_s.pa_model.p, ampm=False)

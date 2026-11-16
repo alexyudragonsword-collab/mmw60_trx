@@ -3,6 +3,24 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-16 · 里程碑 3 第一段：EDMG 数字接上，两种 ay 波形跑在共享前端上（feat/ay-wiring）
+
+- spec_sources#29 已验收并关闭。`ay/edmg.py` 从 spec 读数字学、MCS、限值与速率；`config.ay_60ghz` 与 `AyConfig`；`LinkSim` 遇到 ay 交给 `sim/ay_link.AyLinkSim`（同一前端实例、一条 5.28 GS/s 的链）。新增 assumed 五条：`ay_chain_rate`、`ay_sc_pulse`、`ay_preamble`、`ay_evm_payload`、`ay_receiver`。
+- 示例 15（预设回退 7.5 dB，flat，无噪声）：
+  - PAPR@1e-3：OFDM 8.29–8.45 dB；SC π/2-BPSK / QPSK / 16 / 64-QAM 1.89 / 4.16 / 5.49 / 5.71 dB。
+  - IQ 与 LO 泄漏当作校准掉后的底板：SC −24.3 … −25.5 dB，OFDM −20.9 … −21.0 dB。合规上限：SC MCS16（5.39 Gb/s），OFDM MCS15（5.11 Gb/s）。
+  - 同调制同码率：SC 少退 0.36–0.68 dB（64-QAM 5/8 持平），速率高 5.6 %。
+  - 回退 ≤ 8 dB 时 SC 速率高（13.6 dBm 上 2.70 对 0.91 Gb/s）；≥ 9 dB 时 OFDM 高（7.66 对 6.93 Gb/s）。
+- 自己的发现：
+  - TX LO 泄漏只在带 CFO 时进来，SC −24.5 对 OFDM −32.1 dB。原因是接收端在安静前导上减 DC，没有 CFO 时减得干净。
+  - SC 每块只取一个相位时相噪读 −25.1 dB，在两段 GI 之间插值后 −27.5 dB，改成默认。
+  - 单个 Golay 对的信道估计噪声在 20 dB 上要价约 2 dB，截到 GI 后理想链读 −19.7 / −19.2 dB。
+- **被推翻的判断**：
+  - ROADMAP 写“SC 丢掉频谱效率”，不对：同调制同码率时 SC 快 5.6 %，代价是严 3–4 dB 的 EVM 限值。
+  - 铁律 3 写“ay 靠 5.16 MHz SCS 本身”，不对：2.42 MHz 是 0.47 个子载波，靠的是 STF。AGENTS、不变量表已改。
+- 顺带：C10 的 −21 dB 规则改读 `dmg.tx_evm_db` MCS12（值不变；示例 09 输出逐字不变）。
+- 指纹对 main 逐位相同；新测试 9 项，6 处变异都红、还原绿。下一步：第二段（同台表、校准列、距离、阵列）。
+
 ## 2026-11-16 · spec_sources#29 回了：重新 pin 到 3123b65（feat/repin-spec-sources-3123b65）
 
 - spec_sources#30 合并，答 #29：EDMG OFDM / SC 单信道数字学、MCS（含 EVM）、DMG 的 PHY 参数 / MCS / TX EVM / 灵敏度。出处是公开的 TGad / TGay 贡献与 R&S 白皮书（802.11-2024 的许可禁止输入 AI），用户对照标准核过。EDMG 灵敏度没有公开出处。

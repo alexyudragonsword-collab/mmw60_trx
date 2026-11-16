@@ -71,7 +71,8 @@ def test_the_local_table_keeps_only_this_librarys_choices_and_outputs():
     # ref() reads across both tables: a shared mapping's field, a local one, a plain value
     assert spec.ref("pa60.asada_eumc2011#psat_dbm") == spec.value("pa60.asada_eumc2011")["psat_dbm"]
     rule = spec.value("assumed.pa60_operating_rule")
-    assert spec.ref("assumed.pa60_operating_rule#evm_limit_db") == rule["evm_limit_db"]
+    assert spec.ref("assumed.pa60_operating_rule#evm_limit") == rule["evm_limit"]
+    assert spec.ref(rule["evm_limit"]) == spec.ref("dmg.tx_evm_db#evm_db@mcs=12")   # local entry naming a shared one
     assert spec.ref("derived.pa60_obo_at_evm_limit_db") == spec.value("derived.pa60_obo_at_evm_limit_db")
 
 

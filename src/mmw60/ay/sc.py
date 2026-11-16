@@ -101,29 +101,51 @@ def build(symbols: np.ndarray, num: ScNumerology, guard_seq: np.ndarray,
                    pair=pair, n_blocks=n_blocks)
 
 
-def channel_estimate(rx: np.ndarray, frame: ScFrame) -> np.ndarray:
-    """H on the ``block``-point grid from the training pair:
-    (Y_a·A* + Y_b·B*) / (|A|² + |B|²)."""
-    if frame.pair is None:
-        raise ValueError("the frame was built without a training pair")
-    num = frame.numerology
-    g, n = num.guard, num.block
-    a, b = frame.pair
-    ya = np.fft.fft(rx[g:g + n])
-    yb = np.fft.fft(rx[2 * g + n:2 * g + 2 * n])
+def pair_estimate(rx: np.ndarray, a: np.ndarray, b: np.ndarray, cp: int, start: int = 0) -> np.ndarray:
+    """H on the len(a)-point grid from a complementary pair sent as
+    [a[-cp:] | a | b[-cp:] | b] from ``start``: (Y_a·A* + Y_b·B*) / (|A|² + |B|²).
+    The OFDM link uses it with the DFT length and its cyclic prefix."""
+    n = len(a)
+    s = int(start)
+    ya = np.fft.fft(rx[s + cp:s + cp + n])
+    yb = np.fft.fft(rx[s + 2 * cp + n:s + 2 * cp + 2 * n])
     fa, fb = np.fft.fft(a), np.fft.fft(b)
     return (ya * np.conj(fa) + yb * np.conj(fb)) / (np.abs(fa) ** 2 + np.abs(fb) ** 2)
 
 
+def window_estimate(h: np.ndarray, keep: int, pre: int = 0) -> np.ndarray:
+    """``h`` with its impulse response kept on the first ``keep`` taps and the
+    last ``pre`` (a pre-cursor from a timing offset): a channel no longer than
+    the guard loses nothing, and the estimate's noise drops by len(h) / (keep + pre)."""
+    t = np.fft.ifft(np.asarray(h, dtype=complex))
+    w = np.zeros(t.size)
+    w[:int(keep)] = 1.0
+    if pre:
+        w[-int(pre):] = 1.0
+    return np.fft.fft(t * w)
+
+
+def channel_estimate(rx: np.ndarray, frame: ScFrame) -> np.ndarray:
+    """H on the ``block``-point grid from the frame's training pair."""
+    if frame.pair is None:
+        raise ValueError("the frame was built without a training pair")
+    a, b = frame.pair
+    return pair_estimate(rx, a, b, frame.numerology.guard)
+
+
 def equalize(rx: np.ndarray, frame: ScFrame, h: np.ndarray, noise_var: float | None = None,
-             track_phase: bool = True) -> np.ndarray:
+             track_phase: bool | str = True) -> np.ndarray:
     """Data symbols, shape (n_blocks, data_per_block).
 
     ``noise_var`` None = zero forcing; otherwise the MMSE equaliser
     H*/(|H|² + σ²) with its bias removed (divided by the mean of
     |H|²/(|H|² + σ²)), σ² being the noise per sample for unit-power
-    symbols.  ``track_phase`` rotates each block by the phase of its
-    equalised tail guard against the known one."""
+    symbols.  ``track_phase``: True / ``"block"`` rotates each block by the
+    phase of its equalised tail guard against the known one; ``"interp"``
+    interpolates the phase linearly between the guard before the block (the
+    previous block's tail; the first block's own tail for the first) and the
+    guard after it — a phase that drifts within the block is followed, not
+    averaged; False / ``"off"`` does neither."""
     num = frame.numerology
     g, n, d = num.guard, num.block, num.data_per_block
     s0 = frame.stream_start + g
@@ -137,11 +159,21 @@ def equalize(rx: np.ndarray, frame: ScFrame, h: np.ndarray, noise_var: float | N
         w = np.conj(h) / (p + float(noise_var))
         z = np.fft.ifft(y * w[None, :], axis=1) / float(np.mean(p / (p + float(noise_var))))
     z = z * np.conj(_rotation(num, idx - frame.stream_start))
-    if track_phase:
+    mode = {True: "block", False: "off"}.get(track_phase, track_phase)
+    if mode not in ("block", "interp", "off"):
+        raise ValueError("track_phase must be True / False / 'block' / 'interp' / 'off'")
+    if mode != "off":
         ref = frame.guard_seq
-        phi = np.angle(z[:, d:] @ np.conj(ref))
-        z = z * np.exp(-1j * phi)[:, None]
+        phi = np.unwrap(np.angle(z[:, d:] @ np.conj(ref)))           # the guard after each block
+        if mode == "block":
+            z = z * np.exp(-1j * phi)[:, None]
+        else:
+            before = np.concatenate([phi[:1], phi[:-1]])             # the guard in front of each block
+            # guard centres: −g/2 (in front) and d + g/2 (after), relative to the window start
+            t = (np.arange(n) + 0.5 * g) / (d + g)
+            ph = before[:, None] + (phi - before)[:, None] * t[None, :]
+            z = z * np.exp(-1j * ph)
     return z[:, :d]
 
 
-__all__ = ["ScNumerology", "ScFrame", "build", "channel_estimate", "equalize"]
+__all__ = ["ScNumerology", "ScFrame", "build", "pair_estimate", "window_estimate", "channel_estimate", "equalize"]

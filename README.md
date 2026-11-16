@@ -17,6 +17,7 @@ python tools/external_check.py        # 与 Liu 2025 刊出版 Fig. 3 的读图�
 python examples/12_liu2025_channel_sensitivity.py   # 原文 MCS4 平台：信道 K 因子扫描、逐项关 PA / 相噪（约 12 分钟）
 python examples/13_liu2025_pa_share.py   # 原文平台用它自己的 ideal 曲线反推损伤份额，对本库字面工作点（约 17 分钟）
 python examples/14_liu2025_ideal_receiver_candidates.py   # 原文 ideal 16-QAM 门槛：信道 / 接收机候选逐项量，再看组合（4 核约 63 分钟，--cache 可分段）
+python examples/15_ay_on_the_shared_front_end.py   # 802.11ay 两种波形在共享前端上：PAPR、单开各项、底板与合规上限、同 PA 上 SC 对 OFDM 的回退与速率（约 75 秒）
 python tools/vendor_check.py --strict --siblings wifi_trx_cal=/path/to/wifi_trx_cal
 ```
 

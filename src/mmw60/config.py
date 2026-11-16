@@ -22,10 +22,11 @@ from .vendor.wifitrx.waveform.tone_plan import contiguous
 TOPOLOGIES = ("if_extender", "upclock_zero_if")
 #: be = the sub-7 GHz WiFi waveform as it is (K = 1); be_upclocked = the same
 #: waveform with the clock × K (topology B / Liu 2025); ay_ofdm / ay_sc =
-#: 802.11ay's own numerologies on the zero-IF hardware (milestone 3 — named
-#: now, refused until then, like topology A before milestone 1)
+#: 802.11ay's own single-channel numerologies on the zero-IF hardware
+#: (milestone 3, EVM only; ``mmw60.ay``, ``sim/ay_link.py``) — topology B only
 WAVEFORMS = ("be", "be_upclocked", "ay_ofdm", "ay_sc")
-WAVEFORMS_BUILT = ("be", "be_upclocked")
+AY_WAVEFORMS = ("ay_ofdm", "ay_sc")
+WAVEFORMS_BUILT = ("be", "be_upclocked", "ay_ofdm", "ay_sc")
 CFO_MODES = ("off", "ltf", "stf_ltf", "extended")
 PN_SIDES = ("off", "tx", "rx", "both")
 #: pole_zero = the 11ad-EM one-pole / one-zero shape (Liu 2025's numbers);
@@ -338,6 +339,28 @@ class RxConfig:
 
 
 @dataclass(frozen=True)
+class AyConfig:
+    """The 802.11ay waveforms (``waveform: ay_ofdm | ay_sc``): single channel —
+    the one whose centre is ``carrier_hz`` — and EVM only (milestone 3,
+    first round).  The numerology and the MCS table are spec_sources'
+    (``edmg.*``); the fields here are this library's choices (``ay_60ghz``
+    reads them from data/spec)."""
+    gi: str = "normal"                # short | normal | long (edmg.ofdm_params / edmg.sc_params)
+    mcs: int = 12                     # EDMG MCS whose constellation the EVM payload carries
+    units: int = 64                   # SC blocks / OFDM symbols per packet (assumed.ay_evm_payload)
+    sc_rolloff: float = 0.25          # data/spec: assumed.ay_sc_pulse
+    sc_span_symbols: int = 16         # data/spec: assumed.ay_sc_pulse
+    stf_length: int = 128             # data/spec: assumed.ay_preamble
+    stf_repeats: int = 16             # data/spec: assumed.ay_preamble
+    #: keep the channel estimate's impulse response inside the GI (+ GI/8 of
+    #: pre-cursor): the receiver's noise reduction (data/spec: assumed.ay_receiver)
+    ce_window: bool = True
+    #: SC phase tracking on the known guards: interp (between the guard before and after
+    #: each block) | block (one phase per block) | off (data/spec: assumed.ay_receiver)
+    sc_phase: str = "interp"
+
+
+@dataclass(frozen=True)
 class Mmw60Config:
     topology: str = "upclock_zero_if"
     waveform: str = "be_upclocked"
@@ -351,6 +374,7 @@ class Mmw60Config:
     channel: ChannelConfig = field(default_factory=ChannelConfig)
     rx: RxConfig = field(default_factory=RxConfig)
     ifext: IfExtConfig = field(default_factory=IfExtConfig)
+    ay: AyConfig = field(default_factory=AyConfig)
     seed: int = 0
     label: str = ""
 
@@ -417,6 +441,27 @@ class Mmw60Config:
             raise ValueError("frontend.array: scan_max_deg in (0, 90), sector_oversampling > 0")
         if self.frontend.tx_rx_isolation_db is not None and float(self.frontend.tx_rx_isolation_db) < 0:
             raise ValueError("frontend.tx_rx_isolation_db is an isolation in dB (positive)")
+        if self.waveform in AY_WAVEFORMS:
+            self._check_ay()
+
+    def _check_ay(self) -> None:
+        from .ay import edmg
+        if self.topology != "upclock_zero_if":
+            raise ValueError("the 802.11ay waveforms are topology B's hardware (upclock_zero_if); topology A's chip "
+                             "makes WiFi 7 numerologies only")
+        if int(self.upclock_k) != 1:
+            raise ValueError("the 802.11ay waveforms run at their own clock: upclock_k must be 1")
+        edmg.channel_of(self.carrier_hz)                     # ValueError off the channel centres
+        a = self.ay
+        if a.gi not in edmg.GIS:
+            raise ValueError(f"ay.gi must be one of {edmg.GIS}")
+        edmg.mcs_entry(self.waveform, a.mcs)                 # ValueError for an MCS the table lacks
+        if int(a.units) < 2 or not 0.0 < float(a.sc_rolloff) <= 1.0 or int(a.sc_span_symbols) < 2:
+            raise ValueError("ay: units >= 2, sc_rolloff in (0, 1], sc_span_symbols >= 2")
+        if a.sc_phase not in ("interp", "block", "off"):
+            raise ValueError("ay.sc_phase must be interp | block | off")
+        if int(a.stf_length) & (int(a.stf_length) - 1) or int(a.stf_repeats) < 3:
+            raise ValueError("ay: stf_length a power of two (a Golay sequence), stf_repeats >= 3")
 
     # --- derived ---------------------------------------------------------
     @property
@@ -535,7 +580,7 @@ def _from_dict(cls, d: dict):
 _NESTED = {
     (Mmw60Config, "phy"): PhyConfig, (Mmw60Config, "lo"): LoConfig,
     (Mmw60Config, "frontend"): FrontendConfig, (Mmw60Config, "channel"): ChannelConfig,
-    (Mmw60Config, "rx"): RxConfig, (Mmw60Config, "ifext"): IfExtConfig,
+    (Mmw60Config, "rx"): RxConfig, (Mmw60Config, "ifext"): IfExtConfig, (Mmw60Config, "ay"): AyConfig,
     (LoConfig, "phase_noise"): PhaseNoiseConfig,
     (FrontendConfig, "pa"): PaConfig, (FrontendConfig, "array"): ArrayConfig,
     (FrontendConfig, "converters"): ConverterConfig, (FrontendConfig, "iq"): IqConfig,
@@ -627,6 +672,29 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
                                                       bandwidth_hz=float(bandwidth_hz)),
                               rx=improved_rx(dataclasses.replace(base.rx, dc_removal=True)),
                               label=f"zero-IF 60 GHz {standard} {bandwidth_hz / 1e6:g} MHz x{k} MCS{mcs}")
+    return dataclasses.replace(cfg, **top) if top else cfg
+
+
+def ay_60ghz(waveform: str = "ay_sc", mcs: int = 12, carrier_hz: float = 60.48e9, gi: str = "normal",
+             **top) -> Mmw60Config:
+    """An 802.11ay waveform on topology B's hardware: ``zero_if_60ghz``'s
+    front end, LO, crystals, channel and receiver flags, unchanged (the same
+    front-end settings as every be row, iron rule 2), carrying the EDMG
+    single-channel numerology of the channel at ``carrier_hz`` (default
+    channel 2, the presets' carrier) at its own clock (K = 1).  EVM only:
+    the payload is uncoded points of MCS ``mcs``'s constellation
+    (data/spec: assumed.ay_evm_payload); pulse and training are
+    assumed.ay_sc_pulse / assumed.ay_preamble."""
+    s = spec.value
+    pulse, pre, pay = s("assumed.ay_sc_pulse"), s("assumed.ay_preamble"), s("assumed.ay_evm_payload")
+    ay = AyConfig(gi=gi, mcs=int(mcs), units=int(pay["units"]), sc_rolloff=float(pulse["rolloff"]),
+                  sc_span_symbols=int(pulse["span_symbols"]), stf_length=int(pre["stf_length"]),
+                  stf_repeats=int(pre["stf_repeats"]),
+                  ce_window=bool(s("assumed.ay_receiver")["ce_window_to_gi"]),
+                  sc_phase=str(s("assumed.ay_receiver")["sc_phase"]))
+    base = zero_if_60ghz(k=1, carrier_hz=carrier_hz)
+    cfg = dataclasses.replace(base, waveform=waveform, ay=ay,
+                              label=f"{waveform} MCS{mcs} {gi} GI @{carrier_hz / 1e9:g} GHz")
     return dataclasses.replace(cfg, **top) if top else cfg
 
 
