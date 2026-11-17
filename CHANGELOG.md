@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### 诊断：D5 报 wifi_trx_cal#7；C8 的 DPD“崖”（2026-11-17）—— 只加诊断脚本与文档，数值不动
+- `tools/diag_d5_views.py`：两条宽链（2.56 GHz、ay 2.16 GHz）上回环三种读法、斜坡、残余时延、相干度。
+- `tools/repro_d5_wifitrx.py`：只用 vendored wifitrx 的最小复现（对齐窗 `max_lag = 32` 在 5.12 GS/s 上不够）。
+- `tools/diag_c8_dpd_cliff.py`：逐回退记 DPD 步留哪一轮、每轮的观测 / PA 输出 EVM、最终 TX EVM；可选 PA、ILA 轮数、GMP 阶数、直看 PA 输出等诊断覆盖（只在脚本里包一层，vendor 原样）。
+- ROADMAP D5 改指向 wifi_trx_cal#7；C8 写入诊断结论。
+
 ### 重新 pin spec_sources 到 `25b2c5e`；SC MCS 1 的重复编码与实测门限（spec_sources#43，2026-11-17）—— 指纹不变；SC MCS 1 的距离变了
 - vendored spec_sources 换成 `25b2c5e`：只有 `ieee80211` 的 `dmg.data_encoding` 变了（rho = 2 的说明按原文更正，新字段 `sc_rho2_codeword`、`sc_rho2_pn`）。
 - `ay.coding.RepetitionCode`、`rho2_code`（新，`__all__`）：SC MCS 1 的 rho = 2 码字 (数据 168, 数据 ⊕ PN 168, 校验 336)，PN 是扰码 LFSR 从全 1 起；接收端两份 LLR 相加、补的零已知。`ay_code` / `threshold_config` 对重复 2 的档用它（**行为变化**：以前报 `NotImplementedError`）。

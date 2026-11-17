@@ -122,7 +122,7 @@ EVM 到目标所需的输出回退（dB，从 Psat 算；PA 隔离读法：两�
 | RX IQ | 退化 | IRR 44.1 dB |
 | 终检 | 正常 | modem 读法 −21.3 dB（TX −21.5、RX −29.0）；isolation 读法 −7.63 dB |
 
-isolation 读法只有 −7.63 dB，是 ROADMAP D5 那个宽带捕获对齐的偏差。2.56 GHz 的 be 列是 −13.6 对 modem −23.5 dB，同一个现象。和 be 的 2.56 GHz 列（IRR 39.4 dB、泄漏 −59.3 dBc、RX 角频 8.7 %）同一个量级，2.16 GHz 略好。（2026-11-17 wifitrx 0.7.41 之前：本表泄漏 −38.1 dBc、IRR 43.6 / 44.0 dB，be 列 IRR 40.2、泄漏 −39.8 dBc；两边的泄漏都是同一个原因——偏置不在 FFT 网格上，wifi_trx_cal#6 的 B42。）
+isolation 读法只有 −7.63 dB，是 ROADMAP D5 那个宽带捕获对齐的偏差（2026-11-17 已报 wifi_trx_cal#7：5.28 GS/s 上回环时延超出 `capture_aligned` ±32 个样本的搜索窗，残余 3.29 个样本；先均衡读 −22.34 dB）。2.56 GHz 的 be 列是 −13.6 对 modem −23.5 dB，同一个现象。和 be 的 2.56 GHz 列（IRR 39.4 dB、泄漏 −59.3 dBc、RX 角频 8.7 %）同一个量级，2.16 GHz 略好。（2026-11-17 wifitrx 0.7.41 之前：本表泄漏 −38.1 dBc、IRR 43.6 / 44.0 dB，be 列 IRR 40.2、泄漏 −39.8 dBc；两边的泄漏都是同一个原因——偏置不在 FFT 网格上，wifi_trx_cal#6 的 B42。）
 
 **校准过的链上**（示例 15 §8，预设回退，flat，不加噪声）：
 - **底板**：SC −24.2 … −25.3 dB，OFDM −20.9 … −21.1 dB。原始链是 −6.4 … −8.2 dB。第一段“IQ 与 LO 泄漏当作校准掉”给的是 SC −24.3 … −25.5、OFDM −20.9 … −21.0 dB：OFDM 一样，SC 差 0.1 dB（2026-11-17 wifitrx 0.7.41 之前 SC −24.0 … −25.1、差 0.3–0.4 dB，那时泄漏步停在 −38 dBc）。
