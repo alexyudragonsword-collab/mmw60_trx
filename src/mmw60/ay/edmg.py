@@ -224,16 +224,17 @@ def threshold_db(waveform: str, mcs: int, occupied_bw_hz: float, rule: str = "me
     """``(in-band SNR, source)`` an ideal decoder needs for EDMG ``mcs``.
     ``rule="measured"`` (the preset) takes this library's own threshold
     where the payload is coded here (``spec.ay_per_threshold_db``: the SC
-    MCS at repetition 1, measured with spec_sources#33's codes on the ideal
-    chain, the way the be rows' thresholds are) and the DMG twin's
-    (``ideal_threshold_db``, assumed.ay_sensitivity) elsewhere — OFDM, SC
-    MCS 1; ``rule="twin"`` takes the twin's everywhere (the reading before
-    the measurement, and the one that treats SC and OFDM alike).
+    MCS at repetition 1 and the OFDM 16-QAM / 64-QAM MCS, measured with
+    spec_sources#33's codes on the ideal chain, the way the be rows'
+    thresholds are) and the DMG twin's (``ideal_threshold_db``,
+    assumed.ay_sensitivity) elsewhere — OFDM's DCM MCS, SC MCS 1;
+    ``rule="twin"`` takes the twin's everywhere (the reading before the
+    measurement).
     ``keep_implementation_loss`` applies to the twin's only.  Source is
     "measured", "twin" or None (no threshold)."""
     if rule not in THRESHOLD_RULES:
         raise ValueError(f"rule must be one of {THRESHOLD_RULES}")
-    if rule == "measured" and waveform == "ay_sc":
+    if rule == "measured":
         t = spec.ay_per_threshold_db(waveform, mcs)
         if t is not None:
             return float(t), "measured"

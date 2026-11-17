@@ -35,10 +35,11 @@ standard sets for each?
    not everything-minus-one — and two direct readings: the leak left after
    dc_pre and the TX image rejection across the band;
 9. rate against range, one element, line of sight, the calibrated chain at
-   every back-off: each MCS's decoder threshold from its DMG twin's
-   sensitivity (data/spec: assumed.ay_sensitivity; spec_sources has no
-   EDMG sensitivity), the floor as a noise term, the shared front end's
-   noise figure, free space plus oxygen; per MCS the back-off that reaches
+   every back-off: each MCS's decoder threshold measured on the ideal chain
+   with the EDMG codes (data/spec/ay_per_thresholds.yaml; SC MCS 1 and
+   OFDM's DCM MCS, not coded here, from the DMG twin's sensitivity,
+   data/spec: assumed.ay_sensitivity), the floor as a noise term, the
+   shared front end's noise figure, free space plus oxygen; per MCS the back-off that reaches
    farthest while the transmitter meets its EVM limit, and the fastest rate
    each waveform keeps at each distance.  Sensitivity rows: the reference
    receiver's implementation loss kept in, the surveyed 60 GHz front end
@@ -485,10 +486,11 @@ def main(argv=None) -> int:
 
     # ---------------------------------------------------------------- 9. rate against range
     print("\n== 9. rate against range: one element, line of sight, the calibrated chain at every back-off; the "
-          "decoder thresholds: SC measured on the ideal chain with spec_sources#33's codes "
-          "(data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; SC MCS 1, repetition 2, not coded "
-          f"here), OFDM from the DMG twin ({tag('assumed.ay_sensitivity')}: its sensitivity, reference NF and "
-          "implementation loss taken out; the coded OFDM payload is not built); the floor as a noise term ==")
+          "decoder thresholds measured on the ideal chain with spec_sources#33's codes "
+          "(data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; OFDM's bits on the data tones in "
+          f"order, {tag('assumed.ay_ofdm_tone_order')}); SC MCS 1 (repetition 2) and OFDM's DCM MCS are not "
+          f"coded here and take the DMG twin's ({tag('assumed.ay_sensitivity')}: its sensitivity, reference NF "
+          "and implementation loss taken out); the floor as a noise term ==")
     orders = {"ay_sc": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_sc")},
               "ay_ofdm": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_ofdm")}}
     for wf, by_order in orders.items():
@@ -553,15 +555,15 @@ def main(argv=None) -> int:
         tw = ranges_at(wf, i0, rule="twin")[m]["range_m"]
         sv = ranges_at(wf, i0, sim=sv_sim[wf], gains=(sv_fe[wf].antenna_gain_tx_dbi,
                                                       sv_fe[wf].antenna_gain_rx_resolved_dbi))[m]["range_m"]
-        twin_txt = "" if wf != "ay_sc" else f"the DMG twin's threshold (as OFDM's) {tw:.2f}; "
+        twin_txt = f"the DMG twin's threshold (as the DCM MCS's) {tw:.2f}; "
         print(f"  {wf:<8} MCS{m}: preset {base_r:.2f}; {twin_txt}the twin's with its implementation loss kept in "
               f"{il:.2f}; surveyed 60 GHz front end "
               f"(NF {sv_sim[wf]._rx_nf_db():.1f} dB at its AGC state, {sv_fe[wf].antenna_gain_tx_dbi:g} + "
               f"{sv_fe[wf].antenna_gain_rx_resolved_dbi:g} dBi) {sv:.2f}")
     print("the DMG-derived thresholds against this library's measured ones at the same modulation and code rate: "
-          "the EDMG SC codes (data/spec/ay_per_thresholds.yaml) and the 11be LDPC (data/spec/per_thresholds.yaml, "
-          "80 MHz; its SNR is per active subcarrier):")
-    print(f"  {'':<10} {'':<8} {'':<4} {'twin':>7} {'SC meas':>8} {'11be':>7}  twin - SC   twin - 11be")
+          "the EDMG codes on both waveforms (data/spec/ay_per_thresholds.yaml) and the 11be LDPC "
+          "(data/spec/per_thresholds.yaml, 80 MHz; its SNR is per active subcarrier):")
+    print(f"  {'':<10} {'':<8} {'':<4} {'twin':>7} {'measured':>8} {'11be':>7}  twin - meas twin - 11be")
     for lab, wf, m, be_mcs in (("BPSK 1/2", "ay_sc", 2, None), ("QPSK 1/2", "ay_sc", 7, 1),
                                ("QPSK 1/2", "ay_ofdm", 6, 1), ("16-QAM 1/2", "ay_sc", 12, 3),
                                ("16-QAM 1/2", "ay_ofdm", 11, 3), ("16-QAM 3/4", "ay_sc", 14, 4),
