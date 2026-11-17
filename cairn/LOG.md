@@ -3,6 +3,11 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-17 · spec_sources#43 关闭；ROADMAP 补 OFDM 交织与填充一条（docs/close-spec-43）
+
+- PR #70 合并为 `d27046b`，在 #43 回报。spec_sources PR #47（`3275349`）把本库登记为 pin `25b2c5e`、at `d27046b`、9 个文件；本库核对与 vendor 清单逐个相同，#43 由本库关闭。对方在 `MMW60_NO_JIT=1` 下复核指纹 69 个值逐位相同。
+- **更正**：本库在 #43 两次回复里说“公开材料没有的三处（Short SSW 的 PPDU、OFDM 16 / 64-QAM 交织、OFDM 填充）记在 ROADMAP”，实际 ROADMAP 只有 Short SSW 一条，交织与填充只在 `assumed.ay_ofdm_tone_order` 与 `cairn/ay.md` 的“没建”里。这次补进 ROADMAP 里程碑 3。
+
 ## 2026-11-17 · 重新 pin spec_sources 到 25b2c5e；SC MCS 1 的重复编码（spec_sources#43；feat/spec-pin-25b2c5e）
 
 - #67、#68、#69 已合并（main `4d1a06b`）。wifi_trx_cal#6 已回报验收并由本库关闭；spec_sources 把本库登记为 pin `563cff4`、at `636208a`（其 PR #45），核对一致。
