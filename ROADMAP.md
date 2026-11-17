@@ -32,7 +32,7 @@
 ### A3. 同台表的剩余项（主体已落地：示例 04、`tools/budget_report.py`、`cairn/comparison-table.md`）
 - WiFi 7 全链路四条整合：PA_DPD 的 PA / DPD 进 wifitrx 链在 K > 1 上已作为灵敏度研究接通（`pamemory.py`、示例 07：参考 PA 带记忆、wifitrx 的 DPD 步、抽头间隔透传），但预设与同台表的 PA 仍是无记忆的 Rapp（2026-11-12 起是测量 PA 的幅度与压缩形状），带记忆的 PA 没有进任何一行（C8）。还没做的一条：Halo ADC 校准接入（要 vendor halo 的 `adc` 模块，现在转换器列是 ENOB 法则 + Walden 计价，没有通道失配项）。已做：pll 剖面替换解析相噪（`PhaseNoiseConfig.model: profile`）、`EvmBudget` 对账（A1 更正单边带换算后每行差 0.0 dB，相噪项差 0.1–1.3 dB）。
 - 解码器上限列（`decoder_cap`，已落地）的剩余：11ac 40 / 80 / 160 MHz 基准没有门限（n/a，要先建 BCC 宽带交织器）；示例 04 §6 的灵敏度从解析底板起算（每个旋钮不跑时域），2.56 GHz 行在那一节的基线是 MCS1、§4b 用时域底板是 MCS0；`per_thresholds.yaml` 是本库接收机的测量值，接收机再改要 `python tools/measure_thresholds.py --jobs 4 --cache DIR` 重量（2026-11-15 起夹点续跑到 60 错包，4 核约 2.3 小时，可分段）。
-- **校准列现在是示例 03 实测 IRR 的查表**，代入解析和；ay 两行（2026-11-16）读的是真跑过校准的链上的时域 EVM，两边读法不对称（`cairn/comparison-table.md` §2c）。这个不对称现在决定 ay 对 be 的倍数：同在校准后上限，ay SC 4620 Mb/s、189 pJ/bit，be 最好的 11be 80 MHz × 32 是 3459 Mb/s、272 pJ/bit（IRR 查表 40.2 dB；ay 的链实跑 43.6 dB）。
+- **校准列现在是示例 03 实测 IRR 的查表**，代入解析和；ay 两行（2026-11-16）读的是真跑过校准的链上的时域 EVM，两边读法不对称（`cairn/comparison-table.md` §2c）。这个不对称现在决定 ay 对 be 的倍数：同在校准后上限，ay SC 4620 Mb/s、189 pJ/bit，be 最好的 11be 80 MHz × 32 是 3459 Mb/s、272 pJ/bit（IRR 查表 39.4 dB；ay 的链实跑 43.9 dB）。
   待做：be 的宽带行（至少 1.28 / 2.56 GHz）也用 `calcheck.run_cal_at` 实跑，在校准过的链上读时域。be 的 `LinkSim` 要先加一个 `chains=` 入口，现在只有 ay 有（2a）。复现：`python examples/04_comparison_table.py` §1b 末行（约 1 分钟）。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
 
@@ -44,14 +44,10 @@
 
 ## 里程碑 3：802.11ay（第一段与第二段已落地：`ay/edmg.py`、`sim/ay_link.py`、`config.ay_60ghz`、`calcheck.run_cal_ay`、`compare.evaluate_ay`、`arraylink.ay_mcs_ranges` / `ay_array_budget`、示例 04 §1b、示例 10 §3d、示例 15、`cairn/ay.md` §4–§8）
 ay 不是第三条拓扑，是拓扑 B 的硬件配第三、四种波形，单信道、EVM 口径（用户 2026-11-16 定）。数字来自 spec_sources#29（2026-11-16 已验收并关闭，pin `3123b65`）与 #33（码、扩展 SC 档、控制 PHY 与扇区扫描；同日验收并关闭，pin `76ee72a`）。下面是第二段留下的。
-- **SC 的缺口来自 wifitrx 泄漏校准留下的残差，它怎么起作用还没完全定位**（示例 15 §8b，`cairn/ay.md` §9a）：SC 在校准链上多出的 0.2–0.8 dB 已逐项拆开（7.5 dB 时主要是 TX 泄漏残差，15 dB 时 TX IQ、泄漏、RX IQ 三项相当，按功率加回去差在 0.3 dB 内）。
-  - 确定的：把 `dc_pre` 解成恰好抵消泄漏，7.5 dB 上的缺口从 0.38 缩到 0.13 dB（剩下的是 IQ 残差），15 dB 上从 0.79 缩到 0.42 dB，带不带 CFO 都一样。泄漏那部分来自序列留下的 −42 dBc 残差（不加 `dc_pre` 是 −24 dBc），不是预减本身。
-  - 没定位的：单开（其他损伤全关）时残差只在有 CFO 时才有代价，而且比它自己的功率大 7.6 dB（1.8 dB 是前导去直流减了一个随 CFO 旋转的泄漏；已排除 SC 相位跟踪、信道估计截窗）；整条链上不带 CFO 也有代价（PA 关掉也有），所以它是和另一项损伤一起起作用的。
-  - 两条出路，都没做：接收端在 CFO 校正之后用已知训练场再估一次直流；或者校准端把泄漏压得更低（SC 要比 −42 dBc 好得多，OFDM 不在乎）。后者是 wifitrx 的 LO 泄漏步骤：2026-11-17 已报 wifi_trx_cal#6（问能否多迭代或给参数把残差压到 −50 dBc 以下），等回复。
-  - 复现：`python examples/15_ay_on_the_shared_front_end.py` §8b（全量约 3 分钟）。
+- **SC 在校准链上剩的缺口是 IQ 残差**（示例 15 §8b，`cairn/ay.md` §9a）：7.5 / 15 dB 上剩 0.12 / 0.45 dB。泄漏那部分已解（2026-11-17，wifi_trx_cal#6：wifitrx 0.7.41 把泄漏步的偏置放到 FFT 网格上，−38 → −59 dBc；本库链路改 VGA 改用 `set_gain`，不再破坏 `dc_pre` 的零点），序列的 `dc_pre` 与解成恰好抵消的读数相同。剩下的是 TX / RX IQ（15 dB 时 −39.9 / −41.6 dB），探针只到 ±0.86 GHz、SC 载荷到 ±1.10 GHz，带边的校正是外推的（`assumed.ay_cal_probe`）。待做（按需）：更宽的探针，或用 ay 波形自己再校一次 IQ。
 - **SC 低阶档的最佳回退在网格边上**（示例 15 §9）：π/2-BPSK / π/2-QPSK 各档在网格最小的 1 dB 上射程最远（底板 −16.6 / −15.8 dB，离限值很远），真正的最佳可能更小，SC MCS1 的 17.17 m 是下限。待做（按需）：§5 / §8 的网格从 0 dB 起，或单独在小回退上加几个点。
 - **预设回退不是 16-QAM 射程最远的回退**（示例 15 §9）：SC MCS14 在 5.0 dB 到 2.18 m（预设 7.5 dB 时 1.69 m；2026-11-16 SC 改用实测门限之前是 1.82 / 1.43 m），OFDM MCS13 在 5.5 dB 到 1.61 m（1.44 m；2026-11-17 OFDM 改用实测门限之前是 1.77 / 1.55 m）。预设规则按 PA 单独的 EVM 定，不按距离定；不改预设，只记下。
-- **阵列表里 ay 行的距离两端用同一个阵列**（示例 10 §3d）：SC 按自己的工作点 30 个单元就顶到 EIRP 上限，接收增益也跟着少 1.5 dB，16-QAM 3/4 的距离比它自己在预设回退上近 48 m（251 对 299 m；SC 改用实测门限之前 219 对 267 m），也比 OFDM 的 263 m 近（2026-11-17 OFDM 改用实测门限之前 277 m）。不对称的阵列（发端少、收端多）没有建；要不要建看有没有人问。复现：`python examples/10_array_link_and_training.py` §3d（全量约 10 分钟）。
+- **阵列表里 ay 行的距离两端用同一个阵列**（示例 10 §3d）：SC 按自己的工作点 30 个单元就顶到 EIRP 上限，接收增益也跟着少 1.5 dB，16-QAM 3/4 的距离比它自己在预设回退上近 46 m（253 对 299 m；wifitrx 0.7.41 之前 251 m；SC 改用实测门限之前 219 对 267 m），也比 OFDM 的 263 m 近（2026-11-17 OFDM 改用实测门限之前 277 m）。不对称的阵列（发端少、收端多）没有建；要不要建看有没有人问。复现：`python examples/10_array_link_and_training.py` §3d（全量约 10 分钟）。
 - **SC 在 64-QAM 高码率上够不到限值**（示例 15 §5）：底板停在约 −27 dB，主要是相噪（两段 GI 之间插值后单开 −27.5 dB），MCS20 / 21 的 −28 / −29 dB 够不到。待做（按需）：块内更密的相位跟踪（如导频块），或换相噪更低的 LO 剖面再量。
 - **没建的**：DMG 混合速率前导（OFDM 包的前导以 1.76 GHz 单载波发，本库在 2.64 GHz 上发 Golay 训练场，`assumed.ay_preamble`）；信道绑定（第一轮不做）。
 - **SC MCS 1 还借 DMG 的门限**（`cairn/ay.md` §9d）：2026-11-17 起 OFDM 每档（DCM 走 spec_sources#43 的静态配对）与 SC 其余各档都是本库实测（`data/spec/ay_per_thresholds.yaml`）。SC MCS 1 是重复 2：`dmg.data_encoding` 的说明照字面读是“校验后半段换成数据 ⊕ PN”，不像合理的设计（会把补的 168 个零发出去、丢一半校验），已请 spec_sources#43 贴 0433r2 步骤 2.b 的原句与 PN 的生成式；回了再建。孪生规则在 OFDM 上偏乐观 0–1.44 dB、在 SC 上偏悲观 1.35–4.34 dB。复现：`python tools/measure_ay_thresholds.py --check --waveform ay_ofdm --only 6`（约 3 分钟）。
@@ -86,10 +82,10 @@ Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、
 - 剖面文件里的杂散表（4 MHz 小数杂散 ×10 后 −43.7 dBc、谐波抑制 40 dB）引擎不消费（铁律 6）；要看杂散得上逐周期引擎。
 
 ### C8. PA 记忆研究（示例 07）发现的（见 `cairn/LOG.md` 2026-11-11、`cairn/topology-b.md` §3b）
-- **记忆按秒固定的代价是多退 0.2–2.3 dB，要按回退读**：`python examples/07_pa_memory_dpd.py`，参考 PA、抽头 12.5 ns。达到 DPD 后 TX EVM −25 / −27 dB，K = 8 上随信号缩放的要退 7.3 / 7.8 dB，按秒固定的要退 9.0 / 10.1 dB（代价 1.7 / 2.3 dB）；K = 32 上 7.7 / 8.5 对 7.9 / 9.0 dB（代价 0.2 / 0.5 dB）。（2026-11-12 预设换成测量的 PA 之前：K = 8 代价 1.6 / 2.3，K = 32 是 7.4 / 8.3 对 7.9 / 8.9、代价 0.5 / 0.6。参考 PA 按前端的增益 / Psat 定标，换 PA 后跟着变，所以有小的移动；结论不变。）
-  预设回退正好在 DPD 的崖上（随信号缩放的那颗 7.0 → 7.5 dB 之间从 −22.1 跳到 −26.3 dB）：2026-11-13 之前的 8 dB 在崖顶，现在按工作点规则取的 7.5 dB 就在崖口。所以在这一个点上读 EVM 差会读到 6 dB（7.5 dB 上 K = 8：随信号缩放 −26.3、按秒固定最好 −20.5，按秒固定的那颗 DPD 一点也拿不回），那是两条崖的间距，不是代价。
-  待做：预设回退点本身在崖上（多退 0.5 dB 与少退 0.5 dB，带记忆的参考 PA 上 DPD 后差 4 dB 以上），同台表的 PA 若换成带记忆的要重新定回退；混合间隔的基函数能不能把 K = 8 的 1.7–2.3 dB 收回来没有试（PA_DPD 的设计问题，要的话另开 issue）。
-- **抽头间隔必须量着选**：K = 32 上逐样本的基函数到回退 12 dB 也只有 −25.5 dB，匹配间隔 9.0 dB 就到 −27 dB；K = 8 上回退 7.0–8.5 dB 两种间隔互有胜负（差 ≤ 0.8 dB），9 dB 以上匹配间隔好（2026-11-12 预设换成测量的 PA 之前：匹配间隔 8.9 dB 到 −27 dB；K = 8 上 8.5 dB 以下逐样本好。）（对方在自己的链路上没有这个交叉，匹配间隔处处好：交叉随链路而定）。`pamemory.candidate_spacings` 只量 1 / 2 / 4 / 匹配四个，没有扫全。
+- **记忆按秒固定的代价是多退 0.2–2.3 dB，要按回退读**：`python examples/07_pa_memory_dpd.py`，参考 PA、抽头 12.5 ns。达到 DPD 后 TX EVM −25 / −27 dB，K = 8 上随信号缩放的要退 7.3 / 7.8 dB，按秒固定的要退 9.1 / 10.1 dB（代价 1.8 / 2.3 dB）；K = 32 上 7.8 / 8.4 对 8.0 / 9.0 dB（代价 0.2 / 0.6 dB）。（2026-11-17 wifitrx 0.7.41 之前：K = 8 按秒固定 9.0 / 10.1、代价 1.7 / 2.3，K = 32 是 7.7 / 8.5 对 7.9 / 9.0、代价 0.2 / 0.5。2026-11-12 预设换成测量的 PA 之前：K = 8 代价 1.6 / 2.3，K = 32 是 7.4 / 8.3 对 7.9 / 8.9、代价 0.5 / 0.6。参考 PA 按前端的增益 / Psat 定标，换 PA 后跟着变，所以有小的移动；结论不变。）
+  预设回退正好在 DPD 的崖上（随信号缩放的那颗 7.0 → 7.5 dB 之间从 −22.6 跳到 −26.0 dB；0.7.41 之前 −22.1 → −26.3）：2026-11-13 之前的 8 dB 在崖顶，现在按工作点规则取的 7.5 dB 就在崖口。所以在这一个点上读 EVM 差会读到 5.6 dB（7.5 dB 上 K = 8：随信号缩放 −26.0、按秒固定最好 −20.5，按秒固定的那颗 DPD 一点也拿不回），那是两条崖的间距，不是代价。
+  待做：预设回退点本身在崖上（多退 0.5 dB 与少退 0.5 dB，带记忆的参考 PA 上 DPD 后差 4 dB 以上），同台表的 PA 若换成带记忆的要重新定回退；混合间隔的基函数能不能把 K = 8 的 1.8–2.3 dB 收回来没有试（PA_DPD 的设计问题，要的话另开 issue）。
+- **抽头间隔必须量着选**：K = 32 上逐样本的基函数到回退 12 dB 也只有 −25.5 dB，匹配间隔 9.0 dB 就到 −27 dB；K = 8 上回退 7.0–8.5 dB 两种间隔互有胜负（差 ≤ 1.0 dB；0.7.41 之前 ≤ 0.8），9 dB 以上匹配间隔好（2026-11-12 预设换成测量的 PA 之前：匹配间隔 8.9 dB 到 −27 dB；K = 8 上 8.5 dB 以下逐样本好。）（对方在自己的链路上没有这个交叉，匹配间隔处处好：交叉随链路而定）。`pamemory.candidate_spacings` 只量 1 / 2 / 4 / 匹配四个，没有扫全。
 - **`fir_fs` 是整件事的未知数**：12.5 ns 是 sub-7 GHz WiFi PA 的时间常数原样搬过来。没有 60 GHz PA 记忆时间常数的出处，查到之前这张表只能读趋势。
 
 ### C9. 前端三个面（示例 08）发现的（见 `cairn/LOG.md` 2026-11-12 两条、`cairn/topology-b.md` §5）
@@ -103,7 +99,7 @@ Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、
 （形状与回退两件已做：2026-11-12 预设换成测量的 PA；2026-11-13 回退按工作点规则取从 Psat 7.5 dB，`assumed.pa60_operating_rule`；2026-11-16 规则的 −21 dB 改读条文 `dmg.tx_evm_db` 的 MCS12（spec，与幻灯片上那条线相同，回退不动）。下面是剩下的。）
 - **规则读出来的数取决于两个没出处的选择**：`python examples/09_pa_against_the_literature.py` §2 的规则一节。同一个 −21 dB，测量形状 7.46 dB，去掉 AM/PM 7.06 dB（AM/PM 没有出处，下一条），换汇编表中位的形状（Psat − P1dB 3.3 dB）6.74 dB，11ad 形状 9.97 dB；包络的随机种子只动 0.13 dB。规则读的是 PA 单独、OFDM 样的高斯包络，读到的发射机是单载波 16-QAM（峰均比低得多），所以那篇只印证“按 EVM 限值定额定输出”这个读法，不印证 7.5 这个数。
 - **TGad 原文推荐的 OFDM 回退是 8 dB**（`tgad_em.pa_backoff_recommended_db`，spec_sources 0.3.0 读原文，2026-11-13）：Liu 的 8 dB 就是它，回退也按它定义从 Psat 算。但那是配它自己那颗 PA 的（11ad 形状，P1dB 在 Psat 下 9.5 dB）：同一颗 PA 按本库的工作点规则要 10.0 dB 才到 −21 dB（示例 09 §2）。预设的 7.5 dB 是规则在测量的 PA 上的读数，与 TGad 的推荐值不同不算矛盾；要不要改成“按 TGad 推荐值、换 PA 也不动”，原文没有说推荐值依据什么。
-- **旧预设回退上 DPD 拿不回东西，原因是形状**：示例 09 §4，K = 8 回退 8 dB 上 wifitrx 的 DPD 步对 11ad 形状拿回 0.8 dB（−18.8 → −19.6），对测量形状（现在的预设）拿回 2.0 dB（−22.2 → −24.2）；回退 10 dB 时 4.5 / 2.6 dB。11ad 形状在 8 dB 处已在 P1dB 之上 1.5 dB。
+- **旧预设回退上 DPD 拿不回东西，原因是形状**：示例 09 §4，K = 8 回退 8 dB 上 wifitrx 的 DPD 步对 11ad 形状拿回 0.8 dB（−18.8 → −19.6），对测量形状（现在的预设）拿回 2.0 dB（−22.2 → −24.2）；回退 10 dB 时 4.5 / 2.7 dB（wifitrx 0.7.41 之前 4.5 / 2.6）。11ad 形状在 8 dB 处已在 P1dB 之上 1.5 dB。
 - **AM/PM 没有出处**：三篇都不给，测量形状一档仍用 11ad 的 AM/PM。去掉 AM/PM，PA 单独的 EVM 在回退 4–12 dB 上好 0.2–0.5 dB（11ad 形状）/ 0.3–1.7 dB（测量形状），复现：`pa_isolated_evm_db(ModifiedRappPA(p=…, ampm=False), obo, "psat")` 对 `ampm=True`。AM/PM 在测量形状上分量更大，因为 AM/AM 的失真小了。它也直接进了工作点：去掉 AM/PM，规则给 7.06 dB 而不是 7.46 dB。
 - **峰值 PAE**：预设现在取测量的 16.3 %（旧的假设 20 % 偏高）；同组三颗 14.3–16.3 %，汇编的中位 8.8 %（剔掉原文没给效率的 [5]，`assumed.pa60_table1_pae_excluded`；原表照抄是 8.5 %）。功耗列的 B 类回退规律对一颗偏乐观（P1dB 处测 7.9 %、折出 9.6 %），对另一颗偏保守（测 12.0 %、折出 11.0 %）。
 - **汇编表还有 6 行是二手的**：`pa60.eumc2011_table1` 的 13 行别人的数是那篇论文转引的。2026-11-14 spec_sources 0.4.0 读了其中 7 行的原文（mmw60_trx#27），剩下 [5] [7] [8] [10] [12] [14] 只在别篇的对比表里出现过，数字相符但没逐篇读。只用来看分布。
@@ -118,7 +114,7 @@ D1（wifi_trx_cal#4，非标准带宽的评分波形）、D2（pll_simulator#71�
 
 D4（fmcw_radar 的雷达消费清单，mmw60_trx#14）已落地并由对方关闭（2026-11-12，示例 08、`cairn/topology-b.md` §5）：接收前端、收发隔离、发 / 收天线增益三个面在 `Frontend60` 上，条目已删；过程中发现的在 C9。倍频器底噪不进 `Frontend60`（雷达直接读剖面文件）。对方最后读的是来源表而不是对象：它 vendor 了 `spec.py` 与 `survey.yaml`，按条目读三条 `spec`，哪几条、改之前要做什么见 `cairn/spec-sources.md` 的“被下游消费的条目”。这三条 2026-11-13 已随迁移进了 spec_sources；fmcw_radar 也已迁完，本库那条下游守卫已删（mmw60_trx#23）。
 
-**候选 D5（待用户定是否报 wifi_trx_cal）**：2.56 GHz（fs 5.12 GS/s）上 wifitrx 回环捕获对齐后留约 2 个样本（0.38 ns）的时延，各音信道相位有 6.0 rad 的线性斜坡；它的 isolation 读法（`cal/sequence.score_views` 的 `evm_db`）先按全部音估每个符号的公共相位、再逐音均衡，斜坡下这个估计被 64-QAM 的幅度拉偏（相干度 0.08），读 −13.5 dB，先均衡则 −24.4 dB（modem 读法 −23.4）。isolation 读法是 wifitrx 重放闭环的目标，标准带宽（≤ 320 MHz，斜坡 0.00 rad）上不受影响；2.56 GHz 不在它的承诺范围内，所以只是候选。2026-11-16 在 ay 的 2.16 GHz 链上又见到一次（探针 11be 80 MHz × 22）：isolation −7.65 对 modem −21.3 dB（示例 15 §7）。复现：`python examples/03_calibration_at_k.py` 的“read three ways”一节、`tests/test_calcheck.py::test_the_2p56ghz_isolation_view_is_the_capture_alignment_not_the_chain`。
+**候选 D5（待用户定是否报 wifi_trx_cal）**：2.56 GHz（fs 5.12 GS/s）上 wifitrx 回环捕获对齐后留约 2 个样本（0.38 ns）的时延，各音信道相位有 6.0 rad 的线性斜坡；它的 isolation 读法（`cal/sequence.score_views` 的 `evm_db`）先按全部音估每个符号的公共相位、再逐音均衡，斜坡下这个估计被 64-QAM 的幅度拉偏（相干度 0.08），读 −13.6 dB，先均衡则 −24.5 dB（modem 读法 −23.5；wifitrx 0.7.41 之前 −13.5 / −24.4 / −23.4）。isolation 读法是 wifitrx 重放闭环的目标，标准带宽（≤ 320 MHz，斜坡 0.00 rad）上不受影响；2.56 GHz 不在它的承诺范围内，所以只是候选。2026-11-16 在 ay 的 2.16 GHz 链上又见到一次（探针 11be 80 MHz × 22）：isolation −7.63 对 modem −21.32 dB（示例 15 §7）。复现：`python examples/03_calibration_at_k.py` 的“read three ways”一节、`tests/test_calcheck.py::test_the_2p56ghz_isolation_view_is_the_capture_alignment_not_the_chain`。
 
 ## E. 明确不做
 MAC / MLO 调度、多用户、信道模型本身（用 11ad CR 现成表）、D-band、雷达（另开 fmcw_radar）；EIRP / 谱模板只做趋势比较，不替代认证测试；不把 vendor 变成 fork。

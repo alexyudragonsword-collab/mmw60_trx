@@ -87,10 +87,10 @@ per step of the LO level: -85->-90: analytic 5.00, budget 5.00, TD 5.06 dB; -90-
 
 == 5. cascade back-off: chip PA output x 60 GHz PA back-off (link EVM, flat channel, no noise; decoder cap) ==
 chip Pout[dBm] (OBO1 from its Psat)   chip residual   OBO2 6: EVM / cap   OBO2 8: EVM / cap   OBO2 10: EVM / cap   OBO2 12: EVM / cap
-    10.1 (17.9)                  -39.3         -18.0 / MCS4          -20.6 / MCS6          -22.4 / MCS7          -23.4 / MCS7      chip PA DC 202 mW
+    10.1 (17.9)                  -41.7         -18.2 / MCS4          -20.9 / MCS6          -22.9 / MCS7          -24.0 / MCS7      chip PA DC 203 mW
     13.3 (14.7)                  -43.5         -18.3 / MCS4          -21.0 / MCS6          -23.0 / MCS7          -24.1 / MCS7      chip PA DC 294 mW
-    16.5 (11.5)                  -37.5         -18.1 / MCS4          -20.8 / MCS6          -22.6 / MCS7          -23.7 / MCS7      chip PA DC 421 mW
-    18.9 ( 9.1)                  -29.0         -17.7 / MCS4          -20.0 / MCS6          -21.4 / MCS6          -22.1 / MCS7      chip PA DC 555 mW
+    16.5 (11.5)                  -42.2         -18.4 / MCS4          -21.1 / MCS6          -23.1 / MCS7          -24.1 / MCS7      chip PA DC 423 mW
+    18.9 ( 9.1)                  -32.5         -18.2 / MCS4          -20.7 / MCS6          -22.4 / MCS7          -23.2 / MCS7      chip PA DC 558 mW
 the chip's output is padded down to the 60 GHz PA's drive (interstage), so its back-off costs DC power, not link EVM, until its own residual reaches the 60 GHz PA's.
 
 == 5b. the chip's PA bypassed: the IF taken at its mixer output, the PA powered down (assumed.ifext_chip_pa_bypass) ==

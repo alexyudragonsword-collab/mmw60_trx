@@ -345,9 +345,8 @@
     cal15: {example: "15", after: "back-off 15 dB:", line: "ay_sc the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on {} / {*}"}
     ex15: {example: "15", after: "back-off 15 dB:", line: "ay_sc the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on {*} / {}"}
   quotes:
-    - {doc: cairn/ay.md, text: "整条链上的缺口从 {cal75 - away75} 缩到 {ex75 - away75} dB"}
-    - {doc: cairn/ay.md, text: "15 dB 时从 {cal15 - away15} 缩到 {ex15 - away15} dB"}
-    - {doc: ROADMAP.md, text: "7.5 dB 上的缺口从 {cal75 - away75} 缩到 {ex75 - away75} dB"}
+    - {doc: cairn/ay.md, text: "整条链上的缺口 7.5 dB 时 {cal75 - away75} / {ex75 - away75} dB、15 dB 时 {cal15 - away15} / {ex15 - away15} dB"}
+    - {doc: ROADMAP.md, text: "7.5 / 15 dB 上剩 {cal75 - away75} / {cal15 - away15} dB"}
 
 - name: ex15 under multipath — how much better SC reads than OFDM at an in-band SNR of 12 dB, flat and on the CR stand-in
   values:
@@ -357,7 +356,6 @@
     of_cr: {example: "15", after: "== 10. under multipath", line: "ay_ofdm CR 7 ns {*} ({*}) {*} ({*}) {} ({*})"}
   quotes:
     - {doc: cairn/ay.md, text: "SC 在 12 dB 上比 OFDM 好：flat 时 {of_flat - sc_flat} dB，CR 7 ns 时 {of_cr - sc_cr} dB"}
-    - {doc: cairn/LOG.md, text: "SC 比 OFDM 好 {of_cr - sc_cr} dB（flat 时 {of_flat - sc_flat}）"}
 
 - name: ex15 rate against range — how much output power the SC low-order MCS gain over the preset, and the 16-QAM range-best back-off
   values:
@@ -385,7 +383,6 @@
   quotes:
     - {doc: cairn/ay.md, text: "SC 少退 {c78}–{c34} dB（16-QAM 1/2 … 7/8），64-QAM 1/2"}
     - {doc: cairn/ay.md, text: "64-QAM 5/8 多退 {-c58} dB；"}
-    - {doc: cairn/LOG.md, text: "每点各校一次后 SC 少退 {c78}–{c34} dB（16-QAM）"}
 
 - name: ex15 one calibration at the preset back-off, run at 15 dB, with and without the CFO, against calibrating there
   values:

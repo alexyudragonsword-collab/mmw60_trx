@@ -8,7 +8,7 @@ import pytest
 import vendor_check as vc          # tools/ is on sys.path (conftest)
 from conftest import REPO
 
-PIN = "7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02"
+PIN = "681ce4bfbd46db85dee9aea663135f45225c26d2"
 SPEC_SOURCES_PIN = "563cff47b943afaa90646c84641fa08cba972420"
 ARRAY_TX_PIN = "5815c5a7ea43143fd58502d4894ac840b5b5fb86"
 PINS = {"wifi_trx_cal": PIN, "spec_sources": SPEC_SOURCES_PIN, "array_tx": ARRAY_TX_PIN}

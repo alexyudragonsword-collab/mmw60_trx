@@ -25,10 +25,10 @@ standard sets for each?
 7. wifitrx's calibration sequence run on the ay chain (iron rule 4;
    ``calcheck.run_cal_ay``, the probe of data/spec: assumed.ay_cal_probe);
 8. the floors, caps and matched-pair back-offs again on the chains that
-   sequence calibrated, the sequence run anew at every back-off (the TX
-   LO-leak cancellation holds only at the gain state it was found at) — the
+   sequence calibrated, the sequence run anew at every back-off — the
    check of section 4's "calibrated away"; one row shows what a single
-   calibration at the preset back-off reads at 15 dB;
+   calibration at the preset back-off reads at 15 dB (the link re-trims the
+   VGA through wifitrx's set_gain, which keeps the TX LO-leak null);
 8b. what the single carrier loses on the calibrated chain, item by item:
    each calibration residual (TX IQ, TX LO leak, RX IQ, RX DC) alone on the
    calibrated chain with every other impairment off — the isolation reading,
@@ -364,9 +364,10 @@ def main(argv=None) -> int:
     leak_on, leak_off = cal_evm(one, 15.0, single=True), cal_evm(dc.replace(one, xo_ppm_tx=0.0, xo_ppm_rx=0.0),
                                                                  15.0, single=True)
     print(f"\none calibration at {fe.obo_db:g} dB, run at 15 dB (drive re-trimmed, π/2-16-QAM): {leak_on:.2f} dB; "
-          f"the same without the CFO {leak_off:.2f} dB; calibrated at 15 dB {cal_evm(one, 15.0):.2f} dB — the TX "
-          f"LO-leak cancellation found at one gain state does not hold at another, and what is left is DC that "
-          f"only the CFO carries past the receiver's DC removal")
+          f"the same without the CFO {leak_off:.2f} dB; calibrated at 15 dB {cal_evm(one, 15.0):.2f} dB — the VGA "
+          f"re-trim goes through wifitrx's set_gain, which rescales dc_pre with the gain (0.7.41, B43), so the TX "
+          f"LO-leak null found at one gain state holds at another (before it, a bare VGA assignment un-nulled it "
+          f"and the CFO carried the DC past the receiver's DC removal)")
     print("\nSC against OFDM at the same modulation and code rate on the calibrated chains (back-off from Psat; "
           "ΔPout = SC − OFDM; section 5's ΔPout beside it):")
     print(f"{'modulation':<10} {'rate':>5}  {'SC':>6} {'OFDM':>6}  {'ΔPout':>6}   {'sec. 5':>6}")
@@ -464,26 +465,30 @@ def main(argv=None) -> int:
         tx = copy.deepcopy(sim.tx)
         tx.params.lo.enabled = False
         sig = tx(fr.x * DIGITAL_DRIVE_RMS)
-        leak = copy.deepcopy(tx)(np.zeros_like(fr.x))[-1000:]
-        raw = copy.deepcopy(tx)
+        # the leak read with the DAC off: a zero input through the 9-bit DAC rounds dc_pre (a few LSB)
+        # away, and the reading floors near -40 dBc whatever the step did (wifi_trx_cal#6)
+        quiet = copy.deepcopy(tx)
+        quiet.params.dac.enabled = False
+        leak = copy.deepcopy(quiet)(np.zeros_like(fr.x))[-1000:]
+        raw = copy.deepcopy(quiet)
         raw.dc_pre = 0j
         raw_leak = raw(np.zeros_like(fr.x))[-1000:]
         p_sig = float(np.mean(abs(sig) ** 2))
         uncorr = copy.deepcopy(sim.tx)
         uncorr.w1 = uncorr.w2 = None
-        print(f"  direct: TX LO leak left after dc_pre {10 * np.log10(np.mean(abs(leak) ** 2) / p_sig):.1f} dBc "
+        lk = 10 * np.log10(np.mean(abs(leak) ** 2) / p_sig)
+        print(f"  direct (DAC off): TX LO leak left after dc_pre {lk:.1f} dBc "
               f"(without dc_pre {10 * np.log10(np.mean(abs(raw_leak) ** 2) / p_sig):.1f}); TX image rejection at "
               + ", ".join(f"{f / 1e9:g}" for f in edges) + " GHz: "
               + ", ".join(f"{irr_db(sim.tx, sim.phy.fs_eff, f):.1f}" for f in edges)
               + " dB (uncorrected " + ", ".join(f"{irr_db(uncorr, sim.phy.fs_eff, f):.1f}" for f in edges)
               + "; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)")
     print("isolation: one residual at a time, read directly (contributions do not add up as powers in general; the "
-          "power sum is a check, not a decomposition).  Alone, the leak left after dc_pre costs only with the CFO "
-          "(without it the receiver's DC removal on its quiet lead-in takes it out exactly), and on SC it reads "
-          "above its own power (the direct reading); on the whole chain it costs SC without the CFO too, so it acts "
-          "together with another impairment, not yet located (ROADMAP milestone 3).  Either way the cost is the "
-          "residual's: dc_pre solved to cancel the leak exactly takes it away.  OFDM puts the leak on its three "
-          "empty DC tones")
+          "power sum is a check, not a decomposition).  The leak left after dc_pre (wifitrx 0.7.41: the step reads "
+          "its offset on the FFT grid, B42, and the link's VGA re-trim keeps the null, B43) is read with the DAC "
+          "off: through the 9-bit DAC a zero input rounds dc_pre away.  The sequence's dc_pre and one solved to "
+          "cancel the leak exactly read alike on the whole chain, with and without the CFO; what SC still loses "
+          "over 'calibrated away' is the IQ residual.  OFDM puts the leak on its three empty DC tones")
 
     # ---------------------------------------------------------------- 9. rate against range
     print("\n== 9. rate against range: one element, line of sight, the calibrated chain at every back-off; the "

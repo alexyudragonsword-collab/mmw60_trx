@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02: src/wifitrx/handoff/runner.py
+# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/handoff/runner.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Run an external waveform through the (calibrated) transceiver model.
 
