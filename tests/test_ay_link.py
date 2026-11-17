@@ -539,39 +539,38 @@ def test_the_dmg_and_edmg_codes_are_spec_sources_matrices_and_agree_with_each_ot
     # a cell with two equal shifts would cancel over GF(2): refused
     with pytest.raises(ValueError, match="distinct"):
         ldpc.qc_code([[[3, 3]] + [-1] * 15], 42, "15/16")
-    # the code of an SC MCS: EDMG's at its rate; repetition 2 and OFDM are not built
+    # the code of an SC MCS: EDMG's at its rate; MCS 1 (repetition 2) the rho = 2 codeword on the 1/2 code
     assert coding.sc_code(LinkSim(_ideal("ay_sc", 16, model="behavioural"))) is e
-    with pytest.raises(NotImplementedError, match="repetition"):
-        coding.sc_code(LinkSim(_ideal("ay_sc", 1, model="behavioural")))
+    assert coding.sc_code(LinkSim(_ideal("ay_sc", 1, model="behavioural"))) is coding.rho2_code()
 
 
 def test_the_measured_edmg_thresholds_are_tagged_complete_and_rise_with_the_code_rate():
     """data/spec/ay_per_thresholds.yaml (tools/measure_ay_thresholds.py):
-    every coded MCS measured with spec_sources#33's codes — SC at
-    repetition 1, every OFDM MCS (DCM through the static pairing,
+    every EDMG MCS measured with spec_sources#33's codes — SC MCS 1 through
+    the rho = 2 codeword, OFDM's DCM through the static pairing (both
     spec_sources#43) — above the Shannon bound of its bits per chip or tone,
     rising with the code rate within a modulation; the preset rule takes
-    them and the DMG twin's for the rest (SC MCS 1)."""
+    them all (the DMG twin's stays the rule="twin" reading)."""
     doc = spec.ay_per_threshold_document()
     assert doc["source"] == "derived" and "measure_ay_thresholds.py" in doc["cite"] and doc["note"]
     assert doc["packet_bytes"] == 4096 and doc["target_per"] == 1e-2
     assert set(doc["thresholds_db"]) == {"ay_sc", "ay_ofdm"}
     for wf in ("ay_sc", "ay_ofdm"):
         t, ci = doc["thresholds_db"][wf], doc["ci_db"][wf]
-        coded = [e for e in edmg.mcs_table(wf) if e.repetition == 1]
+        coded = list(edmg.mcs_table(wf))
         assert set(t) == {e.mcs for e in coded} and all(t[e.mcs] is not None for e in coded), wf
         for e in coded:
-            eta = float(e.code_rate) * np.log2(e.order)
+            eta = float(e.code_rate) * np.log2(e.order) / e.repetition
             assert t[e.mcs] > 10 * np.log10(2 ** eta - 1), (wf, e.mcs)
             assert ci[e.mcs][0] <= t[e.mcs] <= ci[e.mcs][1] and ci[e.mcs][1] - ci[e.mcs][0] < 0.5, (wf, e.mcs)
         for order in sorted({e.order for e in coded}):
-            row = [t[e.mcs] for e in coded if e.order == order]
+            row = [t[e.mcs] for e in coded if e.order == order and e.repetition == 1]
             assert row == sorted(row), (wf, order)
     t = doc["thresholds_db"]["ay_sc"]
-    assert spec.ay_per_threshold_db("ay_sc", 1) is None
+    assert t[1] < t[2]                          # repetition 2 at 1/2 (rate 1/4) needs less than plain 1/2
     assert edmg.threshold_db("ay_sc", 14, 1.76e9) == (t[14], "measured")
     assert edmg.threshold_db("ay_sc", 14, 1.76e9, rule="twin") == (edmg.ideal_threshold_db("ay_sc", 14, 1.76e9), "twin")
-    assert edmg.threshold_db("ay_sc", 1, 1.76e9)[1] == "twin"
+    assert edmg.threshold_db("ay_sc", 1, 1.76e9) == (t[1], "measured")
     assert edmg.threshold_db("ay_ofdm", 6, 1.8e9) == (doc["thresholds_db"]["ay_ofdm"][6], "measured")
     assert edmg.threshold_db("ay_ofdm", 13, 1.8e9) == (doc["thresholds_db"]["ay_ofdm"][13], "measured")
     assert edmg.threshold_db("ay_sc", 17, 1.76e9) == (t[17], "measured")      # no DMG twin: measured only
@@ -668,3 +667,36 @@ def test_the_dcm_mapping_is_edmg_ofdm_modulation_mappings_and_its_demapper_uses_
         dcm.pairs(335)
     with pytest.raises(ValueError, match="whole number"):
         dcm.map_bits(np.zeros(10), 1, 336)
+
+
+def test_the_sc_mcs1_repetition_is_dmg_data_encodings_rho2_codeword():
+    """dmg.data_encoding's rho = 2 (spec_sources#43, sc_rho2_codeword /
+    sc_rho2_pn): 168 data bits b, the rate-1/2 672-bit code over (b, 168
+    zeros), the zeros then replaced by b XOR PN — the data scrambler's
+    sequence from the all-ones state (802.11's 0000111011110010...), the
+    same 168 bits in every codeword.  The mother word (b, 0, parity) has a
+    zero syndrome; the receiver adds the two copies and knows the zeros, so
+    either copy alone decodes, and a PSDU of 4096 octets takes
+    ceil(4096 * 8 / 168) = 196 codewords (dmg.data_encoding's sc_n_cw)."""
+    from mmw60.ay import coding
+    from mmw60.phy.scrambler import scrambling_sequence
+    enc = spec.value("dmg.data_encoding")
+    assert "all ones" in enc["sc_rho2_pn"] and "XOR PN" in enc["sc_rho2_codeword"]
+    c = coding.rho2_code()
+    assert (c.n, c.k, c.rate) == (672, 168, "1/4") and c.mother is coding.dmg_code("1/2")
+    assert np.array_equal(c.pn, scrambling_sequence(168, seed=0x7F))
+    assert "".join(map(str, c.pn[:16])) == "0000111011110010"
+    rng = np.random.default_rng(11)
+    info = rng.integers(0, 2, (4, 168), dtype=np.uint8)
+    w = c.encode(info)
+    assert np.array_equal(w[:, :168], info) and np.array_equal(w[:, 168:336], info ^ np.asarray(c.pn, np.uint8))
+    mother_word = w.copy()
+    mother_word[:, 168:336] = 0
+    assert not c.mother.syndrome(mother_word).any()
+    llr = 4.0 * (1.0 - 2.0 * w)
+    for gone in (slice(0, 168), slice(168, 336)):                 # either copy alone carries the data
+        x = llr.copy()
+        x[:, gone] = 0.0
+        dec, _ = c.decode(x)
+        assert np.array_equal(dec[:, :168], info), gone
+    assert coding.codewords_for(4096, c) == 196

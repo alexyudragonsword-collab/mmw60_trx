@@ -23,10 +23,10 @@ steps; the two points that bracket PER 1e-2 run on to
 and the file keeps each threshold's 95 % bootstrap interval from the
 counts.
 
-Left out: SC MCS 1 (repetition 2: the repetition procedure,
-dmg.data_encoding rho = 2, is not built).  OFDM's DCM MCS 1-10 go through
-``ay.dcm`` (the static pairing, spec_sources#43).  These are properties of
-this code and receiver, not of a standard.
+Every EDMG MCS of both waveforms: SC MCS 1 through dmg.data_encoding's
+rho = 2 codeword (``ay.coding.RepetitionCode``), OFDM's DCM MCS 1-10
+through ``ay.dcm`` (the static pairing; both spec_sources#43).  These are
+properties of this code and receiver, not of a standard.
 """
 from __future__ import annotations
 
@@ -56,8 +56,8 @@ WAVEFORMS = ("ay_sc", "ay_ofdm")
 
 
 def mcs_list(waveform: str = "ay_sc") -> list[int]:
-    """The MCS with a coded payload here: SC at repetition 1, every OFDM MCS."""
-    return [e.mcs for e in edmg.mcs_table(waveform) if e.repetition == 1]
+    """The MCS with a coded payload here: every MCS of the waveform."""
+    return [e.mcs for e in edmg.mcs_table(waveform)]
 
 
 def grid_for(mcs: int, step: float, span_db: float = 8.0, waveform: str = "ay_sc") -> list[float]:
@@ -193,7 +193,8 @@ def document(tables: dict, cis: dict, step: float, max_packets: int, min_errors:
         "note": ("本库接收机自己的 EDMG 门限（Golay 信道估计；SC 的 MMSE、OFDM 的逐音迫零；"
                  "max-log LLR、归一化 min-sum），"
                  "不是规范数；接收机或码一改就要重量（tests/test_ay_link.py 复量一个点）。"
-                 "SC MCS 1（重复 2）没有：重复的编码步骤没建。"
+                 "SC MCS 1（重复 2）按 dmg.data_encoding 的 rho = 2 码字（数据、数据 ⊕ PN、校验，spec_sources#43），"
+                 "接收端两份 LLR 相加、补的零已知。"
                  "OFDM 的 DCM 档（MCS 1–10）按 edmg.ofdm_modulation_mapping 的静态配对（spec_sources#43），"
                  "一对子载波联合解映射。"
                  "不含扰码与填充规则（载荷是随机比特，扰码不改 PER；PSDU 按整数个码字发）。"

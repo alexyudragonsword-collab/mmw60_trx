@@ -29,11 +29,12 @@ What is built here:
 Not built: the scrambler and the padding / shortening rules of
 dmg.data_encoding / edmg.sc_encoding (the payload's bits are random, so the
 scrambler changes nothing a PER can see; a whole number of codewords stands
-in for the padding), the repetition (rho = 2, the MCS 1 procedure; which
-168 bits the data XOR a PN sequence replaces is asked of spec_sources#43),
-the 1344-bit codewords (edmg.ldpc_1344_lifting), the dynamic DCM pairing
+in for the padding), the 1344-bit codewords (edmg.ldpc_1344_lifting), the dynamic DCM pairing
 (fed back by the receiver) and the 16 / 64-QAM in-symbol interleaver (its
 permutation is not in the public documents).
+
+SC MCS 1 (repetition 2) goes through ``RepetitionCode``: dmg.data_encoding's
+rho = 2 codeword (spec_sources#43, sc_rho2_codeword / sc_rho2_pn).
 """
 from __future__ import annotations
 
@@ -54,6 +55,10 @@ DMG_LDPC_KEY = "dmg.ldpc_matrices"
 DMG_R7_8_KEY = "dmg.ldpc_r7_8_punctured"
 #: EDMG's own 672-bit rate-7/8 code
 EDMG_R7_8_KEY = "edmg.ldpc_672_r7_8"
+#: the SC repetition (rho = 2) codeword and its PN sequence
+DATA_ENCODING_KEY = "dmg.data_encoding"
+#: the LLR a known bit (the rho = 2 codeword's zero padding) is decoded with
+KNOWN_BIT_LLR = 1.0e9
 
 _RATE_KEYS = {"1/2": "r1_2", "5/8": "r5_8", "3/4": "r3_4", "13/16": "r13_16"}
 
@@ -98,6 +103,66 @@ class PuncturedCode:
         return bits[:, self.keep], iters
 
 
+@dataclass(frozen=True)
+class RepetitionCode:
+    """dmg.data_encoding's rho = 2 codeword (SC MCS 1; spec_sources#43's
+    sc_rho2_codeword and sc_rho2_pn): L_Z = n / 4 data bits b, the rate-1/2
+    mother code over (b, L_Z zeros), then the zeros replaced by b XOR PN.
+    PN is the data scrambler's sequence (x^7 + x^4 + 1) from the all-ones
+    state, reset for every codeword, so every codeword uses the same L_Z
+    bits.  Sent: (b, b XOR PN, the mother's n / 2 parity bits).  The receiver
+    adds the two copies' LLRs (the copy's sign flipped where PN is 1) and
+    decodes the mother code with the zeros known."""
+    mother: _ldpc.LdpcCode
+    pn: tuple[int, ...]
+
+    @property
+    def k(self) -> int:
+        return len(self.pn)
+
+    @property
+    def n(self) -> int:
+        return self.mother.n
+
+    @property
+    def rate(self) -> str:
+        f = Fraction(self.k, self.n)
+        return f"{f.numerator}/{f.denominator}"
+
+    def encode(self, info: np.ndarray) -> np.ndarray:
+        """(n_cw, k) data bits → (n_cw, n) bits sent."""
+        info = np.asarray(info, dtype=np.uint8).reshape(-1, self.k)
+        word = self.mother.encode(np.concatenate([info, np.zeros_like(info)], axis=1))
+        word[:, self.k:2 * self.k] = info ^ np.asarray(self.pn, dtype=np.uint8)[None, :]
+        return word
+
+    def decode(self, llr: np.ndarray, max_iter: int | None = None) -> tuple[np.ndarray, int]:
+        """(n_cw, n) LLRs of the bits sent → ((n_cw, n) hard bits of the bits sent, iterations run)."""
+        llr = np.asarray(llr, dtype=np.float64).reshape(-1, self.n)
+        k = self.k
+        pn = np.asarray(self.pn, dtype=np.uint8)
+        full = llr.copy()
+        full[:, :k] = llr[:, :k] + (1.0 - 2.0 * pn)[None, :] * llr[:, k:2 * k]
+        full[:, k:2 * k] = KNOWN_BIT_LLR                      # the zeros, known (LLR > 0 is a 0)
+        bits, iters = self.mother.decode(full, max_iter=max_iter)
+        bits = bits.copy()
+        bits[:, k:2 * k] = bits[:, :k] ^ pn[None, :]
+        return bits, iters
+
+
+@lru_cache(maxsize=None)
+def rho2_code() -> RepetitionCode:
+    """SC MCS 1's code: the 672-bit rate-1/2 code with dmg.data_encoding's
+    rho = 2 construction (168 data bits a codeword, rate 1/4)."""
+    from ..phy.scrambler import scrambling_sequence
+    enc = spec.value(DATA_ENCODING_KEY)
+    mother = dmg_code("1/2")
+    l_z = int(enc["l_cw"]) // 4
+    if "all ones" not in str(enc["sc_rho2_pn"]) or mother.k != 2 * l_z:
+        raise ValueError(f"{DATA_ENCODING_KEY}: the rho = 2 rule is not the one this code builds")
+    return RepetitionCode(mother, tuple(int(b) for b in scrambling_sequence(l_z, seed=0x7F)))
+
+
 @lru_cache(maxsize=None)
 def dmg_code(rate: str):
     """The DMG LDPC code of ``rate`` (dmg.ldpc_matrices; 7/8 = dmg.ldpc_r7_8_punctured)."""
@@ -138,9 +203,9 @@ def _frac(r: str) -> float:
 
 
 def _check_coded(sim) -> None:
-    """The payloads built here: SC at repetition 1, every OFDM MCS."""
-    if int(sim.mcs.repetition) != 1:
-        raise NotImplementedError("the repetition procedure (rho = 2, dmg.data_encoding) is not built")
+    """The payloads built here: every SC MCS (repetition 1 or 2) and every OFDM MCS."""
+    if int(sim.mcs.repetition) not in (1, 2):
+        raise NotImplementedError(f"repetition {sim.mcs.repetition} is not an EDMG procedure")
 
 
 def _is_dcm(sim) -> bool:
@@ -151,8 +216,14 @@ def ay_code(sim):
     """The code of ``sim``'s EDMG MCS (``edmg_code`` at its rate; the 672-bit
     codes are the EDMG PHY's, SC and OFDM alike)."""
     _check_coded(sim)
-    r = sim.mcs.code_rate
-    return edmg_code(f"{r.numerator}/{r.denominator}")
+    return _code_for(sim.mcs)
+
+
+def _code_for(e):
+    """The code of an EDMG MCS entry: rho = 2 on its rate-1/2 code where it repeats, else edmg_code."""
+    if int(e.repetition) == 2:
+        return rho2_code()
+    return edmg_code(f"{e.code_rate.numerator}/{e.code_rate.denominator}")
 
 
 #: the SC-only name of ``ay_code`` (milestone 3, section 9d)
@@ -225,7 +296,7 @@ def threshold_config(mcs: int, packet_bytes: int | None = None, waveform: str = 
     if packet_bytes is not None:
         cfg = dc.replace(cfg, phy=dc.replace(cfg.phy, packet_bytes=int(packet_bytes)))
     e = edmg.mcs_entry(waveform, mcs)
-    code = edmg_code(f"{e.code_rate.numerator}/{e.code_rate.denominator}")
+    code = _code_for(e)
     if waveform == "ay_sc":
         per_unit = edmg.sc_numerology().data_per_block
     else:
@@ -249,6 +320,7 @@ def per(sim, code, snr_db: float, n_packets: int, rng: np.random.Generator,
                           for _ in range(int(n_packets))]))
 
 
-__all__ = ["DMG_LDPC_KEY", "DMG_R7_8_KEY", "EDMG_R7_8_KEY", "PuncturedCode", "dmg_code", "edmg_code", "ay_code",
+__all__ = ["DMG_LDPC_KEY", "DMG_R7_8_KEY", "EDMG_R7_8_KEY", "DATA_ENCODING_KEY", "KNOWN_BIT_LLR", "PuncturedCode",
+           "RepetitionCode", "rho2_code", "dmg_code", "edmg_code", "ay_code",
            "sc_code", "payload_bits", "codewords_for", "coded_packet", "coded_sc_packet", "threshold_config",
            "sweep_packet", "per"]
