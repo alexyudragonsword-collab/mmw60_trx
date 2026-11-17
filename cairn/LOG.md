@@ -3,6 +3,15 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-17 · 重新 pin spec_sources 到 563cff4（spec_sources#43；feat/spec-pin-563cff4）
+
+- 对方四项都回了（PR #44）。vendor 的 9 个文件只有 `ieee80211` 内容变了；`vendor_check --strict` 250 verbatim；合并表 203 → 208，`unverified()` 4 不变；指纹 68 个值不变。
+- **#33 的三条被上游更正**（当时取自 2010 年的 0433r2 与 2015 年的 SFD，后来的 17/1806r3 改过）：控制 PHY STF 5120 → 6400 码片，控制前导 3.564 → 4.291 µs，数据前导 1.745 → 1.891 µs；`edmg.short_ssw` 位宽。本库只读控制前导。
+- 码字切分（`dmg.control_phy_encoding`）：SSW 帧 26 字节 = 2 个码字（88 + 160 位）。`ssw_frame_s` 12.582 → 14.909 µs，由下限变精确值。**被推翻的判断**：#33 时以为 12.58 µs 只差没填满码字的校验位；实际前导也短算了，两者一起差 2.33 µs（切分 1.60 µs，前导 0.73 µs）。
+- 示例 10 §4d：ay 发端 + 收端扫描 N = 4 / 16 / 64 = 127.3 / 509.1 / 2036.4 µs（原 108.7 / 434.6 / 1738.5），be 行不变 55.2 / 220.8 / 883.2 µs。
+- 没给的：发 Short SSW 的 PPDU 与 MCS、16 / 64-QAM 的符号内交织置换、EDMG OFDM 的填充规则。DCM 配对（静态 P(k) = k + N_SD/2）有了，编码载荷另起一个 PR。
+- 下一步：在 #43 回报；对方更新 `consumers.yaml` 后验收、关 #43。
+
 ## 2026-11-17 · 编码的 EDMG OFDM 载荷与 OFDM 实测门限（feat/ay-ofdm-coded）
 
 - 用户“都做”三件：开 spec_sources#43（控制 PHY 码字切分、EDMG PPDU 前导、DCM 配对、tone mapping）；开 wifi_trx_cal#6（TX LO 泄漏校准后 −42 dBc 的残差）；本条是第三件。

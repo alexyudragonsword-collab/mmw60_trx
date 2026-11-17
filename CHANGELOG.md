@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### 重新 pin spec_sources 到 `563cff4`（spec_sources#43，2026-11-17）—— 指纹与预设不变；ay 的扇区扫描时长变长
+- vendored spec_sources 换成 `563cff4`：只有 `ieee80211` 内容变了。新键 `dmg.control_phy_encoding`、`dmg.sc_ppdu_chips`、`edmg.sc_siso_preamble`、`edmg.control_mode_encoding`、`edmg.ofdm_modulation_mapping`；合并表 203 → 208，`unverified()` 仍 4。
+- #33 的三条被上游更正：控制 PHY 的 STF 5120 → 6400 码片、控制前导 3.564 → 4.291 µs、数据前导 1.745 → 1.891 µs，`edmg.short_ssw` 的位宽。
+- `arraylink.control_phy_codewords`、`control_phy_ppdu_s`（新，`__all__`）：控制 PHY PPDU 的码字切分与时长。`ssw_frame_s` 改走它们，由下限变成精确值，12.582 → 14.909 µs；示例 10 §4d 的 ay 扫描时长 N = 64 时 1738.5 → 2036.4 µs。
+- `assumed.ay_sector_sweep` 的 `timing` 与说明、`assumed.ay_ofdm_tone_order` 的说明（规范的 tone placement 也是顺序的，缺的是 16 / 64-QAM 的符号内交织置换）。
+- 示例 10 的期望输出重新接受。
+
 ### 里程碑 3 第三段 9d 续：编码的 EDMG OFDM 载荷与 OFDM 实测门限（2026-11-17）—— 指纹不变；OFDM 的距离与阵列表变了
 - `AyLinkSim.transmit(rng, bits=None)`：OFDM 的非 DCM 档（16-QAM / 64-QAM，MCS 11–20）也接受 `bits`，码字比特按顺序放到每个符号的数据子载波上（新 assumed `ay_ofdm_tone_order`）；不传时随机抽取与原来逐位相同。OFDM 的 DCM 档给 `bits` 报 `NotImplementedError`，比特数不对报 `ValueError`（**公开行为变化**）。
 - `ay.coding`：`ay_code`、`coded_packet`（两种波形；`sc_code`、`coded_sc_packet` 留作别名）；`payload_bits` 支持 OFDM；`threshold_config(mcs, packet_bytes=None, waveform="ay_sc")`（**公开签名加参数**）。
