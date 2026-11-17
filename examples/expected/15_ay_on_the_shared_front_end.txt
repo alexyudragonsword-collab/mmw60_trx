@@ -215,8 +215,8 @@ probe: 11be 80 MHz x22 upclocked (996 tones at 1.71875 MHz, the base's 16 pilots
   rx_iq                  degraded  irr_min_db          44.08
   tx_power               ok                                —
   agc_sweep              ok        worst_landing_err_db     0.33
-  final_loopback_evm     ok        evm_db              -7.63
-final check: isolation reading -7.63 dB; modem reading -21.32 dB (TX -21.46, RX -29.04); PA output 7.27 dBm.  The isolation reading is the wide-band capture-alignment bias of ROADMAP D5 (2.56 GHz: −13.5 against −23.4 dB modem)
+  final_loopback_evm     ok        evm_db             -21.79
+final check: isolation reading -21.79 dB; modem reading -21.31 dB (TX -21.46, RX -29.04); PA output 7.27 dBm.  (Until wifitrx 0.7.46 the isolation reading here was −7.63 dB: the capture alignment left 3.3 samples of delay at 5.28 GS/s, wifi_trx_cal#7)
 
 == 8. on the chains the sequence calibrated: floors at the preset back-off, against section 4 ==
 ay_sc    π/2-BPSK                   calibrated  -25.33   section 4: raw   -8.24, calibrated away  -25.46

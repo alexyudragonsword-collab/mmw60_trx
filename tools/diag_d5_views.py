@@ -66,8 +66,8 @@ def main(argv=None) -> int:
     _row(f"ay 2.16 GHz, fs 5.28 GS/s (probe x{int(p['k'])})", v, occupied, 5.28e9, time.time() - t0)
     print("isolation = wifitrx cal/sequence.score_views evm_db (the per-tone equaliser, then each symbol's common "
           "phase; since 0.7.45); CPE first = the order before (common phase over all tones, then the equaliser); "
-          "modem = score_views evm_modem_db.  ramp = the linear part of the loopback channel phase across the occupied tones; ns / samp = "
-          "the residual delay it implies; coh = |mean of e^(j phase)| over the tones")
+          "modem = score_views evm_modem_db.  ramp = the linear part of the loopback channel phase across the "
+          "occupied tones; ns / samp = the residual delay it implies; coh = |mean of e^(j phase)| over the tones")
     return 0
 
 

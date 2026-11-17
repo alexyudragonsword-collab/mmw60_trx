@@ -90,12 +90,12 @@ B 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz   10     0/400        
 offset = what reaches the chip without the multi-link pre-compensation (40 ppm at 60.48 GHz; 0.00 = the estimators on no offset at all, as behind a perfect pre-compensation; B rows: what reaches topology B's receiver, which has no pre-compensation, on the shared front end); margin = the L-STF's range (+-625 kHz x K) minus it; beyond range = the L-STF folded the offset (95 % upper: Clopper-Pearson on those counts); hand-off = the L-STF's noisy coarse estimate missed by more than half a subcarrier and the L-LTF locked one subcarrier off — STF and LTF scale together with K, so that is the estimator pair's low-SNR behaviour at any K
 
 == 3. the hardware is the native channel's (iron rules 2 and 4): one calibrated chip per channel ==
-A 11be 320M          channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB
-A 11be 80M x4        channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB; chip output and calibration identical to the first row on this channel
-A 11be 40M x8        channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB; chip output and calibration identical to the first row on this channel
-A 11be 20M x16       channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB; chip output and calibration identical to the first row on this channel
-A 11ac 20M x16       channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -38.9 dB; chip output and calibration identical to the first row on this channel
-A 11ac 20M x8        channel   160 MHz at    640 MS/s; 14 calibration steps, 14 passed, final loopback EVM -41.5 dB
-A 11ac 20M x4        channel    80 MHz at    320 MS/s; 14 calibration steps, 14 passed, final loopback EVM -43.5 dB
+A 11be 320M          channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -39.0 dB
+A 11be 80M x4        channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -39.0 dB; chip output and calibration identical to the first row on this channel
+A 11be 40M x8        channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -39.0 dB; chip output and calibration identical to the first row on this channel
+A 11be 20M x16       channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -39.0 dB; chip output and calibration identical to the first row on this channel
+A 11ac 20M x16       channel   320 MHz at   1280 MS/s; 14 calibration steps, 14 passed, final loopback EVM -39.0 dB; chip output and calibration identical to the first row on this channel
+A 11ac 20M x8        channel   160 MHz at    640 MS/s; 14 calibration steps, 14 passed, final loopback EVM -41.6 dB
+A 11ac 20M x4        channel    80 MHz at    320 MS/s; 14 calibration steps, 14 passed, final loopback EVM -43.9 dB
 
 [~s]

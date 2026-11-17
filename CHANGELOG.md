@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### 重新 pin wifitrx 到 `a8edf50`（0.7.46，wifi_trx_cal#7）：宽带回环的捕获对齐（2026-11-17）—— 指纹不变；2.56 GHz 的校准与记忆研究读数变了
+- vendored wifitrx 换成 `a8edf50`（0.7.42–0.7.46）：对齐搜索跟着相关峰走（B47）、isolation 读法先均衡（B46）、DPD 步与 RX 读数的口径（B38 / B45）、`BoundedDPD` 可深拷贝（B44）。
+- `calcheck.loopback_views`：`isolation_eq_first_db` **改名并改义**为 `isolation_cpe_first_db`（wifitrx 0.7.44 之前的顺序，同一个 EVM 定义）；wifitrx 自己的 isolation 读法现在就是先均衡。
+- `derived.irr_after_cal_measured_db` 的 2.56 GHz：39.4 → 39.6 dB（同台表一格没动）。
+- 读数：2.56 GHz 回环 isolation −13.6 → −22.6 dB、最终 TX −24.1 → −22.8 dB；ay 2.16 GHz isolation −7.63 → −21.79 dB；示例 07 的 K = 32 记忆代价 0.2 / 0.6 → 1.6 / 1.7 dB（以前的数是在错位的 DPD 训练捕获上读的）。
+- 测试：`test_the_2p56ghz_loopback_capture_is_aligned_and_the_isolation_view_reads_the_chain`（替换原来守着偏差的那条）、铁律 4 的 ay 测试加斜坡断言；双向变异验证。
+- 示例 03 的三种读法表列名 `EQ first` → `CPE first`；示例 15 §7 的说明句改了。示例 02–11、15 重跑并接受。
+
 ### 诊断：D5 报 wifi_trx_cal#7；C8 的 DPD“崖”（2026-11-17）—— 只加诊断脚本与文档，数值不动
 - `tools/diag_d5_views.py`：两条宽链（2.56 GHz、ay 2.16 GHz）上回环三种读法、斜坡、残余时延、相干度。
 - `tools/repro_d5_wifitrx.py`：只用 vendored wifitrx 的最小复现（对齐窗 `max_lag = 32` 在 5.12 GS/s 上不够）。
