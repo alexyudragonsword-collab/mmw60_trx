@@ -256,18 +256,40 @@ def sweep_time_s(array: Array60, phy, side: str = "tx", repetitions: int = 1) ->
     return float(array.codebook_deg(side).size * (int(repetitions) * _ltf_field_s(phy) + float(tr["sector_switch_s"])))
 
 
+def control_phy_codewords(octets: int) -> list[int]:
+    """The data bits in each LDPC codeword of a DMG control PHY PPDU of
+    ``octets`` (dmg.control_phy_encoding): the first codeword the header and
+    the first data octets, the rest split as evenly as the rule says, the
+    last one what is left."""
+    e = spec.value("dmg.control_phy_encoding")
+    lo, hi = (int(v) for v in e["length_octets"])
+    n = int(octets)
+    if not lo <= n <= hi:
+        raise ValueError(f"a control PHY PPDU carries {lo}-{hi} octets, not {n}")
+    rest = 8 * (n - int(e["first_cw_data_octets"]))
+    n_cw = 1 + -(-rest // int(e["max_data_bits_per_cw"]))
+    if n_cw == 1:
+        return [int(e["first_cw_bits"])]
+    l_dpcw = -(-rest // (n_cw - 1))
+    return [int(e["first_cw_bits"])] + [l_dpcw] * (n_cw - 2) + [rest - (n_cw - 2) * l_dpcw]
+
+
+def control_phy_ppdu_s(octets: int) -> float:
+    """How long a DMG control PHY PPDU of ``octets`` lasts, no TRN: the
+    preamble (dmg.control_phy STF + CEF chips) and every codeword's data and
+    parity bits (dmg.control_phy_encoding), each bit spread to its chips."""
+    cp = spec.value("dmg.control_phy")
+    e = spec.value("dmg.control_phy_encoding")
+    coded = sum(d + int(e["parity_bits_per_cw"]) for d in control_phy_codewords(octets))
+    chips = int(cp["stf_chips"]) + int(cp["cef_chips"]) + coded * int(e["chips_per_coded_bit"])
+    return float(chips / float(cp["chip_rate_hz"]))
+
+
 def ssw_frame_s() -> float:
     """One SSW frame of the 802.11ay sector sweep in the DMG control PHY
-    (assumed.ay_sector_sweep): the control PHY's preamble
-    (dmg.phy_timing.control_preamble_s, STF + CEF) plus the header and the
-    frame's octets (dmg.control_phy.header_bits, dmg.ssw_frame) at the control
-    PHY's rate (dmg.control_phy_rate_bps, effective code rate 1/2).  A lower
-    bound: every LDPC codeword is counted as full, so a partly filled one's
-    parity is not."""
-    cp = spec.value("dmg.control_phy")
-    bits = int(cp["header_bits"]) + 8 * int(spec.value("dmg.ssw_frame")["ssw_frame_octets"])
-    rate = float(spec.value("dmg.control_phy_rate_bps"))
-    return float(spec.value("dmg.phy_timing")["control_preamble_s"]) + bits / rate
+    (assumed.ay_sector_sweep): a control PHY PPDU carrying the frame's octets
+    (dmg.ssw_frame), split into codewords by dmg.control_phy_encoding."""
+    return control_phy_ppdu_s(int(spec.value("dmg.ssw_frame")["ssw_frame_octets"]))
 
 
 def ay_sweep_time_s(array: Array60, side: str = "tx") -> float:
@@ -550,7 +572,7 @@ def noise_dbm_per_tone(nf_db: float, scs_hz: float) -> float:
 __all__ = ["fspl_db", "oxygen_db_per_km", "path_loss_db", "range_m", "required_snr_db", "sweep_statistic",
            "selection_success",
            "required_training_snr_db", "ArrayBudget", "array_budget", "training_ranges", "sweep_time_s",
-           "ssw_frame_s", "ay_sweep_time_s",
+           "control_phy_codewords", "control_phy_ppdu_s", "ssw_frame_s", "ay_sweep_time_s",
            "transmit_sweep_reach_db", "repetitions_to_reach", "hierarchical_training", "array_power_report",
            "ay_mcs_ranges", "ay_pa_alone_evm_db", "ay_operating_obo_db", "ay_array_budget", "noise_dbm_per_tone",
            "C0"]

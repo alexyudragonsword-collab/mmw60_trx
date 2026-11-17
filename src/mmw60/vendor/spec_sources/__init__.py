@@ -1,4 +1,4 @@
-# Vendored from spec_sources@a9af2614c47f66eb602738e7ae19e84d164199de: src/spec_sources/__init__.py
+# Vendored from spec_sources@563cff47b943afaa90646c84641fa08cba972420: src/spec_sources/__init__.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """spec_sources: numbers about the outside world -- specification clauses,
 paper and datasheet figures, and what is derived from them alone -- each with

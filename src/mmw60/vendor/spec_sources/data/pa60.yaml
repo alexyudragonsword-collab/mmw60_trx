@@ -1,4 +1,4 @@
-# Vendored from spec_sources@a9af2614c47f66eb602738e7ae19e84d164199de: src/spec_sources/data/pa60.yaml
+# Vendored from spec_sources@563cff47b943afaa90646c84641fa08cba972420: src/spec_sources/data/pa60.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # pa60 —— 60 GHz CMOS 功率放大器的测量值（读过原文），与只由它们推出的 derived。
 #

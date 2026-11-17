@@ -434,12 +434,24 @@ def test_the_sector_sweep_threshold_is_the_control_phys_with_the_reference_recei
     assert t < min(x for x in data if x is not None) - 8.0
     # the data MCS go through the same function: one rule
     assert edmg.ideal_threshold_db("ay_sc", 14, 1.76e9) == edmg.dmg_threshold_db(12, 1.76e9)
-    # how long a sweep lasts (spec_sources#33): the control PHY's preamble, then the header and the
-    # 26-octet SSW frame at 27.5 Mb/s; one frame per sector, SBIFS apart
+    # how long a sweep lasts (spec_sources#33, #43): a control PHY PPDU per sector, SBIFS apart; the
+    # PPDU's codewords by dmg.control_phy_encoding, every coded bit 32 chips at 1.76 GHz
     from mmw60 import arraylink as al
     from mmw60.frontend.array60 import Array60
-    frame = 3.564e-6 + (40 + 26 * 8) / 27.5e6
+    e = spec.value("dmg.control_phy_encoding")
+    cw = al.control_phy_codewords(e["example_length"])  # the original's example: 120 octets
+    assert len(cw) == e["example_n_cw"] and cw[1] == e["example_l_dpcw"] and cw[-1] == e["example_l_dplcw"]
+    for n in range(14, 1024):  # codeword by codeword = the closed form (Length + 5)*8 + 168*N_CW
+        cw = al.control_phy_codewords(n)
+        assert cw[0] == 88 and max(cw) <= 168 and sum(cw) == 8 * (n + 5)
+        assert sum(d + 168 for d in cw) == (n + 5) * 8 + 168 * (1 + -(-(n - 6) * 8 // 168))
+    with pytest.raises(ValueError):
+        al.control_phy_codewords(13)
+    # the preamble in chips agrees with the timing table's rounded figure (4.291 us since #43)
+    assert spec.value("dmg.phy_timing")["control_preamble_s"] == pytest.approx((6400 + 1152) / 1.76e9, abs=5e-10)
+    frame = (6400 + 1152 + (26 + 5) * 8 * 32 + 2 * 168 * 32) / 1.76e9  # the 26-octet SSW frame: 2 codewords
     assert al.ssw_frame_s() == pytest.approx(frame, rel=1e-12)
+    assert al.ssw_frame_s() == pytest.approx(14.909e-6, abs=1e-9)
     cfg = ay_60ghz("ay_sc", 14)
     cfg = dc.replace(cfg, frontend=dc.replace(cfg.frontend, array=dc.replace(cfg.frontend.array, tx_nx=16, rx_nx=16)))
     ar = Array60.from_config(cfg, Frontend60.from_config(cfg))

@@ -395,10 +395,11 @@ def main(argv=None) -> int:
           f"behind the chosen transmit beam; MCS1 / cap = the ay data link's edges at that MCS (3d, preset); positive "
           f"= the sweep reaches further.  be TXSS / TXSS-MCS0 = section 4's MLO-triggered row for {be_lab}.  The "
           f"implementation loss kept in the threshold takes {loss:g} dB off every PL.  ay [us] = transmit + receive "
-          f"sweep, one direction: every sector one SSW frame of {1e6 * al.ssw_frame_s():.3f} us (the control PHY's "
-          f"preamble, then its header and the {spec.value('dmg.ssw_frame')['ssw_frame_octets']}-octet frame at "
-          f"{spec.value('dmg.control_phy_rate_bps') / 1e6:g} Mb/s; a lower bound, a partly filled codeword's parity "
-          f"not counted), SBIFS ({1e6 * spec.value('dmg.phy_timing')['sbifs_s']:g} us) apart; be [us] = section 4's "
+          f"sweep, one direction: every sector one SSW frame of {1e6 * al.ssw_frame_s():.3f} us (a control PHY PPDU: "
+          f"its preamble, then the header and the {spec.value('dmg.ssw_frame')['ssw_frame_octets']}-octet frame in "
+          f"{len(al.control_phy_codewords(spec.value('dmg.ssw_frame')['ssw_frame_octets']))} LDPC codewords, "
+          f"dmg.control_phy_encoding), SBIFS ({1e6 * spec.value('dmg.phy_timing')['sbifs_s']:g} us) apart; "
+          f"be [us] = section 4's "
           f"sweep time for {be_lab}")
 
     # ---------------------------------------------------------------- 5. squint
