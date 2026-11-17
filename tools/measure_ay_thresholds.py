@@ -72,6 +72,35 @@ def grid_for(mcs: int, step: float, span_db: float = 8.0, waveform: str = "ay_sc
 
 #: how often a sweep that stopped above the target is run again further up
 RESTARTS = 3
+#: an interval wider than this sends the points just outside the bracket on as well
+CI_MAX_DB = 0.5
+
+
+def _run_on_neighbours(cfg, sw: dict, job: dict) -> dict:
+    """The crossing's interval can spill past the bracket onto a point that
+    stopped at a handful of packets (MCS 11 OFDM: 9.5 dB at PER 0.0097 next
+    to 10 dB at 2 errors in 200).  Run the point on each side of the
+    bracket on to ``refine_errors`` errors or ``refine_max_packets``
+    packets, on a seed of its own."""
+    import numpy as np
+
+    from mmw60.sim.link import LinkSim, _bracket
+    idx = _bracket(sw["per"], TARGET)
+    if not idx:
+        return sw
+    sim = LinkSim(cfg)
+    rng = np.random.default_rng(int(cfg.seed) + 100)
+    for i in (min(idx) - 1, max(idx) + 1):
+        if not 0 <= i < len(sw["per"]):
+            continue
+        n, err = sw["n_packets"][i], sw["n_errors"][i]
+        while n < job["refine_max_packets"] and err < job["refine_errors"]:
+            pe, _ = coding.sweep_packet(sim, sw["snr_db"][i], rng)
+            n += 1
+            err += int(pe)
+        sw["n_packets"][i], sw["n_errors"][i], sw["per"][i] = n, err, err / n
+    sw["neighbours_run_on"] = True
+    return sw
 
 
 def _one(job: dict) -> dict:
@@ -94,6 +123,10 @@ def _one(job: dict) -> dict:
         sw = per_sweep(cfg, grid, job["max_packets"], job["min_errors"], seed=cfg.seed + restarts, **kw)
     sw["restarts"] = restarts
     ci = snr_at_per_ci(sw, TARGET)
+    wide = ci and ci.get("lo_db") is not None and ci.get("hi_db") is not None
+    if wide and ci["hi_db"] - ci["lo_db"] > CI_MAX_DB:
+        sw = _run_on_neighbours(cfg, sw, job)
+        ci = snr_at_per_ci(sw, TARGET)
     return {"mcs": job["mcs"], "sweep": sw, "snr_at_target": snr_at_per(sw, TARGET), "ci": ci}
 
 
@@ -155,7 +188,8 @@ def document(tables: dict, cis: dict, step: float, max_packets: int, min_errors:
                  f"bound, up to {max_packets} packets or {min_errors} errors per point; the two points bracketing "
                  f"PER {TARGET:g} run on to {refine_errors} errors or {refine_max_packets} packets (a sweep left "
                  f"without a crossing that way is run again from two steps under its last point on a new seed, up "
-                 f"to {RESTARTS} times), log-linear interpolation; ci_db = 95 % bootstrap interval of the crossing "
+                 f"to {RESTARTS} times; an interval wider than {CI_MAX_DB:g} dB runs the points just outside the "
+                 f"bracket on as well), log-linear interpolation; ci_db = 95 % bootstrap interval of the crossing "
                  f"from the counts"),
         "note": ("本库接收机自己的 EDMG 门限（Golay 信道估计；SC 的 MMSE、OFDM 的逐音迫零；"
                  "max-log LLR、归一化 min-sum），"

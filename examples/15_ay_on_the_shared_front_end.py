@@ -35,10 +35,11 @@ standard sets for each?
    not everything-minus-one — and two direct readings: the leak left after
    dc_pre and the TX image rejection across the band;
 9. rate against range, one element, line of sight, the calibrated chain at
-   every back-off: each MCS's decoder threshold from its DMG twin's
-   sensitivity (data/spec: assumed.ay_sensitivity; spec_sources has no
-   EDMG sensitivity), the floor as a noise term, the shared front end's
-   noise figure, free space plus oxygen; per MCS the back-off that reaches
+   every back-off: each MCS's decoder threshold measured on the ideal chain
+   with the EDMG codes (data/spec/ay_per_thresholds.yaml; SC MCS 1 and
+   OFDM's DCM MCS, not coded here, from the DMG twin's sensitivity,
+   data/spec: assumed.ay_sensitivity), the floor as a noise term, the
+   shared front end's noise figure, free space plus oxygen; per MCS the back-off that reaches
    farthest while the transmitter meets its EVM limit, and the fastest rate
    each waveform keeps at each distance.  Sensitivity rows: the reference
    receiver's implementation loss kept in, the surveyed 60 GHz front end
@@ -560,8 +561,8 @@ def main(argv=None) -> int:
               f"(NF {sv_sim[wf]._rx_nf_db():.1f} dB at its AGC state, {sv_fe[wf].antenna_gain_tx_dbi:g} + "
               f"{sv_fe[wf].antenna_gain_rx_resolved_dbi:g} dBi) {sv:.2f}")
     print("the DMG-derived thresholds against this library's measured ones at the same modulation and code rate: "
-          "the EDMG SC codes (data/spec/ay_per_thresholds.yaml) and the 11be LDPC (data/spec/per_thresholds.yaml, "
-          "80 MHz; its SNR is per active subcarrier):")
+          "the EDMG codes on both waveforms (data/spec/ay_per_thresholds.yaml) and the 11be LDPC "
+          "(data/spec/per_thresholds.yaml, 80 MHz; its SNR is per active subcarrier):")
     print(f"  {'':<10} {'':<8} {'':<4} {'twin':>7} {'measured':>8} {'11be':>7}  twin - meas twin - 11be")
     for lab, wf, m, be_mcs in (("BPSK 1/2", "ay_sc", 2, None), ("QPSK 1/2", "ay_sc", 7, 1),
                                ("QPSK 1/2", "ay_ofdm", 6, 1), ("16-QAM 1/2", "ay_sc", 12, 3),

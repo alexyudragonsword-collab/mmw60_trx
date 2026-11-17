@@ -4,6 +4,16 @@
 
 ## 未发布
 
+### 里程碑 3 第三段 9d 续：编码的 EDMG OFDM 载荷与 OFDM 实测门限（2026-11-17）—— 指纹不变；OFDM 的距离与阵列表变了
+- `AyLinkSim.transmit(rng, bits=None)`：OFDM 的非 DCM 档（16-QAM / 64-QAM，MCS 11–20）也接受 `bits`，码字比特按顺序放到每个符号的数据子载波上（新 assumed `ay_ofdm_tone_order`）；不传时随机抽取与原来逐位相同。OFDM 的 DCM 档给 `bits` 报 `NotImplementedError`，比特数不对报 `ValueError`（**公开行为变化**）。
+- `ay.coding`：`ay_code`、`coded_packet`（两种波形；`sc_code`、`coded_sc_packet` 留作别名）；`payload_bits` 支持 OFDM；`threshold_config(mcs, packet_bytes=None, waveform="ay_sc")`（**公开签名加参数**）。
+- `tools/measure_ay_thresholds.py`：`--waveform ay_sc | ay_ofdm | both`，量一种时保留另一种的表；95 % 区间宽于 0.5 dB 时，交叉点两侧的点也续跑到 60 错或 3000 包。
+- `data/spec/ay_per_thresholds.yaml` 多 OFDM MCS 11–20 的门限与区间（SC 的不变）。
+- `ay.edmg.threshold_db(rule="measured")`：OFDM 有实测的档也取实测；孪生规则只剩 OFDM 的 DCM 档（MCS 1–10，配对不在 spec_sources，已请求 spec_sources#43）与 SC MCS 1。`assumed.ay_sensitivity` 的说明随之改，并更正“OFDM 高阶档很可能也一样悲观”。
+- 示例 10 §3d、示例 15 §9 的期望输出重新接受。
+- 读到的：孪生规则对 OFDM 偏乐观 {TW_RANGE} dB（SC 上偏悲观 1.35–4.34 dB）；本库的 OFDM 接收机比 SC 差 {SC_RANGE} dB（ROADMAP 一条）。
+- 上游：开了 spec_sources#43（控制 PHY 码字切分、EDMG PPDU 前导长度、DCM 配对、tone mapping）与 wifi_trx_cal#6（TX LO 泄漏校准后的残差）。
+
 ### 重新 pin spec_sources 到 `a9af261`（0.6.0，mmw60_trx#63，2026-11-17）—— 指纹与预设不变
 - vendored spec_sources 换成 `a9af261`：`deepscale.node_scale_45_to_7nm` 0.175 → 0.1746（同台表 7 nm 灵敏度一行，倍率与排名不变）；`horowitz2014.*`、`rx60.comm_iscas2015`、`antenna60.okada2013_dbi` 由 survey 改 spec；`pa60` 多 6 条原文。`spec.unverified()` 9 → 4。
 - 新 assumed `rx_nf_dsb_to_ssb_db`（3 dB）：示例 08 §2 多一行 ISCAS 2015 接收机折成单边带的 NF（原文是双边带）。
