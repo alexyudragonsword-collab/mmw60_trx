@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/cal/dpd_tracking.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/cal/dpd_tracking.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Background DPD tracking against a drifting PA (temperature/aging).
 
@@ -14,33 +14,15 @@ from __future__ import annotations
 import numpy as np
 
 from ..chain.agc import CAL_OBSERVATION_STATE
-from ..chain.loopback import LoopbackPath, run_loopback
+from ..chain.loopback import LoopbackPath
 from ..chain.rx import RxChain
 from ..chain.tx import TxChain
 from ..dpd.adaptive import AdaptiveDPD
-from ..metrics import evm
-from ..metrics.cpe import correct_cpe
 from ..pa.gmp import GMPModel
-from ..waveform.ofdm import OFDMWaveform, demodulate_ofdm
+from ..waveform.ofdm import OFDMWaveform
 from .base import CalResult
-from .sync import align_delay, compensate_delay
-
-
-def _tx_evm_now(tx: TxChain, wf: OFDMWaveform, drive_scale: float,
-                n_warmup: int = 512, n_guard: int = 64) -> float:
-    x = wf.x * drive_scale
-    xp = np.concatenate([x[-n_warmup:], x, x[:n_guard]])
-    y = tx(xp)
-    _, _, info = align_delay(xp, y, max_lag=n_guard // 2)
-    y = compensate_delay(y, info["lag_total"], n_warmup, len(x))
-    g = np.vdot(x, y) / np.vdot(x, x)
-    # score interior symbols only: the burst's final symbol is
-    # edge-contaminated once delay compensation advances its FFT window
-    # past the burst end (see cal.sequence.tx_evm)
-    syms = demodulate_ofdm(y / g / drive_scale, wf)[:-1]
-    ref = wf.tx_symbols[:-1]
-    syms = correct_cpe(syms, ref)
-    return evm(syms, ref, equalize="per_tone").db
+from .dpd_cal import pa_out_evm_db
+from .sync import loopback_capture_aligned
 
 
 def _observation_fn(tx: TxChain, rx: RxChain, path: LoopbackPath,
@@ -51,10 +33,8 @@ def _observation_fn(tx: TxChain, rx: RxChain, path: LoopbackPath,
         saved = tx.dpd
         tx.dpd = None
         try:
-            up = np.concatenate([u[-n_warmup:], u, u[:64]])
-            cap = run_loopback(tx, rx, up, path)
-            _, _, info = align_delay(up, cap, max_lag=32)
-            cap = compensate_delay(cap, info["lag_total"], n_warmup, len(u))
+            cap = loopback_capture_aligned(tx, rx, path, u,
+                                           n_warmup=n_warmup, n_guard=64)
         finally:
             tx.dpd = saved
         return cap
@@ -174,10 +154,10 @@ def track_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
             info = adpd.update(pa_fn, x)
         resid.append(info["resid_db"])
         tx.dpd = adpd.predistort
-        evm_track.append(_tx_evm_now(tx, wf, drive_scale))
+        evm_track.append(pa_out_evm_db(tx, wf, drive_scale))
         if frozen is not None:
             tx.dpd = frozen
-            evm_frozen.append(_tx_evm_now(tx, wf, drive_scale))
+            evm_frozen.append(pa_out_evm_db(tx, wf, drive_scale))
             tx.dpd = adpd.predistort
 
     # Oracle: a freshly converged DPD at the final state — the achievable
@@ -190,7 +170,7 @@ def track_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
                          forget=forget, method="rls")
     oracle.warm_start(pa_fn, x, blocks=warm_blocks)
     tx.dpd = oracle.predistort
-    evm_oracle_final = _tx_evm_now(tx, wf, drive_scale)
+    evm_oracle_final = pa_out_evm_db(tx, wf, drive_scale)
     tx.dpd = adpd.predistort
 
     rx.params.lpf.enabled = lpf_was

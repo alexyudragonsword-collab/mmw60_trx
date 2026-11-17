@@ -19,9 +19,10 @@ drive, which lands wherever the PA's gain puts it (ROADMAP C8); the last
 sensitivity section shows where that is and what it reads.
 
 ROADMAP C7: the final check's loopback read three ways per column
-(``calcheck.loopback_views``) — at 2.56 GHz wifitrx's isolation view sits
-10 dB under its modem view because of the capture alignment, not the
-chain — and the calibrated 2.56 GHz column in a link over the
+(``calcheck.loopback_views``) — until wifitrx 0.7.46 the 2.56 GHz
+isolation view sat 10 dB under its modem view because of the capture
+alignment, not the chain (wifi_trx_cal#7); the table shows the alignment
+holds now — and the calibrated 2.56 GHz column in a link over the
 conference-room stand-in (the library's own receiver, per-packet
 estimates), with the IQ mismatch scaled so its image is the calibrated
 residual the comparison table uses (derived.irr_after_cal_measured_db).
@@ -108,20 +109,22 @@ def main(argv=None) -> int:
                   f"{v['tx_evm_modem_db']:.1f}, RX alone {v['rx_evm_modem_db']:.1f} dB; RX NF {v['rx_nf_db']:.1f} dB")
         runs.append(run)
     print("\n== the final check's loopback read three ways (ROADMAP C7; dB) ==")
-    print(f"{'column':<16} {'isolation':>10} {'EQ first':>9} {'modem':>7} {'phase ramp':>11} {'coherence':>10}")
+    print(f"{'column':<16} {'isolation':>10} {'CPE first':>9} {'modem':>7} {'phase ramp':>11} {'coherence':>10}")
     for r in runs:
         v = loopback_views(r)
         if v is None:
             print(f"{r.label:<16}   (no scoring waveform)")
             continue
-        print(f"{r.label:<16} {v['isolation_db']:10.1f} {v['isolation_eq_first_db']:9.1f} {v['modem_db']:7.1f} "
+        print(f"{r.label:<16} {v['isolation_db']:10.1f} {v['isolation_cpe_first_db']:9.1f} {v['modem_db']:7.1f} "
               f"{v['phase_ramp_rad']:9.2f} rad {v['cpe_coherence']:10.2f}")
-    print("isolation = wifitrx's isolation view as it computes it (each symbol's common phase over all tones, then the "
-          "per-tone equaliser); EQ first = the same with the equaliser first; modem = wifitrx's modem view (LTF "
-          "channel estimate, pilot CPE).  phase ramp = the linear part of the loopback's channel phase across the band "
-          "(a residual delay the capture alignment leaves); coherence = |mean of e^(j phase)| over the tones: near 0 "
-          "the common-phase-first estimate is pulled by the 64-QAM amplitudes and the isolation view reads the "
-          "estimator, not the chain")
+    print("isolation = wifitrx's isolation view as it computes it (the per-tone equaliser, then each symbol's common "
+          "phase; since wifitrx 0.7.45, B46); CPE first = the order it used before (the common phase over all tones "
+          "on the raw symbols, then the equaliser); modem = wifitrx's modem view (LTF channel estimate, pilot CPE).  "
+          "phase ramp = the linear part of the loopback's channel phase across the band (a residual delay the "
+          "capture alignment leaves: none since wifitrx 0.7.46, whose delay search follows the loopback delay, "
+          "wifi_trx_cal#7; before, 6.06 rad at 2.56 GHz and the CPE-first view read -13.6 dB there); coherence = "
+          "|mean of e^(j phase)| over the tones: near 0 a common-phase-first estimate is pulled by the 64-QAM "
+          "amplitudes")
     print("\n== the calibrated column in a link over multipath (ROADMAP C7): the library's receiver, per-packet "
           "estimates, IQ mismatch scaled to the calibrated residual the comparison table uses; EVM at no noise, dB ==")
     print(f"{'cell':<22} {'IRR':>5} {'scale':>6} {'floor CR':>9} {'floor flat':>11} {'TD flat':>8} {'TD CR':>6} "

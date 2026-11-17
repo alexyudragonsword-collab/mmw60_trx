@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/link/subband_study.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/link/subband_study.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Does an impairment care where in the band a narrow signal sits?
 
@@ -10,7 +10,10 @@ impairment, because each one is localised differently in frequency:
 
 * DC offset and mixer IM2 land **on and around DC**, so a slice centred
   there eats them and a slice at the edge does not see them at all;
-* the channel low-pass rolls off at the **band edge**;
+* the channel low-pass rolls off at the **band edge** -- but it is static,
+  so per-tone equalisation removes it, and the noise enters ahead of it:
+  no measurable edge penalty (a 5.7 dB one read here until 0.7.45 was the
+  isolation reading's own bias, B46);
 * IQ imbalance folds a tone at ``+f`` onto ``-f``, so what a slice sees
   depends on what sits at its **mirror**, not at itself;
 * phase noise is common to every tone and should be flat with offset.

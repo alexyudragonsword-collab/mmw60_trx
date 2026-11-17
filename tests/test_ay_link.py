@@ -205,6 +205,12 @@ def test_law4_the_ay_chain_is_calibrated_by_running_wifitrx_sequence():
         assert e_raw > -10 and e_cal < e_raw - 10 and abs(e_cal - e_away) < 1.0, (wf, e_raw, e_cal, e_away)
     with pytest.raises(ValueError, match="rate and bandwidth"):
         LinkSim(ay_60ghz("ay_sc"), frontend=fe, chains=fe.build_chains(2.56e9, 5.12e9))
+    # wifi_trx_cal#7: the 5.28 GS/s loopback capture is aligned (until wifitrx 0.7.46 the +-32 sample search
+    # left 3.3 samples: a 6.7 rad ramp across the probe's tones, and the isolation reading was -7.63 dB)
+    from mmw60.calcheck import loopback_views
+    v = loopback_views(run)
+    assert v["phase_ramp_rad"] < 0.3 and v["cpe_coherence"] > 0.9
+    assert abs(run.evm_after_db - run.final_views["evm_modem_db"]) < 2.0
 
 
 def test_the_tx_lo_leak_null_survives_a_vga_change_through_set_gain(monkeypatch):

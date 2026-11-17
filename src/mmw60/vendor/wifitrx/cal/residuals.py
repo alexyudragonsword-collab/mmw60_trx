@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/cal/residuals.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/cal/residuals.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """What each delivered residual means, shipped inside the cal-state file.
 
@@ -233,24 +233,33 @@ RESIDUAL_SPEC: dict[str, dict[str, str]] = {
     "group_delay.error_ps": {
         "plane": "tx",
         "unit": "ps",
-        "meaning": "residual I/Q rail group-delay estimate error (the "
-                   "wideband w2 FIR absorbs the mismatch itself; this is "
-                   "what the dedicated estimator missed)",
+        "meaning": "the dedicated group-delay estimator's band-fitted rail "
+                   "delay minus the part's static gd_mismatch parameter. "
+                   "Not a residual in the signal path: the wideband w2 FIR "
+                   "absorbs the mismatch itself (rail skew measured after "
+                   "w2: 0.2-3 ps at 80 / 160 MHz and 13-14 ps at 40 MHz, "
+                   "where this number read 18-65 ps), and the number also "
+                   "carries the rail ripple's in-band delay, which the "
+                   "static parameter does not",
         "better": "smaller magnitude",
-        "role": "impairment",
-        "temp_class": "continuous",
-        "apply": "delay the I rail by |error_ps| against Q (fractional "
-                 "delay). Attributing all of it to one rail is the "
-                 "worst-case reading of an unsigned residual.",
+        "role": "figure",
+        "apply": "do not inject — the w2 correction already absorbs the "
+                 "mismatch; this verifies the estimator that drives the "
+                 "optional fractional-delay trim. Until 0.7.42 it was "
+                 "injected as an I-rail delay and over-explained the TX "
+                 "view by up to 3.9 dB (B38).",
     },
     "dpd.evm_db": {
         "plane": "tx",
         "unit": "dB",
         "meaning": "PA-output EVM after predistortion at the calibration "
                    "drive level — the in-band distortion the amplifier "
-                   "still does, plus the transmit floor. This is the "
-                   "dominant in-band term; a residual list without it "
-                   "reads 10+ dB optimistic",
+                   "still does, plus the transmit floor — in the closure "
+                   "target's isolation view (per-tone EQ + genie CPE, "
+                   "since 0.7.42; before, the TX LO phase noise's common "
+                   "phase stayed in it, B38). This is the dominant in-band "
+                   "term; a residual list without it reads 10+ dB "
+                   "optimistic",
         "better": "more negative",
         "role": "impairment",
         "temp_class": "continuous",

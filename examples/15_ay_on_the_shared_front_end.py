@@ -313,8 +313,8 @@ def main(argv=None) -> int:
     print(f"final check: isolation reading {run.evm_after_db:.2f} dB; "
           f"modem reading {v.get('evm_modem_db', np.nan):.2f} dB "
           f"(TX {v.get('tx_evm_modem_db', np.nan):.2f}, RX {v.get('rx_evm_modem_db', np.nan):.2f}); PA output "
-          f"{run.pout_dbm:.2f} dBm.  The isolation reading is the wide-band capture-alignment bias of ROADMAP D5 "
-          f"(2.56 GHz: −13.5 against −23.4 dB modem)")
+          f"{run.pout_dbm:.2f} dBm.  (Until wifitrx 0.7.46 the isolation reading here was −7.63 dB: the capture "
+          f"alignment left 3.3 samples of delay at 5.28 GS/s, wifi_trx_cal#7)")
 
     runs = {}
 

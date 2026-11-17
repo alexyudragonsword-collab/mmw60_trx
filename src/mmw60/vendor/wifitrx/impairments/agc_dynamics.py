@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/impairments/agc_dynamics.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/impairments/agc_dynamics.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """AGC settling dynamics: the gain state is not where the packet needs it
 at the packet's first sample.

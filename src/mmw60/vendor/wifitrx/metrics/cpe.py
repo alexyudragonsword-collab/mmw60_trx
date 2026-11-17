@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/metrics/cpe.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/metrics/cpe.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Per-symbol common phase error (CPE) removal for EVM measurement.
 
@@ -12,6 +12,13 @@ floor of the phase noise itself.  ``correct_cpe_pilots`` is the modem's
 form — N_p known pilots only — and carries the pilot estimator's noise
 onto every data subcarrier as a common-mode error.  The gap between the
 two is a mechanism, not a bug; the phase-noise/CPE study measures it.
+
+The genie's "negligible" holds only on a flat channel.  It weights each
+subcarrier by |X_k|^2, so where the channel phase varies across the band
+the estimate moves with the constellation amplitudes, which differ from
+symbol to symbol; a per-tone equaliser fitted over all symbols cannot
+take that back out.  ``correct_cpe_equalized`` equalises each tone first
+and is what every isolation reading uses since 0.7.45 (B46).
 """
 from __future__ import annotations
 
@@ -28,6 +35,28 @@ def correct_cpe(rx_symbols: np.ndarray, ref_symbols: np.ndarray) -> np.ndarray:
         if abs(acc) > 0:
             out[i] = rx[i] * (acc / abs(acc))
     return out
+
+
+def correct_cpe_equalized(rx_symbols: np.ndarray,
+                          ref_symbols: np.ndarray) -> np.ndarray:
+    """Per-tone LS equalisation over all symbols, then each symbol's common
+    phase against the reference.
+
+    The order matters (B46): estimating the common phase on unequalised
+    symbols weights each tone's channel phase by |X_k|^2, so a channel
+    whose phase is not flat across the band -- the RX and TX channel
+    filters' band edges, a residual delay -- makes the estimate jitter
+    with the constellation amplitudes from symbol to symbol.  On a
+    constant-modulus constellation, or a flat channel, the two orders give
+    the same answer bit for bit; with 256-QAM on 108 tones behind the
+    loopback's two filters the old order read 2.6-2.7 dB worse.
+    """
+    rx = np.asarray(rx_symbols, dtype=complex)
+    ref = np.asarray(ref_symbols, dtype=complex)
+    h = (np.sum(rx * np.conj(ref), axis=0)
+         / np.maximum(np.sum(np.abs(ref) ** 2, axis=0), 1e-300))
+    h = np.where(np.abs(h) > 0, h, 1.0)
+    return correct_cpe(rx / h, ref)
 
 
 def correct_cpe_pilots(rx_symbols: np.ndarray, pilot_cols: np.ndarray,

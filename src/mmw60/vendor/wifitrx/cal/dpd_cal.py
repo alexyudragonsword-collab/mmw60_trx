@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/cal/dpd_cal.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/cal/dpd_cal.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """DPD calibration through the TX -> loopback -> RX observation path.
 
@@ -30,15 +30,16 @@ from __future__ import annotations
 import numpy as np
 
 from ..chain.agc import CAL_OBSERVATION_STATE
-from ..chain.loopback import LoopbackPath, run_loopback
+from ..chain.loopback import LoopbackPath
 from ..chain.rx import RxChain
 from ..chain.tx import TxChain
 from ..metrics import aclr, evm
+from ..metrics.cpe import correct_cpe_equalized
 from ..pa.gmp import GMPModel
 from ..dpd.bounded import BoundedDPD
 from ..waveform.ofdm import OFDMWaveform, demodulate_ofdm
 from .base import CalResult
-from .sync import align_delay, compensate_delay
+from .sync import align_delay, compensate_delay, loopback_capture_aligned
 
 
 def _capture(tx: TxChain, rx: RxChain, path: LoopbackPath,
@@ -46,11 +47,42 @@ def _capture(tx: TxChain, rx: RxChain, path: LoopbackPath,
              n_guard: int = 64) -> np.ndarray:
     """Delay-aligned loopback capture with a cyclic warm-up prefix that
     settles the IIR baseband filters and a cyclic guard tail that keeps
-    delay compensation inside the frame (not gain-normalized)."""
+    delay compensation inside the frame (not gain-normalized); the delay
+    search widens itself when needed (``sync.loopback_capture_aligned``)."""
+    return loopback_capture_aligned(tx, rx, path, x, n_warmup=n_warmup,
+                                    n_guard=n_guard)
+
+
+def pa_out_evm_db(tx: TxChain, wf: OFDMWaveform, drive_scale: float,
+                  n_warmup: int = 512, n_guard: int = 64) -> float:
+    """PA-output EVM of ``wf`` at ``drive_scale``, in the isolation view
+    the closure target uses (``sequence.tx_snapshot``): a cyclic warm-up
+    settles the TX filters, the capture is delay-aligned, the edge
+    symbol is dropped, and each symbol's common phase is removed against
+    the reference (genie CPE) before the per-tone equaliser scores it.
+
+    The DPD step's ``evm_db`` and the temperature study's re-read of it
+    are measured here, and so is the RLS tracker's.  Until 0.7.42 the
+    step scored the raw PA output with the per-tone equaliser alone, so
+    its number kept the TX LO phase noise's per-symbol common phase that
+    the closure target removes: on 2.5 MHz subcarriers (0.4 us symbols)
+    that read -42.3 dB where the same chain measured -45.9 at the final
+    step, and the replay's TX view over-explained by +4.6 dB (B38).
+    With the LO noise off the two conventions agree within 0.12 dB.
+    """
+    x = wf.x * drive_scale
     xp = np.concatenate([x[-n_warmup:], x, x[:n_guard]])
-    cap = run_loopback(tx, rx, xp, path)
-    _, _, info = align_delay(xp, cap, max_lag=n_guard // 2)
-    return compensate_delay(cap, info["lag_total"], n_warmup, len(x))
+    y = tx(xp)
+    _, _, info = align_delay(xp, y, max_lag=n_guard // 2)
+    y = compensate_delay(y, info["lag_total"], n_warmup, len(x))
+    g = np.vdot(x, y) / np.vdot(x, x)
+    # score interior symbols only: the burst's final symbol is
+    # edge-contaminated once delay compensation advances its FFT window
+    # past the burst end (see cal.sequence.tx_evm)
+    syms = demodulate_ofdm(y / g / drive_scale, wf)[:-1]
+    ref = wf.tx_symbols[:-1]
+    syms = correct_cpe_equalized(syms, ref)       # as score_views (B46)
+    return float(evm(syms, ref, equalize="per_tone").db)
 
 
 def calibrate_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
@@ -84,14 +116,15 @@ def calibrate_dpd(tx: TxChain, rx: RxChain, wf: OFDMWaveform,
 
     def pa_out_metrics() -> dict:
         y = tx(x)
-        g = np.vdot(x, y) / np.vdot(x, x)
-        res = evm(demodulate_ofdm(y / g, wf), wf.tx_symbols, equalize="per_tone")
         if fs >= 3.0 * bw:
             ac = aclr(y, fs, bw)
             ac_worst = max(ac["lower_dbc"], ac["upper_dbc"])
         else:
             ac_worst = float("nan")  # adjacent channel outside Nyquist
-        return {"evm_db": res.db, "aclr_worst_dbc": ac_worst}
+        # in the closure target's convention (B38): this number is the
+        # in-band term the replay injects
+        return {"evm_db": pa_out_evm_db(tx, wf, drive_scale),
+                "aclr_worst_dbc": ac_worst}
 
     def observed_evm_db(cap: np.ndarray) -> float:
         # the same per-tone isolation EVM, read through the observation

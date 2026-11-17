@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/link/sensitivity.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/link/sensitivity.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """RX sensitivity: behavioral model vs analytic budget, cross-checked.
 
@@ -26,7 +26,7 @@ import numpy as np
 
 from ..cal.sync import _fractional_advance, align_delay
 from ..chain.rx import RxChain
-from ..metrics.cpe import correct_cpe
+from ..metrics.cpe import correct_cpe_equalized
 from ..metrics.evm import evm
 from ..units import power_dbm
 from ..waveform.ofdm import OFDMConfig, demodulate_ofdm, generate_ofdm
@@ -56,7 +56,8 @@ def measured_rx_evm_db(rx: RxChain, cfg: OFDMConfig, p_in_dbm: float,
     d = info["lag_total"]
     start = _WARMUP + int(round(d))
     y = _fractional_advance(y_full[start:start + x.size], d - round(d))
-    syms = correct_cpe(demodulate_ofdm(y, wf), wf.tx_symbols)
+    # equalise per tone before the genie CPE, as the isolation views (B46)
+    syms = correct_cpe_equalized(demodulate_ofdm(y, wf), wf.tx_symbols)
     return evm(syms, wf.tx_symbols, equalize="per_tone").db
 
 

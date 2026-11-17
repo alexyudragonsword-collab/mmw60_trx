@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/cal/rx_figures.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/cal/rx_figures.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Measured receive-side deliverable figures: NF and post-tracking phase error.
 
@@ -30,7 +30,19 @@ would:
 Both are read at the AGC state the stated input level lands on, because
 the receive figures of this part are properties of a gain state, not of
 the die.
+
+Every capture here starts settled, as ``rx_snapshot`` does: the stimulus
+runs ``n_warmup`` samples before the scored window and those output
+samples are dropped.  Until 0.7.43 they started cold, and the RX
+filters' start-up transient landed in the scored window -- in the first
+of the phase-error figure's 64 symbol blocks (-23 dBc there, ~-48 in the
+rest), so the shorter the symbol, the larger its share: at 2.5 MHz
+spacing (320-sample symbols) the figure read 11-14 dB high and the
+replay's receive view over-explained by +2.8 dB (B45).  The IM3 reading
+carried the same transient as spectral leakage, 0.5-1.1 dB high; the NF
+reading did not move.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -41,8 +53,17 @@ from ..waveform.ofdm import OFDMConfig
 KT_DBM_HZ = -173.975
 
 
+def _tones(rx, freqs, amps, n: int, n_warmup: int) -> np.ndarray:
+    """Tones over ``n_warmup + n`` samples, time zero at the first scored
+    sample: dropping the first ``n_warmup`` output samples leaves exactly
+    the stimulus a cold capture of length ``n`` would have scored."""
+    t = (np.arange(n_warmup + n) - n_warmup) / rx.fs
+    return sum(a * np.exp(2j * np.pi * f * t) for f, a in zip(freqs, amps))
+
+
 def measure_rx_nf_db(rx, cfg: OFDMConfig, p_in_dbm: float,
-                     n: int = 16384, seed: int = 0) -> float:
+                     n: int = 16384, seed: int = 0,
+                     n_warmup: int = 512) -> float:
     """Idle-channel effective NF at the state ``p_in_dbm`` lands on.
 
     Gain comes from a correlation estimate on a modest tone (robust to
@@ -54,25 +75,26 @@ def measure_rx_nf_db(rx, cfg: OFDMConfig, p_in_dbm: float,
     measured noise-to-signal ratio.
     """
     rx.agc(p_in_dbm)
-    fs = rx.fs
-    t = np.arange(n) / fs
+    w = int(n_warmup)
     # a tone at the stated level, mid-band so filter droop is negligible
     f0 = cfg.bandwidth_hz / 8.0
     amp = 10.0 ** ((p_in_dbm - 30.0) / 20.0) * np.sqrt(1000.0)
-    x = amp * np.exp(2j * np.pi * f0 * t)
-    y = rx(x, rng=np.random.default_rng(seed))
+    x = _tones(rx, [f0], [amp], n, w)
+    y = rx(x, rng=np.random.default_rng(seed))[w:]
+    x = x[w:]
     g = np.vdot(x, y) / np.vdot(x, x)
     gain_db = 20.0 * np.log10(abs(g))
 
-    quiet = rx(np.zeros(n, dtype=complex),
-               rng=np.random.default_rng(seed + 1))
+    quiet = rx(np.zeros(w + n, dtype=complex),
+               rng=np.random.default_rng(seed + 1))[w:]
     floor_in_dbm = power_dbm(quiet) - gain_db
     return float(floor_in_dbm
                  - (KT_DBM_HZ + 10.0 * np.log10(cfg.bandwidth_hz)))
 
 
 def measure_rx_phase_err_dbc(rx, cfg: OFDMConfig, p_in_dbm: float,
-                             nf_db: float, seed: int = 0) -> float:
+                             nf_db: float, seed: int = 0,
+                             n_warmup: int = 512) -> float:
     """Integrated post-tracking phase error at the same state, in dBc.
 
     The tracking window is one OFDM symbol at the capture rate — mean
@@ -86,12 +108,12 @@ def measure_rx_phase_err_dbc(rx, cfg: OFDMConfig, p_in_dbm: float,
     n_symbol = (cfg.fft_size + cfg.cp_len) * cfg.oversampling
     n = 64 * n_symbol
     rx.agc(p_in_dbm)
-    fs = rx.fs
-    t = np.arange(n) / fs
+    w = int(n_warmup)
     f0 = cfg.bandwidth_hz / 8.0
     amp = 10.0 ** ((p_in_dbm - 30.0) / 20.0) * np.sqrt(1000.0)
-    x = amp * np.exp(2j * np.pi * f0 * t)
-    y = rx(x, rng=np.random.default_rng(seed + 2))
+    x = _tones(rx, [f0], [amp], n, w)
+    y = rx(x, rng=np.random.default_rng(seed + 2))[w:]
+    x = x[w:]
 
     phi = np.unwrap(np.angle(y * np.conj(x)))
     blocks = phi[: (n // n_symbol) * n_symbol].reshape(-1, n_symbol)
@@ -113,7 +135,7 @@ def measure_rx_phase_err_dbc(rx, cfg: OFDMConfig, p_in_dbm: float,
 
 
 def measure_rx_im3_dbc(rx, cfg: OFDMConfig, p_in_dbm: float,
-                       seed: int = 0) -> float:
+                       seed: int = 0, n_warmup: int = 512) -> float:
     """Two-tone IM3 at the same state and level, in dBc per tone.
 
     The receive view's in-band distortion — the term whose absence the
@@ -125,15 +147,14 @@ def measure_rx_im3_dbc(rx, cfg: OFDMConfig, p_in_dbm: float,
     """
     n = 32768
     rx.agc(p_in_dbm)
-    fs = rx.fs
-    t = np.arange(n) / fs
+    w = int(n_warmup)
     # tone spacing chosen so both IM3 products land in-band on FFT bins
-    df = fs / n
+    df = rx.fs / n
     f1 = round(cfg.bandwidth_hz / 8.0 / df) * df
     f2 = round((cfg.bandwidth_hz / 8.0 + cfg.bandwidth_hz / 32.0) / df) * df
     amp = 10.0 ** ((p_in_dbm - 30.0) / 20.0) * np.sqrt(1000.0 / 2.0)
-    x = amp * (np.exp(2j * np.pi * f1 * t) + np.exp(2j * np.pi * f2 * t))
-    y = rx(x, rng=np.random.default_rng(seed + 3))
+    x = _tones(rx, [f1, f2], [amp, amp], n, w)
+    y = rx(x, rng=np.random.default_rng(seed + 3))[w:]
     spec = np.abs(np.fft.fft(y)) ** 2
 
     def bin_power(f_hz: float) -> float:
