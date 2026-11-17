@@ -36,10 +36,10 @@ standard sets for each?
    dc_pre and the TX image rejection across the band;
 9. rate against range, one element, line of sight, the calibrated chain at
    every back-off: each MCS's decoder threshold measured on the ideal chain
-   with the EDMG codes (data/spec/ay_per_thresholds.yaml; OFDM's DCM MCS
-   through spec_sources#43's pairing; SC MCS 1, not coded here, from the DMG
-   twin's sensitivity, data/spec: assumed.ay_sensitivity), the floor as a
-   noise term, the
+   with the EDMG codes (data/spec/ay_per_thresholds.yaml; SC MCS 1's
+   repetition and OFDM's DCM through spec_sources#43; the DMG twin's
+   sensitivity, data/spec: assumed.ay_sensitivity, is a sensitivity row),
+   the floor as a noise term, the
    shared front end's noise figure, free space plus oxygen; per MCS the back-off that reaches
    farthest while the transmitter meets its EVM limit, and the fastest rate
    each waveform keeps at each distance.  Sensitivity rows: the reference
@@ -494,9 +494,9 @@ def main(argv=None) -> int:
     print("\n== 9. rate against range: one element, line of sight, the calibrated chain at every back-off; the "
           "decoder thresholds measured on the ideal chain with spec_sources#33's codes "
           "(data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; OFDM's bits on the data tones in "
-          f"order, {tag('assumed.ay_ofdm_tone_order')}; the DCM MCS through spec_sources#43's static pairing); "
-          f"SC MCS 1 (repetition 2) is not coded here and takes the DMG twin's ({tag('assumed.ay_sensitivity')}: "
-          "its sensitivity, reference NF and implementation loss taken out); the floor as a noise term ==")
+          f"order, {tag('assumed.ay_ofdm_tone_order')}; the DCM MCS through spec_sources#43's static pairing, SC "
+          "MCS 1 through its rho = 2 codeword); the DMG twin's sensitivity "
+          f"({tag('assumed.ay_sensitivity')}) is a sensitivity row; the floor as a noise term ==")
     orders = {"ay_sc": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_sc")},
               "ay_ofdm": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_ofdm")}}
     for wf, by_order in orders.items():
@@ -538,7 +538,7 @@ def main(argv=None) -> int:
           f"{rx_sim['ay_sc']._rx_nf_db():.1f} dB at the sensitivity's AGC state, not a 60 GHz figure — ROADMAP C9; "
           f"oxygen {al.oxygen_db_per_km():g} dB/km; '—' at the preset = the floor misses the TX EVM limit there; "
           f"* = the grid's smallest back-off ({obos8[0]:g} dB), the best may lie below it; "
-          f"src = m measured / t the DMG twin's; OFDM MCS without a DMG twin are not listed)")
+          f"src = m measured / t the DMG twin's)")
     dists = (1.0, 1.5, 2.0, 3.0, 5.0, 8.0)
     print("\nthe fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at its best back-off):")
     print(f"{'m':>5} " + " ".join(f"{wf:>16}" for wf in orders))
@@ -561,7 +561,7 @@ def main(argv=None) -> int:
         tw = ranges_at(wf, i0, rule="twin")[m]["range_m"]
         sv = ranges_at(wf, i0, sim=sv_sim[wf], gains=(sv_fe[wf].antenna_gain_tx_dbi,
                                                       sv_fe[wf].antenna_gain_rx_resolved_dbi))[m]["range_m"]
-        twin_txt = f"the DMG twin's threshold (as SC MCS 1's) {tw:.2f}; "
+        twin_txt = f"the DMG twin's threshold (rule twin) {tw:.2f}; "
         print(f"  {wf:<8} MCS{m}: preset {base_r:.2f}; {twin_txt}the twin's with its implementation loss kept in "
               f"{il:.2f}; surveyed 60 GHz front end "
               f"(NF {sv_sim[wf]._rx_nf_db():.1f} dB at its AGC state, {sv_fe[wf].antenna_gain_tx_dbi:g} + "

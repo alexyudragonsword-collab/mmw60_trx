@@ -260,9 +260,9 @@ back-off 15 dB:
   direct (DAC off): TX LO leak left after dc_pre -61.5 dBc (without dc_pre -16.4); TX image rejection at 0.5, 0.86, 1, 1.1 GHz: 43.8, 41.9, 43.3, 28.3 dB (uncorrected 13.0, 7.7, 6.1, 5.1; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)
 isolation: one residual at a time, read directly (contributions do not add up as powers in general; the power sum is a check, not a decomposition).  The leak left after dc_pre (wifitrx 0.7.41: the step reads its offset on the FFT grid, B42, and the link's VGA re-trim keeps the null, B43) is read with the DAC off: through the 9-bit DAC a zero input rounds dc_pre away.  The sequence's dc_pre and one solved to cancel the leak exactly read alike on the whole chain, with and without the CFO; what SC still loses over 'calibrated away' is the IQ residual.  OFDM puts the leak on its three empty DC tones
 
-== 9. rate against range: one element, line of sight, the calibrated chain at every back-off; the decoder thresholds measured on the ideal chain with spec_sources#33's codes (data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; OFDM's bits on the data tones in order, assumed.ay_ofdm_tone_order [assumed]; the DCM MCS through spec_sources#43's static pairing); SC MCS 1 (repetition 2) is not coded here and takes the DMG twin's (assumed.ay_sensitivity [assumed]: its sensitivity, reference NF and implementation loss taken out); the floor as a noise term ==
+== 9. rate against range: one element, line of sight, the calibrated chain at every back-off; the decoder thresholds measured on the ideal chain with spec_sources#33's codes (data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; OFDM's bits on the data tones in order, assumed.ay_ofdm_tone_order [assumed]; the DCM MCS through spec_sources#43's static pairing, SC MCS 1 through its rho = 2 codeword); the DMG twin's sensitivity (assumed.ay_sensitivity [assumed]) is a sensitivity row; the floor as a noise term ==
 wf       MCS  modulation    rate   Gb/s  DMG  T[dB] src  @preset m   best m back-off   Pout  floor
-ay_sc      1  π/2-BPSK       1/2  0.385    1  -1.48   t       8.30    17.19     1.0*   13.6 -17.22
+ay_sc      1  π/2-BPSK       1/2  0.385    1  -1.23   m       8.07    16.70     1.0*   13.6 -17.22
 ay_sc      2  π/2-BPSK       1/2  0.770    2   0.12   m       6.92    14.32     1.0*   13.6 -17.22
 ay_sc      3  π/2-BPSK       5/8  0.963    3   1.46   m       5.94    12.27     1.0*   13.6 -17.22
 ay_sc      4  π/2-BPSK       3/4  1.155    4   2.81   m       5.09    10.49     1.0*   13.6 -17.22
@@ -303,7 +303,7 @@ ay_ofdm   17  64-QAM         5/8  5.471   22  16.23   m          —     0.84   
 ay_ofdm   18  64-QAM         3/4  6.565   23  18.44   m          —     0.58     9.0     5.6 -23.30
 ay_ofdm   19  64-QAM       13/16  7.112   24  19.83   m          —     0.43    10.5     4.1 -25.19
 ay_ofdm   20  64-QAM         7/8  7.659    —  20.81   m          —     0.30    13.0     1.6 -27.06
-(EIRP = Pout + 0 dBi, receive 0 dBi, the preset receive ladder: NF 3.5 dB at the sensitivity's AGC state, not a 60 GHz figure — ROADMAP C9; oxygen 15 dB/km; '—' at the preset = the floor misses the TX EVM limit there; * = the grid's smallest back-off (1 dB), the best may lie below it; src = m measured / t the DMG twin's; OFDM MCS without a DMG twin are not listed)
+(EIRP = Pout + 0 dBi, receive 0 dBi, the preset receive ladder: NF 3.5 dB at the sensitivity's AGC state, not a 60 GHz figure — ROADMAP C9; oxygen 15 dB/km; '—' at the preset = the floor misses the TX EVM limit there; * = the grid's smallest back-off (1 dB), the best may lie below it; src = m measured / t the DMG twin's)
 
 the fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at its best back-off):
     m            ay_sc          ay_ofdm
@@ -315,8 +315,8 @@ the fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at it
   8.0     1.925 (MCS8)     1.094 (MCS3)
 
 sensitivity rows, at the preset back-off, for the comparison table's calibrated caps (SC MCS14, OFDM MCS13; metres):
-  ay_sc    MCS14: preset 1.70; the DMG twin's threshold (as SC MCS 1's) 1.44; the twin's with its implementation loss kept in 0.74; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.99
-  ay_ofdm  MCS13: preset 1.44; the DMG twin's threshold (as SC MCS 1's) 1.55; the twin's with its implementation loss kept in 0.70; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.69
+  ay_sc    MCS14: preset 1.70; the DMG twin's threshold (rule twin) 1.44; the twin's with its implementation loss kept in 0.74; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.99
+  ay_ofdm  MCS13: preset 1.44; the DMG twin's threshold (rule twin) 1.55; the twin's with its implementation loss kept in 0.70; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.69
 the DMG-derived thresholds against this library's measured ones at the same modulation and code rate: the EDMG codes on both waveforms (data/spec/ay_per_thresholds.yaml) and the 11be LDPC (data/spec/per_thresholds.yaml, 80 MHz; its SNR is per active subcarrier):
                               twin measured    11be  twin - meas twin - 11be
   BPSK 1/2     ay_sc    MCS2    0.52     0.12       —     +0.40            —

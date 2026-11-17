@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### 重新 pin spec_sources 到 `25b2c5e`；SC MCS 1 的重复编码与实测门限（spec_sources#43，2026-11-17）—— 指纹不变；SC MCS 1 的距离变了
+- vendored spec_sources 换成 `25b2c5e`：只有 `ieee80211` 的 `dmg.data_encoding` 变了（rho = 2 的说明按原文更正，新字段 `sc_rho2_codeword`、`sc_rho2_pn`）。
+- `ay.coding.RepetitionCode`、`rho2_code`（新，`__all__`）：SC MCS 1 的 rho = 2 码字 (数据 168, 数据 ⊕ PN 168, 校验 336)，PN 是扰码 LFSR 从全 1 起；接收端两份 LLR 相加、补的零已知。`ay_code` / `threshold_config` 对重复 2 的档用它（**行为变化**：以前报 `NotImplementedError`）。
+- `data/spec/ay_per_thresholds.yaml` 多 SC MCS 1：−1.23 dB（[−1.31, −1.12]）；两种波形每档都是实测，孪生规则只留作 `rule="twin"` 的读法。`assumed.ay_sensitivity` 的说明随之改。
+- 示例 10 §3d / §4d、示例 15 §9 重跑：只有 SC MCS 1 的数动了——单元件最佳距离 17.19 → 16.70 m，阵列表 SC MCS1 的距离短 1–3 %（N = 16 自己的工作点 406 → 399 m），扇区扫描对 SC MCS1 的边近 0.25–0.3 dB（N = 4 / 16 / 64：+4.6 / −2.0 / −7.7 dB）；标题与图例改成“每档实测”。数值指纹逐位不变，vendor 250 个文件全部逐字一致。
+
 ### 重新 pin wifitrx 到 `681ce4b`（0.7.41，wifi_trx_cal#6，2026-11-17）—— 指纹不变；校准读数与依赖它们的示例数字变了
 - vendored wifitrx 换成 `681ce4b`：`cal/tx_lo_leak`（RX-LO 偏置放到 FFT 网格上，B42）、`chain/tx`（新 `TxChain.set_gain`，按增益变化反缩 `dc_pre`，B43）、`cal/tx_power`（改增益码走 `set_gain`）、`__init__`。250 个 vendor 文件 verbatim。
 - `Frontend60.set_vga_for_obo`（链路建好后为回退修 VGA）改走 `tx.set_gain`：校准后的 LO 泄漏零点不再被破坏（**行为变化**）。`calcheck` 的两处修 VGA 也改走它（在序列之前，`dc_pre = 0`，逐位不变）。

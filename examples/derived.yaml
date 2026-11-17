@@ -360,7 +360,7 @@
 - name: ex15 rate against range — how much output power the SC low-order MCS gain over the preset, and the 16-QAM range-best back-off
   values:
     preset: {example: "15", line: "one front end for both: PA Psat {*} dBm at {} dB from psat"}
-    edge: {example: "15", after: "== 9. rate against range", line: "ay_sc 1 π/2-BPSK 1/2 {*} {*} {*} t {*} {*} {}*"}
+    edge: {example: "15", after: "== 9. rate against range", line: "ay_sc 1 π/2-BPSK 1/2 {*} {*} {*} m {*} {*} {}*"}
     sc14: {example: "15", after: "== 9. rate against range", line: "ay_sc 14 π/2-16-QAM 3/4 {*} {*} {*} m {*} {*} {}"}
     of13: {example: "15", after: "== 9. rate against range", line: "ay_ofdm 13 16-QAM 3/4 {*} {*} {*} m {*} {*} {}"}
   quotes:
