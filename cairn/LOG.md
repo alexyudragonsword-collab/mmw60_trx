@@ -3,6 +3,12 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-17 · mmw60_trx#63 验收并关闭（docs/close-63）
+
+- spec_sources PR #42（main `30a4db1`）把 `consumers.yaml` 里本库的登记改为 pin `a9af261`、at `bd0b125`、issue `mmw60_trx#63`、9 个文件；本库核对一致。对方复核：9 个文件逐字节相同，指纹 69 个值逐位相同，合并表 193 → 202，未核实 9 → 4。
+- **更正**：#63 回帖与上一条 LOG 写“合并表 193 → 200”“2 条 assumed 是 pin 之后另加的”。两条 assumed 在 pin 的提交 `1a70205` 里就有；数是 vendor +7、本地 +2，main 上 202。`cairn/spec-sources.md` 已改。
+- 两条新 assumed 只记 3 dB 和行号 `"[5]"`，不抄 spec_sources 的数，不用登记；对方把两件事的定法记进了它的 ROADMAP 与 CHANGELOG。
+
 ## 2026-11-17 · 重新 pin spec_sources 到 a9af261（0.6.0，mmw60_trx#63；feat/spec-pin-a9af261）
 
 - 9 个文件里 4 个内容变了；`vendor_check --strict` 250 verbatim。合并表 193 → 200，`unverified()` 9 → 4（只剩本库自己的 4 条 `survey.*`）。
