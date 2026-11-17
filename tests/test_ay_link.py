@@ -477,13 +477,12 @@ def test_the_coded_sc_path_with_an_80211_code_standing_in():
     assert clean["codewords"] == 5 and not clean["packet_error"] and clean["bit_errors"] == 0
     assert coding.per(sim, ref, -3.0, 6, np.random.default_rng(1)) == 1.0
     assert coding.per(sim, ref, 6.0, 6, np.random.default_rng(1)) == 0.0
-    # the transmitter carries exactly the bits handed in; OFDM's DCM payload is not built
+    # the transmitter carries exactly the bits handed in, DCM included
     with pytest.raises(ValueError, match="carries"):
         sim.transmit(np.random.default_rng(0), bits=np.zeros(10, dtype=np.uint8))
-    with pytest.raises(ValueError, match="carries"):
-        LinkSim(_ideal("ay_ofdm", 13, model="behavioural")).transmit(np.random.default_rng(0), bits=np.zeros(8))
-    with pytest.raises(NotImplementedError, match="DCM"):
-        LinkSim(_ideal("ay_ofdm", 6, model="behavioural")).transmit(np.random.default_rng(0), bits=np.zeros(8))
+    for m in (13, 6):
+        with pytest.raises(ValueError, match="carries"):
+            LinkSim(_ideal("ay_ofdm", m, model="behavioural")).transmit(np.random.default_rng(0), bits=np.zeros(8))
 
 
 def test_the_dmg_and_edmg_codes_are_spec_sources_matrices_and_agree_with_each_other():
@@ -532,17 +531,17 @@ def test_the_dmg_and_edmg_codes_are_spec_sources_matrices_and_agree_with_each_ot
 def test_the_measured_edmg_thresholds_are_tagged_complete_and_rise_with_the_code_rate():
     """data/spec/ay_per_thresholds.yaml (tools/measure_ay_thresholds.py):
     every coded MCS measured with spec_sources#33's codes — SC at
-    repetition 1, OFDM's 16-QAM / 64-QAM (the DCM pairing is not in
-    spec_sources) — above the Shannon bound of its bits per chip or tone,
+    repetition 1, every OFDM MCS (DCM through the static pairing,
+    spec_sources#43) — above the Shannon bound of its bits per chip or tone,
     rising with the code rate within a modulation; the preset rule takes
-    them and the DMG twin's for the rest (SC MCS 1, OFDM's DCM MCS)."""
+    them and the DMG twin's for the rest (SC MCS 1)."""
     doc = spec.ay_per_threshold_document()
     assert doc["source"] == "derived" and "measure_ay_thresholds.py" in doc["cite"] and doc["note"]
     assert doc["packet_bytes"] == 4096 and doc["target_per"] == 1e-2
     assert set(doc["thresholds_db"]) == {"ay_sc", "ay_ofdm"}
     for wf in ("ay_sc", "ay_ofdm"):
         t, ci = doc["thresholds_db"][wf], doc["ci_db"][wf]
-        coded = [e for e in edmg.mcs_table(wf) if e.repetition == 1 and not e.modulation.startswith("DCM")]
+        coded = [e for e in edmg.mcs_table(wf) if e.repetition == 1]
         assert set(t) == {e.mcs for e in coded} and all(t[e.mcs] is not None for e in coded), wf
         for e in coded:
             eta = float(e.code_rate) * np.log2(e.order)
@@ -552,10 +551,11 @@ def test_the_measured_edmg_thresholds_are_tagged_complete_and_rise_with_the_code
             row = [t[e.mcs] for e in coded if e.order == order]
             assert row == sorted(row), (wf, order)
     t = doc["thresholds_db"]["ay_sc"]
-    assert spec.ay_per_threshold_db("ay_sc", 1) is None and spec.ay_per_threshold_db("ay_ofdm", 6) is None
+    assert spec.ay_per_threshold_db("ay_sc", 1) is None
     assert edmg.threshold_db("ay_sc", 14, 1.76e9) == (t[14], "measured")
     assert edmg.threshold_db("ay_sc", 14, 1.76e9, rule="twin") == (edmg.ideal_threshold_db("ay_sc", 14, 1.76e9), "twin")
-    assert edmg.threshold_db("ay_sc", 1, 1.76e9)[1] == "twin" and edmg.threshold_db("ay_ofdm", 6, 1.8e9)[1] == "twin"
+    assert edmg.threshold_db("ay_sc", 1, 1.76e9)[1] == "twin"
+    assert edmg.threshold_db("ay_ofdm", 6, 1.8e9) == (doc["thresholds_db"]["ay_ofdm"][6], "measured")
     assert edmg.threshold_db("ay_ofdm", 13, 1.8e9) == (doc["thresholds_db"]["ay_ofdm"][13], "measured")
     assert edmg.threshold_db("ay_sc", 17, 1.76e9) == (t[17], "measured")      # no DMG twin: measured only
     assert edmg.threshold_db("ay_sc", 17, 1.76e9, rule="twin") == (None, None)
@@ -578,9 +578,9 @@ def test_one_measured_edmg_sc_threshold_reproduces_from_the_code():
 def test_the_coded_ofdm_path_puts_the_codewords_on_the_data_tones_in_order():
     """ay.coding on OFDM (assumed.ay_ofdm_tone_order): the 16-QAM / 64-QAM MCS
     carry whole 672-bit codewords on the data tones of every symbol in
-    order; the DCM MCS are refused (their pairing is not in spec_sources).
-    Clean packets decode; −3 dB loses them all; the bits the receiver
-    equalises are the bits sent, tone for tone."""
+    order, the DCM MCS through ay.dcm.  Clean packets decode; −3 dB loses
+    them all; the bits the receiver equalises are the bits sent, tone for
+    tone."""
     from mmw60.ay import coding
     from mmw60.phy.mapper import map_bits
     sim = LinkSim(_ideal("ay_ofdm", 13, model="behavioural", units=6))      # 16-QAM 3/4
@@ -595,11 +595,59 @@ def test_the_coded_ofdm_path_puts_the_codewords_on_the_data_tones_in_order():
     assert clean["codewords"] == coding.payload_bits(sim) // 672 and not clean["packet_error"]
     assert coding.per(sim, code, -3.0, 4, np.random.default_rng(3)) == 1.0
     assert coding.per(sim, code, 30.0, 4, np.random.default_rng(3)) == 0.0
-    for m in (1, 6, 10):
-        with pytest.raises(NotImplementedError, match="DCM"):
-            coding.ay_code(LinkSim(_ideal("ay_ofdm", m, model="behavioural")))
+    from mmw60.ay import dcm
+    for m, nb in ((1, 1), (6, 2), (10, 2)):                                   # DCM BPSK 1/2, DCM QPSK 1/2, 7/8
+        sd = LinkSim(_ideal("ay_ofdm", m, model="behavioural", units=4))
+        assert coding.payload_bits(sd) == 4 * n_data * nb
+        b = rng.integers(0, 2, coding.payload_bits(sd)).astype(np.uint8)
+        r, _ = sd.transmit(np.random.default_rng(1), bits=b)
+        assert np.allclose(r.symbols, dcm.map_bits(b, nb, n_data))
+        clean = coding.coded_packet(sd, coding.ay_code(sd), None, np.random.default_rng(2))
+        assert clean["codewords"] >= 1 and not clean["packet_error"], m
     # the thresholds' chain holds a 4096-byte PSDU in whole codewords, no more OFDM symbols than needed
     cfg = coding.threshold_config(16, waveform="ay_ofdm")
     s16 = LinkSim(cfg)
     need = coding.codewords_for(4096, coding.ay_code(s16)) * 672
     assert coding.payload_bits(s16) >= need > coding.payload_bits(s16) - n_data * 6
+
+
+def test_the_dcm_mapping_is_edmg_ofdm_modulation_mappings_and_its_demapper_uses_both_tones():
+    """ay.dcm (edmg.ofdm_modulation_mapping, spec_sources#43): DCM BPSK puts
+    (x0 + j x1)/sqrt(2) on data tone k and (x0 - j x1)/sqrt(2) on P(k) =
+    k + N_SD/2; DCM QPSK puts (x0 + 2 x1)/sqrt(5) and (-2 x0 + x1)/sqrt(5),
+    x0 / x1 the QPSK points of bits (c0, c2) / (c1, c3).  Unit power, the tone
+    constellations QPSK and 16-QAM (the MCS table's tone_order).  The joint
+    demapper recovers every bit from either tone of a pair: with one tone
+    of every pair erased (weight 0, buried in noise) the hard decisions
+    still match — the frequency diversity DCM is for."""
+    from mmw60.ay import dcm
+    from mmw60.phy.mapper import constellation
+    assert "P(k) = k + N_SD/2" in spec.value("edmg.ofdm_modulation_mapping")["stp"]
+    k, pk = dcm.pairs(336)
+    assert np.array_equal(k, np.arange(168)) and np.array_equal(pk, np.arange(168, 336))
+    rng = np.random.default_rng(7)
+    for nb, tone_order in ((1, 4), (2, 16)):
+        b = rng.integers(0, 2, 3 * 336 * nb)
+        x = dcm.map_bits(b, nb, 336)
+        assert x.shape == (3, 336) and np.mean(np.abs(x) ** 2) == pytest.approx(1.0)
+        pts, _ = constellation(tone_order)
+        assert set(np.round(np.unique(np.round(x, 9)), 9)) <= set(np.round(pts, 9))
+        c = b.reshape(3 * 168, 2 * nb)
+        dk, dp = x[:, k].reshape(-1), x[:, pk].reshape(-1)
+        s = 2 * c - 1
+        if nb == 1:
+            assert np.allclose(dk, (s[:, 0] + 1j * s[:, 1]) / np.sqrt(2)) and np.allclose(dp, np.conj(dk))
+        else:
+            x0, x1 = (s[:, 0] + 1j * s[:, 2]) / np.sqrt(2), (s[:, 1] + 1j * s[:, 3]) / np.sqrt(2)
+            assert np.allclose(dk, (x0 + 2 * x1) / np.sqrt(5)) and np.allclose(dp, (-2 * x0 + x1) / np.sqrt(5))
+        assert np.array_equal(dcm.llr(x, nb, 336) < 0, b.astype(bool))          # LLR > 0 is a 0
+        for gone in (pk, k):                                                     # erase either tone of every pair
+            z = x.copy()
+            z[:, gone] = 10.0 * (rng.standard_normal((3, gone.size)) + 1j * rng.standard_normal((3, gone.size)))
+            w = np.ones((3, 336))
+            w[:, gone] = 0.0
+            assert np.array_equal(dcm.llr(z, nb, 336, w) < 0, b.astype(bool)), (nb, gone[0])
+    with pytest.raises(ValueError, match="even"):
+        dcm.pairs(335)
+    with pytest.raises(ValueError, match="whole number"):
+        dcm.map_bits(np.zeros(10), 1, 336)

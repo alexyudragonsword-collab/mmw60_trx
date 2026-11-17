@@ -37,7 +37,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ..ay import edmg, golay, ofdm, papr, sc
+from ..ay import dcm, edmg, golay, ofdm, papr, sc
 from ..channel import make_channel
 from ..impairments.cfo import CfoModel
 from ..impairments.phase_noise import lo_phase, make_profile
@@ -176,12 +176,12 @@ class AyLinkSim(LinkSim):
 
     def transmit(self, rng: np.random.Generator, bits: np.ndarray | None = None):
         """``bits``: the payload's bits (``ay.coding`` hands the codewords in): SC one block's worth per
-        unit; OFDM the data tones of every symbol in order (assumed.ay_ofdm_tone_order; not the DCM MCS,
-        whose pairing is not in spec_sources).  None = random bits, the EVM-only payload."""
+        unit; OFDM the data tones of every symbol in order (assumed.ay_ofdm_tone_order), the DCM MCS
+        through ``ay.dcm`` (edmg.ofdm_modulation_mapping, static pairing).  None = random bits, the
+        EVM-only payload: every data tone an independent point of the MCS's tone constellation (for
+        DCM the same points, but the pair's two tones not tied together)."""
         m = self.mcs
         stf = self._stf()
-        if bits is not None and self.cfg.waveform != "ay_sc" and m.modulation.startswith("DCM"):
-            raise NotImplementedError("a coded DCM payload is not built: the DCM pairing is not in spec_sources")
         if self.cfg.waveform == "ay_sc":
             num = self.phy.num
             n_sym = num.data_per_block * self.n_symbols
@@ -199,12 +199,18 @@ class AyLinkSim(LinkSim):
         else:
             num = self.phy.num
             n_tone = len(num.data_tones) * self.n_symbols
-            n_bits = n_tone * int(np.log2(m.tone_order))
             if bits is None:
-                bits = rng.integers(0, 2, n_bits)
-            elif np.asarray(bits).size != n_bits:
-                raise ValueError(f"the OFDM payload carries {n_bits} bits, got {np.asarray(bits).size}")
-            syms = map_bits(np.asarray(bits), m.tone_order)
+                syms = map_bits(rng.integers(0, 2, n_tone * int(np.log2(m.tone_order))), m.tone_order)
+            elif m.modulation.startswith("DCM"):
+                n_bits = n_tone * int(np.log2(m.order))
+                if np.asarray(bits).size != n_bits:
+                    raise ValueError(f"the OFDM payload carries {n_bits} bits, got {np.asarray(bits).size}")
+                syms = dcm.map_bits(np.asarray(bits), int(np.log2(m.order)), len(num.data_tones))
+            else:
+                n_bits = n_tone * int(np.log2(m.tone_order))
+                if np.asarray(bits).size != n_bits:
+                    raise ValueError(f"the OFDM payload carries {n_bits} bits, got {np.asarray(bits).size}")
+                syms = map_bits(np.asarray(bits), m.tone_order)
             syms = syms.reshape(self.n_symbols, -1)
             payload = ofdm.modulate(num, syms, None, n_training=0)
             cef = self._cef()

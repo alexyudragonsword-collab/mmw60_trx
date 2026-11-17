@@ -260,7 +260,7 @@ back-off 15 dB:
   direct: TX LO leak left after dc_pre -42.9 dBc (without dc_pre -16.4); TX image rejection at 0.5, 0.86, 1, 1.1 GHz: 45.1, 43.0, 43.3, 28.3 dB (uncorrected 13.0, 7.7, 6.1, 5.1; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)
 isolation: one residual at a time, read directly (contributions do not add up as powers in general; the power sum is a check, not a decomposition).  Alone, the leak left after dc_pre costs only with the CFO (without it the receiver's DC removal on its quiet lead-in takes it out exactly), and on SC it reads above its own power (the direct reading); on the whole chain it costs SC without the CFO too, so it acts together with another impairment, not yet located (ROADMAP milestone 3).  Either way the cost is the residual's: dc_pre solved to cancel the leak exactly takes it away.  OFDM puts the leak on its three empty DC tones
 
-== 9. rate against range: one element, line of sight, the calibrated chain at every back-off; the decoder thresholds measured on the ideal chain with spec_sources#33's codes (data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; OFDM's bits on the data tones in order, assumed.ay_ofdm_tone_order [assumed]); SC MCS 1 (repetition 2) and OFDM's DCM MCS are not coded here and take the DMG twin's (assumed.ay_sensitivity [assumed]: its sensitivity, reference NF and implementation loss taken out); the floor as a noise term ==
+== 9. rate against range: one element, line of sight, the calibrated chain at every back-off; the decoder thresholds measured on the ideal chain with spec_sources#33's codes (data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; OFDM's bits on the data tones in order, assumed.ay_ofdm_tone_order [assumed]; the DCM MCS through spec_sources#43's static pairing); SC MCS 1 (repetition 2) is not coded here and takes the DMG twin's (assumed.ay_sensitivity [assumed]: its sensitivity, reference NF and implementation loss taken out); the floor as a noise term ==
 wf       MCS  modulation    rate   Gb/s  DMG  T[dB] src  @preset m   best m back-off   Pout  floor
 ay_sc      1  π/2-BPSK       1/2  0.385    1  -1.48   t       8.30    17.17     1.0*   13.6 -16.63
 ay_sc      2  π/2-BPSK       1/2  0.770    2   0.12   m       6.92    14.30     1.0*   13.6 -16.63
@@ -283,11 +283,16 @@ ay_sc     18  π/2-64-QAM     5/8  5.775 12.3  15.61   m          —     0.94  
 ay_sc     19  π/2-64-QAM     3/4  6.930 12.4  17.59   m          —        —       —       —      —
 ay_sc     20  π/2-64-QAM   13/16  7.508 12.5  19.22   m          —        —       —       —      —
 ay_sc     21  π/2-64-QAM     7/8  8.085 12.6  20.18   m          —        —       —       —      —
-ay_ofdm    1  DCM BPSK       1/2  0.729   13   0.39   t       6.59    12.90     1.0*   13.6  -9.18
-ay_ofdm    2  DCM BPSK       5/8  0.912   14   2.39   t       5.24     9.83     1.0*   13.6  -9.18
-ay_ofdm    6  DCM QPSK       1/2  1.459   15   3.39   t       4.66     8.32     1.5    13.1 -10.29
-ay_ofdm    7  DCM QPSK       5/8  1.824   16   4.39   t       4.15     7.03     2.0    12.6 -11.35
-ay_ofdm    8  DCM QPSK       3/4  2.188   17   6.39   t       3.28     5.11     2.5    12.1 -12.34
+ay_ofdm    1  DCM BPSK       1/2  0.729   13   1.65   m       5.70    10.90     1.0*   13.6  -9.18
+ay_ofdm    2  DCM BPSK       5/8  0.912   14   2.39   m       5.23     9.83     1.0*   13.6  -9.18
+ay_ofdm    3  DCM BPSK       3/4  1.094    —   3.45   m       4.63     8.27     1.5    13.1 -10.39
+ay_ofdm    4  DCM BPSK     13/16  1.185    —   4.56   m       4.07     6.66     2.5    12.1 -12.43
+ay_ofdm    5  DCM BPSK       7/8  1.277    —   5.17   m       3.79     5.91     3.0    11.6 -13.37
+ay_ofdm    6  DCM QPSK       1/2  1.459   15   4.72   m       3.99     6.82     1.5    13.1 -10.29
+ay_ofdm    7  DCM QPSK       5/8  1.824   16   5.83   m       3.50     5.66     2.0    12.6 -11.35
+ay_ofdm    8  DCM QPSK       3/4  2.188   17   7.04   m       3.03     4.61     2.5    12.1 -12.34
+ay_ofdm    9  DCM QPSK     13/16  2.371    —   7.86   m       2.75     3.90     3.5    11.1 -14.17
+ay_ofdm   10  DCM QPSK       7/8  2.553    —   8.60   m       2.51     3.41     4.0    10.6 -15.07
 ay_ofdm   11  16-QAM         1/2  2.918   18   9.49   m       2.25     2.97     4.0    10.6 -15.07
 ay_ofdm   12  16-QAM         5/8  3.647   19  11.23   m       1.81     2.17     5.0     9.6 -16.79
 ay_ofdm   13  16-QAM         3/4  4.377   20  12.93   m       1.44     1.61     5.5     9.1 -17.61
@@ -305,18 +310,18 @@ the fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at it
   1.0    5.390 (MCS16)    5.106 (MCS15)
   1.5    5.005 (MCS15)    4.377 (MCS13)
   2.0    4.620 (MCS14)    3.647 (MCS12)
-  3.0    3.080 (MCS12)     2.188 (MCS8)
-  5.0    2.695 (MCS11)     2.188 (MCS8)
-  8.0     1.925 (MCS8)     1.459 (MCS6)
+  3.0    3.080 (MCS12)    2.553 (MCS10)
+  5.0    2.695 (MCS11)     1.824 (MCS7)
+  8.0     1.925 (MCS8)     1.094 (MCS3)
 
 sensitivity rows, at the preset back-off, for the comparison table's calibrated caps (SC MCS14, OFDM MCS13; metres):
-  ay_sc    MCS14: preset 1.69; the DMG twin's threshold (as the DCM MCS's) 1.43; the twin's with its implementation loss kept in 0.73; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.99
-  ay_ofdm  MCS13: preset 1.44; the DMG twin's threshold (as the DCM MCS's) 1.55; the twin's with its implementation loss kept in 0.70; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.69
+  ay_sc    MCS14: preset 1.69; the DMG twin's threshold (as SC MCS 1's) 1.43; the twin's with its implementation loss kept in 0.73; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.99
+  ay_ofdm  MCS13: preset 1.44; the DMG twin's threshold (as SC MCS 1's) 1.55; the twin's with its implementation loss kept in 0.70; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.69
 the DMG-derived thresholds against this library's measured ones at the same modulation and code rate: the EDMG codes on both waveforms (data/spec/ay_per_thresholds.yaml) and the 11be LDPC (data/spec/per_thresholds.yaml, 80 MHz; its SNR is per active subcarrier):
                               twin measured    11be  twin - meas twin - 11be
   BPSK 1/2     ay_sc    MCS2    0.52     0.12       —     +0.40            —
   QPSK 1/2     ay_sc    MCS7    3.52     3.03    2.25     +0.49        +1.27
-  QPSK 1/2     ay_ofdm  MCS6    3.39        —    2.25         —        +1.14
+  QPSK 1/2     ay_ofdm  MCS6    3.39     4.72    2.25     -1.33        +1.14
   16-QAM 1/2   ay_sc    MCS12  11.52     8.52    7.53     +3.00        +3.99
   16-QAM 1/2   ay_ofdm  MCS11   8.39     9.49    7.53     -1.10        +0.86
   16-QAM 3/4   ay_sc    MCS14  13.52    12.17   11.25     +1.35        +2.27
