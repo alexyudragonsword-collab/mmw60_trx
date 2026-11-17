@@ -156,7 +156,7 @@ base pJ/bit ranking (best first): be_upclocked 11be 80M K=8 @60.48 GHz < be_upcl
 the decoder caps here start from the analytic floor alone (no time-domain run per knob): a row whose 4b cap came from the time-domain floor starts one MCS higher in this section
   Walden FoM                 at 3.836e-14 conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x0.68 … x0.94      ranking CHANGED
   Walden FoM                 at 1.2019e-13 conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x1.10 … x1.48      ranking CHANGED
-  digital node 45 → 7 nm     at 0.175     conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x0.86 … x1.00      ranking CHANGED
+  digital node 45 → 7 nm     at 0.1746    conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x0.86 … x1.00      ranking CHANGED
   synthesizer power          at 0.5       conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x0.81 … x0.94      ranking CHANGED
   synthesizer power          at 2.0       conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x1.12 … x1.38      ranking CHANGED
   PA peak PAE                at 0.1       conformance cap moved on  0 row(s), decoder cap on  0; pJ/bit x1.05 … x1.27      ranking CHANGED

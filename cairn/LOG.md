@@ -3,6 +3,16 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-17 · 重新 pin spec_sources 到 a9af261（0.6.0，mmw60_trx#63；feat/spec-pin-a9af261）
+
+- 9 个文件里 4 个内容变了；`vendor_check --strict` 250 verbatim。合并表 193 → 200，`unverified()` 9 → 4（只剩本库自己的 4 条 `survey.*`）。
+- 值变了的只有 `deepscale.node_scale_45_to_7nm` 0.175 → 0.1746：示例 04 §6 那一行倍率仍是 ×0.86–1.00，换的仍是第 7–10 名。
+- 对方要本库定的两件：
+  - ISCAS 2015 的 7.1 dB 是超外差接收机的双边带 NF：示例 08 照原文列，另加 +3 dB 的单边带一行（新 assumed `rx_nf_dsb_to_ssb_db`）：NF 10.1 dB，灵敏度 −80.3 / −68.1 dBm（双边带 −83.3 / −71.1）。
+  - Asada 表 [5] 的峰值 PAE 原文里没有：示例 09 的统计剔掉这一格（新 assumed `pa60_table1_pae_excluded`），中位 8.5 → 8.8 %，原表读数并列。
+- 预设、指纹、同台表的上限与排名都不动；示例 08 的两条标签由 `[survey, unverified]` 变 `[spec]`。
+- ROADMAP“两条文献数字没读到原文”一项做完删掉。
+
 ## 2026-11-16 · spec_sources#33 验收并关闭（docs/close-spec-33）
 
 - 对方 PR #37（main `b16245a`）把 `consumers.yaml` 里本库的登记改为 pin `76ee72a`、at `53a9a16`、issue `mmw60_trx#60`、9 个文件；本库核对与 vendor 的文件一致，main `50f30df` 上合并表 193 条、未核实 9 条，与对方复核一致。按约定由本库关闭 #33。
