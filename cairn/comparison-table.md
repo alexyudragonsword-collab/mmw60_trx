@@ -333,7 +333,7 @@ PA 单独的 EVM（dB）：
 
 ### 回退的规则（2026-11-13，ROADMAP C10）
 
-回退问题由工作点规则定下了（`assumed.pa60_operating_rule`）：取 PA 单独在类 OFDM 包络上读到 −21 dB EVM 的回退。
+回退问题由工作点规则定下了（`assumed.pa60_operating_rule`）：取 PA 单独在类 OFDM 包络上读到 −21 dB EVM 的回退。（2026-11-17 用户定：规则不算 DPD。预设 PA 上 7.6 dB 以下 DPD 不写入，算进去回退不变；带记忆的参考 PA 上会挪到约 6.8 dB，正在 ILA 的收敛边上，见 ROADMAP C8 的诊断。）
 −21 dB 是 802.11ad 16-QAM 的 TX EVM 限，也是 60 GHz 发射机 `pa60.wu_isscc2015` 标称输出功率用的口径（限值读自那篇报告幻灯片图上标的规范线，802.11ad 条文没读，ROADMAP C10）。
 预设的形状上这一点是 7.457 dB，取 `derived.pa60_obo_at_evm_limit_db` = 7.5 dB（高斯包络种子 1–5 给 7.46–7.59 dB）。示例 09 §2：
 
