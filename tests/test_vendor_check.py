@@ -10,7 +10,7 @@ from conftest import REPO
 
 PIN = "a8edf503df74cf11d6069a6354c4c0ddbf6e82d1"
 SPEC_SOURCES_PIN = "25b2c5eb25fae98027a190b9757e50056b776d81"
-ARRAY_TX_PIN = "5815c5a7ea43143fd58502d4894ac840b5b5fb86"
+ARRAY_TX_PIN = "286609e99c495712e026a913d4a2a066be11352c"
 PINS = {"wifi_trx_cal": PIN, "spec_sources": SPEC_SOURCES_PIN, "array_tx": ARRAY_TX_PIN}
 SPEC_SOURCES_SIB = Path("/home/user/alexyudragonsword-collab/spec_sources")
 ARRAY_TX_SIB = Path("/home/user/alexyudragonsword-collab/array_tx")
@@ -29,10 +29,17 @@ def test_every_vendored_file_has_the_header():
     tables = ("energy", "frontend60", "ieee80211", "ieee802153c", "liu2025", "pa60", "regulatory")
     assert ss == ["spec_sources/__init__.py", *(f"spec_sources/data/{n}.yaml" for n in tables),
                   "spec_sources/reader.py"]
-    # array_tx: the whole arraytx package, code only (its data/ and webui/ assets are not copied)
-    at = [f for f in files if f.relative_to(vc.VENDOR).parts[0] == "arraytx"]
-    assert len(at) == 135 and all(f.suffix == ".py" for f in at)
-    assert {"beam.py", "geometry.py", "coupling.py", "sim.py"} <= {f.name for f in at}
+    # array_tx: only what this library imports -- the geometry and the beam maths (beam depends on
+    # geometry alone).  No __init__.py: upstream's imports config and sim, i.e. the whole package, so
+    # the directory is a PEP 420 namespace package and every vendored file stays verbatim.  Until
+    # 2026-11-17 the whole package was copied (135 files with its nested polar_tx / padpd).
+    at = sorted(str(f.relative_to(vc.VENDOR)) for f in files if f.relative_to(vc.VENDOR).parts[0] == "arraytx")
+    assert at == ["arraytx/beam.py", "arraytx/geometry.py"]
+    assert not (vc.VENDOR / "arraytx" / "__init__.py").exists()
+    from setuptools.discovery import PEP420PackageFinder
+    assert "mmw60.vendor.arraytx" in PEP420PackageFinder.find(where=str(REPO / "src"))     # it ships in the wheel
+    import mmw60.vendor.arraytx.beam as beam                                                 # and imports
+    assert beam.ArrayGeometry.__module__ == "mmw60.vendor.arraytx.geometry"
 
 
 def test_manifest_matches_tree_and_pin():

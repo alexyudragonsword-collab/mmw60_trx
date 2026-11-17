@@ -1,7 +1,7 @@
 """Example 10 — milestone 2, the array layer: link budget and beam-training SNR budget.
 
 N elements of the shared front end at each end (``frontend/array60.py`` on
-arraytx's geometry, vendored @5815c5a; data/spec: assumed.array_*), the same
+arraytx's geometry, vendored @286609e; data/spec: assumed.array_*), the same
 array for both topologies (iron rule 2).  What the tables answer:
 
 1. the array's faces: gain on transmit and receive, scan loss, beamwidth,

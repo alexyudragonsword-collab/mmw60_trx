@@ -1,4 +1,4 @@
-# Vendored from array_tx@5815c5a7ea43143fd58502d4894ac840b5b5fb86: src/arraytx/beam.py
+# Vendored from array_tx@286609e99c495712e026a913d4a2a066be11352c: src/arraytx/beam.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Beam steering and far-field synthesis (invariant 4: the squint is
 computed, not corrected for).

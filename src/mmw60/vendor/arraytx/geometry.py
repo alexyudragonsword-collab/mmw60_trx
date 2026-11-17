@@ -1,4 +1,4 @@
-# Vendored from array_tx@5815c5a7ea43143fd58502d4894ac840b5b5fb86: src/arraytx/geometry.py
+# Vendored from array_tx@286609e99c495712e026a913d4a2a066be11352c: src/arraytx/geometry.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Array geometry: a uniform rectangular grid in the x-y plane (a single row
 is the linear array of milestone 1), phase centre at the middle, so a

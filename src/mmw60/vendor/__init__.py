@@ -47,17 +47,20 @@ Pins:
   The YAML files carry the same two-line header as ``#`` comments and are
   checked by ``tools/vendor_check.py`` like the code.
 * ``arraytx`` — ``alexyudragonsword-collab/array_tx`` @
-  ``5815c5a7ea43143fd58502d4894ac840b5b5fb86`` (milestone 2, the array
-  layer): the whole ``src/arraytx`` package, its 135 ``.py`` files
-  verbatim, its own vendored polar_tx (with polar_tx's PA_DPD and
-  pll_simulator copies) included.  Its non-code assets (``data/`` clock
-  profiles, ``webui/``) are not copied: this library uses only the linear
-  array model — ``geometry``, ``beam`` (array factor, steering weights,
-  squint, beamwidth), ``coupling`` — and puts its own shared
-  ``Frontend60`` behind every element (iron rule 2), never arraytx's
-  element chains.  One absolute name in it would not resolve under this
-  path: ``lo.py`` looks up ``arraytx.data`` for its bundled clock profiles,
-  a path this library does not take.  arraytx is a 28 GHz FR2 library; the
+  ``286609e99c495712e026a913d4a2a066be11352c`` (milestone 2, the array
+  layer): the two modules this library imports, verbatim — ``geometry``
+  (element positions, the element factor) and ``beam`` (array factor,
+  steering weights, squint, beamwidth), which depends on ``geometry``
+  alone.  There is no ``arraytx/__init__.py``: upstream's imports
+  ``config`` and ``sim``, i.e. the whole package, so the directory is a
+  PEP 420 namespace package (as ``wifitrx/report`` already is) and every
+  vendored file stays verbatim; ``pyproject.toml`` states
+  ``namespaces = true``.  This library puts its own shared ``Frontend60`` behind every element (iron
+  rule 2), never arraytx's element chains, so the rest of the package
+  (config, sim, dpd, element, metrics, report, standards, clock, its
+  nested polar_tx and padpd) is not copied.  Until 2026-11-17 the whole
+  package was (135 ``.py`` files @ ``5815c5a``); the two modules kept did
+  not change between the two pins.  arraytx is a 28 GHz FR2 library; the
   60 GHz carrier is passed in (``ArrayGeometry(f0_hz=…)``), no arraytx
   ``Standard`` is used.
 """

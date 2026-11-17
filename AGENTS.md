@@ -44,7 +44,7 @@
 
 ## 本仓库特有的硬规矩
 
-- **`src/mmw60/vendor/` 是可校验的改编副本，不是 fork**：wifitrx 整包、spec_sources（读取器与 7 张表）、arraytx 整包（代码）各按完整 SHA pin，`tools/vendor_check.py --strict` 必须全 verbatim（YAML 一起核）；外部的数要改回 spec_sources 提；需要上游改的（倍频器模型、PA 带宽项、两 DUT 级联）报回各自 ROADMAP，合并后重新 pin。PA_DPD 经 wifitrx / polar_tx 的 vendor 副本拿，不要第二份 pin。
+- **`src/mmw60/vendor/` 是可校验的改编副本，不是 fork**：wifitrx 整包、spec_sources（读取器与 7 张表）、arraytx 的 `geometry` / `beam` 两个文件各按完整 SHA pin，`tools/vendor_check.py --strict` 必须全 verbatim（YAML 一起核）；外部的数要改回 spec_sources 提；需要上游改的（倍频器模型、PA 带宽项、两 DUT 级联）报回各自 ROADMAP，合并后重新 pin。PA_DPD 经 wifitrx / polar_tx 的 vendor 副本拿，不要第二份 pin。
 - **numba 是性能层不是正确性层**：`MMW60_NO_JIT=1` 必须逐位相同（`tests/test_phy.py`）。
 - **假设要可见**：原文没说的每个选择（基准带宽、SNR 口径、相噪加在哪一侧、CR 信道、OBO 参考点、信道估计平滑）都是 `source: assumed` 条目，示例里有对应的灵敏度行；对不上文献时查到原因写进 LOG，不调参数凑。
 - 开发在指定分支上提交；不开 PR 除非用户要求。

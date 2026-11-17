@@ -272,7 +272,7 @@ entries:
     value: {gain_db_rms: 0.5, phase_deg_rms: 5.0}
     unit: 1 sigma
     source: assumed
-    cite: "array_tx@5815c5a config.py::ElementErrorsCfg 的默认值（它自己的取值，没有外部出处）"
+    cite: "array_tx@286609e config.py::ElementErrorsCfg 的默认值（它自己的取值，没有外部出处；本库不 vendor 这个文件，两个数与 @5815c5a 相同）"
     note: "每个单元一次抽取的静态增益 / 相位误差（error_seed），校准后的残差量级。阵列只在束向上损失一点增益、旁瓣抬高；示例 10 有不加误差的灵敏度行。"
 
   assumed.array_codebook:
