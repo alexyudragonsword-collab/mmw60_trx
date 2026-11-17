@@ -398,8 +398,8 @@
 
 - name: ex10 the 802.11ay sector sweep's duration (spec_sources#33) against the be row's MLO-triggered training, N = 64
   values:
-    ay64: {example: "10", after: "== 4d.", line: "64 {*} {*} {*} {*} {*} MCS21 {*} {*} {*} MCS19 {*} {*} {*} {} {*}"}
-    be64: {example: "10", after: "== 4d.", line: "64 {*} {*} {*} {*} {*} MCS21 {*} {*} {*} MCS19 {*} {*} {*} {*} {}"}
+    ay64: {example: "10", after: "== 4d.", line: "64 {*} {*} {*} {*} {*} MCS21 {*} {*} {*} MCS20 {*} {*} {*} {} {*}"}
+    be64: {example: "10", after: "== 4d.", line: "64 {*} {*} {*} {*} {*} MCS21 {*} {*} {*} MCS20 {*} {*} {*} {*} {}"}
   quotes:
     - {doc: cairn/ay.md, text: "| 64 | {ay64} µs | {be64} µs |"}
 

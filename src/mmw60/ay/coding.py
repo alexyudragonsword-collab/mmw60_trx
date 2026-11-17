@@ -1,6 +1,6 @@
 """Coded PER for the 802.11ay waveforms (milestone 3, section 9d): the data
-field's LDPC on the single-carrier payload, decoded from the equaliser's
-output.
+field's LDPC on the SC payload and on OFDM's 16-QAM / 64-QAM payloads,
+decoded from the equaliser's output.
 
 What is built here:
 
@@ -12,12 +12,14 @@ What is built here:
   is the same except at 7/8, where EDMG has its own 672-bit code
   (edmg.ldpc_672_r7_8, 588 bits of information, two shifted identities in
   most cells);
-* whole codewords on the SC payload's bits (the payload is ``ay.units``
-  blocks of 448 chips; bits that do not fill a codeword are random padding
-  the receiver ignores);
-* max-log LLRs from the equalised chips (``phy.mapper.llr``).  No per-chip
-  weighting: the SC MMSE gives every chip the same SINR, and the normalised
-  min-sum decoder is blind to the LLRs' common scale;
+* whole codewords on the payload's bits (SC: ``ay.units`` blocks of 448
+  chips; OFDM: the data tones of ``ay.units`` symbols, in order, symbol
+  after symbol, data/spec: assumed.ay_ofdm_tone_order); bits that do not
+  fill a codeword are random padding the receiver ignores;
+* max-log LLRs from the equalised chips or tones (``phy.mapper.llr``).  No
+  per-chip / per-tone weighting: the SC MMSE gives every chip the same SINR,
+  OFDM's zero forcing on a flat channel every tone the same, and the
+  normalised min-sum decoder is blind to the LLRs' common scale;
 * the packet error: any information bit of any codeword wrong.
 
 Not built: the scrambler and the padding / shortening rules of
@@ -25,8 +27,8 @@ dmg.data_encoding / edmg.sc_encoding (the payload's bits are random, so the
 scrambler changes nothing a PER can see; a whole number of codewords stands
 in for the padding), the repetition (rho = 2, the MCS 1 procedure: zeros,
 then the parity's second half replaced by the data XOR a PN sequence), the
-1344-bit codewords (edmg.ldpc_1344_lifting) and the coded OFDM payload (DCM
-pairs, tone mapping).
+1344-bit codewords (edmg.ldpc_1344_lifting), OFDM's DCM MCS (the pairing is
+not in spec_sources) and the standard's OFDM tone mapping.
 """
 from __future__ import annotations
 

@@ -10,7 +10,7 @@
 - `tools/measure_ay_thresholds.py`：`--waveform ay_sc | ay_ofdm | both`，量一种时保留另一种的表；95 % 区间宽于 0.5 dB 时，交叉点两侧的点也续跑到 60 错或 3000 包。
 - `data/spec/ay_per_thresholds.yaml` 多 OFDM MCS 11–20 的门限与区间（SC 的不变）。
 - `ay.edmg.threshold_db(rule="measured")`：OFDM 有实测的档也取实测；孪生规则只剩 OFDM 的 DCM 档（MCS 1–10，配对不在 spec_sources，已请求 spec_sources#43）与 SC MCS 1。`assumed.ay_sensitivity` 的说明随之改，并更正“OFDM 高阶档很可能也一样悲观”。
-- 示例 10 §3d、示例 15 §9 的期望输出重新接受。
+- 示例 10 §3d、示例 15 §9 的期望输出重新接受：OFDM 的距离变短（16-QAM 3/4 预设回退 1.55 → 1.44 m，N = 64 阵列 326 → 312 m），阵列上限 N ≤ 16 时 MCS18 → MCS17、N = 64 时 MCS19 → MCS20。
 - 读到的：孪生规则对 OFDM 偏乐观 0.44–1.10 dB（SC 上偏悲观 1.35–4.34 dB）；本库的 OFDM 接收机比 SC 差 0.57–0.97 dB（ROADMAP 一条）。
 - 上游：开了 spec_sources#43（控制 PHY 码字切分、EDMG PPDU 前导长度、DCM 配对、tone mapping）与 wifi_trx_cal#6（TX LO 泄漏校准后的残差）。
 
