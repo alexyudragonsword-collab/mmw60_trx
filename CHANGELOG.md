@@ -4,6 +4,15 @@
 
 ## 未发布
 
+### 编码的 EDMG OFDM DCM 载荷（MCS 1–10，spec_sources#43）与实测门限（2026-11-17）—— 指纹不变；OFDM 低档的距离变了
+- `ay/dcm.py`（新）：`edmg.ofdm_modulation_mapping` 的 DCM BPSK / DCM QPSK，静态配对 P(k) = k + N_SD/2；`map_bits`、联合 max-log 的 `llr`（逐子载波权重）、`pairs`。
+- `AyLinkSim.transmit(bits=)` 对 DCM 档也接受比特（**公开行为变化**：以前报 `NotImplementedError`）；不传比特时随机抽取与原来逐位相同。
+- `ay.coding`：DCM 不再拒收，`coded_packet` 对 DCM 一对子载波联合解映射。
+- `tools/measure_ay_thresholds.py`：OFDM 每档都量；`data/spec/ay_per_thresholds.yaml` 多 OFDM MCS 1–10。
+- `ay.edmg.threshold_db(rule="measured")` 的孪生规则只剩 SC MCS 1；`assumed.ay_sensitivity`、`assumed.ay_ofdm_tone_order` 的说明随之改。
+- 示例 10 §3d / §4d、示例 15 §9 的期望输出重新接受：OFDM MCS1 的距离变短（单天线 12.90 → 10.90 m，N = 64 阵列 700 → 654 m），OFDM 发端扫描在 N = 16 时够得着 MCS1 的边（−0.2 → +1.0 dB）；3 m 处 OFDM 保住的速率 2.188 → 2.553 Gb/s（MCS10 有了门限）。
+- 读到的：孪生规则在 DCM 档上偏乐观 0–1.44 dB；本库 OFDM 接收机比 SC 差得随码率降低而变大（7/8 时 0.4–0.7、1/2 时 1.5–1.7 dB）。
+
 ### 重新 pin spec_sources 到 `563cff4`（spec_sources#43，2026-11-17）—— 指纹与预设不变；ay 的扇区扫描时长变长
 - vendored spec_sources 换成 `563cff4`：只有 `ieee80211` 内容变了。新键 `dmg.control_phy_encoding`、`dmg.sc_ppdu_chips`、`edmg.sc_siso_preamble`、`edmg.control_mode_encoding`、`edmg.ofdm_modulation_mapping`；合并表 203 → 208，`unverified()` 仍 4。
 - #33 的三条被上游更正：控制 PHY 的 STF 5120 → 6400 码片、控制前导 3.564 → 4.291 µs、数据前导 1.745 → 1.891 µs，`edmg.short_ssw` 的位宽。

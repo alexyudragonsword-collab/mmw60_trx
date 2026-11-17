@@ -29,9 +29,9 @@ array for both topologies (iron rule 2).  What the tables answer:
 3d. the two 802.11ay waveforms on the same arrays and the same front end
    (milestone 3): floors on the chain wifitrx's sequence calibrated at each
    per-element back-off, thresholds measured with spec_sources#33's codes
-   (data/spec/ay_per_thresholds.yaml; the DMG twins' for SC MCS 1 and
-   OFDM's DCM MCS, data/spec: assumed.ay_sensitivity), the be rows'
-   decoder-cap rule; each element at
+   (data/spec/ay_per_thresholds.yaml; OFDM's DCM MCS through the static
+   pairing of spec_sources#43; the DMG twin's for SC MCS 1 alone, data/spec:
+   assumed.ay_sensitivity), the be rows' decoder-cap rule; each element at
    the shared preset back-off and at the waveform's own operating point (the
    preset rule on its own envelope, data/spec: assumed.ay_operating_point);
    then the smallest array that reaches the EIRP limit at each operating
@@ -203,8 +203,9 @@ def main(argv=None) -> int:
     common = {"ay_sc": 14, "ay_ofdm": 13}         # 16-QAM 3/4: the fastest MCS both have a threshold for
     print("\n== 3d. the two 802.11ay waveforms (topology B, EDMG channel 2) on the same arrays and front end: floors "
           "on the chain wifitrx's sequence calibrated at each per-element back-off; thresholds measured with "
-          "spec_sources#33's codes (data/spec/ay_per_thresholds.yaml), the DMG twins' for SC MCS 1 and OFDM's DCM "
-          "MCS (assumed.ay_sensitivity); the decoder cap by the be rows' rule ==")
+          "spec_sources#33's codes (data/spec/ay_per_thresholds.yaml; OFDM's DCM MCS with spec_sources#43's "
+          "pairing), the DMG twin's for SC MCS 1 alone (assumed.ay_sensitivity); the decoder cap by the be rows' "
+          "rule ==")
     print("each element at the shared preset back-off, and at the waveform's own operating point — the preset rule "
           "(the PA alone at the 802.11ad 16-QAM 3/4 TX EVM limit) on its own 16-QAM payload "
           "(assumed.ay_operating_point): "
@@ -231,9 +232,9 @@ def main(argv=None) -> int:
                       f"{fmt(None if rp is None else rp.pj_per_bit, '{:.0f}'):>6}", flush=True)
     print("PA EVM = the PA alone on the waveform's 16-QAM payload at the per-element back-off; floor = the cap "
           "MCS's constellation on the calibrated chain; d = metres (free space plus oxygen) at MCS1 (the slowest), "
-          "at 16-QAM 3/4 (SC MCS14 / OFDM MCS13) and at the cap; pJ/b at the cap as in 3c.  Both waveforms' "
-          "16-QAM and 64-QAM thresholds are measured the same way; the slowest MCS (SC MCS 1, OFDM's DCM ones) "
-          "still take the DMG twin's (cairn/ay.md 9d)")
+          "at 16-QAM 3/4 (SC MCS14 / OFDM MCS13) and at the cap; pJ/b at the cap as in 3c.  Every OFDM MCS and "
+          "every SC MCS but MCS 1 (repetition 2, the DMG twin's) has a threshold measured the same way "
+          "(cairn/ay.md 9d)")
     print(f"\nthe smallest array that reaches the EIRP limit ({fe.eirp.avg_dbm:g} dBm) at each operating point, "
           f"and its cost (PA = N x Pout / PAE; PS = 2N x {1e3 * coeffs.phase_shifter_w:g} mW; d and pJ/b at "
           f"16-QAM 3/4):")
