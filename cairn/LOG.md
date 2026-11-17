@@ -12,6 +12,7 @@
 - **被推翻的判断 ②（本库的）**：“先均衡会让标准带宽读数动 0.6–0.7 dB”里 0.58 dB 是本库那一列少了自由度修正。`loopback_views` 的列换成旧顺序 `isolation_cpe_first_db`，各列与新读法差 ≤ 0.1 dB。
 - 其余变化：`derived.irr_after_cal_measured_db` 的 2.56 GHz 39.4 → 39.6 dB（同台表一格没动，MCS5 余量 −0.67 → −0.66）；拓扑 A 芯片残差好 0.1–1.4 dB（−42.2 → −43.6 最大）；RX NF 读数 11.1 → 11.2、14.3 → 14.4、18.0 → 18.1；DPD 步读数换口径（示例 06 −21.5 → −24.6）。示例 02 / 05 / 09 / 10 不动。
 - 示例 02–11、15 重跑并接受；ROADMAP 删 D5，C8 的 K = 32 数更正；`topology-b.md` §3 / §3b / §4、`topology-a.md`、`ay.md`、`engineering-pitfalls.md` 就地更新。
+- CI 第一次是红的：慢测 `test_fixed_memory_costs_the_sample_spaced_basis_most_at_the_widest_clock` 守着旧读数（K = 32、8 dB 上匹配间隔把代价几乎全拿回，−25.3 / −22.8 / −25.2），对齐后 8 dB 是 −27.6 / −22.0 / −23.0。测试挪到 10 dB（−28.6 / −24.6 / −27.9）。本地当时只跑了 `-m "not slow"` 就报了测试通过；重新 pin 上游时慢测也要在本地跑（`pytest -m slow`，22 项）。
 - 下一步：合并后在 #7 回报并关闭（把 ①、② 告诉对方）。
 
 ## 2026-11-17 · wifi_trx_cal#7 验收：B47（0.7.44）修好 ay 2.16 GHz，没修好本库的 2.56 GHz（docs/d5-b47-acceptance）
