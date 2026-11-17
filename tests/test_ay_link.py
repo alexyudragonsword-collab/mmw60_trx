@@ -329,7 +329,7 @@ def test_the_edmg_thresholds_come_from_the_dmg_twin_and_take_the_reference_recei
 
 def test_the_ay_range_is_the_be_budget_with_the_decoder_threshold():
     """arraylink.ay_mcs_ranges: the floor as a noise term over the threshold
-    (SC: measured, MCS 1 the DMG twin's; ``source`` says which), the
+    (SC: every MCS measured, MCS 1 through its rho = 2 codeword; ``source`` says which), the
     receiver input from the shared front end's NF at the AGC state, the path
     loss EIRP + G_rx − input, the distance by ``range_m``; a floor the
     decoder cannot carry has no range; the TX EVM limit is reported."""
@@ -340,7 +340,7 @@ def test_the_ay_range_is_the_be_budget_with_the_decoder_threshold():
     clean = {o: -60.0 for o in (2, 4, 16, 64)}
     r = al.ay_mcs_ranges(sim, clean, eirp_dbm=10.0, g_rx_db=3.0, oxygen_db_km=0.0)
     assert set(r) == {e.mcs for e in edmg.mcs_table("ay_sc")}
-    assert {m for m in r if r[m]["source"] == "twin"} == {1}
+    assert {r[m]["source"] for m in r} == {"measured"} and set(r) == {e.mcs for e in edmg.mcs_table("ay_sc")}
     x = r[14]
     assert x["threshold_db"] == spec.ay_per_threshold_db("ay_sc", 14)
     assert x["req_db"] == pytest.approx(x["threshold_db"], abs=0.01)
