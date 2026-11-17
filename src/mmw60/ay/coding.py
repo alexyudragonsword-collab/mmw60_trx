@@ -1,5 +1,5 @@
 """Coded PER for the 802.11ay waveforms (milestone 3, section 9d): the data
-field's LDPC on the SC payload and on OFDM's 16-QAM / 64-QAM payloads,
+field's LDPC on the SC payload and on every OFDM payload (DCM included),
 decoded from the equaliser's output.
 
 What is built here:
@@ -16,19 +16,24 @@ What is built here:
   chips; OFDM: the data tones of ``ay.units`` symbols, in order, symbol
   after symbol, data/spec: assumed.ay_ofdm_tone_order); bits that do not
   fill a codeword are random padding the receiver ignores;
-* max-log LLRs from the equalised chips or tones (``phy.mapper.llr``).  No
-  per-chip / per-tone weighting: the SC MMSE gives every chip the same SINR,
-  OFDM's zero forcing on a flat channel every tone the same, and the
-  normalised min-sum decoder is blind to the LLRs' common scale;
+* OFDM's DCM MCS (1-10) through ``ay.dcm``: the static pairing of
+  edmg.ofdm_modulation_mapping (spec_sources#43), the pair's two tones
+  demapped jointly;
+* max-log LLRs from the equalised chips or tones (``phy.mapper.llr``,
+  ``ay.dcm.llr``).  No per-chip / per-tone weighting: the SC MMSE gives
+  every chip the same SINR, OFDM's zero forcing on a flat channel every tone
+  the same, and the normalised min-sum decoder is blind to the LLRs' common
+  scale;
 * the packet error: any information bit of any codeword wrong.
 
 Not built: the scrambler and the padding / shortening rules of
 dmg.data_encoding / edmg.sc_encoding (the payload's bits are random, so the
 scrambler changes nothing a PER can see; a whole number of codewords stands
-in for the padding), the repetition (rho = 2, the MCS 1 procedure: zeros,
-then the parity's second half replaced by the data XOR a PN sequence), the
-1344-bit codewords (edmg.ldpc_1344_lifting), OFDM's DCM MCS (the pairing is
-not in spec_sources) and the standard's OFDM tone mapping.
+in for the padding), the repetition (rho = 2, the MCS 1 procedure; which
+168 bits the data XOR a PN sequence replaces is asked of spec_sources#43),
+the 1344-bit codewords (edmg.ldpc_1344_lifting), the dynamic DCM pairing
+(fed back by the receiver) and the 16 / 64-QAM in-symbol interleaver (its
+permutation is not in the public documents).
 """
 from __future__ import annotations
 
@@ -39,6 +44,7 @@ from functools import lru_cache
 import numpy as np
 
 from .. import spec
+from . import dcm as _dcm
 from ..phy import ldpc as _ldpc
 from ..phy.mapper import llr as _llr
 
@@ -132,12 +138,13 @@ def _frac(r: str) -> float:
 
 
 def _check_coded(sim) -> None:
-    """The payloads built here: SC at repetition 1, OFDM without DCM."""
-    m = sim.mcs
-    if int(m.repetition) != 1:
+    """The payloads built here: SC at repetition 1, every OFDM MCS."""
+    if int(sim.mcs.repetition) != 1:
         raise NotImplementedError("the repetition procedure (rho = 2, dmg.data_encoding) is not built")
-    if sim.cfg.waveform == "ay_ofdm" and m.modulation.startswith("DCM"):
-        raise NotImplementedError("a coded DCM payload is not built: the DCM pairing is not in spec_sources")
+
+
+def _is_dcm(sim) -> bool:
+    return sim.cfg.waveform == "ay_ofdm" and sim.mcs.modulation.startswith("DCM")
 
 
 def ay_code(sim):
@@ -189,7 +196,11 @@ def coded_packet(sim, code, snr_db: float | None, rng: np.random.Generator,
     y, _, _ = sim.impair(frame.x, rng, snr_db)
     res = sim.receive(y, ref, snr_db, keep_symbols=True)
     noise = 1.0 if snr_db is None else 10.0 ** (-float(snr_db) / 10.0)
-    llrs = _llr(np.asarray(res.eq_symbols).reshape(-1), order, 1.0 / noise)[:cw.size]
+    if _is_dcm(sim):   # the pair's two tones together (ay.dcm)
+        llrs = _dcm.llr(np.asarray(res.eq_symbols), int(np.log2(order)), len(sim.phy.num.data_tones),
+                        1.0 / noise)[:cw.size]
+    else:
+        llrs = _llr(np.asarray(res.eq_symbols).reshape(-1), order, 1.0 / noise)[:cw.size]
     dec, iters = code.decode(llrs.reshape(n_cw, code.n), max_iter=max_iter)
     errors = int(np.count_nonzero(dec[:, :code.k] != info))
     return {"packet_error": errors > 0, "bit_errors": errors, "codewords": n_cw, "iterations": int(iters),
