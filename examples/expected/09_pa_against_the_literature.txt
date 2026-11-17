@@ -47,11 +47,11 @@ PA          back-off   Pout  TX no DPD   TX DPD   gain  loopback
 11ad EM            6    9.0      -16.2    -16.2    0.0     -16.4
 11ad EM          7.5    7.5      -18.2    -18.2    0.0     -18.5
 11ad EM            8    7.0      -18.8    -19.6    0.8     -20.1
-11ad EM           10    5.0      -21.4    -25.9    4.5     -27.8
+11ad EM           10    5.0      -21.4    -25.8    4.5     -27.9
 presets            6    8.6      -18.9    -18.9    0.0     -19.3
 presets          7.5    7.1      -21.4    -21.4    0.0     -22.1
 presets            8    6.6      -22.2    -24.2    2.0     -25.7
-presets           10    4.6      -25.0    -27.7    2.6     -31.1
+presets           10    4.6      -25.0    -27.7    2.7     -31.1
 (dB, dBm, then EVM in dB as a standard receiver reads it; 'gain' = what the DPD step bought; a 0.0 means the step kept nothing better than no DPD.  7.5 dB is the presets' operating point, 8 dB the 11ad EM PA's)  [~s]
 
 == 5. the comparison table's 11be 80 MHz rows with each PA (decoder cap, uncalibrated IQ) ==

@@ -207,16 +207,20 @@ def test_law4_the_ay_chain_is_calibrated_by_running_wifitrx_sequence():
         LinkSim(ay_60ghz("ay_sc"), frontend=fe, chains=fe.build_chains(2.56e9, 5.12e9))
 
 
-def test_the_tx_lo_leak_calibration_holds_only_at_its_gain_state():
-    """Why example 15 §8 calibrates at every back-off: the TX LO-leak
-    cancellation wifitrx finds is right for the VGA setting it was found at.
-    Calibrated at the preset back-off and run 7.5 dB lower (the drive
-    re-trimmed), single carrier loses about 10 dB, all of it DC — without
-    the CFO the receiver's DC removal takes it out — while the sequence run
-    anew at that back-off reads what the clean chain reads."""
+def test_the_tx_lo_leak_null_survives_a_vga_change_through_set_gain(monkeypatch):
+    """wifi_trx_cal#6 (wifitrx 0.7.41, B43): ``dc_pre`` sits before the VGA
+    and the leak it cancels after it, so a gain change scales the correction
+    and not the leak.  ``Frontend60.set_vga_for_obo`` moves the VGA through
+    ``tx.set_gain``, which rescales ``dc_pre``: one calibration at the preset
+    back-off serves 15 dB as well as the sequence run anew there.  Until
+    2026-11-17 the trim was a bare assignment and single carrier lost about
+    10 dB at 15 dB, all of it DC the CFO carries past the receiver's DC
+    removal; the same trim done that way here brings the loss back (so the
+    first assertion is the frontend's set_gain, not luck)."""
     import copy
 
     from mmw60.calcheck import run_cal_ay
+    from mmw60.vendor.wifitrx.units import power_dbm
     cfg = dc.replace(ay_60ghz("ay_sc", 16), channel=FLAT)
     low = dc.replace(cfg, frontend=dc.replace(cfg.frontend, pa=dc.replace(cfg.frontend.pa, obo_db=15.0)))
     fe, fe_low = Frontend60.from_config(cfg), Frontend60.from_config(low)
@@ -225,9 +229,22 @@ def test_the_tx_lo_leak_calibration_holds_only_at_its_gain_state():
     def ev(c, run):
         sim = LinkSim(c, frontend=Frontend60.from_config(c), chains=copy.deepcopy(run.chains[:2]))
         return float(np.mean([sim.packet(None, np.random.default_rng(i)).rx.evm_db for i in range(2)]))
-    stale, stale_no_cfo = ev(low, once), ev(dc.replace(low, xo_ppm_tx=0.0, xo_ppm_rx=0.0), once)
-    fresh = ev(low, here)
-    assert fresh < -25 and stale > fresh + 6 and stale_no_cfo < fresh + 1.0, (stale, stale_no_cfo, fresh)
+    fresh, kept = ev(low, here), ev(low, once)
+    assert fresh < -25 and abs(kept - fresh) < 1.0, (kept, fresh)
+
+    def bare(self, tx, x_digital, tol_db=0.02):       # the trim before 2026-11-17
+        if not self.pa_enabled:
+            return power_dbm(tx(x_digital))
+        target = self.target_pout_dbm()
+        for _ in range(12):
+            err = target - power_dbm(tx(x_digital))
+            if abs(err) < tol_db:
+                break
+            tx.params.vga_gain_db += err * 1.2
+        return power_dbm(tx(x_digital))
+    monkeypatch.setattr(Frontend60, "set_vga_for_obo", bare)
+    broken, broken_no_cfo = ev(low, once), ev(dc.replace(low, xo_ppm_tx=0.0, xo_ppm_rx=0.0), once)
+    assert broken > fresh + 6 and broken_no_cfo < fresh + 1.5, (broken, broken_no_cfo, fresh)
 
 
 def test_the_two_ay_rows_of_the_comparison_table():

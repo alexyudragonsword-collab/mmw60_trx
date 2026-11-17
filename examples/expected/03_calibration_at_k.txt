@@ -5,32 +5,32 @@ mmw60 0.1.0; full; profile poweron; front end rapp_11ad Pout 7.1 dBm, TX leak -3
   K=1   tx_lpf_corner          ok        fc_err_pct 0.00
   K=1   rx_lpf_corner          ok        fc_err_pct 0.00
   K=1   rx_dc_offset           ok        worst_dc_dbfs -78.77
-  K=1   tx_lo_leak_loopback    ok        lo_leak_dbc -68.78
+  K=1   tx_lo_leak_loopback    ok        lo_leak_dbc -68.48
   K=1   loopback_delay         ok        delay_ns 71.76 captures in later cals are aligned with this estimate
-  K=1   tx_iq                  ok        irr_min_db 58.44
-  K=1   group_delay            ok        error_ps -1.37
-  K=1   rx_iq                  ok        irr_min_db 57.30
+  K=1   tx_iq                  ok        irr_min_db 58.55
+  K=1   group_delay            ok        error_ps -0.34
+  K=1   rx_iq                  ok        irr_min_db 57.55
   K=1   tx_power               ok
-  K=1   dpd                    degraded  evm_db -24.22
+  K=1   dpd                    degraded  evm_db -24.10
   K=1   agc_sweep              ok        worst_landing_err_db 0.26
-  K=1   final_loopback_evm     ok        tx_evm_modem_db -21.79 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
-  operating point at the final check: Pout 7.17 dBm, back-off 7.43 dB from Psat (1 run of the sequence)
-  scoring waveform: 11ac 20 MHz (standard pilots); loopback EVM before/after: -21.5 / -25.7 dB  [~s]
+  K=1   final_loopback_evm     ok        tx_evm_modem_db -21.75 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  operating point at the final check: Pout 7.18 dBm, back-off 7.42 dB from Psat (1 run of the sequence)
+  scoring waveform: 11ac 20 MHz (standard pilots); loopback EVM before/after: -21.5 / -25.6 dB  [~s]
   final EVM as a standard receiver reads it: loopback -21.7, TX alone -21.8, RX alone -27.4 dB; RX NF 11.9 dB
 
 == K = 4, base 20 MHz -> 80 MHz at 0.16 GS/s ==
   K=4   tx_lpf_corner          ok        fc_err_pct 0.00
   K=4   rx_lpf_corner          ok        fc_err_pct 0.00
   K=4   rx_dc_offset           ok        worst_dc_dbfs -72.86
-  K=4   tx_lo_leak_loopback    ok        lo_leak_dbc -72.60
+  K=4   tx_lo_leak_loopback    ok        lo_leak_dbc -71.81
   K=4   loopback_delay         ok        delay_ns 23.27 captures in later cals are aligned with this estimate
-  K=4   tx_iq                  ok        irr_min_db 57.68
-  K=4   group_delay            ok        error_ps -28.37
-  K=4   rx_iq                  ok        irr_min_db 55.89
+  K=4   tx_iq                  ok        irr_min_db 56.83
+  K=4   group_delay            ok        error_ps -28.43
+  K=4   rx_iq                  ok        irr_min_db 55.74
   K=4   tx_power               ok
   K=4   dpd                    degraded  evm_db -21.74
   K=4   agc_sweep              ok        worst_landing_err_db 0.12
-  K=4   final_loopback_evm     ok        tx_evm_modem_db -21.60 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  K=4   final_loopback_evm     ok        tx_evm_modem_db -21.59 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
   operating point at the final check: Pout 7.09 dBm, back-off 7.51 dB from Psat (1 run of the sequence)
   scoring waveform: 11ac 80 MHz (standard pilots); loopback EVM before/after: -21.8 / -22.7 dB  [~s]
   final EVM as a standard receiver reads it: loopback -22.4, TX alone -21.6, RX alone -27.9 dB; RX NF 11.8 dB
@@ -39,11 +39,11 @@ mmw60 0.1.0; full; profile poweron; front end rapp_11ad Pout 7.1 dBm, TX leak -3
   K=8   tx_lpf_corner          ok        fc_err_pct 0.00
   K=8   rx_lpf_corner          ok        fc_err_pct 0.00
   K=8   rx_dc_offset           ok        worst_dc_dbfs -69.86
-  K=8   tx_lo_leak_loopback    ok        lo_leak_dbc -68.94
+  K=8   tx_lo_leak_loopback    ok        lo_leak_dbc -67.35
   K=8   loopback_delay         ok        delay_ns 14.72 captures in later cals are aligned with this estimate
-  K=8   tx_iq                  ok        irr_min_db 53.44
-  K=8   group_delay            ok        error_ps -40.10
-  K=8   rx_iq                  ok        irr_min_db 54.13
+  K=8   tx_iq                  ok        irr_min_db 53.70
+  K=8   group_delay            ok        error_ps -39.99
+  K=8   rx_iq                  ok        irr_min_db 52.89
   K=8   tx_power               ok
   K=8   dpd                    degraded  evm_db -21.70
   K=8   agc_sweep              ok        worst_landing_err_db 0.26
@@ -56,33 +56,33 @@ mmw60 0.1.0; full; profile poweron; front end rapp_11ad Pout 7.1 dBm, TX leak -3
   K=16  tx_lpf_corner          ok        fc_err_pct 0.00
   K=16  rx_lpf_corner          ok        fc_err_pct 0.00
   K=16  rx_dc_offset           ok        worst_dc_dbfs -67.07
-  K=16  tx_lo_leak_loopback    ok        lo_leak_dbc -55.28
+  K=16  tx_lo_leak_loopback    ok        lo_leak_dbc -65.99
   K=16  loopback_delay         ok        delay_ns 10.48 captures in later cals are aligned with this estimate
-  K=16  tx_iq                  ok        irr_min_db 55.31
-  K=16  group_delay            ok        error_ps -16.57
-  K=16  rx_iq                  ok        irr_min_db 51.91
+  K=16  tx_iq                  ok        irr_min_db 54.34
+  K=16  group_delay            ok        error_ps -16.32
+  K=16  rx_iq                  ok        irr_min_db 52.34
   K=16  tx_power               ok
-  K=16  dpd                    degraded  evm_db -22.81
+  K=16  dpd                    degraded  evm_db -22.61
   K=16  agc_sweep              ok        worst_landing_err_db 0.05
-  K=16  final_loopback_evm     ok        tx_evm_modem_db -21.77 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  K=16  final_loopback_evm     ok        tx_evm_modem_db -21.49 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
   operating point at the final check: Pout 7.16 dBm, back-off 7.44 dB from Psat (1 run of the sequence)
-  scoring waveform: 11be 320 MHz (standard pilots); loopback EVM before/after: -19.0 / -24.5 dB  [~s]
-  final EVM as a standard receiver reads it: loopback -22.8, TX alone -21.8, RX alone -27.8 dB; RX NF 17.8 dB
+  scoring waveform: 11be 320 MHz (standard pilots); loopback EVM before/after: -19.0 / -24.2 dB  [~s]
+  final EVM as a standard receiver reads it: loopback -22.4, TX alone -21.5, RX alone -27.8 dB; RX NF 17.8 dB
 
 == K = 32, base 20 MHz -> 640 MHz at 1.28 GS/s ==
   K=32  tx_lpf_corner          ok        fc_err_pct 0.00
   K=32  rx_lpf_corner          ok        fc_err_pct 0.00
   K=32  rx_dc_offset           ok        worst_dc_dbfs -63.79
-  K=32  tx_lo_leak_loopback    ok        lo_leak_dbc -56.79
+  K=32  tx_lo_leak_loopback    ok        lo_leak_dbc -59.92
   K=32  loopback_delay         ok        delay_ns 8.22 captures in later cals are aligned with this estimate
-  K=32  tx_iq                  degraded  irr_min_db 48.09
-  K=32  group_delay            ok        error_ps -7.66
-  K=32  rx_iq                  degraded  irr_min_db 49.21
+  K=32  tx_iq                  degraded  irr_min_db 47.21
+  K=32  group_delay            ok        error_ps -7.61
+  K=32  rx_iq                  ok        irr_min_db 50.39
   K=32  tx_power               ok
-  K=32  dpd                    degraded  evm_db -22.07
+  K=32  dpd                    degraded  evm_db -22.06
   K=32  agc_sweep              ok        worst_landing_err_db 0.08
   K=32  final_loopback_evm     ok        tx_evm_modem_db -21.87 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
-  operating point at the final check: Pout 7.11 dBm, back-off 7.49 dB from Psat (1 run of the sequence)
+  operating point at the final check: Pout 7.12 dBm, back-off 7.48 dB from Psat (1 run of the sequence)
   scoring waveform: 11ac 20 MHz x32 upclocked (52 tones at 10 MHz, the base's 4 pilots); loopback EVM before/after: -15.7 / -22.4 dB  [~s]
   final EVM as a standard receiver reads it: loopback -21.0, TX alone -21.9, RX alone -29.8 dB; RX NF 17.2 dB
 
@@ -90,59 +90,59 @@ mmw60 0.1.0; full; profile poweron; front end rapp_11ad Pout 7.1 dBm, TX leak -3
   K=32  tx_lpf_corner          ok        fc_err_pct 0.00
   K=32  rx_lpf_corner          degraded  fc_err_pct 8.70
   K=32  rx_dc_offset           ok        worst_dc_dbfs -57.80
-  K=32  tx_lo_leak_loopback    degraded  lo_leak_dbc -39.84
+  K=32  tx_lo_leak_loopback    ok        lo_leak_dbc -59.66
   K=32  loopback_delay         ok        delay_ns 6.82 captures in later cals are aligned with this estimate
-  K=32  tx_iq                  degraded  irr_min_db 39.02
-  K=32  group_delay            ok        error_ps 8.80
-  K=32  rx_iq                  degraded  irr_min_db 44.58
+  K=32  tx_iq                  degraded  irr_min_db 39.06
+  K=32  group_delay            ok        error_ps 8.83
+  K=32  rx_iq                  degraded  irr_min_db 47.44
   K=32  tx_power               ok
-  K=32  dpd                    degraded  evm_db -22.73
+  K=32  dpd                    degraded  evm_db -21.04
   K=32  agc_sweep              ok        worst_landing_err_db 0.05
-  K=32  final_loopback_evm     ok        tx_evm_modem_db -23.24 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  K=32  final_loopback_evm     ok        tx_evm_modem_db -21.12 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
   K=32  tx_lpf_corner          ok        fc_err_pct 0.00
   K=32  rx_lpf_corner          degraded  fc_err_pct 8.70
   K=32  rx_dc_offset           ok        worst_dc_dbfs -57.80
-  K=32  tx_lo_leak_loopback    degraded  lo_leak_dbc -39.79
+  K=32  tx_lo_leak_loopback    ok        lo_leak_dbc -59.31
   K=32  loopback_delay         ok        delay_ns 6.82 captures in later cals are aligned with this estimate
-  K=32  tx_iq                  degraded  irr_min_db 40.25
-  K=32  group_delay            ok        error_ps 8.99
-  K=32  rx_iq                  degraded  irr_min_db 45.89
+  K=32  tx_iq                  degraded  irr_min_db 39.39
+  K=32  group_delay            ok        error_ps 8.73
+  K=32  rx_iq                  degraded  irr_min_db 47.54
   K=32  tx_power               ok
-  K=32  dpd                    degraded  evm_db -23.35
+  K=32  dpd                    degraded  evm_db -23.47
   K=32  agc_sweep              ok        worst_landing_err_db 0.05
-  K=32  final_loopback_evm     ok        tx_evm_modem_db -23.94 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
-  operating point at the final check: Pout 7.13 dBm, back-off 7.47 dB from Psat (2 runs of the sequence)
-  scoring waveform: 11be 80 MHz x32 upclocked (996 tones at 2.5 MHz, the base's 16 pilots); loopback EVM before/after: 22.0 / -13.5 dB  [~s]
-  final EVM as a standard receiver reads it: loopback -23.4, TX alone -23.9, RX alone -28.8 dB; RX NF 18.0 dB
+  K=32  final_loopback_evm     ok        tx_evm_modem_db -24.11 evm_db: composite TX+RX loopback EVM (shared LO — phase noise cancels); tx_evm_d
+  operating point at the final check: Pout 7.07 dBm, back-off 7.53 dB from Psat (2 runs of the sequence)
+  scoring waveform: 11be 80 MHz x32 upclocked (996 tones at 2.5 MHz, the base's 16 pilots); loopback EVM before/after: 21.6 / -13.6 dB  [~s]
+  final EVM as a standard receiver reads it: loopback -23.5, TX alone -24.1, RX alone -28.7 dB; RX NF 18.0 dB
 
 == the final check's loopback read three ways (ROADMAP C7; dB) ==
 column            isolation  EQ first   modem  phase ramp  coherence
-K=1 20M               -25.7     -26.4   -21.7      0.00 rad       0.99
-K=4 80M               -22.7     -23.4   -22.4      0.03 rad       0.98
+K=1 20M               -25.6     -26.3   -21.7      0.00 rad       0.99
+K=4 80M               -22.7     -23.3   -22.4      0.03 rad       0.98
 K=8 160M              -22.6     -23.2   -22.1      0.01 rad       0.98
-K=16 320M             -24.5     -25.1   -22.8      0.00 rad       0.99
+K=16 320M             -24.2     -24.8   -22.4      0.00 rad       0.99
 K=32 640M             -22.4     -23.1   -21.0      0.00 rad       0.99
-K=32 2560M            -13.5     -24.4   -23.4      6.06 rad       0.08
+K=32 2560M            -13.6     -24.5   -23.5      6.06 rad       0.09
 isolation = wifitrx's isolation view as it computes it (each symbol's common phase over all tones, then the per-tone equaliser); EQ first = the same with the equaliser first; modem = wifitrx's modem view (LTF channel estimate, pilot CPE).  phase ramp = the linear part of the loopback's channel phase across the band (a residual delay the capture alignment leaves); coherence = |mean of e^(j phase)| over the tones: near 0 the common-phase-first estimate is pulled by the 64-QAM amplitudes and the isolation view reads the estimator, not the chain
 
 == the calibrated column in a link over multipath (ROADMAP C7): the library's receiver, per-packet estimates, IQ mismatch scaled to the calibrated residual the comparison table uses; EVM at no noise, dB ==
 cell                     IRR  scale  floor CR  floor flat  TD flat  TD CR  ideal CR
-11be 80M x8 (0.64 GHz)  48.1  0.048     -19.8       -19.8    -20.4  -20.4     -49.2
-11be 80M x16 (1.28 GHz)  48.1  0.024     -19.9       -19.9    -20.6  -20.4     -43.2
-11be 80M x32 (2.56 GHz)  40.2  0.029     -19.0       -20.0    -19.6  -18.9     -33.2
+11be 80M x8 (0.64 GHz)  47.2  0.053     -19.8       -19.8    -20.4  -20.4     -49.2
+11be 80M x16 (1.28 GHz)  47.2  0.026     -19.9       -19.9    -20.6  -20.4     -43.2
+11be 80M x32 (2.56 GHz)  39.4  0.032     -19.0       -19.9    -19.6  -18.8     -33.2
 IRR = the calibrated residual per side (example 03's, derived.irr_after_cal_measured_db); scale = the factor on every IQ mismatch term that puts the analytic image there; floor CR includes the ISI beyond the guard interval on the stand-in (7 ns rms, LOS K 10 dB), floor flat does not; TD = 16 packets each; ideal CR = the ideal chain on the same channel (ISI and the receiver's estimates alone)
 
 == sensitivity: capture length at K = 32, base 20 MHz (assumed.cal_capture_symbols) ==
  symbols  samples     dpd  loopback  TX alone  RX alone   (EVM dB; the first row is the column above)
        8     1280   -22.1     -21.0     -21.9     -29.8
-      32     5120   -24.2     -25.7     -27.7     -30.7
+      32     5120   -23.7     -22.9     -24.8     -30.7
        8     1280     off     -21.0     -21.9     -29.8
 the training waveform's random data, waveform_seed 0-23 (the rows above are seed 0), at the same back-off: how often the DPD step writes a predistorter and what it gains at the PA output (dB, its own readings)
   K  symbols  samples  written  gain mean  median    max  >= 1 dB
-  1        8     1280     5/24       0.41    0.00   4.17        3
-  1       32     5120     6/24       0.43    0.00   3.84        3
- 32        8     1280     2/24       0.12    0.00   1.72        2
- 32       32     5120     6/24       0.26    0.00   2.65        3
+  1        8     1280     5/24       0.41    0.00   4.18        4
+  1       32     5120     9/24       0.45    0.00   3.84        3
+ 32        8     1280     1/24       0.08    0.00   1.89        1
+ 32       32     5120     4/24       0.24    0.00   2.08        3
 the capture length is not what decides the DPD step here: at this back-off it writes a predistorter for a minority of training waveforms, at K = 1 as at K = 32
 
 == sensitivity: wifitrx's default drive at K = 8, base 20 MHz (how this example ran until 2026-11-13) ==
@@ -156,21 +156,21 @@ step                              K=1 20M           K=4 80M          K=8 160M   
 tx_lpf_corner                      ok 0.0            ok 0.0            ok 0.0            ok 0.0            ok 0.0            ok 0.0
 rx_lpf_corner                      ok 0.0            ok 0.0            ok 0.0            ok 0.0            ok 0.0      degraded 8.7
 rx_dc_offset                     ok -78.8    degraded -72.9    degraded -69.9    degraded -67.1    degraded -63.8    degraded -57.8
-tx_lo_leak_loopback              ok -68.8          ok -72.6          ok -68.9    degraded -55.3    degraded -56.8    degraded -39.8
+tx_lo_leak_loopback              ok -68.5          ok -71.8          ok -67.4          ok -66.0    degraded -59.9    degraded -59.3
 loopback_delay                    ok 71.8           ok 23.3           ok 14.7           ok 10.5            ok 8.2            ok 6.8
-tx_iq                             ok 58.4           ok 57.7     degraded 53.4     degraded 55.3     degraded 48.1     degraded 40.2
-group_delay                       ok -1.4          ok -28.4          ok -40.1          ok -16.6           ok -7.7            ok 9.0
-rx_iq                             ok 57.3           ok 55.9     degraded 54.1     degraded 51.9     degraded 49.2     degraded 45.9
+tx_iq                             ok 58.5           ok 56.8     degraded 53.7     degraded 54.3     degraded 47.2     degraded 39.4
+group_delay                       ok -0.3          ok -28.4          ok -40.0          ok -16.3           ok -7.6            ok 8.7
+rx_iq                             ok 57.5           ok 55.7     degraded 52.9     degraded 52.3     degraded 50.4     degraded 47.5
 tx_power                               ok                ok                ok                ok                ok                ok
-dpd                        degraded -24.2    degraded -21.7    degraded -21.7    degraded -22.8    degraded -22.1    degraded -23.3
+dpd                        degraded -24.1    degraded -21.7    degraded -21.7    degraded -22.6    degraded -22.1    degraded -23.5
 agc_sweep                          ok 0.3            ok 0.1            ok 0.3            ok 0.0            ok 0.1            ok 0.1
-final_loopback_evm               ok -21.8          ok -21.6          ok -21.4          ok -21.8          ok -21.9          ok -23.9
+final_loopback_evm               ok -21.8          ok -21.6          ok -21.4          ok -21.5          ok -21.9          ok -24.1
 
 == mechanisms ==
 - tx_lpf_corner: 角频搜索相对 BW（recommended_lpf_corner_hz × BW），随 K 缩放；n = 2^14 样本的扫频分辨率随 fs 变粗
 - rx_lpf_corner: 同上
 - rx_dc_offset: 读 DC 箱，与 fs 无关；RX 自混频 DC 本身按 dBc 给定
-- tx_lo_leak_loopback: RX LO 偏置固定 4.8 MHz：泄漏箱偏到 4.8 MHz / SCS_eff 个子载波，K ≥ 8 时落进信号带内（2.5 MHz 音距）
+- tx_lo_leak_loopback: RX LO 偏置 4.8 MHz，wifitrx 0.7.41 起放到本次捕获的 FFT 网格上（B42，wifi_trx_cal#6；之前在网格外，探测音的频谱泄漏进泄漏箱，2.56 GHz 停在 −40 dBc）；宽带列仍比 20 MHz 差约 9 dB，没有单独查
 - loopback_delay: 6 ns 回环延迟 = 6e-9 × fs 个样本；capture_aligned 的 max_lag = 32 样本，fs ≥ 5.3 GS/s 时越界
 - tx_iq: RX LO 偏置固定 5.1 MHz、校正 FIR 7.5·fs/BW 抽头（随 K 不变）；IQ 失配 ps 绝对值在宽带上相位误差 ∝ K，可校正范围由 FIR 频率分辨率决定
 - group_delay: 容差固定 80 ps；ρ(f) 斜率估计的频率杠杆随 BW 增大，K 大时更准

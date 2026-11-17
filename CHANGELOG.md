@@ -4,6 +4,14 @@
 
 ## 未发布
 
+### 重新 pin wifitrx 到 `681ce4b`（0.7.41，wifi_trx_cal#6，2026-11-17）—— 指纹不变；校准读数与依赖它们的示例数字变了
+- vendored wifitrx 换成 `681ce4b`：`cal/tx_lo_leak`（RX-LO 偏置放到 FFT 网格上，B42）、`chain/tx`（新 `TxChain.set_gain`，按增益变化反缩 `dc_pre`，B43）、`cal/tx_power`（改增益码走 `set_gain`）、`__init__`。250 个 vendor 文件 verbatim。
+- `Frontend60.set_vga_for_obo`（链路建好后为回退修 VGA）改走 `tx.set_gain`：校准后的 LO 泄漏零点不再被破坏（**行为变化**）。`calcheck` 的两处修 VGA 也改走它（在序列之前，`dc_pre = 0`，逐位不变）。
+- `derived.irr_after_cal_measured_db` 按示例 03 重导：57.5 / 55.7 / 52.9 / 52.3 / 47.2 / 39.4 dB（原 57.3 / 55.9 / 53.4 / 51.9 / 48.1 / 40.2）；同台表的格与上限不动。
+- 示例 15 §8b 的直接读数改成关 DAC 读泄漏（零输入经 9 bit DAC 读会封底）；§8 那一行与 §8b 的结论文字改写。`calcheck` 里泄漏步的机理说明更正。
+- 测试：`test_the_tx_lo_leak_calibration_holds_only_at_its_gain_state` 换成 `test_the_tx_lo_leak_null_survives_a_vga_change_through_set_gain`（`set_gain` 时一次校准在 15 dB 照样成立；换回直接赋值时差 6 dB 以上）。
+- 读数：ay 链泄漏步 −38.1 → −58.9 dBc；SC 在校准链上多出的损失 0.38 / 0.79 → 0.12 / 0.45 dB（剩 IQ 残差）；示例 03 2.56 GHz 泄漏 −39.8 → −59.3 dBc。示例 02–11、15 重跑，03 / 04 / 06 / 07 / 09 / 10 / 15 的期望输出重新接受（02、05、08、11 只动计时行）。
+
 ### 编码的 EDMG OFDM DCM 载荷（MCS 1–10，spec_sources#43）与实测门限（2026-11-17）—— 指纹不变；OFDM 低档的距离变了
 - `ay/dcm.py`（新）：`edmg.ofdm_modulation_mapping` 的 DCM BPSK / DCM QPSK，静态配对 P(k) = k + N_SD/2；`map_bits`、联合 max-log 的 `llr`（逐子载波权重）、`pairs`。
 - `AyLinkSim.transmit(bits=)` 对 DCM 档也接受比特（**公开行为变化**：以前报 `NotImplementedError`）；不传比特时随机抽取与原来逐位相同。

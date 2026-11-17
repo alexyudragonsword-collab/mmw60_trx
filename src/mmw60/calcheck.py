@@ -47,7 +47,7 @@ MECHANISM = {
     "rx_lpf_corner": "同上",
     "rx_dc_offset": "读 DC 箱，与 fs 无关；RX 自混频 DC 本身按 dBc 给定",
     "tx_lo_leak_envdet": "包络检波器 LPF 固定 60 MHz：K 大时带内信号功率落在检波带外，泄漏/信号比的读数失真",
-    "tx_lo_leak_loopback": "RX LO 偏置固定 4.8 MHz：泄漏箱偏到 4.8 MHz / SCS_eff 个子载波，K ≥ 8 时落进信号带内（2.5 MHz 音距）",
+    "tx_lo_leak_loopback": "RX LO 偏置 4.8 MHz，wifitrx 0.7.41 起放到本次捕获的 FFT 网格上（B42，wifi_trx_cal#6；之前在网格外，探测音的频谱泄漏进泄漏箱，2.56 GHz 停在 −40 dBc）；宽带列仍比 20 MHz 差约 9 dB，没有单独查",
     "rx_iip2": "双音固定 17 / 23 MHz（bw ≥ 80 MHz 不再按 BW 缩放）：K 大时音在带内极低频处，IM2 拍频 6 MHz 与 DC 环路重叠",
     "loopback_delay": "6 ns 回环延迟 = 6e-9 × fs 个样本；capture_aligned 的 max_lag = 32 样本，fs ≥ 5.3 GS/s 时越界",
     "tx_iq": "RX LO 偏置固定 5.1 MHz、校正 FIR 7.5·fs/BW 抽头（随 K 不变）；IQ 失配 ps 绝对值在宽带上相位误差 ∝ K，可校正范围由 FIR 频率分辨率决定",

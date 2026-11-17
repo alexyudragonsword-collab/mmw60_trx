@@ -29,9 +29,9 @@ ay_sc on if_extender                         n/a: the ay waveforms are topology 
 
 == 1b. the two 802.11ay rows (same front end instance; EVM only; no analytic sum: the floor is the time-domain EVM, raw and on the chains wifitrx's sequence calibrated, per payload constellation) ==
 scheme                                       fs[GS/s] occ[GHz] unit[ns]  CFO/STF[MHz] raw floor cal floor raw cap cal cap   Mb/s  pJ/bit at limit   Mb/s
-ay_ofdm EDMG channel 2 @60.48 GHz                5.28    1.815    230.3  2.42/10.31      -6.21    -20.80       —   MCS13   4377     203    MCS15   5106
-ay_sc EDMG channel 2 @60.48 GHz                  5.28    1.760    290.9  2.42/6.88       -8.14    -24.12       —   MCS14   4620     189    MCS16   5390
-(floors: the worst constellation's; cal = wifitrx's sequence on the ay chain at the preset back-off, IRR 43.6 dB, LO leak -38.1 dBc; caps by the EDMG TX EVM limits under the be rows' rule, the floor 3 dB under the limit (assumed.mcs_evm_margin_db), the passing MCS with the highest rate; Mb/s and pJ/bit at the calibrated cap, no decoder counted; 'at limit' = the calibrated cap with no margin, example 15's reading; per constellation and back-off: example 15)
+ay_ofdm EDMG channel 2 @60.48 GHz                5.28    1.815    230.3  2.42/10.31      -6.21    -20.83       —   MCS13   4377     203    MCS15   5106
+ay_sc EDMG channel 2 @60.48 GHz                  5.28    1.760    290.9  2.42/6.88       -8.14    -24.31       —   MCS14   4620     189    MCS16   5390
+(floors: the worst constellation's; cal = wifitrx's sequence on the ay chain at the preset back-off, IRR 43.9 dB, LO leak -58.8 dBc; caps by the EDMG TX EVM limits under the be rows' rule, the floor 3 dB under the limit (assumed.mcs_evm_margin_db), the passing MCS with the highest rate; Mb/s and pJ/bit at the calibrated cap, no decoder counted; 'at limit' = the calibrated cap with no margin, example 15's reading; per constellation and back-off: example 15)
 be rows at their calibrated cap, fastest and fewest pJ/bit: be_upclocked 11be 80M K=32 @60.48 GHz MCS2 3459 Mb/s 272 pJ/bit (decoder 14 of it)
 
 == 2. cross-checks: analytic floor vs time-domain EVM (|Δ| ≤ 2 dB while the floor ≤ −8 dB and the CFO is caught), EvmBudget vs floor ==
@@ -115,14 +115,14 @@ be_upclocked 11ac 20M K=1 @60.48 GHz          -19.5  MCS3   MCS4  -2.46  14.33  
 be_upclocked 11ac 20M K=4 @60.48 GHz          -19.3  MCS3   MCS4  -2.63  14.33  16.00   1.67    MCS4  -1.90    156    1753
 be_upclocked 11ac 20M K=8 @60.48 GHz          -19.1  MCS3   MCS4  -2.80  14.33  16.08   1.75    MCS4  -1.65    312    1039
 be_upclocked 11ac 20M K=16 @60.48 GHz         -19.1  MCS3   MCS4  -2.87  14.33  16.11   1.78    MCS4  -1.44    624     638
-be_upclocked 11ac 20M K=32 @60.48 GHz         -16.5  MCS2   MCS3  -0.85  11.01  12.46   1.45    MCS4  -2.37    832     602
+be_upclocked 11ac 20M K=32 @60.48 GHz         -16.5  MCS2   MCS3  -0.85  11.01  12.46   1.45    MCS4  -2.38    832     602
 be 11be 80M IF extender @60.48 GHz            -19.6  MCS3   MCS5  -0.04  15.11  17.03   1.92    MCS5  -0.04    288    2418
 be_upclocked 11be 80M K=4 IF extender @60.48 GHz  -19.6  MCS3 MCS5–6  -0.02  15.11  17.02   1.91  MCS5–6  -0.02   1153     863
 be 11be 80M K=1 @6 GHz (WiFi 7 chain)         -19.4  MCS3   MCS5  -0.28  15.11  17.16   2.05  MCS5–6  -1.78    288     826
 be_upclocked 11be 80M K=4 @60.48 GHz          -18.5  MCS2   MCS5  -1.13  15.11  17.77   2.66    MCS6  -1.72   1153     361
 be_upclocked 11be 80M K=8 @60.48 GHz          -16.2  MCS2   MCS4  -1.94  11.25  12.94   1.69    MCS6  -1.65   1729     305
-be_upclocked 11be 80M K=16 @60.48 GHz         -11.3  MCS0   MCS3  -2.95   7.53   9.89   2.36    MCS6  -1.55   2306     308
-be_upclocked 11be 80M K=32 @60.48 GHz          -4.7     —   MCS0  -0.52  -0.80   0.62   1.42    MCS5  -0.65   1153     796
+be_upclocked 11be 80M K=16 @60.48 GHz         -11.3  MCS0   MCS3  -2.95   7.53   9.89   2.36    MCS6  -1.56   2306     308
+be_upclocked 11be 80M K=32 @60.48 GHz          -4.7     —   MCS0  -0.52  -0.80   0.62   1.42    MCS5  -0.67   1153     796
 be 11be 320M IF extender @60.48 GHz           -19.5  MCS3   MCS5  -0.01  15.00  16.90   1.90    MCS5  -0.01   1153     865
 be 11be 320M IF ext. PA bypass @60.48 GHz     -19.5  MCS3   MCS5  -0.01  15.00  16.90   1.90    MCS5  -0.01   1153     481
 floor = the worse of the analytic floor and the time-domain EVM of table 1 (the analytic sum is optimistic once the IQ image is no small perturbation; dec-cal has only the analytic floor at the calibrated IRR)
