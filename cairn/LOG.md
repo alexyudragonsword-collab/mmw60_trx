@@ -9,7 +9,7 @@
 - 现在 2 个文件：`geometry.py`、`beam.py` 原样 @ `286609e`（上游这两个文件在两个 pin 之间没有变；上游改的 config / dpd / element / metrics / report / sim / standards / clock 本库都不拷）。不放 `__init__.py`：上游的那份 import `config` / `sim`，等于整包；目录当 PEP 420 命名空间包（`wifitrx/report` 早就是），`pyproject.toml` 写明 `namespaces = true`。
 - **被推翻的做法**：先试了留一个裁剪过的 `__init__.py`（extracted，按哈希记清单）。守卫 `test_no_drift_against_sibling_and_injected_drift_is_caught` 断言 vendor 里每个文件都是 verbatim，红了；与其放宽守卫和 AGENTS 的“必须全 verbatim”，不如不放这个文件。AGENTS.md 的 vendor 一条只把“arraytx 整包”改成“geometry / beam 两个文件”。
 - 验收：`vendor_check --strict` 117 个文件全 verbatim，清单仍为空，指纹逐位不变，示例 10 的输出不变，测试与 ruff 过。`assumed.array_element_errors` 引的 `ElementErrorsCfg` 默认值在新 pin 上相同（0.5 dB / 5°），cite 的 SHA 跟着改。
-- 下一步：收尾第二件，OFDM 接收机（混合速率前导 + 跨符号公共相位平滑）。
+- 下一步：收尾第二件，OFDM 接收机。训练场的数不在 spec_sources 里（Golay 的 D / W、3/2 重采样滤波器、EDMG-CEF 的 OFDM 序列），已开 spec_sources#48；`edmg.ofdm_pilot_tones_ncb1` 的引文说 EDMG OFDM PPDU 有 OFDM 域的 EDMG-STF / EDMG-CEF，所以 EDMG OFDM 的数据可能该用 EDMG-CEF 而不是混合速率的 L-CEF 估信道，请对方按原文确认。跨符号公共相位平滑不依赖外部的数。
 
 ## 2026-11-17 · 重新 pin wifitrx 到 a8edf50（0.7.46，wifi_trx_cal#7）：D5 已解；K = 32 的记忆代价是在错位的训练捕获上读的（feat/wifitrx-pin-a8edf50）
 
