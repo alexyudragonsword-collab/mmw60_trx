@@ -228,11 +228,11 @@ def test_law1_no_front_end_figure_is_typed_outside_the_spec_file():
             assert hit is None, f"{rel} types a literature number: {forbidden}"
 
 
-def test_law5_d4_figures_read_in_the_original_carry_the_quote_and_the_rest_say_unverified():
-    # dmg.sensitivity_assumptions: read in the original since spec_sources#29 (2026-11-16), value unchanged
+def test_law5_d4_figures_are_all_read_in_the_original_and_carry_the_quote():
+    # dmg.sensitivity_assumptions: read in the original since spec_sources#29 (2026-11-16); the ISCAS 2015
+    # receiver and the Okada antenna since spec_sources 0.6.0 (mmw60_trx#63), values unchanged
     read = ("rx60.comm_asada2011", "rx60.radar_iwr6843", "rx60.radar_iwr6843_fig7_2", "isolation.tx_rx_tue2018",
-            "dmg.rx_max_input_dbm", "dmg.sensitivity_assumptions")
-    snippet_only = ("rx60.comm_iscas2015", "antenna60.okada2013_dbi")
+            "dmg.rx_max_input_dbm", "dmg.sensitivity_assumptions", "rx60.comm_iscas2015", "antenna60.okada2013_dbi")
     # withdrawn by the party that supplied it: the application note it cited holds no antenna gain
     assert "survey.antenna60_bgt60_an600_dbi" not in spec.all_entries()
     for k in read:
@@ -247,9 +247,10 @@ def test_law5_d4_figures_read_in_the_original_carry_the_quote_and_the_rest_say_u
     sens = spec.survey("dmg.sensitivity_assumptions")
     assert "5 dB implementation loss" in sens.quote and "10 dB noise factor" in sens.quote
     assert sens.value == {"nf_db": 10.0, "implementation_loss_db": 5.0}
-    for k in snippet_only:
-        e = spec.survey(k)
-        assert e.source == "survey" and "未核实" in e.note, k
+    # the ISCAS 2015 figure is a double-sideband NF of a superheterodyne receiver: example 08 says so and adds
+    # the single-sideband row (assumed.rx_nf_dsb_to_ssb_db)
+    iscas = spec.survey("rx60.comm_iscas2015")
+    assert "double-side-band NF of 7.1dB" in iscas.quote and iscas.value["nf_db"] == 7.1
     for k in ("assumed.rx60_ladder_shape", "assumed.rx60_p1db_from_iip3_db", "assumed.frontend_faces_pick"):
         assert spec.survey(k).source == "assumed", k
 

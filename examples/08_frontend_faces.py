@@ -53,10 +53,12 @@ FLAT = ChannelConfig(model="flat")
 SNR_AXIS_DB = 10.0
 MCS_ROWS = (0, 4)
 
-#: the receive noise figures looked at: (label, spec key or None for wifitrx's own ladder)
+#: the receive noise figures looked at: (label, spec key or None for wifitrx's own ladder, or (key, offset key):
+#: the entry's NF plus an assumed offset — the ISCAS 2015 receiver's figure is double-sideband)
 NF_ROWS = (("WiFi 7 chip ladder (the presets)", None),
            ("60 GHz comm. transceiver, 65 nm", "rx60.comm_asada2011"),
-           ("60 GHz comm. receiver, 90 nm", "rx60.comm_iscas2015"),
+           ("60 GHz comm. receiver, 90 nm, DSB", "rx60.comm_iscas2015"),
+           ("  the same, single sideband", ("rx60.comm_iscas2015", "assumed.rx_nf_dsb_to_ssb_db")),
            ("802.11ad sensitivity-table receiver", "dmg.sensitivity_assumptions"),
            ("60 GHz radar chip", "rx60.radar_iwr6843"))
 
@@ -140,7 +142,13 @@ def main(argv=None) -> int:
     nf_rows = NF_ROWS[:2] if quick else NF_ROWS
     sens0, evms, nfs = [], [], []
     for label, key in nf_rows:
-        cfg = preset if key is None else with_rx_nf(surveyed, spec.value(key)["nf_db"])
+        if isinstance(key, tuple):
+            nf = float(spec.value(key[0])["nf_db"]) + float(spec.value(key[1]))
+            src = f"{tag(key[0])} + {tag(key[1])}"
+        else:
+            nf = None if key is None else float(spec.value(key)["nf_db"])
+            src = "wifitrx DEFAULT_LNA_STATES" if key is None else tag(key)
+        cfg = preset if key is None else with_rx_nf(surveyed, nf)
         fe = Frontend60.from_config(cfg)
         sim = LinkSim(dc.replace(cfg, channel=FLAT), frontend=fe)
         s = {m: sim.rx_input_dbm_for_snr(thr[m]) for m in MCS_ROWS}
@@ -149,7 +157,7 @@ def main(argv=None) -> int:
         v = run.final_views
         print(f"{label:<37} {fe.rx_front.nf_db:5.1f} {s[MCS_ROWS[0]]:10.1f} {s[MCS_ROWS[1]]:10.1f} {e:9.2f} "
               f"{v['rx_nf_db']:10.1f} {v['evm_modem_db']:9.1f} {v['tx_evm_modem_db']:9.1f} {v['rx_evm_modem_db']:9.1f}   "
-              f"{'wifitrx DEFAULT_LNA_STATES' if key is None else tag(key)}", flush=True)
+              f"{src}", flush=True)
         sens0.append(s[MCS_ROWS[0]])
         evms.append(e)
         nfs.append(fe.rx_front.nf_db)

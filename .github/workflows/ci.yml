@@ -102,7 +102,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: alexyudragonsword-collab/spec_sources
-          ref: 76ee72a008e3f5ad65fcaa6119643914d0328622
+          ref: a9af2614c47f66eb602738e7ae19e84d164199de
           path: _siblings/spec_sources
       # array_tx is public: no token (milestone 2, the array layer)
       - name: Checkout array_tx (pinned)

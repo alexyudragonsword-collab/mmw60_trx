@@ -1,4 +1,4 @@
-# Vendored from spec_sources@76ee72a008e3f5ad65fcaa6119643914d0328622: src/spec_sources/__init__.py
+# Vendored from spec_sources@a9af2614c47f66eb602738e7ae19e84d164199de: src/spec_sources/__init__.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """spec_sources: numbers about the outside world -- specification clauses,
 paper and datasheet figures, and what is derived from them alone -- each with
@@ -35,7 +35,7 @@ from .reader import (
 
 #: the package version (pyproject.toml has the same); kept here, not in reader.py, so that a
 #: consumer vendoring only reader.py and its tables sees no change from a version bump alone
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = ["SpecNumber", "SOURCES", "load_table", "all_entries", "survey", "value", "unverified", "by_source",
            "ref", "aliases", "Alias", "DeprecatedKeyWarning", "legacy_keys", "merge_tables", "audit_tags",

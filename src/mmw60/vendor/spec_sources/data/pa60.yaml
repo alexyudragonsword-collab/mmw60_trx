@@ -1,4 +1,4 @@
-# Vendored from spec_sources@76ee72a008e3f5ad65fcaa6119643914d0328622: src/spec_sources/data/pa60.yaml
+# Vendored from spec_sources@a9af2614c47f66eb602738e7ae19e84d164199de: src/spec_sources/data/pa60.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # pa60 —— 60 GHz CMOS 功率放大器的测量值（读过原文），与只由它们推出的 derived。
 #
@@ -12,7 +12,8 @@
 # 所以 cite / note 里的"本库"指 mmw60_trx，cairn/…、examples/…、tests/…、config.…、frontend.… 是它仓库里的路径，
 # assumed.* 是它本地表里的条目；这些写法在条目下一次因核实而改动时改成明确的库名（ROADMAP）。
 #
-# 例外：pa60.chan_isscc2009、pa60.lai_isscc2010、pa60.law_isscc2010、pa60.tanomura_isscc2008、pa60.martineau_isscc2010、pa60.kuo_mwcl2009、pa60.jin_esscirc2007 七条不是迁入的，
+# 例外：pa60.chan_isscc2009、pa60.lai_isscc2010、pa60.law_isscc2010、pa60.tanomura_isscc2008、pa60.martineau_isscc2010、pa60.kuo_mwcl2009、pa60.jin_esscirc2007，
+# 与 pa60.suzuki_isscc2008、pa60.kurita_rfic2009、pa60.bohsali_rfic2009、pa60.dawn_ims2009、pa60.pinel_isscc2008、pa60.chowdhury_isscc2008 十三条不是迁入的，
 # 是 spec_sources 在里程碑 2 第 1 批读 Asada Table I 转引的原文后新建的；它们的 cite / note 写明库名，不用"本库"。
 #
 # 前缀：pa60.*。
@@ -72,7 +73,7 @@ entries:
     cite: "pa60.asada_eumc2011 那篇的 Table I 'Performance comparison'；2026-11-12 读原文"
     section: "Table I. Performance comparison"
     quote: "TABLE I PERFORMANCE COMPARISON. Technology | Power Gain[dB] | P1dB [dBm] | Psat [dBm] | Peak PAE[%] | Power[mW] | VDD [V]"
-    note: "这张表是那篇论文对 2007–2011 年 60 GHz CMOS PA 的汇编，表里其他各行是它转引的。spec_sources 读了其中 7 行的原文（里程碑 2 第 1 批）：[1] pa60.chan_isscc2009、[2] pa60.lai_isscc2010、[6] pa60.law_isscc2010、[13] pa60.tanomura_isscc2008、[15] pa60.martineau_isscc2010、[9] pa60.kuo_mwcl2009、[11] pa60.jin_esscirc2007，P1dB、Psat、峰值 PAE 都与原文相同；增益有两格不同：[1] 原文表是 15.8（这里 16.0）；[13] 的 15.2 是原文 0.7 V 时 60 GHz 的线性增益，同一行另外三格是 1.0 V 的（1.0 V 线性增益 14.3），这格看来转抄自 [9] 的对比表。[11] 四格都在原文里，但不是 60 GHz 的：增益是 52 GHz 的峰值，功率是 48 GHz 的，60 GHz 时增益只有 11 dB。其余 6 行 mmw60_trx 与 spec_sources 都没有读原文。用来看量级与分布，不用作基准档。14 行的 Psat 8–19.9 dBm（中位 12.45），Psat − P1dB 1.0–9.0 dB（中位 3.3）。只有 [1] 一行（9.0 dB）接近 11ad 评估方法学那颗 Rapp 的 9.5 dB，而原作者自己把这颗 PA 的 P1dB 偏低归于各级偏置不当造成的提前压缩（pa60.chan_isscc2009）；去掉这一行，最大是 [15] 的 5.6 dB，而它的 Psat 是功率扫描终点（Pin = 10 dBm）的输出、曲线仍在上升，真实的差只会更大，同一颗 PA 在 1.8 V 时是 6.6 dB（pa60.martineau_isscc2010）。峰值 PAE 4.9–16.3 %。"
+    note: "这张表是那篇论文对 2007–2011 年 60 GHz CMOS PA 的汇编，表里其他各行是它转引的。spec_sources 读了全部 13 行的原文（里程碑 2 第 1 批；7 行在 2026-11-13–14，[5] [7] [8] [10] [12] [14] 在 2026-11-17）：[1] pa60.chan_isscc2009、[2] pa60.lai_isscc2010、[5] pa60.suzuki_isscc2008、[6] pa60.law_isscc2010、[7] pa60.kurita_rfic2009、[8] pa60.bohsali_rfic2009、[9] pa60.kuo_mwcl2009、[10] pa60.dawn_ims2009、[11] pa60.jin_esscirc2007、[12] pa60.pinel_isscc2008、[13] pa60.tanomura_isscc2008、[14] pa60.chowdhury_isscc2008、[15] pa60.martineau_isscc2010。P1dB、Psat 13 行都与原文相同；峰值 PAE 除 [5] 外都相同，[5] 的 5.0 % 原文里没有（Suzuki 没给效率，Asada 那行的 1.0 V 原文是 1.2 V）。增益有几格要注意：[1] 原文表是 15.8（这里 16.0）；[13] 的 15.2 是原文 0.7 V 时 60 GHz 的线性增益，同一行另外三格是 1.0 V 的（1.0 V 线性增益 14.3），这格看来转抄自 [9] 的对比表；[8] 的 4.4 是正文的 S21，原文汇总表的功率增益是 4.2；[14] 的 5.5 是图上的标注，正文的 S21 是 5.6。[11] 四格都在原文里，但不是 60 GHz 的：增益是 52 GHz 的峰值，功率是 48 GHz 的，60 GHz 时增益只有 11 dB。用来看量级与分布，不用作基准档。14 行的 Psat 8–19.9 dBm（中位 12.45），Psat − P1dB 1.0–9.0 dB（中位 3.3）。只有 [1] 一行（9.0 dB）接近 11ad 评估方法学那颗 Rapp 的 9.5 dB，而原作者自己把这颗 PA 的 P1dB 偏低归于各级偏置不当造成的提前压缩（pa60.chan_isscc2009）；去掉这一行，最大是 [15] 的 5.6 dB，而它的 Psat 是功率扫描终点（Pin = 10 dBm）的输出、曲线仍在上升，真实的差只会更大，同一颗 PA 在 1.8 V 时是 6.6 dB（pa60.martineau_isscc2010）。峰值 PAE 4.9–16.3 %。"
 
   pa60.wu_isscc2015:
     value: {tx_pout_at_evm_limit_dbm: 9.3, evm_limit_db: -21.0, pa_p1db_dbm: 7.0, tx_evm_best_db: -27.9}
@@ -150,6 +151,62 @@ entries:
     section: "Abstract；IV Measurement results（Fig. 7 S21、Fig. 9 '@ 48GHz' 功率扫描）；V Conclusions"
     quote: "The measured peak power-gain is 25dB at 52GHz and 10dB at 60GHz with a -3dB bandwidth of 46-53GHz. Saturated output power is +8dBm with a PAE of 7%. The -1dB compression point is 5dBm. [...] peak power gain of the amplifier is 25dB at 52GHz, 11dB at 60GHz and the -3dB bandwidth of the amplifier is 46GHz-53GHz. [...] Figure 9. The swept input/output power characteristic of the PA @ 48GHz [...] The swept power transfer curve of the amplifier (see Fig.9) shows a maximum saturated output power of 8dBm with -1dB compression occurring at 5dBm output power. [...] The same amplifier operating from a 2V supply produced a maximum saturated output power of +10dBm. Although, the maximum supply voltage without reliability problems is 1.6V, the cascode stages can operate up to 2V. [...] the total amplifier power consumption is 73mA at the peak output power from a 1.5V (±10%) power supply."
     note: "三级相同的 cascode，90 nm LP 数字 CMOS，1.5 V、73 mA（Asada 写 110 mW，即 1.5 V × 73 mA）。**这一行不是 60 GHz 的数**：增益峰值在 52 GHz（25 dB），-3 dB 带宽 46–53 GHz，60 GHz 时只有 11 dB（摘要写 10 dB）；Psat 8、P1dB 5 dBm 是 48 GHz 的功率扫描（Fig. 9）。Asada Table I 的 [11] 四格（25 / 5 / 8 / 7）都在原文里，但增益是 52 GHz 的峰值、功率是 48 GHz 的，放进 60 GHz 的对比表并不合适。Psat − P1dB = 3.0 dB（48 GHz）。Fig. 9 只有 6 个点（Pin −30 到 −5 dBm，间隔 5 dB），读出的增益依次约为 22、21、20、19、17.4、13 dB，从最低一点就开始下降，正文的 P1dB 5 dBm 在图上读不出来，这里用正文的数。2 V 时 Psat 为 +10 dBm（无可靠性问题的上限是 1.6 V）。同组 2008 年的 JSSC 期刊版（'... 20 dB Linear Power Gain and +8 dBm Maximum Saturated Output Power'）数不同，没有读。"
+
+  # ------------------------------------------------------------ Asada Table I 其余 6 行的原文（2026-11-17 读）
+  # 用户从 IEEE Xplore 下载、确认其许可允许交给 spec_sources 读；读完删掉了本地副本（cairn/Reference/README.md 末节）。
+  pa60.suzuki_isscc2008:
+    value: {gain_db: 8.3, p1db_dbm: 8.2, psat_dbm: 10.6, vdd_v: 1.2, idd_ma: 190.5}
+    unit: "dB, dBm, dBm, V, mA"
+    source: spec
+    cite: "T. Suzuki, Y. Kawano, M. Sato, T. Hirose, K. Joshin, '60 and 77GHz Power Amplifiers in Standard 90nm CMOS', ISSCC 2008 Dig. Tech. Papers, paper 31.3, pp. 562–563, doi 10.1109/ISSCC.2008.4523307（Fujitsu Laboratories）；Asada Table I 的 [5]；用户从 IEEE Xplore 下载并确认其许可允许交给 spec_sources 读，2026-11-17 读原文，Fig. 31.3.6、31.3.7 渲染出来读"
+    section: "正文测量一段；Fig. 31.3.6 'Large-signal performance of the 60 and 77GHz PAs'；Fig. 31.3.7 'Comparison of mm-wave PAs' 的 90nm CMOS (This work) 60 GHz 一行"
+    quote: "The 60GHz PA has a 1dB output compression point (P1dB) of 8.2dBm and a Psat of 10.6dBm. The 77GHz PA has a P1dB of 4.7dBm and a Psat of 6.3dBm. These are measured with a supply voltage of 1.2V. The total bias currents of the 60 and 77GHz PAs are 190.5mA and 118.5mA, respectively. [...] Fig. 31.3.7: Technology | Freq. [GHz] | Psat [dBm] | P1dB [dBm] | Gain [dB] | Power supply [V]; 90nm CMOS (This work) | 60 | 10.6 | 8.2 | 8.3 | 1.2"
+    note: "Fujitsu 90 nm 标准 CMOS，四级、短截线共轭匹配，1.2 V；直流功耗按正文为 1.2 V × 190.5 mA = 228.6 mW。**原文没有给 PAE**，全文也没有效率的数：Asada Table I 的 [5] 增益、P1dB、Psat 三格与 Fig. 31.3.7 相同，PAE 5.0 % 在原文里找不到；Asada 那行的电压写 1.0 V，原文是 1.2 V（与 pa60.kuo_mwcl2009 的对比表相同）。Psat − P1dB = 2.4 dB；Fig. 31.3.6 扫到 Pin = 10 dBm，输出已经平了。"
+
+  pa60.kurita_rfic2009:
+    value: {vdd_v: 1.0, gain_db: 10.0, p1db_dbm: 8.8, psat_dbm: 12.6, pae_peak: 0.069, idd_ma: 213.0, psat_vdd1v2_dbm: 14.2}
+    unit: "V, dB, dBm, dBm, ratio, mA, dBm"
+    source: spec
+    cite: "N. Kurita, H. Kondoh, '60GHz and 80GHz Wide Band Power Amplifier MMICs in 90nm CMOS Technology', IEEE RFIC Symposium 2009, doi 10.1109/RFIC.2009.5135485（Central Research Laboratory, Hitachi）；Asada Table I 的 [7]；用户从 IEEE Xplore 下载并确认其许可允许交给 spec_sources 读，2026-11-17 读原文"
+    section: "Abstract；III.A Small Signal Performances（Fig. 6）；III.B Large Signal Performances（Fig. 7，f = 60.0 GHz）；Fig. 8"
+    quote: "The 60GHz-band PA has a good band-pass feature with a center frequency of 63GHz, achieving a considerably flat gain of 10.0dB between 60 and 70GHz, and 1dB bandwidth of 17GHz (from 55GHz to 72GHz) under a condition of Vg=0.8V and Vd=1.0V. [...] In condition of Vd=1.0V, the 60GHz-band PA has a saturation output Psat of 12.6dBm, 1dB gain compression point P1dB of 8.8dBm, and a maximum PAE of 6.9% with a total bias current of 213mA. Psat is improved to 14.2dBm by increasing Vd to 1.2V. [...] the PA keeps Psat over 12dBm and P1dB larger than 7dBm in a range of 55GHz to 65GHz."
+    note: "Hitachi 90 nm，三级单端共源，各级高通匹配的截止频率错开以展宽带宽；按可靠性把漏压定在 1.0 V（工艺标准 1.2 V）。Asada Table I 的 [7] 四格（10.0 / 8.8 / 12.6 / 6.9）与原文相同。直流功耗 1.0 V × 213 mA = 213 mW。Psat − P1dB = 3.8 dB。"
+
+  pa60.bohsali_rfic2009:
+    value: {ways: [4, 2], s21_60ghz_db: [4.4, 8.3], power_gain_db: [4.2, 8.2], p1db_dbm: [12.1, 10.1], psat_dbm: [14.2, 11.6], pae_peak: [0.058, 0.115], eff_sat: [0.181, 0.177], pdc_mw: [145.0, 81.0], vdd_v: 1.0}
+    unit: "-, dB, dB, dBm, dBm, ratio, ratio, mW, V"
+    source: spec
+    cite: "M. Bohsali, A. M. Niknejad, 'Current Combining 60GHz CMOS Power Amplifiers', IEEE RFIC Symposium 2009, paper RMO1B-1, doi 10.1109/RFIC.2009.5135483（BWRC, UC Berkeley）；Asada Table I 的 [8]；用户从 IEEE Xplore 下载并确认其许可允许交给 spec_sources 读，2026-11-17 读原文"
+    section: "Abstract；测量一段（Fig. 2–5）；Table I 'Summary of measured performance results'"
+    quote: "The 2-way PA provides S21 of 8.3 dB at 60GHz with an input matching better than -6 dB, while the 4-way PA amplifier provides a higher S21 of 4.4 dB with input matching better than -9 dB. [...] of +12.1 dBm and +14.2 dBm, the highest reported to date, with a 1dB compression and saturation efficiencies of 11.2% and 18.1% respectively, and a peak PAE of 5.8%. [...] TABLE I, 4-way PA / 2-way PA: Output P1dB +12.1 dBm / +10.1 dBm; Output Psaturation +14.2 dBm / +11.6 dBm; Power Gain 4.2 dB / 8.2 dB; Max Drain Efficiency 11.2 % / 12.6 %; Saturation Efficiency 18.1 % / 17.7 %; Maximum PAE 5.8 % / 11.5 %; DC Power Dissipation 145 mW / 81 mW"
+    note: "UC Berkeley 90 nm、1 V，匹配网络兼作 4 路 / 2 路电流合路，不另设合路器。Asada Table I 的 [8] 是 4 路那颗：P1dB 12.1、Psat 14.2、峰值 PAE 5.8 % 与原文相同；增益 4.4 是正文 60 GHz 的 S21，原文汇总表的 Power Gain 写 4.2 dB。Psat − P1dB：4 路 2.1 dB、2 路 1.5 dB。Asada 参考文献表把页码写成与 [7] 相同的 39–42，是笔误（Lai、Law 两文引作 pp. 31–34）。"
+
+  pa60.dawn_ims2009:
+    value: {vdd_v: [1.2, 1.5], gain_db: [20.0, 22.0], p1db_dbm: [8.2, 10.0], psat_dbm: [12.0, 12.4], pae_peak_vdd1v2: 0.09}
+    unit: "V, dB, dBm, dBm, ratio"
+    source: spec
+    cite: "D. Dawn, S. Sarkar, P. Sen, B. Perumana, M. Leung, N. Mallavarpu, S. Pinel, J. Laskar, '60GHz CMOS Power Amplifier with 20-dB-Gain and 12dBm Psat', IEEE MTT-S IMS 2009 Digest, pp. 537–540, doi 10.1109/MWSYM.2009.5165752（Georgia Electronic Design Center, Georgia Tech）；Asada Table I 的 [10]；用户从 IEEE Xplore 下载并确认其许可允许交给 spec_sources 读，2026-11-17 读原文"
+    section: "Abstract；测量一段（Fig. 4 'Measured output power and power-added-efficiency (PAE) versus input power'）；温度一段"
+    quote: "This power amplifier delivers +8.2dBm output P1dB with a linear gain of 20dB and a saturated output power of +12.0dBm with maximum PAE of 9.0% at 1.2V operation. When it is operated at 1.5V it achieves 22dB small signal gain, 10.0dBm output P1dB and 12.4dBm saturated output power. [...] This power amplifier achieves +8.2dBm output P1dB and +12.0dBm saturated output power with 9.0% maximum PAE at 1.2V operating voltage. [...] power amplifier delivers output P1dB +9.0dBm at -10oC, +8.4dBm at 0oC, +8.2dBm at room temperature, and +5.0dBm at +80oC"
+    note: "佐治亚理工 90 nm，四级，末级用开路 / 短路短截线合路。Asada Table I 的 [10] 四格（20 / 8.2 / 12.0 / 9.0）是 1.2 V 一档，与原文相同；1.5 V 时的 PAE 原文没给。Psat − P1dB：1.2 V 3.8 dB、1.5 V 2.4 dB。−10 °C 到 +80 °C 间 P1dB 从 +9.0 降到 +5.0 dBm。引言转引的同组更早一颗 PA（61 GHz 增益 17 dB、P1dB 5.1、Psat 8.4 dBm）与 pa60.pinel_isscc2008 的数相同。"
+
+  pa60.pinel_isscc2008:
+    value: {gain_db: 17.0, p1db_dbm: 5.1, psat_dbm: 8.4, pae_peak: 0.058, pdc_mw: 54.0, tx_vdd_v: 1.8}
+    unit: "dB, dBm, dBm, ratio, mW, V"
+    source: spec
+    cite: "S. Pinel, S. Sarkar, P. Sen, B. Perumana, D. Yeh, D. Dawn, J. Laskar, 'A 90nm CMOS 60GHz Radio', ISSCC 2008 Dig. Tech. Papers, paper 6.8, pp. 130–131, doi 10.1109/ISSCC.2008.4523091（Georgia Tech）；Asada Table I 的 [12]；用户从 IEEE Xplore 下载并确认其许可允许交给 spec_sources 读，2026-11-17 读原文"
+    section: "正文发射机一段（三级 PA）"
+    quote: "A three-stage power amplifier is implemented using 40 and 60µm width devices. A cascode topology is followed by a two-stage common-source to provide 17db gain at 60GHz. The power amplifier delivers +5.1dBm output P1dB with 54mW DC power consumption, and has a 5.8% PAE and +8.4dBm saturated output power. The total DC power consumption is measured to be 173mW under 1.8V for an output power of 5dBm at 60GHz."
+    note: "单芯片 60 GHz 收发机里的 PA（90 nm），一级 cascode 加两级共源。Asada Table I 的 [12] 四格（17 / 5.1 / 8.4 / 5.8）与原文相同。原文只给了整个发射机在 1.8 V 下 173 mW，PA 自己的电源没单独写，所以记作 tx_vdd_v。Psat − P1dB = 3.3 dB。同组 IMS 2009 的论文（pa60.dawn_ims2009）引言里转引了同样的三个数。"
+
+  pa60.chowdhury_isscc2008:
+    value: {vdd_v: 1.0, gain_db: 5.5, s21_60ghz_db: 5.6, p1db_dbm: 9.0, psat_dbm: 12.3, pae_peak: 0.088, eff_drain_peak: 0.32}
+    unit: "V, dB, dB, dBm, dBm, ratio, ratio"
+    source: spec
+    cite: "D. Chowdhury, P. Reynaert, A. M. Niknejad, 'A 60GHz 1V +12.3dBm Transformer-Coupled Wideband PA in 90nm CMOS', ISSCC 2008 Dig. Tech. Papers, paper 31.2, pp. 560–561, doi 10.1109/ISSCC.2008.4523306（University of California, Berkeley）；Asada Table I 的 [14]；用户从 IEEE Xplore 下载并确认其许可允许交给 spec_sources 读，2026-11-17 读原文，Fig. 31.2.4 渲染出来读"
+    section: "正文第 1 段与测量两段；Fig. 31.2.4 'Large signal output power, gain and efficiency measurements' 的标注"
+    quote: "Operating from a 1V supply, it achieves a 1dB compressed output power of +9dBm and saturated power of +12.3dBm. [...] At a supply voltage of 1V, S21 at 60GHz is 5.6dB and has a peak value of 7.7dB at 48GHz. [...] Using a 1V supply, the measured 1dB compressed output power is +9dBm and saturated output power is +12.3dBm [...] The measured peak drain efficiency is 32% and peak PAE, including DC power consumption of the driver stage, is 8.8%. [...] Fig. 31.2.4: Psat = 12.3 dBm; Output Referred P-1dB = 9 dBm; Gain = 5.5 dB; PAE 8.8%"
+    note: "两级差分，输入、级间、输出全用片上变压器匹配（兼作差分转单端），90 nm 数字 CMOS、1 V，芯片 660 × 380 µm²。Asada Table I 的 [14] 四格（5.5 / 9.0 / 12.3 / 8.8）都在原文里：增益 5.5 是 Fig. 31.2.4 大信号扫描低输入端的标注，正文的 60 GHz S21 是 5.6 dB（pa60.chan_isscc2009、pa60.law_isscc2010 的对比表取 5.6）。Psat − P1dB = 3.3 dB。PAE 8.8 % 含驱动级的直流功耗；P1dB 的峰值在 50 GHz（+9.7 dBm）。"
 
   # ------------------------------------------------------------ 推导：tgad_em.pa_model_shape 的 modified Rapp 对上 pa60.asada_eumc2011 的 Psat − P1dB
   pa60.asada_eumc2011_rapp_p:

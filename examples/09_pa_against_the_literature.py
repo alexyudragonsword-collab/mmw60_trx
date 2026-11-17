@@ -125,10 +125,16 @@ def main(argv=None) -> int:
     t1 = spec.value("pa60.eumc2011_table1")
     cols = t1["columns"]
     rows = [dict(zip(cols, r)) for r in t1["rows"]]
+    no_pae = set(spec.value("assumed.pa60_table1_pae_excluded"))
     for name, key in (("Psat", "psat_dbm"), ("gap", None), ("PAE pk", "pae_peak_pct")):
-        vals = np.array([r["psat_dbm"] - r["p1db_dbm"] if key is None else r[key] for r in rows], dtype=float)
-        print(f"{'  ' + str(len(rows)) + ' PAs compiled, ' + name:<40} min {vals.min():5.1f}  median "
+        use = [r for r in rows if not (key == "pae_peak_pct" and r["ref"] in no_pae)]
+        vals = np.array([r["psat_dbm"] - r["p1db_dbm"] if key is None else r[key] for r in use], dtype=float)
+        print(f"{'  ' + str(len(use)) + ' PAs compiled, ' + name:<40} min {vals.min():5.1f}  median "
               f"{np.median(vals):5.1f}  max {vals.max():5.1f}   {tag('pa60.eumc2011_table1')} (secondary)")
+    every = np.array([r["pae_peak_pct"] for r in rows], dtype=float)
+    print(f"  (PAE pk without {', '.join(sorted(no_pae))}, whose original gives no efficiency "
+          f"({tag('assumed.pa60_table1_pae_excluded')}); the table as published, all {len(rows)} rows: median "
+          f"{np.median(every):.1f})")
     print(f"{'11ad EM Rapp, assumed scale':<40} {pa_p.psat_dbm:6.1f} {pa_p.p1db_out_dbm:6.1f} "
           f"{gap_db(pa_p.psat_dbm, pa_p.p1db_out_dbm):5.1f} {pa_p.gain_db:6.1f} {100 * pa_p.pae_max:7.1f}   "
           f"{tag('tgad_em.pa_rapp_p')}, {tag('assumed.pa60_psat_dbm')}")

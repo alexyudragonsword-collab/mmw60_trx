@@ -1,4 +1,4 @@
-# Vendored from spec_sources@76ee72a008e3f5ad65fcaa6119643914d0328622: src/spec_sources/data/energy.yaml
+# Vendored from spec_sources@a9af2614c47f66eb602738e7ae19e84d164199de: src/spec_sources/data/energy.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # energy —— 电路能耗与转换器的品质因数：运算能耗、ADC FoM 调查、工艺节点缩放。
 #
@@ -20,16 +20,20 @@ entries:
   horowitz2014.mult32_pj:
     value: 3.1
     unit: pJ
-    source: survey
-    cite: "Horowitz, ISSCC 2014 '1.1 Computing's energy problem' 32-bit int multiply at 45 nm, 0.9 V；经 Halo_Serdes analysis/power.py PowerCoefficients"
-    note: "未核实：照 Halo 示例 41 的口径。"
+    source: spec
+    cite: "M. Horowitz, '1.1 Computing's Energy Problem (and what we can do about it)', ISSCC 2014 Dig. Tech. Papers, pp. 10–14, doi 10.1109/ISSCC.2014.6757323（Stanford University）；用户从 IEEE Xplore 下载并确认其许可允许交给 spec_sources 读，2026-11-17 读原文，Figure 1.1.9 的表是编码字体，渲染出来读。迁入时经 Halo_Serdes analysis/power.py PowerCoefficients"
+    section: "Figure 1.1.9 'Rough energy costs for various operations in 45nm 0.9V' 的 Integer 一栏；正文引出 Figure 1.1.9 的一段"
+    quote: "The data for various operations in a 45nm technology are shown in Figure 1.1.9, which also gives the energy breakdown of a simple in-order processor. These numbers make two things very clear: First, the programmable nature of a processor has high energy overhead, 70pJ/instruction, vs. a few pJ for an operation. [...] Figure 1.1.9: Rough energy costs for various operations in 45nm 0.9V. Integer: Add 8 bit 0.03pJ, 32 bit 0.1pJ; Mult 8 bit 0.2pJ, 32 bit 3.1pJ. FP: FAdd 16 bit 0.4pJ, 32 bit 0.9pJ; FMult 16 bit 1.1pJ, 32 bit 3.7pJ. Memory (64bit): Cache 8KB 10pJ, 32KB 20pJ, 1MB 100pJ; DRAM 1.3-2.6nJ"
+    note: "45 nm、0.9 V 下一次 32 位整数乘法的能耗；图题自称是粗略值（Rough）。同一张图：8 位乘 0.2 pJ、32 位浮点乘 3.7 pJ；正文说一条指令的开销约 70 pJ，远大于一次运算。迁入时就是 3.1，读原文后值不变。用法照 Halo_Serdes 示例 41 的口径；换到 7 nm 乘 deepscale.node_scale_45_to_7nm。"
 
   horowitz2014.add32_pj:
     value: 0.1
     unit: pJ
-    source: survey
-    cite: "Horowitz, ISSCC 2014, 32-bit int add at 45 nm；经 Halo_Serdes PowerCoefficients"
-    note: "未核实。"
+    source: spec
+    cite: "M. Horowitz, ISSCC 2014, pp. 10–14, doi 10.1109/ISSCC.2014.6757323（同 horowitz2014.mult32_pj）；用户从 IEEE Xplore 下载并确认其许可允许交给 spec_sources 读，2026-11-17 读原文，Figure 1.1.9 渲染出来读。迁入时经 Halo_Serdes PowerCoefficients"
+    section: "Figure 1.1.9 'Rough energy costs for various operations in 45nm 0.9V' 的 Integer 一栏"
+    quote: "Figure 1.1.9: Rough energy costs for various operations in 45nm 0.9V. Integer: Add 8 bit 0.03pJ, 32 bit 0.1pJ; Mult 8 bit 0.2pJ, 32 bit 3.1pJ"
+    note: "45 nm、0.9 V 下一次 32 位整数加法的能耗（8 位 0.03 pJ），图题自称是粗略值。迁入时就是 0.1，读原文后值不变。"
 
   # ------------------------------------------------------------ ADC 的 Walden FoM（Murmann ADC survey）
   adc_survey.ti_sar_ge40gs_4to7nm:
@@ -56,9 +60,18 @@ entries:
     note: "公式：[min, max] = [38.36, 120.19] fJ/conv-step（ISSCC 2024 18.4、VLSI 2022 C19-1）。迁入时是 [38.4, 120.2]（survey，取到 0.1），按原文件复算后取到 0.01（CORRECTED）。"
 
   # ------------------------------------------------------------ 工艺节点缩放（DeepScaleTool）
+  deepscale.energy_by_node:
+    value: {node_nm: [130, 90, 65, 45, 40, 32, 28, 22, 14, 10, 7], energy_rel_65nm: [2.52, 1.51, 1.0, 0.63, 0.55, 0.44, 0.37, 0.30, 0.19, 0.15, 0.11]}
+    unit: "nm, relative energy (65 nm = 1)"
+    source: spec
+    cite: "S. Sarangi, B. Baas（UC Davis），DeepScaleTool，https://sourceforge.net/projects/deepscaletool/（GPLv3），文件 DeepScaleTool/DeepScaleTool.xlsm（2021-03-03 发布，sha256 561a3f8f…958df8）；工具的说明见同二人 'DeepScaleTool: A Tool for the Accurate Estimation of Technology Scaling in the Deep-Submicron Era'，ISCAS 2021，作者预印本 arXiv:2102.10195v1（CC BY 4.0）。2026-11-16 读原文件：宏源码用 olevba 当文本读出，没有执行；论文读 arXiv 版，没有经 IEEE Xplore"
+    section: "DeepScaleTool.xlsm 的 VBA 模块 Sub Energy()（各节点的相对能量与 Range(\"E10\") 一行）；arXiv:2102.10195v1 Sec. III.A 式 (1)、Fig. 2、Fig. 3"
+    quote: "Sub Energy() [...] If current_technology = 130 Then x = 2.52 ElseIf current_technology = 90 Then x = 1.51 ElseIf current_technology = 65 Then x = 1 ElseIf current_technology = 45 Then x = 0.63 ElseIf current_technology = 40 Then x = 0.55 ElseIf current_technology = 32 Then x = 0.44 ElseIf current_technology = 28 Then x = 0.37 ElseIf current_technology = 22 Then x = 0.3 ElseIf current_technology = 14 Then x = 0.19 ElseIf current_technology = 10 Then x = 0.15 Else x = 0.11 End If [...] (y for target_technology, same values) [...] Range(\"E10\") = FormatNumber(x / y, 3) [...] (arXiv) Currently, the tool supports scaling factors for the following fabrication nodes in units of nm: 130, 90, 65, 45, 40, 32, 28, 22, 14, 10, and 7. [...] Value_x = Value_y / Scaling factor (1)"
+    note: "各节点的相对能量（65 nm = 1）。工具给的能量缩放倍数是两格之比：当前节点 y 到目标节点 x 的倍数 = E(y) / E(x)，目标节点的能量 = 当前的 ÷ 倍数（论文式 (1)）。数是作者拟合 Intel 公开的缩放趋势再外推的（论文 Sec. II），不是某一工艺的实测；7 nm 走 Else 分支。互证：论文 Fig. 2 的工具截图 130 → 45 nm 能量倍数 4 = 2.52 / 0.63；工具存档时单元格里 90 → 32 nm 的 3.432 = 1.51 / 0.44；Fig. 3 的能量曲线与此表相符。宏里还算了一个二次式 7e-5·n² + 0.01·n + 0.04 之比，但写回单元格的那行被注释掉了，显示的是查表的比值（45 → 7 nm：二次式 5.57，查表 5.727）。45 → 7 nm 的比值在 deepscale.node_scale_45_to_7nm。"
+
   deepscale.node_scale_45_to_7nm:
-    value: 0.175
+    value: 0.1746
     unit: ratio
-    source: survey
-    cite: "DeepScaleTool（Sarangi & Baas, ISCAS 2021）45 nm → 7 nm 能量比；经 Halo_Serdes PowerCoefficients.node_scale"
-    note: "未核实：同台表默认不缩放（45 nm 的 Horowitz 数照 dpd_cost.py / 示例 02 的口径），灵敏度节按 7 nm 再算一遍。"
+    source: derived
+    cite: "deepscale.energy_by_node 的 7 nm 与 45 nm 两格之比"
+    note: "公式：E(7 nm) / E(45 nm) = 0.11 / 0.63 = 0.17460，取 4 位为 0.1746；即工具显示的 45 → 7 nm 能量倍数 0.63 / 0.11 = 5.727 的倒数，乘到 45 nm 的能耗上得 7 nm 的。迁入时是 0.175（survey），是 Halo_Serdes 取的 3 位；按工具原文件复算后改成 0.1746（tests/test_extraction.py 的 CORRECTED）。mmw60_trx 同台表默认不缩放（45 nm 的 Horowitz 数，照它 dpd_cost.py 与示例 02 的口径），灵敏度节按 7 nm 再算一遍。"

@@ -369,6 +369,13 @@ entries:
   # ------------------------------------------------------------ ROADMAP D4：前端的三个面（接收前端、收发隔离、发 / 收天线增益）
   # 读过原文与只读到摘要的接收前端、隔离度、天线、DMG 条目在 vendored spec_sources 的
   # data/frontend60.yaml 与 data/ieee80211.yaml（2026-11-13 迁走；那里的文件头记着两轮核对与一条撤回）。
+  assumed.rx_nf_dsb_to_ssb_db:
+    value: 3.0
+    unit: dB
+    source: assumed
+    cite: "本库；示例 08 §2 的单边带一行（mmw60_trx#63）"
+    note: "rx60.comm_iscas2015 的 7.1 dB 是双边带 NF（原文 'double-side-band NF'），而那颗接收机是超外差（RF 先到约 12 GHz 的中频）：单边带的信号进来时，像频带只送噪声，按惯例单边带 NF 约高 3 dB（像频带增益与信号带相同、又没有像频抑制时正好 3 dB）。原文没给单边带 NF，所以示例 08 两行都列：原文的双边带值，和加上这 3 dB 的单边带值。'anchored' 接收前端的基准档取的 rx60.comm_asada2011 是直接变频（I/Q 混频），与本库零中频的链同一类，不受这一条影响。"
+
   assumed.rx60_ladder_shape:
     value: "wifitrx_ladder_shifted"
     unit: model
@@ -405,6 +412,13 @@ entries:
     source: derived
     cite: "frontend.grid.obo_for_isolated_evm(ModifiedRappPA(p=pa60.asada_eumc2011_rapp_p), assumed.pa60_operating_rule.evm_limit_db, 'psat')；Gaussian 包络 32768 点，种子 3 得 7.457，保留一位小数"
     note: "拓扑 A / B 预设的回退（从 Psat 算），P1dB 之下 2.9 dB，平均输出 14.6 − 7.5 = 7.1 dBm。不同种子 7.46–7.59 dB。tests/test_pa60.py 复算。Liu 的预设（liu2025_table2）仍是 liu2025.pa_obo_db 的 8 dB。"
+
+  assumed.pa60_table1_pae_excluded:
+    value: ["[5]"]
+    unit: "row of pa60.eumc2011_table1"
+    source: assumed
+    cite: "本库；示例 09 §1 的峰值 PAE 一行（mmw60_trx#63）"
+    note: "pa60.eumc2011_table1（Asada EuMC 2011 的汇编表）13 行都由 spec_sources 读过原文（0.6.0）：[5]（Suzuki，ISSCC 2008）原文没有给效率，汇编表那格 5.0 % 找不到出处（同一行的 1.0 V 原文是 1.2 V）。铁律 5：数只用原文，所以示例 09 的峰值 PAE 统计剔掉这一格（中位数 8.5 → 8.8 %），原表的读数作对照照样打印。其余各格与原文一致；[8] 的增益 4.4 与 [14] 的 5.5 和原文另一处的说法（4.2、5.6）不同，但数都在原文里，照表用。"
 
   assumed.pa60_surveyed_pick:
     value: {source: "pa60.asada_eumc2011", rapp_p: "pa60.asada_eumc2011_rapp_p"}
