@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/link/temp_study.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/link/temp_study.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Temperature hold study: how far does a 25 degC calibration survive?
 
@@ -28,6 +28,7 @@ import numpy as np
 
 from ..cal.base import CalResult, _jsonable
 from ..cal.deps import recal_steps
+from ..cal.dpd_cal import pa_out_evm_db
 from ..cal.dpd_tracking import tracked_update, tracking_adapter
 from ..cal.group_delay import estimate_gd_mismatch_ps
 from ..cal.residuals import RESIDUAL_SPEC, extract_residuals
@@ -40,9 +41,8 @@ from ..cal.tx_iq import measure_tx_irr, measure_tx_rho
 from ..chain.loopback import LoopbackPath
 from ..chain.rx import RxChain
 from ..chain.tx import TxChain
-from ..metrics import evm
 from ..metrics.irr import dc_dbfs, lo_leak_dbc
-from ..waveform.ofdm import OFDMConfig, demodulate_ofdm, generate_ofdm
+from ..waveform.ofdm import OFDMConfig, generate_ofdm
 from ..waveform.stimuli import scaled_probe, single_tone
 
 CAL_TEMP_C = 25.0
@@ -102,14 +102,10 @@ def _rx_dc_worst_dbfs(rx: RxChain, n: int, rng: np.random.Generator) -> float:
 
 
 def _dpd_evm_db(tx: TxChain, cfg: OFDMConfig, drive_scale: float) -> float:
-    """The ``dpd`` step's after-metric: PA-output per-tone-equalised EVM
-    of the training waveform at the training drive."""
-    wf = generate_ofdm(cfg)
-    x = wf.x * drive_scale
-    y = tx(x)
-    g = np.vdot(x, y) / np.vdot(x, x)
-    return float(evm(demodulate_ofdm(y / g, wf), wf.tx_symbols,
-                     equalize="per_tone").db)
+    """The ``dpd`` step's after-metric, read again: PA-output EVM of the
+    training waveform at the training drive, in the closure target's
+    convention (``cal.dpd_cal.pa_out_evm_db``)."""
+    return pa_out_evm_db(tx, generate_ofdm(cfg), drive_scale)
 
 
 def measure_residual_surface(tx: TxChain, rx: RxChain, path: LoopbackPath,

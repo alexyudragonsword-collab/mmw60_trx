@@ -345,22 +345,26 @@ def loopback_views(run: CalRun, seed: int = 0) -> dict | None:
     """The final check's loopback read three ways (ROADMAP C7), on the chains
     the run ended with:
 
-    - ``isolation_db``: wifitrx's isolation view as it computes it (the
-      common phase of each symbol against the reference over all tones,
-      **then** the per-tone LS equaliser);
-    - ``isolation_eq_first_db``: the same with the per-tone equaliser first
-      and the common phase after it;
+    - ``isolation_db``: wifitrx's isolation view as it computes it (since
+      0.7.45 the per-tone LS equaliser first, then each symbol's common
+      phase against the reference; B46);
+    - ``isolation_cpe_first_db``: the order wifitrx used until 0.7.44 (the
+      common phase over all tones on the raw symbols, **then** the
+      equaliser), the same EVM definition otherwise;
     - ``modem_db``: wifitrx's modem view (LTF channel estimate, pilot CPE).
 
     ``phase_ramp_rad`` is the linear part of the loopback's channel phase
-    across the band (a residual delay of the capture alignment) and
-    ``cpe_coherence`` = |mean over tones of e^{j phase}|: the CPE-first
-    estimate weights every tone by its |X|^2, so with the phase wound
-    round the band (coherence near 0) the 64-QAM data's random amplitudes
-    pull its angle off by many degrees per symbol."""
+    across the band (a residual delay of the capture alignment; none since
+    wifitrx 0.7.46, whose delay search follows the loopback delay,
+    wifi_trx_cal#7) and ``cpe_coherence`` = |mean over tones of
+    e^{j phase}|: the CPE-first estimate weights every tone by its |X|^2,
+    so with the phase wound round the band (coherence near 0) the 64-QAM
+    data's random amplitudes pull its angle off by many degrees per
+    symbol."""
     if run.chains is None:
         return None
     from .vendor.wifitrx.cal.sequence import agc_for_loopback, capture_aligned, score_views
+    from .vendor.wifitrx.metrics import evm
     from .vendor.wifitrx.metrics.cpe import correct_cpe
     from .vendor.wifitrx.waveform.ofdm import demodulate_ofdm
     tx, rx, cfg, path, drive = run.chains
@@ -376,14 +380,12 @@ def loopback_views(run: CalRun, seed: int = 0) -> dict | None:
     data = np.ones(cfg.n_active, dtype=bool)
     data[cols] = False
     h = np.sum(np.conj(ref) * syms, axis=0) / np.sum(np.abs(ref) ** 2, axis=0)
-    eq = correct_cpe(syms / h, ref)
-    eq = eq / (np.sum(np.conj(ref) * eq, axis=0) / np.sum(np.abs(ref) ** 2, axis=0))
-    p = float(np.mean(np.abs(ref[:, data]) ** 2))
+    cpe_first = evm(correct_cpe(syms, ref)[:, data], ref[:, data], equalize="per_tone").db
     ph = np.unwrap(np.angle(h))
     idx = np.arange(ph.size)
     ramp = np.polyval(np.polyfit(idx, ph, 1), idx)
     return {"isolation_db": float(v["evm_db"]), "modem_db": float(v["evm_modem_db"]),
-            "isolation_eq_first_db": float(10 * np.log10(np.mean(np.abs(eq[:, data] - ref[:, data]) ** 2) / p)),
+            "isolation_cpe_first_db": float(cpe_first),
             "phase_ramp_rad": float(np.ptp(ramp)), "cpe_coherence": float(np.abs(np.mean(np.exp(1j * ph))))}
 
 

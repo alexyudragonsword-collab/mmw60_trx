@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/dpd/bounded.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/dpd/bounded.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Envelope-bounded predistortion: saturate the correction outside the
 fitted envelope.
@@ -38,5 +38,12 @@ class BoundedDPD:
 
     def __getattr__(self, name):
         # coefficients, order, memory depth, get_config, ... live on the
-        # fitted model; exports and inspectors read them through here
+        # fitted model; exports and inspectors read them through here.
+        # Never for `model` itself or a dunder: copy and pickle rebuild
+        # the instance before `model` is set and probe it for hooks such
+        # as __setstate__, and delegating those recursed without end
+        # (B44: a calibrated chain with a programmed DPD could not be
+        # deep-copied or pickled).
+        if name == "model" or name.startswith("__"):
+            raise AttributeError(name)
         return getattr(self.model, name)

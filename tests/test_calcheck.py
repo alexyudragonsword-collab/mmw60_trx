@@ -77,22 +77,23 @@ def test_waveform_seed_changes_the_training_data_and_zero_is_the_default():
     assert runs[0].rows[-1].value != runs[1].rows[-1].value             # different data, different final reading
 
 
-def test_the_2p56ghz_isolation_view_is_the_capture_alignment_not_the_chain():
-    """ROADMAP C7 (2026-11-16): at 2.56 GHz wifitrx's isolation view reads
-    10 dB worse than its modem view, which was taken for linear terms the
-    receiver absorbs.  It is the view itself: the capture alignment leaves a
-    residual delay (a ~6 rad phase ramp across the band), and the view
-    takes each symbol's common phase over all tones before equalising, so
-    with the phase wound round the band the 64-QAM amplitudes pull that
-    estimate off.  Equalising first reads within a dB of the modem view, as
-    at 320 MHz where there is no ramp.  If a re-pinned wifitrx fixes the
-    alignment or the order this test fails: update cairn/topology-b.md."""
+def test_the_2p56ghz_loopback_capture_is_aligned_and_the_isolation_view_reads_the_chain():
+    """wifi_trx_cal#7 (ROADMAP D5, closed with wifitrx 0.7.46).  Until
+    0.7.44 the capture alignment searched +-32 samples whatever the rate; at
+    5.12 GS/s the loopback delay is 34 samples, so 2 samples were left (a
+    ~6 rad phase ramp across the band, coherence 0.09) and the isolation
+    view, which then took each symbol's common phase before equalising,
+    read -13.6 dB against a modem view of -23.5 dB.  0.7.46 widens the
+    search to the correlation's peak over all lags (B47) and 0.7.45
+    equalises before the common phase (B46).  What this guards is the
+    alignment (the ramp and the coherence): since B46 the isolation view no
+    longer shows a misaligned capture, so its reading alone would not."""
     fe = Frontend60.from_config(zero_if_60ghz(k=8))
     wide = loopback_views(run_cal_at(fe, 32, 80e6, standard="11be", with_dpd=False, obo_db=fe.obo_db))
-    assert wide["phase_ramp_rad"] > 3.0 and wide["cpe_coherence"] < 0.3
-    assert wide["isolation_db"] > wide["modem_db"] + 5.0
-    assert abs(wide["isolation_eq_first_db"] - wide["modem_db"]) < 2.0
+    assert wide["phase_ramp_rad"] < 0.3 and wide["cpe_coherence"] > 0.9
+    assert abs(wide["isolation_db"] - wide["modem_db"]) < 2.0
+    assert abs(wide["isolation_cpe_first_db"] - wide["isolation_db"]) < 1.0      # no ramp: the two orders agree
     narrow = loopback_views(run_cal_at(fe, 16, 20e6, standard="11ac", with_dpd=False, obo_db=fe.obo_db))
-    assert narrow["phase_ramp_rad"] < 0.5 and narrow["cpe_coherence"] > 0.9
-    assert abs(narrow["isolation_eq_first_db"] - narrow["isolation_db"]) < 1.0
+    assert narrow["phase_ramp_rad"] < 0.3 and narrow["cpe_coherence"] > 0.9
+    assert abs(narrow["isolation_cpe_first_db"] - narrow["isolation_db"]) < 1.0
     assert loopback_views(run_cal_at(fe, 1, 20e6, standard="11ac", with_dpd=False, n_symbols=8)) is not None

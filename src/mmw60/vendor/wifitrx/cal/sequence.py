@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/cal/sequence.py
+# Vendored from wifi_trx_cal@a8edf503df74cf11d6069a6354c4c0ddbf6e82d1: src/wifitrx/cal/sequence.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """Canonical power-up calibration sequence.
 
@@ -36,7 +36,7 @@ from ..chain.rx import RxChain
 from ..chain.tx import TxChain
 from ..metrics import evm
 from ..units import power_dbm
-from ..metrics.cpe import correct_cpe, correct_cpe_pilots
+from ..metrics.cpe import correct_cpe_equalized, correct_cpe_pilots
 from ..waveform.ofdm import OFDMConfig, demodulate_ofdm, generate_ofdm
 from ..waveform.pilots import generate_ofdm_with_pilots, pilot_sequence
 from ..waveform.preamble import (DEFAULT_CE_SMOOTH_TONES, apply_cfo, build_frame,
@@ -50,7 +50,7 @@ from .lpf_corner import calibrate_lpf_corner_rx, calibrate_lpf_corner_tx
 from .rx_dc import calibrate_rx_dc
 from .rx_iip2 import calibrate_rx_iip2
 from .rx_iq import calibrate_rx_iq
-from .sync import align_delay, compensate_delay
+from .sync import align_delay, compensate_delay, loopback_capture_aligned
 from .tracking import pilot_cfo_hz
 from .tx_iq import calibrate_tx_iq
 from .tx_lo_leak import (calibrate_tx_lo_leak_envdet,
@@ -73,11 +73,10 @@ def capture_aligned(tx: TxChain, rx: RxChain, path: LoopbackPath,
     baseband filters — their startup transient otherwise corrupts the
     first OFDM symbol) and a cyclic guard tail (delay compensation must
     not run off the end of the frame), delay-aligned and trimmed back to
-    len(x)."""
-    xp = np.concatenate([x[-n_warmup:], x, x[:n_guard]])
-    cap = run_loopback(tx, rx, xp, path, seed=seed)
-    _, _, info = align_delay(xp, cap, max_lag=n_guard // 2)
-    return compensate_delay(cap, info["lag_total"], n_warmup, len(x))
+    len(x).  The delay search widens itself when the loopback delay lies
+    beyond +/- n_guard // 2 (see ``sync.loopback_capture_aligned``)."""
+    return loopback_capture_aligned(tx, rx, path, x, n_warmup=n_warmup,
+                                    n_guard=n_guard, seed=seed)
 
 
 def scoring_frame(cfg: OFDMConfig):
@@ -98,10 +97,14 @@ def score_views(y: np.ndarray, frame, cols: np.ndarray, pilots: np.ndarray,
     frame ``y`` (same sample scale as ``frame.x``), data tones only:
 
     ``evm_db`` — the isolation view: per-tone LS equaliser fitted
-    against the ideal reference over all scored symbols and genie CPE
-    (every tone vs the reference).  What the impairments alone leave;
-    the closure target of the residual replay, since a receiver's own
-    estimation losses are not a residual of the chain.
+    against the ideal reference over all scored symbols, then the genie
+    CPE (every tone vs the reference) on the equalised symbols.  What the
+    impairments alone leave; the closure target of the residual replay,
+    since a receiver's own estimation losses are not a residual of the
+    chain.  Until 0.7.45 the CPE came first, on unequalised symbols, and
+    the channel filters' non-flat phase made it jitter with the
+    constellation amplitudes: 1.7-2.7 dB pessimistic on the loopback at
+    20 / 40 MHz, about 1 dB on the receive view (B46).
 
     ``evm_modem_db`` — the modem form: coarse CFO from the LTF pair,
     fine CFO from the slope of the pilots' common phase across the
@@ -126,7 +129,9 @@ def score_views(y: np.ndarray, frame, cols: np.ndarray, pilots: np.ndarray,
     data[cols] = False
     ref = frame.data.tx_symbols[:n]
     syms = demodulate_ofdm(y[frame.preamble_len:], frame.data)[:n]
-    genie = correct_cpe(syms, ref)
+    # equalise per tone before the genie CPE (B46): estimated on raw
+    # symbols it jitters with the channel phase across the band
+    genie = correct_cpe_equalized(syms, ref)
     # modem form
     y_acq = apply_cfo(y, -estimate_cfo(y, frame, fs), fs)
     syms_acq = demodulate_ofdm(y_acq[frame.preamble_len:], frame.data)
