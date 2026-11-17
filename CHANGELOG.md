@@ -4,6 +4,12 @@
 
 ## 未发布
 
+### 重新 pin spec_sources 到 `a9af261`（0.6.0，mmw60_trx#63，2026-11-17）—— 指纹与预设不变
+- vendored spec_sources 换成 `a9af261`：`deepscale.node_scale_45_to_7nm` 0.175 → 0.1746（同台表 7 nm 灵敏度一行，倍率与排名不变）；`horowitz2014.*`、`rx60.comm_iscas2015`、`antenna60.okada2013_dbi` 由 survey 改 spec；`pa60` 多 6 条原文。`spec.unverified()` 9 → 4。
+- 新 assumed `rx_nf_dsb_to_ssb_db`（3 dB）：示例 08 §2 多一行 ISCAS 2015 接收机折成单边带的 NF（原文是双边带）。
+- 新 assumed `pa60_table1_pae_excluded`：示例 09 §1 的峰值 PAE 统计剔掉原文没给效率的 [5]（中位 8.5 → 8.8 %），原表读数并列。
+- 示例 04 / 08 / 09 的期望输出重新接受。
+
 ### 里程碑 3 第三段：接上 spec_sources#33 的键——DMG / EDMG 的码、EDMG SC 实测门限、扩展 SC 档、扇区扫描时长（2026-11-16）—— 指纹不变；SC 的距离与阵列上限变了
 - `ay.coding`：`dmg_code`（`dmg.ldpc_matrices` 的四个码率；7/8 是 `dmg.ldpc_r7_8_punctured` 的打孔码，新类 `PuncturedCode`）、`edmg_code`（7/8 用 `edmg.ldpc_672_r7_8`）、`sc_code`、`codewords_for`、`threshold_config`、`sweep_packet`；`coded_sc_packet` 加 `n_codewords`；**删掉 `PendingSpec`**（公开名字变化）。
 - `phy.ldpc.qc_code`：一格可以是一组移位（其和）；相等移位拒收；802.11 的码逐位不变。
