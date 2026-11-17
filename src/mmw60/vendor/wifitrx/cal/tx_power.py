@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02: src/wifitrx/cal/tx_power.py
+# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/cal/tx_power.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """TX power calibration: closed-loop gain-code table.
 
@@ -38,7 +38,9 @@ def calibrate_tx_power(tx: TxChain, x_ref: np.ndarray,
     if target_dbm is not None:
         # interpolate on the monotonic section
         code_t = float(np.interp(target_dbm, pouts, codes))
-        tx.gain_code_db = code_t
+        # through set_gain: a bare assignment would scale dc_pre with the
+        # code while the LO leak it cancels stays put (B43)
+        tx.set_gain(gain_code_db=code_t)
         achieved = power_dbm(tx(x_ref))
         est["target_dbm"] = target_dbm
         est["code"] = code_t

@@ -177,7 +177,7 @@ def _trim_drive(tx, x: np.ndarray, target_dbm: float, tol_db: float = 0.02) -> f
         err = target_dbm - power_dbm(tx(x))
         if abs(err) < tol_db:
             break
-        tx.params.vga_gain_db += err * 1.2
+        tx.set_gain(vga_gain_db=tx.params.vga_gain_db + err * 1.2)   # dc_pre-safe (wifitrx B43)
     return float(power_dbm(tx(x)))
 
 
@@ -219,7 +219,7 @@ def run_cal_at(fe: Frontend60, k: int, base_bw_hz: float = 20e6, oversampling: i
                 _trim_drive(tx, scoring_frame(cfg)[0].x * drive_scale, fe.psat_dbm - obo_db)
                 trim_db = tx.params.vga_gain_db
             else:
-                tx.params.vga_gain_db = trim_db
+                tx.set_gain(vga_gain_db=trim_db)
         run = run_cal_on(tx, rx, path, k, bw_eff, oversampling, profile, with_dpd, seed, log,
                          drive_scale=drive_scale, base_bw_hz=base_bw_hz, standard=standard, n_symbols=n_symbols,
                          dpd_tap_spacing=dpd_tap_spacing, waveform_seed=waveform_seed)

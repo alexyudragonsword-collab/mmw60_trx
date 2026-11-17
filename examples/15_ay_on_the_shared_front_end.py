@@ -463,14 +463,19 @@ def main(argv=None) -> int:
         tx = copy.deepcopy(sim.tx)
         tx.params.lo.enabled = False
         sig = tx(fr.x * DIGITAL_DRIVE_RMS)
-        leak = copy.deepcopy(tx)(np.zeros_like(fr.x))[-1000:]
-        raw = copy.deepcopy(tx)
+        # the leak read with the DAC off: a zero input through the 9-bit DAC rounds dc_pre (a few LSB)
+        # away, and the reading floors near -40 dBc whatever the step did (wifi_trx_cal#6)
+        quiet = copy.deepcopy(tx)
+        quiet.params.dac.enabled = False
+        leak = copy.deepcopy(quiet)(np.zeros_like(fr.x))[-1000:]
+        raw = copy.deepcopy(quiet)
         raw.dc_pre = 0j
         raw_leak = raw(np.zeros_like(fr.x))[-1000:]
         p_sig = float(np.mean(abs(sig) ** 2))
         uncorr = copy.deepcopy(sim.tx)
         uncorr.w1 = uncorr.w2 = None
-        print(f"  direct: TX LO leak left after dc_pre {10 * np.log10(np.mean(abs(leak) ** 2) / p_sig):.1f} dBc "
+        lk = 10 * np.log10(np.mean(abs(leak) ** 2) / p_sig)
+        print(f"  direct (DAC off): TX LO leak left after dc_pre {lk:.1f} dBc "
               f"(without dc_pre {10 * np.log10(np.mean(abs(raw_leak) ** 2) / p_sig):.1f}); TX image rejection at "
               + ", ".join(f"{f / 1e9:g}" for f in edges) + " GHz: "
               + ", ".join(f"{irr_db(sim.tx, sim.phy.fs_eff, f):.1f}" for f in edges)

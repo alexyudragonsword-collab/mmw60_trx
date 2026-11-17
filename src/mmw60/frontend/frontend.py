@@ -213,8 +213,10 @@ class Frontend60:
             err = target - p
             if abs(err) < tol_db:
                 break
-            # compression makes dPout/dPin < 1: step a little more than the error
-            tx.params.vga_gain_db += err * 1.2
+            # compression makes dPout/dPin < 1: step a little more than the error.  Through
+            # set_gain (wifitrx 0.7.41, B43): dc_pre sits before the VGA and the LO leak it cancels
+            # after it, so a bare assignment after the leak step would un-null it (wifi_trx_cal#6)
+            tx.set_gain(vga_gain_db=tx.params.vga_gain_db + err * 1.2)
         return power_dbm(tx(x_digital))
 
     def describe(self, fs_eff_hz: float | None = None) -> dict:

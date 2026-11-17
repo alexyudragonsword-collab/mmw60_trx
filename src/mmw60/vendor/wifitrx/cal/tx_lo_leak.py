@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02: src/wifitrx/cal/tx_lo_leak.py
+# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/cal/tx_lo_leak.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """TX LO leakage (carrier leakage) calibration.
 
@@ -19,13 +19,15 @@ Two observation paths, both implemented:
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 
 from ..chain.loopback import EnvelopeDetector, LoopbackPath, run_loopback
 from ..chain.rx import RxChain
 from ..chain.tx import TxChain
 from ..metrics.irr import lo_leak_dbc
-from ..waveform.stimuli import scaled_probe, bin_value, single_tone
+from ..waveform.stimuli import bin_value, grid_freq, scaled_probe, single_tone
 from .base import CalResult
 
 
@@ -91,9 +93,22 @@ def calibrate_tx_lo_leak_loopback(tx: TxChain, rx: RxChain,
     ``skip_below_dbc`` the refinement is skipped: near the measurement
     floor the iteration just walks on noise for ~10 captures with no net
     gain (320 MHz measured -59.1 -> -58.0 dBc).
+
+    The RX-LO offset is put on this capture's FFT grid, as the TX IQ step
+    does (B42).  The leak bin is read with a rectangular window; off the
+    grid, the probe tone leaks into it by a fixed amount that the pilot
+    difference cannot cancel, and that amount grows as the sample rate
+    rises and the tone sits fewer bins away.  On a 5.28 GS/s chain
+    (mmw60_trx, issue #6) a 4.8 MHz offset is 7.45 bins and the step
+    floored at -38 dBc whatever the number of passes; on the grid it
+    reaches -59 dBc with the same captures.  At 320 MS/s the offset is
+    123 bins and the tone 589 bins away, so the default flows barely
+    move.
     """
     if path is None:
         path = LoopbackPath(atten_db=40.0, delay_ns=6.0, rx_lo_offset_hz=4.8e6)
+    path = replace(path, rx_lo_offset_hz=grid_freq(path.rx_lo_offset_hz,
+                                                   tx.fs, n))
     f_leak = -path.rx_lo_offset_hz
     if f_probe is None:
         f_probe = scaled_probe(23e6, tx.params.bandwidth_hz)
@@ -102,7 +117,8 @@ def calibrate_tx_lo_leak_loopback(tx: TxChain, rx: RxChain,
     if before_dbc <= skip_below_dbc:
         return CalResult(
             name="tx_lo_leak_loopback",
-            estimated={"dc_pre": tx.dc_pre},
+            estimated={"dc_pre": tx.dc_pre,
+                       "rx_lo_offset_hz": path.rx_lo_offset_hz},
             corrections={"dc_pre": [tx.dc_pre.real, tx.dc_pre.imag]},
             metrics_before={"lo_leak_dbc": before_dbc},
             metrics_after={"lo_leak_dbc": before_dbc},
@@ -131,7 +147,8 @@ def calibrate_tx_lo_leak_loopback(tx: TxChain, rx: RxChain,
     after_dbc = lo_leak_dbc(tx(x), tx.fs)
     return CalResult(
         name="tx_lo_leak_loopback",
-        estimated={"dc_pre": tx.dc_pre},
+        estimated={"dc_pre": tx.dc_pre,
+                   "rx_lo_offset_hz": path.rx_lo_offset_hz},
         corrections={"dc_pre": [tx.dc_pre.real, tx.dc_pre.imag]},
         trace=trace,
         metrics_before={"lo_leak_dbc": before_dbc},

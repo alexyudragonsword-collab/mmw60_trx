@@ -1,4 +1,4 @@
-# Vendored from wifi_trx_cal@7b8d08eb9f11e426f9c99e079ebcbe06c2c64a02: src/wifitrx/chain/tx.py
+# Vendored from wifi_trx_cal@681ce4bfbd46db85dee9aea663135f45225c26d2: src/wifitrx/chain/tx.py
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 """TX chain: digital front-end -> DAC -> analog baseband -> IQ modulator -> PA.
 
@@ -140,6 +140,31 @@ class TxChain:
         return y
 
     # ------------------------------------------------------------ state
+    def set_gain(self, gain_code_db: float | None = None,
+                 vga_gain_db: float | None = None) -> None:
+        """Change the TX gain without un-nulling the LO leak (B43).
+
+        ``dc_pre`` is applied in the digital domain, before the gain code
+        and the baseband VGA; the LO leak it cancels is born at the
+        modulator, after both.  Changing either gain therefore scales the
+        correction and not the leak: one dB of gain after the leak step
+        took a -63.6 dBc null back to about -40 dBc, six dB to -20 dBc.
+        This rescales ``dc_pre`` by the inverse of the gain change, so the
+        DC reaching the modulator -- the quantity the leak step nulled --
+        stays where it was.  Exact for the digital code; for the VGA it is
+        as exact as the VGA's gain step is known.  Use it (not a bare
+        assignment) for any gain change after the leak step.
+        """
+        step_db = 0.0
+        if gain_code_db is not None:
+            step_db += float(gain_code_db) - self.gain_code_db
+            self.gain_code_db = float(gain_code_db)
+        if vga_gain_db is not None:
+            step_db += float(vga_gain_db) - self.params.vga_gain_db
+            self.params.vga_gain_db = float(vga_gain_db)
+        if step_db:
+            self.dc_pre = self.dc_pre * db_to_amp(-step_db)
+
     def correction_state(self) -> dict:
         return {
             "dc_pre": [self.dc_pre.real, self.dc_pre.imag],
