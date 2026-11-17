@@ -129,21 +129,34 @@ def _frac(r: str) -> float:
     return int(a) / int(b)
 
 
-def sc_code(sim):
-    """The code of ``sim``'s EDMG SC MCS (``edmg_code`` at its rate)."""
-    if sim.cfg.waveform != "ay_sc":
-        raise NotImplementedError("a coded OFDM payload (DCM, tone mapping) is not built: SC only")
-    if int(sim.mcs.repetition) != 1:
+def _check_coded(sim) -> None:
+    """The payloads built here: SC at repetition 1, OFDM without DCM."""
+    m = sim.mcs
+    if int(m.repetition) != 1:
         raise NotImplementedError("the repetition procedure (rho = 2, dmg.data_encoding) is not built")
+    if sim.cfg.waveform == "ay_ofdm" and m.modulation.startswith("DCM"):
+        raise NotImplementedError("a coded DCM payload is not built: the DCM pairing is not in spec_sources")
+
+
+def ay_code(sim):
+    """The code of ``sim``'s EDMG MCS (``edmg_code`` at its rate; the 672-bit
+    codes are the EDMG PHY's, SC and OFDM alike)."""
+    _check_coded(sim)
     r = sim.mcs.code_rate
     return edmg_code(f"{r.numerator}/{r.denominator}")
 
 
+#: the SC-only name of ``ay_code`` (milestone 3, section 9d)
+sc_code = ay_code
+
+
 def payload_bits(sim) -> int:
-    """The coded bits one SC packet of ``sim`` (an ``AyLinkSim``) carries."""
-    if sim.cfg.waveform != "ay_sc":
-        raise NotImplementedError("a coded OFDM payload (DCM, tone mapping) is not built: SC only")
-    return int(sim.phy.num.data_per_block * sim.n_symbols * np.log2(sim.mcs.order))
+    """The coded bits one packet of ``sim`` (an ``AyLinkSim``) carries: SC the
+    data chips of every block, OFDM the data tones of every symbol."""
+    _check_coded(sim)
+    num = sim.phy.num
+    per_unit = num.data_per_block if sim.cfg.waveform == "ay_sc" else len(num.data_tones)
+    return int(per_unit * sim.n_symbols * np.log2(sim.mcs.order))
 
 
 def codewords_for(packet_bytes: int, code) -> int:
@@ -152,12 +165,15 @@ def codewords_for(packet_bytes: int, code) -> int:
     return int(np.ceil(8 * int(packet_bytes) / code.k))
 
 
-def coded_sc_packet(sim, code, snr_db: float | None, rng: np.random.Generator,
-                    max_iter: int | None = None, n_codewords: int | None = None) -> dict:
-    """One coded SC packet through ``sim`` at an in-band SNR of ``snr_db``:
+def coded_packet(sim, code, snr_db: float | None, rng: np.random.Generator,
+                 max_iter: int | None = None, n_codewords: int | None = None) -> dict:
+    """One coded packet through ``sim`` at an in-band SNR of ``snr_db``:
     ``{"packet_error", "bit_errors", "codewords", "iterations", "evm_db"}``.
     ``n_codewords`` (default: as many as the payload holds) codewords are
-    sent; the rest of the payload is random padding."""
+    sent; the rest of the payload is random padding.  The LLRs are not
+    weighted per chip or tone: the SC MMSE gives every chip the same SINR,
+    and on a flat channel OFDM's zero forcing gives every tone the same;
+    under multipath OFDM would need per-tone weights (not built)."""
     order = int(sim.mcs.order)
     n_bits = payload_bits(sim)
     n_cw = n_bits // code.n if n_codewords is None else int(n_codewords)
@@ -178,39 +194,48 @@ def coded_sc_packet(sim, code, snr_db: float | None, rng: np.random.Generator,
             "evm_db": float(res.evm_db)}
 
 
-def threshold_config(mcs: int, packet_bytes: int | None = None):
-    """The chain the EDMG SC thresholds are measured on: ``ay_60ghz`` ideal
+#: the SC-only name of ``coded_packet`` (milestone 3, section 9d)
+coded_sc_packet = coded_packet
+
+
+def threshold_config(mcs: int, packet_bytes: int | None = None, waveform: str = "ay_sc"):
+    """The chain the EDMG thresholds are measured on: ``ay_60ghz`` ideal
     (no CFO, ideal LO and PA, converters / IQ / leakage off), flat channel,
-    ``ay.units`` just long enough for the codewords of a ``packet_bytes``
-    PSDU (default: the preset's ``phy.packet_bytes``, 4096)."""
+    ``ay.units`` (SC blocks or OFDM symbols) just long enough for the
+    codewords of a ``packet_bytes`` PSDU (default: the preset's
+    ``phy.packet_bytes``, 4096)."""
     import dataclasses as dc
 
     from ..config import ChannelConfig, ay_60ghz
     from . import edmg
-    cfg = dc.replace(ay_60ghz("ay_sc", mcs).ideal(), channel=ChannelConfig(model="flat"))
+    cfg = dc.replace(ay_60ghz(waveform, mcs).ideal(), channel=ChannelConfig(model="flat"))
     if packet_bytes is not None:
         cfg = dc.replace(cfg, phy=dc.replace(cfg.phy, packet_bytes=int(packet_bytes)))
-    e = edmg.mcs_entry("ay_sc", mcs)
+    e = edmg.mcs_entry(waveform, mcs)
     code = edmg_code(f"{e.code_rate.numerator}/{e.code_rate.denominator}")
-    per_block = int(edmg.sc_numerology().data_per_block * np.log2(e.order))
-    units = int(np.ceil(codewords_for(cfg.phy.packet_bytes, code) * code.n / per_block))
+    if waveform == "ay_sc":
+        per_unit = edmg.sc_numerology().data_per_block
+    else:
+        per_unit = len(edmg.ofdm_numerology(edmg.channel_of(cfg.carrier_hz)).data_tones)
+    units = int(np.ceil(codewords_for(cfg.phy.packet_bytes, code) * code.n / (per_unit * np.log2(e.order))))
     return dc.replace(cfg, ay=dc.replace(cfg.ay, units=units))
 
 
 def sweep_packet(sim, snr_db: float, rng: np.random.Generator) -> tuple[bool, float]:
-    """``per_sweep``'s packet hook for the SC payload: one PSDU of
-    ``phy.packet_bytes`` in ``sc_code(sim)``'s codewords."""
-    code = sc_code(sim)
-    r = coded_sc_packet(sim, code, snr_db, rng, n_codewords=codewords_for(sim.cfg.phy.packet_bytes, code))
+    """``per_sweep``'s packet hook: one PSDU of ``phy.packet_bytes`` in
+    ``ay_code(sim)``'s codewords."""
+    code = ay_code(sim)
+    r = coded_packet(sim, code, snr_db, rng, n_codewords=codewords_for(sim.cfg.phy.packet_bytes, code))
     return r["packet_error"], r["evm_db"]
 
 
 def per(sim, code, snr_db: float, n_packets: int, rng: np.random.Generator,
         max_iter: int | None = None) -> float:
-    """The packet error rate over ``n_packets`` coded SC packets."""
-    return float(np.mean([coded_sc_packet(sim, code, snr_db, rng, max_iter)["packet_error"]
+    """The packet error rate over ``n_packets`` coded packets."""
+    return float(np.mean([coded_packet(sim, code, snr_db, rng, max_iter)["packet_error"]
                           for _ in range(int(n_packets))]))
 
 
-__all__ = ["DMG_LDPC_KEY", "DMG_R7_8_KEY", "EDMG_R7_8_KEY", "PuncturedCode", "dmg_code", "edmg_code", "sc_code",
-           "payload_bits", "codewords_for", "coded_sc_packet", "threshold_config", "sweep_packet", "per"]
+__all__ = ["DMG_LDPC_KEY", "DMG_R7_8_KEY", "EDMG_R7_8_KEY", "PuncturedCode", "dmg_code", "edmg_code", "ay_code",
+           "sc_code", "payload_bits", "codewords_for", "coded_packet", "coded_sc_packet", "threshold_config",
+           "sweep_packet", "per"]

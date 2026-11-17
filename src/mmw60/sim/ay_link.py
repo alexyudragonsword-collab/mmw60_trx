@@ -175,12 +175,13 @@ class AyLinkSim(LinkSim):
         return np.concatenate([a[-cp:], a, b[-cp:], b])
 
     def transmit(self, rng: np.random.Generator, bits: np.ndarray | None = None):
-        """``bits``: the payload's bits (SC only; ``ay.coding`` hands the codewords in), one block's worth
-        per unit; None = random bits, the EVM-only payload."""
+        """``bits``: the payload's bits (``ay.coding`` hands the codewords in): SC one block's worth per
+        unit; OFDM the data tones of every symbol in order (assumed.ay_ofdm_tone_order; not the DCM MCS,
+        whose pairing is not in spec_sources).  None = random bits, the EVM-only payload."""
         m = self.mcs
         stf = self._stf()
-        if bits is not None and self.cfg.waveform != "ay_sc":
-            raise NotImplementedError("a coded OFDM payload (DCM, tone mapping) is not built: SC only")
+        if bits is not None and self.cfg.waveform != "ay_sc" and m.modulation.startswith("DCM"):
+            raise NotImplementedError("a coded DCM payload is not built: the DCM pairing is not in spec_sources")
         if self.cfg.waveform == "ay_sc":
             num = self.phy.num
             n_sym = num.data_per_block * self.n_symbols
@@ -198,7 +199,12 @@ class AyLinkSim(LinkSim):
         else:
             num = self.phy.num
             n_tone = len(num.data_tones) * self.n_symbols
-            syms = map_bits(rng.integers(0, 2, n_tone * int(np.log2(m.tone_order))), m.tone_order)
+            n_bits = n_tone * int(np.log2(m.tone_order))
+            if bits is None:
+                bits = rng.integers(0, 2, n_bits)
+            elif np.asarray(bits).size != n_bits:
+                raise ValueError(f"the OFDM payload carries {n_bits} bits, got {np.asarray(bits).size}")
+            syms = map_bits(np.asarray(bits), m.tone_order)
             syms = syms.reshape(self.n_symbols, -1)
             payload = ofdm.modulate(num, syms, None, n_training=0)
             cef = self._cef()

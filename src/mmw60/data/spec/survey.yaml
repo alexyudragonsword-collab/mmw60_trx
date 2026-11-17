@@ -614,6 +614,13 @@ entries:
     cite: "本库；mmw60.arraylink.ay_operating_obo_db，示例 10 §3d"
     note: "阵列一节里 ay 两种波形“各自的工作点”：把预设的规则（PA 单独时 EVM 刚好到 802.11ad 16-QAM 3/4 的发射限值 −21 dB，assumed.pa60_operating_rule）用在该波形自己的 16-QAM 载荷包络上，而不是 OFDM 型的高斯包络。共享实例的预设回退（7.5 dB）不动：示例 10 §3d 两种读法并列，预设回退一行就是所有行同一个工作点的读法。SC 的包络峰均比低，同一条规则给出的回退小得多（约 4 dB）；OFDM 的与预设相近（约 7.1 dB）。规则只看 PA，不看校准残差与相噪；那些在每个单元回退上的校准链底板里。"
 
+  assumed.ay_ofdm_tone_order:
+    value: {order: "the data tones of every OFDM symbol in ascending order, symbol after symbol", dcm: "not built"}
+    unit: "-"
+    source: assumed
+    cite: "本库；ay.coding.coded_packet 的 OFDM 载荷，tools/measure_ay_thresholds.py"
+    note: "EDMG OFDM 的 LDPC tone mapping（码字比特到数据子载波的排法）与 DCM 的配对不在 spec_sources 里（已请求）。本库的编码 OFDM 载荷把码字比特按顺序放到每个 OFDM 符号的数据子载波上（升序，一个符号接一个符号）。flat 信道上逐音迫零后各子载波 SNR 相同，比特怎么排不改 PER，所以 16-QAM、64-QAM 各档的 flat 门限不受这条影响；多径下要规范的 tone mapping 才对。DCM 档（MCS 1–10）的两个子载波怎么配对决定分集增益，没有规范的配对就不建，它们的门限仍按 assumed.ay_sensitivity 借 DMG 孪生档。"
+
   assumed.ay_sector_sweep:
     value: {frame: "DMG control PHY (MCS 0) per sector", threshold: "dmg.rx_sensitivity_dbm at MCS 0, the reference receiver taken out as in assumed.ay_sensitivity", transmit_sweep: "the far end on one element", receive_sweep: "behind the chosen transmit beam", bandwidth: "the SC chip rate (the control PHY is single carrier)", timing: "every sector one SSW frame (dmg.phy_timing control preamble + (dmg.control_phy header + dmg.ssw_frame octets) at dmg.control_phy_rate_bps), SBIFS apart; full codewords assumed (a lower bound)"}
     unit: "-"

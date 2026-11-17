@@ -465,11 +465,13 @@ def test_the_coded_sc_path_with_an_80211_code_standing_in():
     assert clean["codewords"] == 5 and not clean["packet_error"] and clean["bit_errors"] == 0
     assert coding.per(sim, ref, -3.0, 6, np.random.default_rng(1)) == 1.0
     assert coding.per(sim, ref, 6.0, 6, np.random.default_rng(1)) == 0.0
-    # the transmitter carries exactly the bits handed in; OFDM's coded payload is not built
+    # the transmitter carries exactly the bits handed in; OFDM's DCM payload is not built
     with pytest.raises(ValueError, match="carries"):
         sim.transmit(np.random.default_rng(0), bits=np.zeros(10, dtype=np.uint8))
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError, match="carries"):
         LinkSim(_ideal("ay_ofdm", 13, model="behavioural")).transmit(np.random.default_rng(0), bits=np.zeros(8))
+    with pytest.raises(NotImplementedError, match="DCM"):
+        LinkSim(_ideal("ay_ofdm", 6, model="behavioural")).transmit(np.random.default_rng(0), bits=np.zeros(8))
 
 
 def test_the_dmg_and_edmg_codes_are_spec_sources_matrices_and_agree_with_each_other():
@@ -515,29 +517,34 @@ def test_the_dmg_and_edmg_codes_are_spec_sources_matrices_and_agree_with_each_ot
         coding.sc_code(LinkSim(_ideal("ay_sc", 1, model="behavioural")))
 
 
-def test_the_measured_edmg_sc_thresholds_are_tagged_complete_and_rise_with_the_code_rate():
+def test_the_measured_edmg_thresholds_are_tagged_complete_and_rise_with_the_code_rate():
     """data/spec/ay_per_thresholds.yaml (tools/measure_ay_thresholds.py):
-    every SC MCS at repetition 1 measured with spec_sources#33's codes,
-    above the Shannon bound of its bits per chip, rising with the code rate
-    within a modulation; the preset rule takes them for SC and the DMG twin's
-    for OFDM and SC MCS 1 (repetition, not coded here)."""
+    every coded MCS measured with spec_sources#33's codes — SC at
+    repetition 1, OFDM's 16-QAM / 64-QAM (the DCM pairing is not in
+    spec_sources) — above the Shannon bound of its bits per chip or tone,
+    rising with the code rate within a modulation; the preset rule takes
+    them and the DMG twin's for the rest (SC MCS 1, OFDM's DCM MCS)."""
     doc = spec.ay_per_threshold_document()
     assert doc["source"] == "derived" and "measure_ay_thresholds.py" in doc["cite"] and doc["note"]
     assert doc["packet_bytes"] == 4096 and doc["target_per"] == 1e-2
-    t, ci = doc["thresholds_db"]["ay_sc"], doc["ci_db"]["ay_sc"]
-    coded = [e for e in edmg.mcs_table("ay_sc") if e.repetition == 1]
-    assert set(t) == {e.mcs for e in coded} and all(t[e.mcs] is not None for e in coded)
-    for e in coded:
-        eta = float(e.code_rate) * np.log2(e.order)
-        assert t[e.mcs] > 10 * np.log10(2 ** eta - 1), e.mcs
-        assert ci[e.mcs][0] <= t[e.mcs] <= ci[e.mcs][1] and ci[e.mcs][1] - ci[e.mcs][0] < 0.5
-    for order in (2, 4, 16, 64):
-        row = [t[e.mcs] for e in coded if e.order == order]
-        assert row == sorted(row), order
-    assert spec.ay_per_threshold_db("ay_sc", 1) is None and spec.ay_per_threshold_db("ay_ofdm", 13) is None
+    assert set(doc["thresholds_db"]) == {"ay_sc", "ay_ofdm"}
+    for wf in ("ay_sc", "ay_ofdm"):
+        t, ci = doc["thresholds_db"][wf], doc["ci_db"][wf]
+        coded = [e for e in edmg.mcs_table(wf) if e.repetition == 1 and not e.modulation.startswith("DCM")]
+        assert set(t) == {e.mcs for e in coded} and all(t[e.mcs] is not None for e in coded), wf
+        for e in coded:
+            eta = float(e.code_rate) * np.log2(e.order)
+            assert t[e.mcs] > 10 * np.log10(2 ** eta - 1), (wf, e.mcs)
+            assert ci[e.mcs][0] <= t[e.mcs] <= ci[e.mcs][1] and ci[e.mcs][1] - ci[e.mcs][0] < 0.5, (wf, e.mcs)
+        for order in sorted({e.order for e in coded}):
+            row = [t[e.mcs] for e in coded if e.order == order]
+            assert row == sorted(row), (wf, order)
+    t = doc["thresholds_db"]["ay_sc"]
+    assert spec.ay_per_threshold_db("ay_sc", 1) is None and spec.ay_per_threshold_db("ay_ofdm", 6) is None
     assert edmg.threshold_db("ay_sc", 14, 1.76e9) == (t[14], "measured")
     assert edmg.threshold_db("ay_sc", 14, 1.76e9, rule="twin") == (edmg.ideal_threshold_db("ay_sc", 14, 1.76e9), "twin")
-    assert edmg.threshold_db("ay_sc", 1, 1.76e9)[1] == "twin" and edmg.threshold_db("ay_ofdm", 13, 1.8e9)[1] == "twin"
+    assert edmg.threshold_db("ay_sc", 1, 1.76e9)[1] == "twin" and edmg.threshold_db("ay_ofdm", 6, 1.8e9)[1] == "twin"
+    assert edmg.threshold_db("ay_ofdm", 13, 1.8e9) == (doc["thresholds_db"]["ay_ofdm"][13], "measured")
     assert edmg.threshold_db("ay_sc", 17, 1.76e9) == (t[17], "measured")      # no DMG twin: measured only
     assert edmg.threshold_db("ay_sc", 17, 1.76e9, rule="twin") == (None, None)
     with pytest.raises(ValueError, match="rule"):
@@ -554,3 +561,33 @@ def test_one_measured_edmg_sc_threshold_reproduces_from_the_code():
     sw = per_sweep(coding.threshold_config(14), [t - 1.0, t + 1.0], max_packets=40, min_errors=8, seed=5,
                    packet=coding.sweep_packet)
     assert sw["per"][0] > 0.5 and sw["per"][1] < 0.05, (t, sw["per"])
+
+
+def test_the_coded_ofdm_path_puts_the_codewords_on_the_data_tones_in_order():
+    """ay.coding on OFDM (assumed.ay_ofdm_tone_order): the 16-QAM / 64-QAM MCS
+    carry whole 672-bit codewords on the data tones of every symbol in
+    order; the DCM MCS are refused (their pairing is not in spec_sources).
+    Clean packets decode; −3 dB loses them all; the bits the receiver
+    equalises are the bits sent, tone for tone."""
+    from mmw60.ay import coding
+    from mmw60.phy.mapper import map_bits
+    sim = LinkSim(_ideal("ay_ofdm", 13, model="behavioural", units=6))      # 16-QAM 3/4
+    n_data = len(sim.phy.num.data_tones)
+    assert coding.payload_bits(sim) == 6 * n_data * 4 and coding.ay_code(sim) is coding.edmg_code("3/4")
+    rng = np.random.default_rng(0)
+    bits = rng.integers(0, 2, coding.payload_bits(sim)).astype(np.uint8)
+    ref, _ = sim.transmit(np.random.default_rng(1), bits=bits)
+    assert np.allclose(ref.symbols.reshape(-1), map_bits(bits, 16))         # symbol after symbol, tones ascending
+    code = coding.ay_code(sim)
+    clean = coding.coded_packet(sim, code, None, np.random.default_rng(2))
+    assert clean["codewords"] == coding.payload_bits(sim) // 672 and not clean["packet_error"]
+    assert coding.per(sim, code, -3.0, 4, np.random.default_rng(3)) == 1.0
+    assert coding.per(sim, code, 30.0, 4, np.random.default_rng(3)) == 0.0
+    for m in (1, 6, 10):
+        with pytest.raises(NotImplementedError, match="DCM"):
+            coding.ay_code(LinkSim(_ideal("ay_ofdm", m, model="behavioural")))
+    # the thresholds' chain holds a 4096-byte PSDU in whole codewords, no more OFDM symbols than needed
+    cfg = coding.threshold_config(16, waveform="ay_ofdm")
+    s16 = LinkSim(cfg)
+    need = coding.codewords_for(4096, coding.ay_code(s16)) * 672
+    assert coding.payload_bits(s16) >= need > coding.payload_bits(s16) - n_data * 6
