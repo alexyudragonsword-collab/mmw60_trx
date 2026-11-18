@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from mmw60 import spec
-from mmw60.config import ChannelConfig, Mmw60Config, liu2025_table2, zero_if_60ghz
+from mmw60.config import ChannelConfig, Mmw60Config, liu2025_table2, wifi7_rx_ladder, zero_if_60ghz
 from mmw60.frontend import ConverterLaw, EirpLimit, Frontend60, Lo60, ScaledRappPA, zero_if_plan
 from mmw60.frontend.dpd_cost import DpdCost, dsp_ip_models
 from mmw60.frontend.grid import (analytic_floors, data_rate_bps, evaluate_cell, max_mcs_for_floor,
@@ -90,20 +90,32 @@ def test_chain_snr_setting_tracks_the_requested_snr():
 
 
 def test_rx_dc_matters_only_once_the_cfo_moves_it_into_the_data():
-    """Without digital DC removal the −25 dBc self-mixing DC is invisible at
-    DC and costs 6–12 dB of EVM once the CFO correction moves it onto a data
-    tone; with the receiver's frame-mean DC removal (on in the zero-IF
-    presets) it is gone either way."""
+    """Without digital DC removal the self-mixing DC is invisible at DC and
+    costs EVM once the CFO correction moves it onto a data tone; with the
+    receiver's frame-mean DC removal (on in the zero-IF presets) it is gone
+    either way.
+
+    How much it costs depends on the receive front end's gain: the −25 dBc
+    of assumed.rx_dc_dbc is an absolute level at the mixer output (against a
+    nominal −20 dBm baseband signal), so behind the presets' 60 GHz front
+    end, 10 dB less gain than the WiFi 7 ladder, the same DC stands 8 dB
+    higher against the signal at the same input (ROADMAP C9: 18 dB of EVM
+    where the WiFi 7 ladder reads 10)."""
     flat = ChannelConfig(model="flat")
-    ideal = dc.replace(zero_if_60ghz(k=8).ideal(), channel=flat)
-    assert ideal.rx.dc_removal
-    raw = dc.replace(ideal, rx=dc.replace(ideal.rx, dc_removal=False))
-    with_dc = dc.replace(raw, frontend=dc.replace(raw.frontend, rx_dc_dbc=-25.0))
-    e0 = evm_at(with_dc, None, n_packets=1)["evm_db"]
-    e1 = evm_at(dc.replace(with_dc, xo_ppm_tx=20, xo_ppm_rx=20), None, n_packets=1)["evm_db"]
-    assert e0 < -38 and -34 < e1 < -26
-    removed = dc.replace(with_dc, xo_ppm_tx=20, xo_ppm_rx=20, rx=dc.replace(with_dc.rx, dc_removal=True))
-    assert evm_at(removed, None, n_packets=1)["evm_db"] < -38
+    cost = {}
+    for name, base in (("preset", zero_if_60ghz(k=8)), ("wifi7", wifi7_rx_ladder(zero_if_60ghz(k=8)))):
+        ideal = dc.replace(base.ideal(), channel=flat)
+        assert ideal.rx.dc_removal
+        raw = dc.replace(ideal, rx=dc.replace(ideal.rx, dc_removal=False))
+        with_dc = dc.replace(raw, frontend=dc.replace(raw.frontend, rx_dc_dbc=-25.0))
+        e0 = evm_at(with_dc, None, n_packets=1)["evm_db"]
+        e1 = evm_at(dc.replace(with_dc, xo_ppm_tx=20, xo_ppm_rx=20), None, n_packets=1)["evm_db"]
+        assert e0 < -38, name
+        cost[name] = e1
+        removed = dc.replace(with_dc, xo_ppm_tx=20, xo_ppm_rx=20, rx=dc.replace(with_dc.rx, dc_removal=True))
+        assert evm_at(removed, None, n_packets=1)["evm_db"] < -38, name
+    assert -34 < cost["wifi7"] < -26 and -25 < cost["preset"] < -18, cost
+    assert 6 < cost["preset"] - cost["wifi7"] < 11, cost       # the front ends' gains are 10 dB apart
 
 
 def test_dc_removal_keeps_the_stf_estimator_honest_at_low_snr():

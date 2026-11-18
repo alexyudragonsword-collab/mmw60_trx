@@ -153,7 +153,7 @@ entries:
     unit: dBc
     source: assumed
     cite: "本库"
-    note: "RX 自混频直流相对基带信号。"
+    note: "RX 自混频直流相对基带信号。是混频器输出处的一个绝对电平：按基带信号标称 −20 dBm 折算（frontend.rx_params，各档按 wifitrx 梯子的比例），不随接收前端的增益走。所以 2026-11-18 预设换成 60 GHz 接收前端（增益 27 dB，比 WiFi 7 梯子低 10 dB，ROADMAP C9）之后，同一个输入电平上这份直流相对信号高了约 8 dB：不做数字去直流、CFO 把它搬到数据音上时，EVM −30.2 → −21.8 dB（K = 8，无噪声，tests/test_frontend.py）。预设开着数字去直流，两种前端下都回到 −39.8 dB，SNR 10 dB 上都是 −9.24 dB，所以预设的数不受它影响。自混频直流该不该随前端增益缩放（从 LNA 输入漏进来的那部分随增益，直接漏到混频器的不随），没有出处。"
 
   assumed.iq_mismatch:
     value: {gain_db: 0.25, phase_deg: 1.5, gd_mismatch_ps: 150, rail_ripple_db: 0.3, rail_gd_ripple_ns: 0.12}
