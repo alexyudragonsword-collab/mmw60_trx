@@ -18,6 +18,7 @@
 - **指纹原来看不见 ay**（只跑 be 两个配置），整轮改完仍逐位相同。SC 不变改用 main 工作树直接比（逐位相同）；指纹加了 ay 两个配置。
 - 文档里三处是 PR #74 漏改的旧数（`ay.md` §7 距离表与 §9b 多径表的 SC 格、`comparison-table.md` 的 SC 校准底板），这次一并更正并注明。
 - 容器中途重启一次，门限重量靠缓存续跑；数字没有受影响。
+- **CI 的指纹作业在 PR 上第一次红**：PR 事件检出的是 GitHub 合成的合并提交，它的第一父提交就是 base，`fingerprint_walk` 按 first-parent 只看到这一个没有标记的提交，报“范围内没有提交带 (numbers-move)”——任何动了指纹的 PR 都会这样红，之前没有 PR 动过指纹，这条路径没走到过。改成：head 是“PR 并入 base”的合并提交时走它第二父提交的历史；补了测试（合成仓库；换回旧规则变红）。
 - 下一步：合并后在 spec_sources#48 回报、核对 `consumers.yaml`、关 issue；然后收尾第三件（多径余量列、SC 低阶档回退网格从 0 dB 起）。
 
 ## 2026-11-17 · 重新 pin array_tx 到 286609e，只拷 import 到的两个文件（chore/arraytx-pin-286609e）
