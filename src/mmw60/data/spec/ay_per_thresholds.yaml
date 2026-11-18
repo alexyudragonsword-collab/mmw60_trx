@@ -5,8 +5,8 @@ cite: 'tools/measure_ay_thresholds.py (mmw60 0.1.0): PER 0.01 crossing of a 4096
   errors per point; the two points bracketing PER 0.01 run on to 60 errors or 3000 packets (a sweep left without a crossing that way is run again from two steps under
   its last point on a new seed, up to 3 times; an interval wider than 0.5 dB runs the points just outside the bracket on as well), log-linear interpolation; ci_db
   = 95 % bootstrap interval of the crossing from the counts'
-note: 本库接收机自己的 EDMG 门限（Golay 信道估计；SC 的 MMSE、OFDM 的逐音迫零；max-log LLR、归一化 min-sum），不是规范数；接收机或码一改就要重量（tests/test_ay_link.py 复量一个点）。SC MCS 1（重复 2）按 dmg.data_encoding 的
-  rho = 2 码字（数据、数据 ⊕ PN、校验，spec_sources#43），接收端两份 LLR 相加、补的零已知。OFDM 的 DCM 档（MCS 1–10）按 edmg.ofdm_modulation_mapping 的静态配对（spec_sources#43），一对子载波联合解映射。不含扰码与填充规则（载荷是随机比特，扰码不改
+note: 本库接收机自己的 EDMG 门限（SC：Golay 对信道估计、MMSE；OFDM：EDMG-CEF 信道估计、逐音迫零、公共相位跨 17 个符号合并、LLR 按估计的 |H|² 逐音加权，2026-11-18 起；max-log LLR、归一化 min-sum），不是规范数；接收机或码一改就要重量（tests/test_ay_link.py
+  复量一个点）。SC MCS 1（重复 2）按 dmg.data_encoding 的 rho = 2 码字（数据、数据 ⊕ PN、校验，spec_sources#43），接收端两份 LLR 相加、补的零已知。OFDM 的 DCM 档（MCS 1–10）按 edmg.ofdm_modulation_mapping 的静态配对（spec_sources#43），一对子载波联合解映射。不含扰码与填充规则（载荷是随机比特，扰码不改
   PER；PSDU 按整数个码字发）。OFDM 的比特按顺序放在数据子载波上（assumed.ay_ofdm_tone_order）：flat 信道上各子载波 SNR 相同，比特怎么排不改 PER；多径下还缺 16 / 64-QAM 的符号内交织置换（公开文件没有）。
 packet_bytes: 4096
 target_per: 0.01
@@ -34,26 +34,26 @@ thresholds_db:
     21: 20.18
     1: -1.23
   ay_ofdm:
-    1: 1.28
-    2: 2.31
-    3: 3.42
-    4: 4.47
-    5: 4.99
-    6: 3.42
-    7: 4.82
-    8: 6.01
-    9: 7.28
-    10: 7.92
-    11: 8.81
-    12: 10.61
-    13: 12.24
-    14: 13.66
-    15: 14.47
-    16: 13.55
-    17: 15.78
-    18: 17.83
-    19: 19.45
-    20: 20.42
+    1: 0.46
+    2: 1.78
+    3: 3.01
+    4: 4.21
+    5: 4.91
+    6: 3.32
+    7: 4.71
+    8: 6.03
+    9: 7.29
+    10: 7.94
+    11: 8.73
+    12: 10.6
+    13: 12.28
+    14: 13.69
+    15: 14.45
+    16: 13.52
+    17: 15.79
+    18: 17.81
+    19: 19.47
+    20: 20.38
 ci_db:
   ay_sc:
     2:
@@ -121,62 +121,62 @@ ci_db:
     - -1.12
   ay_ofdm:
     1:
-    - 1.1
-    - 1.52
+    - 0.41
+    - 0.51
     2:
-    - 2.18
-    - 2.51
+    - 1.72
+    - 1.85
     3:
-    - 3.32
-    - 3.49
+    - 3.01
+    - 3.11
     4:
-    - 4.38
-    - 4.6
+    - 4.15
+    - 4.28
     5:
-    - 4.92
-    - 5.09
+    - 4.85
+    - 4.98
     6:
-    - 3.37
-    - 3.48
+    - 3.26
+    - 3.38
     7:
-    - 4.76
-    - 4.9
+    - 4.65
+    - 4.78
     8:
-    - 6.01
-    - 6.12
+    - 5.98
+    - 6.08
     9:
     - 7.21
-    - 7.37
+    - 7.39
     10:
-    - 7.86
-    - 8.0
+    - 7.88
+    - 7.99
     11:
-    - 8.75
-    - 8.89
+    - 8.68
+    - 8.8
     12:
-    - 10.56
-    - 10.68
+    - 10.55
+    - 10.66
     13:
-    - 12.18
-    - 12.31
+    - 12.23
+    - 12.35
     14:
-    - 13.6
-    - 13.74
+    - 13.64
+    - 13.77
     15:
-    - 14.4
-    - 14.57
+    - 14.38
+    - 14.52
     16:
-    - 13.49
-    - 13.62
+    - 13.46
+    - 13.6
     17:
-    - 15.71
-    - 15.86
+    - 15.72
+    - 15.88
     18:
-    - 17.77
-    - 17.9
+    - 17.75
+    - 17.88
     19:
-    - 19.35
-    - 19.56
+    - 19.38
+    - 19.58
     20:
-    - 20.35
-    - 20.49
+    - 20.31
+    - 20.47
