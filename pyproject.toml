@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mmw60"
-version = "0.1.0"
+version = "0.2.0"
 description = "60 GHz WiFi transceiver behavioural simulation: IF-extender vs IMMW upclocking on one engine (vendored wifitrx)"
 readme = "README.md"
 license = {text = "MIT"}

@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.1.0; full size; channel 2 (60.48 GHz), normal GI; one front end for both: PA Psat 14.6 dBm at 7.5 dB from psat (Pout 7.1 dBm), chain at 5.28 GS/s with the filters of a 2.16 GHz channel; CFO 2.42 MHz; flat channel; no noise unless a section says
+mmw60 0.2.0; full size; channel 2 (60.48 GHz), normal GI; one front end for both: PA Psat 14.6 dBm at 7.5 dB from psat (Pout 7.1 dBm), chain at 5.28 GS/s with the filters of a 2.16 GHz channel; CFO 2.42 MHz; flat channel; no noise unless a section says
 
 == 1. the EDMG single-channel numbers (spec_sources#29) ==
 OFDM (edmg.ofdm_params [spec]): 2.64 GS/s, 512-point DFT, SCS 5.15625 MHz, 336 data + 16 pilot tones over ±177, GI 96 samples; channel 2 pilots [-163, -141, -119] … [145, 167] (edmg.ofdm_pilot_tones_ncb1 [spec])

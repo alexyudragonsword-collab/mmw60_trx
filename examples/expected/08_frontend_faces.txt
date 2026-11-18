@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.1.0; full; topology B, K = 8 on the 11ac 20 MHz base (160 MHz), carrier 60.48 GHz, PA output 7.1 dBm
+mmw60 0.2.0; full; topology B, K = 8 on the 11ac 20 MHz base (160 MHz), carrier 60.48 GHz, PA output 7.1 dBm
 [spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; [assumed] = this library's choice
 
 == 1. the faces: preset against config.surveyed_frontend ==
