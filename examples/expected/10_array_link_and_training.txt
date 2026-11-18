@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.1.0; full size; one Frontend60 at every element: PA Pout 7.1 dBm (back-off 7.5 dB from Psat), receive NF 3.5 dB, element 0 dBi; EIRP limit 40 dBm avg (FCC 15.255)
+mmw60 0.2.0; full size; one Frontend60 at every element: PA Pout 7.1 dBm (back-off 7.5 dB from Psat), receive NF 3.5 dB, element 0 dBi; EIRP limit 40 dBm avg (FCC 15.255)
 arrays: n x 1 at both ends, 0.5 lambda, element factor cos, 3-bit phase shifters, element errors {'gain_db_rms': 0.5, 'phase_deg_rms': 5.0}; line of sight at the carrier, free space plus 15 dB/km oxygen absorption (an estimate)
 
 == 1. the array's faces (beam at broadside unless stated; dB) ==

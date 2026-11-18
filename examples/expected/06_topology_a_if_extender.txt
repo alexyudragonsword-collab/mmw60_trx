@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.1.0; full size; 11be 80 MHz at K = 1, 4x oversampling (320 MS/s); chip seed 5
+mmw60 0.2.0; full size; 11be 80 MHz at K = 1, 4x oversampling (320 MS/s); chip seed 5
 
 == 1. frequency plan (positions only: this engine endorses no spur level) ==
 carrier 60.48 GHz = IF 6.48 GHz (the chip's channel) + fixed LO 54.00 GHz = 3 x PLL 18.000 GHz (fixed_lo_x3)
