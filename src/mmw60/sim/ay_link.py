@@ -272,7 +272,7 @@ class AyLinkSim(LinkSim):
                 h512 = sc.window_estimate(h512, cp, max(4, cp // 8))
             h_used = h512[num.bins(num.used_tones)]
             eq = ofdm.receive(num, body[ref.cef_len:], None, self.n_symbols, n_training=0,
-                              cpe=rxc.cpe_tracking, h=h_used)
+                              cpe=rxc.cpe_tracking, h=h_used, cpe_window=int(rxc.cpe_window_symbols))
         tx = ref.symbols
         evm_db = float(10 * np.log10(np.mean(np.abs(eq - tx) ** 2) / np.mean(np.abs(tx) ** 2)))
         return RxResult(bit_errors=None, packet_error=None, evm_db=evm_db, cfo_hat_hz=float(f_stf),
