@@ -398,11 +398,18 @@ entries:
     note: "'surveyed' 一档取哪几个数是本库的选择：接收 NF / IIP3 / 高增益档增益与发 / 收天线增益都取同一颗通信收发机（rx60.comm_asada2011，读过原文），不取雷达芯片；收发隔离取不加 EBG 的下端 40 − 20 = 20 dB（保守，泄漏最大）。第一版取的天线是 6 dBi（antenna60.okada2013_dbi，至今没有读到原文），读到 Asada 原文后换成它自己的 2 dBi，6 dBi 留作灵敏度档。预设不用这一档，现有数字不动；示例 08 每张表都是灵敏度行。"
 
   assumed.preset_rx_front:
-    value: {from: "assumed.frontend_faces_pick", fields: [rx_nf_db, rx_iip3_dbm, rx_gain_db], antennas: "not in the presets (0 dBi)", tx_rx_isolation: "not in the presets (unset)", k1_row_at_6ghz: "wifi7_ladder"}
+    value: {from: "assumed.frontend_faces_pick", fields: [rx_nf_db, rx_iip3_dbm, rx_gain_db], antennas: "assumed.preset_antenna", tx_rx_isolation: "not in the presets (unset)", k1_row_at_6ghz: "wifi7_ladder"}
     unit: procedure
     source: assumed
     cite: "本库 config.surveyed_rx_front / zero_if_60ghz / wifi7_chain_k1 / wifi7_rx_ladder；用户 2026-11-18 定（ROADMAP C9）"
-    note: "60 GHz 预设（zero_if_60ghz，以及建在它上面的 if_extender_60ghz、ay_60ghz）的接收前端取哪几个数：只取 assumed.frontend_faces_pick 里接收机的三个（NF 6.1 dB、IIP3 −20 dBm、高增益档变频增益 27 dB，同一颗 60 GHz 通信收发机 rx60.comm_asada2011，读过原文），梯子其余七档是形状假设（assumed.rx60_ladder_shape）。三个面里另外两个不进预设：天线增益仍是 0 dBi（“未指定”，阵列表另有单元方向图），收发隔离仍留空（时分双工链路不消费它）；要这两个用 config.surveyed_frontend。同台表的 K = 1 行（wifi7_chain_k1，6 GHz 上原样的 WiFi 7 芯片）不换：那一行的梯子就是芯片自己的 sub-7 梯子，60 GHz 的接收前端不在 6 GHz 芯片前面；所以那一行与 60 GHz 各行的接收前端不是同一个对象，同台表里标出来。拓扑 A 的预设因此在芯片前串上这一级（assumed.ifext_rx_front60），级联 NF 6.10 dB。2026-11-18 之前预设用 wifitrx 的 WiFi 7 梯子（最高增益档 37 dB / NF 3.5 dB / IIP3 −20 dBm；2026-11-14 用户定过不换，2026-11-18 改），那一档现在是 config.wifi7_rx_ladder，作灵敏度行。换过去动的是灵敏度（dB 对 dB，2.6 dB）与全部距离；SNR 轴上的链路 EVM 不动。"
+    note: "60 GHz 预设（zero_if_60ghz，以及建在它上面的 if_extender_60ghz、ay_60ghz）的接收前端取哪几个数：只取 assumed.frontend_faces_pick 里接收机的三个（NF 6.1 dB、IIP3 −20 dBm、高增益档变频增益 27 dB，同一颗 60 GHz 通信收发机 rx60.comm_asada2011，读过原文），梯子其余七档是形状假设（assumed.rx60_ladder_shape）。三个面里的天线同日稍后也进了预设（assumed.preset_antenna，用户定“要进”）；收发隔离仍留空（时分双工链路不消费它），要它用 config.surveyed_frontend。（这一条刚写下时是：“三个面里另外两个不进预设：天线增益仍是 0 dBi（“未指定”，阵列表另有单元方向图），收发隔离仍留空；要这两个用 config.surveyed_frontend。”）同台表的 K = 1 行（wifi7_chain_k1，6 GHz 上原样的 WiFi 7 芯片）不换：那一行的梯子就是芯片自己的 sub-7 梯子，60 GHz 的接收前端不在 6 GHz 芯片前面；所以那一行与 60 GHz 各行的接收前端不是同一个对象，同台表里标出来。拓扑 A 的预设因此在芯片前串上这一级（assumed.ifext_rx_front60），级联 NF 6.10 dB。2026-11-18 之前预设用 wifitrx 的 WiFi 7 梯子（最高增益档 37 dB / NF 3.5 dB / IIP3 −20 dBm；2026-11-14 用户定过不换，2026-11-18 改），那一档现在是 config.wifi7_rx_ladder，作灵敏度行。换过去动的是灵敏度（dB 对 dB，2.6 dB）与全部距离；SNR 轴上的链路 EVM 不动。"
+
+  assumed.preset_antenna:
+    value: {from: "assumed.frontend_faces_pick", field: antenna_gain_tx_dbi, receive: "the same antenna (TDD, antenna_gain_rx_dbi None)", array: "the element gain of every element, on top of the element pattern", k1_row_at_6ghz: "0 dBi (not specified)"}
+    unit: procedure
+    source: assumed
+    cite: "本库 config.surveyed_antenna_gain_dbi / zero_if_60ghz / wifi7_chain_k1 / unspecified_antenna；frontend/array60.py（element_gain_tx_dbi / element_gain_rx_dbi 取共享前端的天线增益）；用户 2026-11-18 定（ROADMAP C9，“要进”）"
+    note: "60 GHz 预设的天线增益取 assumed.frontend_faces_pick 的 antenna_gain_tx_dbi：2 dBi，与接收前端同一颗 60 GHz 通信收发机的封装内天线（rx60.comm_asada2011，读过原文）。收发同一副天线（时分双工），所以接收一侧也是 2 dBi，链路预算上一共 +4 dB。阵列上它是每个单元的增益，叠在单元方向图（assumed.array_geometry 的 cos 因子，束向上归一）之上：N 个单元的 EIRP = 每单元输出 + 2 dBi + 20·log10 N，顶到 40 dBm 上限的单元数从 N > 44 变成 N > 35。这一条怎么并是本库的选择：原文给的是单颗封装内天线的增益，没有说它在阵列里当单元时的增益；单元间距 0.5 λ 时相邻单元的互耦与有效口径会改这个数，没有建。同台表的 K = 1 行（6 GHz 的 WiFi 7 芯片）单独仿真时天线仍是 0 dBi“未指定”：60 GHz 的封装内天线不是 6 GHz 的天线。2026-11-18 之前预设是 0 dBi“未指定”（config.unspecified_antenna，作灵敏度行）。动的是 EIRP（+2 dB，离上限的余量 −2 dB）、能承受的路径损耗（+4 dB）与全部距离；链路 EVM、校准、同台表的 MCS 上限 / 速率 / pJ/bit 不动；阵列上顶到 EIRP 上限后每单元回退更多，底板与解码器上限跟着动。"
 
   # ------------------------------------------------------------ 60 GHz PA：本库的取舍与工作点（2026-11-12 / 13）
   # 读过原文的测量值（pa60.*）与平滑度的 derived 在 vendored spec_sources 的 data/pa60.yaml。

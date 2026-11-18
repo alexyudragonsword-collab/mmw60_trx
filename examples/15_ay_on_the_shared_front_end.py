@@ -73,7 +73,7 @@ from mmw60 import ENGINE_BANNER, __version__, spec                # noqa: E402
 from mmw60 import arraylink as al                                 # noqa: E402
 from mmw60.ay import edmg, papr                                   # noqa: E402
 from mmw60.calcheck import run_cal_ay                             # noqa: E402
-from mmw60.config import ChannelConfig, ay_60ghz, surveyed_frontend, wifi7_rx_ladder  # noqa: E402
+from mmw60.config import ChannelConfig, ay_60ghz, unspecified_antenna, wifi7_rx_ladder  # noqa: E402
 from mmw60.frontend import Frontend60                             # noqa: E402
 from mmw60.sim.link import DIGITAL_DRIVE_RMS, LinkSim             # noqa: E402
 
@@ -300,7 +300,7 @@ def main(argv=None) -> int:
             best = max(ok, key=lambda e: e.rate_bps()) if ok else None
             row.append("—" if best is None else f"{best.rate_bps() / 1e9:.3f} (MCS{best.mcs})")
         print(f"{psat - ob:8.2f} {ob:8.1f} {row[0]:>14} {row[1]:>14}")
-    print(f"(single element at {fe.antenna_gain_tx_dbi:g} dBi: EIRP = Pout, far under the regulatory cap; with an "
+    print(f"(single element at {fe.antenna_gain_tx_dbi:g} dBi: EIRP = Pout + {fe.antenna_gain_tx_dbi:g} dB, far under the regulatory cap; with an "
           f"array the cap binds first and the SC power margin becomes fewer elements or less DC power — stage 2)")
 
     # ---------------------------------------------------------------- 7. calibration on the ay chain
@@ -617,7 +617,8 @@ def main(argv=None) -> int:
     caps = {"ay_sc": 14, "ay_ofdm": 13}
     print("\nsensitivity rows, at the preset back-off, for the comparison table's calibrated caps "
           "(SC MCS14, OFDM MCS13; metres):")
-    sv_cfg = {wf: surveyed_frontend(dc.replace(ay_60ghz(wf, 1), channel=FLAT)) for wf in orders}
+    # the presets until 2026-11-18: a 0 dBi "not specified" antenna, and (separately) the WiFi 7 receive ladder
+    sv_cfg = {wf: unspecified_antenna(dc.replace(ay_60ghz(wf, 1), channel=FLAT)) for wf in orders}
     sv_fe = {wf: Frontend60.from_config(c) for wf, c in sv_cfg.items()}
     sv_sim = {wf: LinkSim(sv_cfg[wf], frontend=sv_fe[wf]) for wf in orders}
     w7_sim = {wf: LinkSim(wifi7_rx_ladder(dc.replace(ay_60ghz(wf, 1), channel=FLAT))) for wf in orders}
@@ -630,9 +631,9 @@ def main(argv=None) -> int:
         w7 = ranges_at(wf, i0, sim=w7_sim[wf])[m]["range_m"]
         twin_txt = f"the DMG twin's threshold (rule twin) {tw:.2f}; "
         print(f"  {wf:<8} MCS{m}: preset {base_r:.2f}; {twin_txt}the twin's with its implementation loss kept in "
-              f"{il:.2f}; the surveyed antennas as well "
+              f"{il:.2f}; the 0 dBi antennas the presets had until 2026-11-18 "
               f"({sv_fe[wf].antenna_gain_tx_dbi:g} + {sv_fe[wf].antenna_gain_rx_resolved_dbi:g} dBi, "
-              f"config.surveyed_frontend) {sv:.2f}; the WiFi 7 receive ladder the presets had until 2026-11-18 "
+              f"config.unspecified_antenna) {sv:.2f}; the WiFi 7 receive ladder they had until the same day "
               f"(NF {w7_sim[wf]._rx_nf_db():.1f} dB at its AGC state, config.wifi7_rx_ladder) {w7:.2f}")
     print("the DMG-derived thresholds against this library's measured ones at the same modulation and code rate: "
           "the EDMG codes on both waveforms (data/spec/ay_per_thresholds.yaml) and the 11be LDPC "
