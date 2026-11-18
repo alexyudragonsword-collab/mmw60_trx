@@ -210,7 +210,8 @@ def main(argv=None) -> int:
           + "; ".join(f"{wf} {own[wf]:.2f} dB (the PA alone at the preset {fe.obo_db:g} dB: "
                       f"{al.ay_pa_alone_evm_db(c, fe.obo_db):.1f} dB)" for wf, c in ay_cfgs.items()))
     print(f"{'waveform':<8} {'point':<6} {'N':>3} {'Pe':>6} {'OBO':>6} {'PA EVM':>7} {'EIRP':>6} {'G_rx':>6} "
-          f"{'floor':>6} {'cap':>5} {'Mb/s':>6} {'d MCS1':>7} {'d 16Q3/4':>9} {'d cap':>7} {'pJ/b':>6}")
+          f"{'floor':>6} {'cap':>5} {'Mb/s':>6} {'d MCS1':>7} {'d 16Q3/4':>9} {'d cap':>7} {'pJ/b':>6} "
+          f"{'mp 16Q3/4':>10}")
     cal_cache = {}
     ay_budgets = {}
     for wf, c in ay_cfgs.items():
@@ -227,16 +228,23 @@ def main(argv=None) -> int:
                       f"{fmt(rate, '{:.0f}'):>6} {fmt(b.range_by_mcs.get(1), '{:.0f}'):>7} "
                       f"{fmt(b.range_by_mcs.get(common[wf]), '{:.0f}'):>9} "
                       f"{fmt(b.range_by_mcs.get(b.dec_mcs), '{:.0f}'):>7} "
-                      f"{fmt(None if rp is None else rp.pj_per_bit, '{:.0f}'):>6}", flush=True)
+                      f"{fmt(None if rp is None else rp.pj_per_bit, '{:.0f}'):>6} "
+                      f"{fmt(b.range_multipath_by_mcs.get(common[wf]), '{:.0f}'):>10}", flush=True)
     print("PA EVM = the PA alone on the waveform's 16-QAM payload at the per-element back-off; floor = the cap "
           "MCS's constellation on the calibrated chain; d = metres (free space plus oxygen) at MCS1 (the slowest), "
           "at 16-QAM 3/4 (SC MCS14 / OFDM MCS13) and at the cap; pJ/b at the cap as in 3c.  Every MCS of both "
-          "waveforms has a threshold measured the same way (cairn/ay.md 9d)")
+          "waveforms has a threshold measured the same way (cairn/ay.md 9d).  mp 16Q3/4 = the 16-QAM 3/4 distance "
+          "with the threshold of the CR stand-in (rms "
+          f"{spec.value('assumed.cr_rms_delay_ns'):g} ns): SC's measured there "
+          "(data/spec/ay_per_thresholds.yaml, multipath), OFDM's its flat one plus "
+          f"{spec.value('assumed.ay_ofdm_multipath_margin_db'):g} dB (assumed.ay_ofdm_multipath_margin_db: the "
+          "16 / 64-QAM interleaver permutation is not public); the cap and every other column stay on the flat "
+          "thresholds")
     print(f"\nthe smallest array that reaches the EIRP limit ({fe.eirp.avg_dbm:g} dBm) at each operating point, "
           f"and its cost (PA = N x Pout / PAE; PS = 2N x {1e3 * coeffs.phase_shifter_w:g} mW; d and pJ/b at "
           f"16-QAM 3/4):")
     print(f"{'waveform':<8} {'point':<6} {'OBO':>6} {'N':>4} {'Pe':>6} {'PAE %':>6} {'PA mW':>7} {'PS mW':>7} "
-          f"{'G_rx':>6} {'d MCS1':>7} {'d 16Q3/4':>9} {'pJ/b':>6}")
+          f"{'G_rx':>6} {'d MCS1':>7} {'d 16Q3/4':>9} {'pJ/b':>6} {'mp 16Q3/4':>10}")
     for wf, c in ay_cfgs.items():
         for view, ob in (("preset", fe.obo_db), ("own", own[wf])):
             p_op = float(dc.replace(fe, obo_db=ob).target_pout_dbm())
@@ -254,7 +262,8 @@ def main(argv=None) -> int:
                   f"{1e3 * n_min * 10 ** (b.p_elem_dbm / 10) * 1e-3 / pae:7.0f} "
                   f"{1e3 * 2 * n_min * coeffs.phase_shifter_w:7.0f} {b.g_rx_db:6.2f} "
                   f"{fmt(b.range_by_mcs.get(1), '{:.0f}'):>7} {fmt(b.range_by_mcs.get(m16), '{:.0f}'):>9} "
-                  f"{fmt(None if rp is None else rp.pj_per_bit, '{:.0f}'):>6}", flush=True)
+                  f"{fmt(None if rp is None else rp.pj_per_bit, '{:.0f}'):>6} "
+                  f"{fmt(b.range_multipath_by_mcs.get(m16), '{:.0f}'):>10}", flush=True)
     print("at the limit the PA's DC power hardly moves with the operating point: fewer elements at a smaller "
           "back-off, each at a higher PAE (the class-B law: PAE grows with the output amplitude), the product "
           "constant; what the smaller back-off saves is elements — phase shifters, area — and what it costs is "

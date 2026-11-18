@@ -317,6 +317,7 @@ def main(argv=None) -> int:
           f"alignment left 3.3 samples of delay at 5.28 GS/s, wifi_trx_cal#7)")
 
     runs = {}
+    landed = {}
 
     def cal_at(obo):
         """The sequence run on fresh chains with the PA at this back-off (one run per back-off, shared by
@@ -337,6 +338,9 @@ def main(argv=None) -> int:
             c = at_obo(cfg, obo)
             f2, r = cal_at(obo)
         sim = LinkSim(c, frontend=f2, chains=copy.deepcopy(r.chains[:2]))
+        if obo is not None and not single:
+            # where the PA landed: the VGA cannot put the average output closer to Psat than about 0.25 dB
+            landed[(c.waveform, sim.mcs.tone_order, round(float(obo), 3))] = float(sim.pout_dbm)
         rng = np.random.default_rng(0)
         e = [sim.packet(None, rng).rx.evm_db for _ in range(n)]
         return float(10 * np.log10(np.mean(10 ** (np.asarray(e) / 10))))
@@ -496,58 +500,91 @@ def main(argv=None) -> int:
           "(data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; OFDM's bits on the data tones in "
           f"order, {tag('assumed.ay_ofdm_tone_order')}; the DCM MCS through spec_sources#43's static pairing, SC "
           "MCS 1 through its rho = 2 codeword); the DMG twin's sensitivity "
-          f"({tag('assumed.ay_sensitivity')}) is a sensitivity row; the floor as a noise term ==")
+          f"({tag('assumed.ay_sensitivity')}) is a sensitivity row; the floor as a noise term; the multipath "
+          "column: SC's thresholds measured on the CR stand-in, OFDM's flat ones plus "
+          f"{spec.value('assumed.ay_ofdm_multipath_margin_db'):g} dB "
+          f"({tag('assumed.ay_ofdm_multipath_margin_db')}) ==")
+    # the range table's own grid: the sections above start at 1 dB; four points under it show where the
+    # low-order MCS really peak (asked back-offs; the PA lands where it can, and the table uses that)
+    low = np.array([0.0, 0.25, 0.5, 0.75]) if not quick else np.array([0.0])
+    obos9 = np.concatenate([low, obos8])
+    n_low = len(low)
     orders = {"ay_sc": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_sc")},
               "ay_ofdm": {e.tone_order: e.mcs for e in edmg.mcs_table("ay_ofdm")}}
     for wf, by_order in orders.items():
         for o, m in by_order.items():
             if (wf, o) not in cal_curves:
                 cal_curves[(wf, o)] = [cal_evm(dc.replace(ay_60ghz(wf, m), channel=FLAT), ob, n=1) for ob in obos8]
+    curves9 = {(wf, o): [cal_evm(dc.replace(ay_60ghz(wf, m), channel=FLAT), ob, n=1) for ob in low]
+               + list(cal_curves[(wf, o)]) for wf, by_order in orders.items() for o, m in by_order.items()}
     g_tx, g_rx = fe.antenna_gain_tx_dbi, fe.antenna_gain_rx_resolved_dbi
     rx_sim = {wf: LinkSim(dc.replace(ay_60ghz(wf, 1), channel=FLAT), frontend=fe, chains=copy.deepcopy(run.chains[:2]))
               for wf in orders}
-    i0 = int(np.argmin(np.abs(obos8 - fe.obo_db)))
+    i0 = n_low + int(np.argmin(np.abs(obos8 - fe.obo_db)))
 
-    def ranges_at(wf, i, sim=None, keep_il=False, gains=(g_tx, g_rx), rule="measured"):
-        f2, _ = cal_at(float(obos8[i]))
-        floors_i = {o: cal_curves[(wf, o)][i] for o in orders[wf]}
-        return al.ay_mcs_ranges(sim or rx_sim[wf], floors_i, f2.target_pout_dbm() + gains[0], gains[1],
-                                keep_implementation_loss=keep_il, rule=rule)
+    def ranges_at(wf, i, sim=None, keep_il=False, gains=(g_tx, g_rx), rule="measured", channel="flat"):
+        """Every MCS of ``wf`` at grid point i, each at the output power its own constellation landed on."""
+        floors_i = {o: curves9[(wf, o)][i] for o in orders[wf]}
+        out = {}
+        for o in orders[wf]:
+            pout = landed[(wf, o, round(float(obos9[i]), 3))]
+            r = al.ay_mcs_ranges(sim or rx_sim[wf], floors_i, pout + gains[0], gains[1],
+                                 keep_implementation_loss=keep_il, rule=rule, channel=channel)
+            out.update({m: dict(row, pout_dbm=pout) for m, row in r.items()
+                        if edmg.mcs_entry(wf, m).tone_order == o})
+        return dict(sorted(out.items()))
 
-    table = {wf: [ranges_at(wf, i) for i in range(len(obos8))] for wf in orders}
-    best = {}
+    table = {wf: [ranges_at(wf, i) for i in range(len(obos9))] for wf in orders}
+    table_mp = {wf: [ranges_at(wf, i, channel="multipath") for i in range(len(obos9))] for wf in orders}
+    best, best_mp = {}, {}
     print(f"{'wf':<8} {'MCS':>3}  {'modulation':<12} {'rate':>5} {'Gb/s':>6} {'DMG':>4} {'T[dB]':>6} {'src':>3}  "
-          f"{'@preset m':>9}  {'best m':>7} {'back-off':>8} {'Pout':>6} {'floor':>6}")
+          f"{'@preset m':>9}  {'best m':>7} {'back-off':>8} {'Pout':>6} {'floor':>6}  {'T mp':>6} {'mp m':>7}")
     for wf in orders:
         for m in table[wf][0]:
             e = edmg.mcs_entry(wf, m)
             cands = [(r[m]["range_m"], i) for i, r in enumerate(table[wf]) if r[m]["conforms"] and r[m]["range_m"]]
             b = max(cands) if cands else None
             best[(wf, m)] = None if b is None else b[0]
+            cm = [(r[m]["range_m"], i) for i, r in enumerate(table_mp[wf])
+                  if m in r and r[m]["conforms"] and r[m]["range_m"]]
+            bm = max(cm) if cm else None
+            best_mp[(wf, m)] = None if bm is None else bm[0]
             r0 = table[wf][i0][m]
             at_preset = r0["range_m"] if r0["conforms"] else None
-            bo = None if b is None else float(obos8[b[1]])
+            # the back-off the PA landed on (the grid asks; under about 0.25 dB the PA cannot follow)
+            bo = None if b is None else float(psat - table[wf][b[1]][m]["pout_dbm"])
             edge = "*" if b is not None and b[1] == 0 else " "
+            t_mp = table_mp[wf][0].get(m, {}).get("threshold_db")
             print(f"{wf:<8} {m:>3}  {e.modulation:<12} {str(e.code_rate):>5} {e.rate_bps() / 1e9:6.3f} "
                   f"{str(table[wf][0][m]['twin'] or '—'):>4} {table[wf][0][m]['threshold_db']:6.2f} "
                   f"{table[wf][0][m]['source'][0]:>3}  "
                   f"{fmt(at_preset, '{:9.2f}', '        —')}  {fmt(None if b is None else b[0], '{:7.2f}', '      —')} "
-                  f"{fmt(bo, '{:7.1f}', '      —')}{edge} {fmt(None if b is None else psat - bo, '{:6.1f}', '     —')} "
-                  f"{fmt(None if b is None else table[wf][b[1]][m]['floor_db'], '{:6.2f}', '     —')}")
+                  f"{fmt(bo, '{:7.2f}', '      —')}{edge} {fmt(None if b is None else psat - bo, '{:6.1f}', '     —')} "
+                  f"{fmt(None if b is None else table[wf][b[1]][m]['floor_db'], '{:6.2f}', '     —')}  "
+                  f"{fmt(t_mp, '{:6.2f}', '     —')} {fmt(best_mp[(wf, m)], '{:7.2f}', '      —')}")
+    lands = ", ".join(f"{wf[3:]} {psat - landed[(wf, min(orders[wf]), round(float(obos9[0]), 3))]:.2f}"
+                      for wf in orders)
     print(f"(EIRP = Pout + {g_tx:g} dBi, receive {g_rx:g} dBi, the preset receive ladder: NF "
           f"{rx_sim['ay_sc']._rx_nf_db():.1f} dB at the sensitivity's AGC state, not a 60 GHz figure — ROADMAP C9; "
           f"oxygen {al.oxygen_db_per_km():g} dB/km; '—' at the preset = the floor misses the TX EVM limit there; "
-          f"* = the grid's smallest back-off ({obos8[0]:g} dB), the best may lie below it; "
-          f"src = m measured / t the DMG twin's)")
+          f"the grid asks {', '.join(f'{v:g}' for v in low)} dB and then {obos8[0]:g}–{obos8[-1]:g} dB in "
+          f"{obos8[1] - obos8[0]:g} dB steps; back-off / Pout = where the PA landed, which the distances use; "
+          f"* = the smallest back-off the PA reaches (asked {obos9[0]:g} dB, lands at {lands} dB on the "
+          f"lowest-order payload): the best is the PA's limit, not a point inside the grid; "
+          f"src = m measured / t the DMG twin's; T mp / mp m = the threshold on the CR stand-in and the best "
+          f"distance with it (SC measured, OFDM flat + "
+          f"{spec.value('assumed.ay_ofdm_multipath_margin_db'):g} dB); the floors are the flat chain's)")
     dists = (1.0, 1.5, 2.0, 3.0, 5.0, 8.0)
-    print("\nthe fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at its best back-off):")
-    print(f"{'m':>5} " + " ".join(f"{wf:>16}" for wf in orders))
+    print("\nthe fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at its best back-off; "
+          "flat, then with the multipath thresholds):")
+    print(f"{'m':>5} " + " ".join(f"{wf:>16}" for wf in orders) + " " + " ".join(f"{wf + ' mp':>16}" for wf in orders))
     for d in dists:
         cells = []
-        for wf in orders:
-            ok = [m for m in table[wf][0] if best[(wf, m)] is not None and best[(wf, m)] >= d]
-            top = max(ok, key=lambda m: edmg.mcs_entry(wf, m).rate_bps()) if ok else None
-            cells.append("—" if top is None else f"{edmg.mcs_entry(wf, top).rate_bps() / 1e9:.3f} (MCS{top})")
+        for tab in (best, best_mp):
+            for wf in orders:
+                ok = [m for m in table[wf][0] if tab.get((wf, m)) is not None and tab[(wf, m)] >= d]
+                top = max(ok, key=lambda m: edmg.mcs_entry(wf, m).rate_bps()) if ok else None
+                cells.append("—" if top is None else f"{edmg.mcs_entry(wf, top).rate_bps() / 1e9:.3f} (MCS{top})")
         print(f"{d:5.1f} " + " ".join(f"{c:>16}" for c in cells))
     caps = {"ay_sc": 14, "ay_ofdm": 13}
     print("\nsensitivity rows, at the preset back-off, for the comparison table's calibrated caps "

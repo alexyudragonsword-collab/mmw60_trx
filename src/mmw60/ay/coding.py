@@ -291,17 +291,31 @@ def coded_packet(sim, code, snr_db: float | None, rng: np.random.Generator,
 coded_sc_packet = coded_packet
 
 
-def threshold_config(mcs: int, packet_bytes: int | None = None, waveform: str = "ay_sc"):
+#: the channels a threshold is measured on: flat, or the preset's multipath (the CR stand-in)
+THRESHOLD_CHANNELS = ("flat", "multipath")
+
+
+def threshold_config(mcs: int, packet_bytes: int | None = None, waveform: str = "ay_sc", channel: str = "flat"):
     """The chain the EDMG thresholds are measured on: ``ay_60ghz`` ideal
     (no CFO, ideal LO and PA, converters / IQ / leakage off), flat channel,
     ``ay.units`` (SC blocks or OFDM symbols) just long enough for the
     codewords of a ``packet_bytes`` PSDU (default: the preset's
-    ``phy.packet_bytes``, 4096)."""
+    ``phy.packet_bytes``, 4096).
+
+    ``channel="multipath"`` keeps the same ideal chain and puts the
+    preset's channel in place of the flat one: the CR stand-in (exponential
+    PDP, assumed.cr_rms_delay_ns, assumed.cr_los_k_db), one realisation per
+    packet.  The in-band SNR is still the received signal over the noise,
+    packet by packet, so the threshold moves by what the frequency
+    selectivity costs the equaliser and the code, not by a fading margin."""
     import dataclasses as dc
 
     from ..config import ChannelConfig, ay_60ghz
     from . import edmg
-    cfg = dc.replace(ay_60ghz(waveform, mcs).ideal(), channel=ChannelConfig(model="flat"))
+    if channel not in THRESHOLD_CHANNELS:
+        raise ValueError(f"channel must be one of {THRESHOLD_CHANNELS}")
+    preset = ay_60ghz(waveform, mcs)
+    cfg = dc.replace(preset.ideal(), channel=ChannelConfig(model="flat") if channel == "flat" else preset.channel)
     if packet_bytes is not None:
         cfg = dc.replace(cfg, phy=dc.replace(cfg.phy, packet_bytes=int(packet_bytes)))
     e = edmg.mcs_entry(waveform, mcs)

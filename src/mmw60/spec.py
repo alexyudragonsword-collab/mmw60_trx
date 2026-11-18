@@ -159,14 +159,25 @@ def ay_per_threshold_document() -> dict:
     return _AY_THRESHOLDS
 
 
-def ay_per_threshold_db(waveform: str, mcs: int) -> float | None:
+def _ay_threshold_section(channel: str) -> dict:
+    doc = ay_per_threshold_document()
+    if channel == "flat":
+        return doc
+    if channel == "multipath":
+        return doc.get("multipath", {})
+    raise ValueError("channel must be flat or multipath")
+
+
+def ay_per_threshold_db(waveform: str, mcs: int, channel: str = "flat") -> float | None:
     """In-band SNR at PER 1e-2 of a 4096-byte PSDU on the ideal 802.11ay
-    chain; None where the payload is not coded here (OFDM, SC MCS 1) or the
-    MCS never reaches the target."""
-    return ay_per_threshold_document()["thresholds_db"].get(waveform, {}).get(int(mcs))
+    chain; None where the file has no threshold for the MCS or it never
+    reaches the target.  ``channel="multipath"``: the same chain on the
+    preset's CR stand-in (the file's ``multipath`` section; measured for SC
+    only)."""
+    return _ay_threshold_section(channel).get("thresholds_db", {}).get(waveform, {}).get(int(mcs))
 
 
-def ay_per_threshold_ci_db(waveform: str, mcs: int) -> tuple[float, float] | None:
+def ay_per_threshold_ci_db(waveform: str, mcs: int, channel: str = "flat") -> tuple[float, float] | None:
     """95 % bootstrap interval of ``ay_per_threshold_db`` (``ci_db`` of the file)."""
-    v = ay_per_threshold_document().get("ci_db", {}).get(waveform, {}).get(int(mcs))
+    v = _ay_threshold_section(channel).get("ci_db", {}).get(waveform, {}).get(int(mcs))
     return None if v is None else (float(v[0]), float(v[1]))

@@ -197,6 +197,8 @@ class ArrayBudget:
     #: calibrated at the per-element back-off, and each MCS's rate (the be rows read data_rate_bps)
     floor_by_order: dict = field(default_factory=dict)
     rate_by_mcs: dict = field(default_factory=dict)
+    #: the ay rows' distances with the thresholds of the preset's multipath channel (a margin column)
+    range_multipath_by_mcs: dict = field(default_factory=dict)
 
     def snr_tone_db(self, p_rx_dbm: float) -> float:
         return float(p_rx_dbm - self.noise_dbm)
@@ -479,6 +481,11 @@ def ay_array_budget(cfg, fe, array: Array60, label: str = "", obo_db: float | No
                       occupied_bw_hz=float(sim.occupied_bw_hz), nf_db=float(sim._rx_nf_db()), noise_dbm=noise)
     out.floor_by_order = floors
     out.rate_by_mcs = {m: r["rate_bps"] for m, r in ranges.items()}
+    #: the same distances with the thresholds of the preset's multipath channel (a margin column; the cap
+    #: and everything else stay on the flat thresholds)
+    out.range_multipath_by_mcs = {m: float(r["range_m"]) for m, r in
+                                  ay_mcs_ranges(sim, floors, eirp, g_rx, channel="multipath").items()
+                                  if r["range_m"] is not None}
     if cap is not None:
         for m, r in ranges.items():
             if r["rate_bps"] <= ranges[cap]["rate_bps"] and r["sens_dbm"] is not None:
@@ -530,7 +537,7 @@ def _ltf_field_s(phy) -> float:
 
 def ay_mcs_ranges(sim, floor_by_order: dict, eirp_dbm: float, g_rx_db: float = 0.0,
                   keep_implementation_loss: bool = False, oxygen_db_km: float | None = None,
-                  rule: str = "measured") -> dict:
+                  rule: str = "measured", channel: str = "flat") -> dict:
     """The data link of an 802.11ay waveform (``sim`` an ``AyLinkSim`` on the
     shared front end), per EDMG MCS with a threshold: the decoder threshold
     (``ay.edmg.threshold_db`` under ``rule``: measured for the coded SC MCS,
@@ -542,12 +549,18 @@ def ay_mcs_ranges(sim, floor_by_order: dict, eirp_dbm: float, g_rx_db: float = 0
     the path loss EIRP + G_rx − that input and the distance (free space plus
     oxygen).  ``conforms`` says the floor meets the MCS's TX EVM limit;
     ``range_m`` is None where the floor alone exceeds what the decoder
-    tolerates.  MCS without a threshold are left out."""
+    tolerates.  MCS without a threshold are left out.
+
+    ``channel="multipath"`` takes the thresholds on the preset's CR stand-in
+    (``ay.edmg.threshold_db``: SC measured there, OFDM its flat threshold
+    plus assumed.ay_ofdm_multipath_margin_db); the floor is still the flat
+    chain's (under the stand-in it is 0.2-0.5 dB higher, example 15
+    section 10, and it sits far under the noise at these thresholds)."""
     from .ay import edmg
     wf = sim.cfg.waveform
     out = {}
     for e in edmg.mcs_table(wf):
-        t, src = edmg.threshold_db(wf, e.mcs, sim.occupied_bw_hz, rule, keep_implementation_loss)
+        t, src = edmg.threshold_db(wf, e.mcs, sim.occupied_bw_hz, rule, keep_implementation_loss, channel)
         if t is None:
             continue
         f = float(floor_by_order[e.tone_order])

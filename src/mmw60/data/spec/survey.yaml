@@ -600,6 +600,13 @@ entries:
     cite: "本库；mmw60.sim.ay_link"
     note: "ay 接收机的选择。信道估计只用一对 Golay 序列，不平滑时它自己的噪声在 in-band SNR 20 dB 上把 EVM 拉到 SC −18.4 / OFDM −17.4 dB；把估计的冲激响应截在 GI 以内（再留 GI/8 的前驱），噪声降 512 / 72 ≈ 8.5 dB，信道短于 GI 时什么也不丢——DMG 接收机的通常做法，标准不规定。SC 的相位跟踪在每块前后两段已知 GI 之间线性插值（sc_phase: interp）：每块只取尾部 GI 一个相位时，60 GHz 的相噪在 291 ns 的块里漂，预设回退上单开相噪，SC 64-QAM 每块一个相位读 −25.1 dB、插值读 −27.5 dB，OFDM（每个符号 16 个导频）−27.7 dB；插值是 OFDM 逐符号导频的对应做法。示例 15 给 block 的灵敏度行。2026-11-16 更正：SC 的 MMSE 噪声方差原按单位标度给（1/SNR），而信道估计带着链的增益（mean|h|² ≈ 0.064），正则化大了约 16 倍；flat 信道上只是整体缩放、被去偏抵消，多径下白丢约 1.4 dB（in-band SNR 12 dB、CR 信道）。现在按估计自己的标度给（mean|h|²/SNR）。2026-11-18（OFDM 接收机，spec_sources#48）：OFDM 的信道在 EDMG-CEF 的两个符号上逐音最小二乘，再把冲激响应限制在同一个窗（GI 96 点加 GI/8 = 108 个抽头）。响应只在 512 个 bin 里的 352 个上看得到：108 个抽头透过 69 % 的带宽只张成约 108 × 352 / 512 = 74 个方向（奇异值从第 75 个的 0.65 掉到第 85 个的 7e-5），精确的最小二乘把 108 / 352 的噪声全留下，(108 / 352) / 2 = 0.153，与原先 2.64 GHz 上的 Golay 对一样——换训练场本身不省噪声。拟合只留奇异值在最大值 ofdm_ce_rcond = 1e-3 以上的 82 个方向，估计噪声 (82 / 352) / 2 = 0.1165（0.48 dB，原 0.62 dB）；窗内信道的截断偏差在 −60 dB 以下。逐音不均匀：带中约 0.94 倍均值，带边各 8 个音 1.85 倍，最外一个音 4.0 倍，DC 空隙两侧的 k = ±2 各 1.65 倍（实测 0.92 / 1.86 / 4.4）。灵敏度（理想链、16-QAM 3/4、13 dB、跨符号平滑开）：1e-1 留 78 个方向丢 0.52 dB、1e-3 留 82 个丢 0.54 dB、1e-6 留 88 个丢 0.58 dB。公共相位跨 17 个符号合并（assumed.cpe_window_symbols，be 行 C1 的 rx.tracking.smoothed_cpe 原样用），逐符号 16 个导频的相位噪声 0.12 dB 降到 0.01 dB。OFDM 解映射的 LLR 按信道估计的 |H|² 逐音加权（ofdm_llr_weights: estimate）：迫零后第 k 个音的噪声是 σ²/|H_k|²，权就该是 |H_k|²；估计准、信道 flat 时各音的权相同，什么也不改。之前各音同权（uniform），估计带噪时带边上估计偏小的音会把又大又错的 LLR 交给解码器，而且整包每个符号、每个码字都错在同一处——DCM BPSK 1/2（门限约 1 dB，估计的相对误差平均 9 %、最外一个音 4.4 倍）因此丢 0.9 dB、PER 曲线拖一条尾巴（tools/diag_ay_ofdm_low_snr.py：换成无噪声的估计后 OFDM 比 SC 好 0.25 dB，CFO 估计与相位跟踪不花代价）。"
 
+  assumed.ay_ofdm_multipath_margin_db:
+    value: 0.85
+    unit: dB
+    source: assumed
+    cite: "本库；示例 15 §10（examples/expected/15_ay_on_the_shared_front_end.txt）"
+    note: "距离表“多径”一列里 OFDM 各档门限比 flat 多要的 SNR。不是量出来的门限：EDMG OFDM 的 16 / 64-QAM 要先在一个 OFDM 符号内做块交织，置换没有公开（17/1170r2 写 TBD，assumed.ay_ofdm_tone_order），本库按顺序放比特，多径下量出来的 OFDM 门限不是规范的码字排法给的数，所以不量。取的是示例 15 §10 在校准链、预设回退、16-QAM 载荷上读到的 EVM 口径的差：CR 替身（rms 7 ns，K 10 dB）下带内 SNR 12 dB 时 OFDM 的 EVM 比 flat 差 0.85 dB（2026-11-18 OFDM 接收机改动之前 0.86）。这是每包平均 EVM 的差，不是 PER 1e-2 的门限差：没有交织时深衰落的音连着落在同一个码字里，真实的门限差只会更大；有规范的交织时会小一些。对各档取同一个数。SC 不用它：SC 的多径门限是量的（data/spec/ay_per_thresholds.yaml 的 multipath 一节）。"
+
   assumed.ay_sensitivity:
     value: {sensitivity: dmg.rx_sensitivity_dbm, reference_receiver: dmg.sensitivity_assumptions, sc_twin_by: [modulation order, code rate, repetition], sc_tables: [dmg.sc_mcs, dmg.sc_mcs_extended], ofdm_twin_by: [n_bpsc, code rate], implementation_loss: taken out, bandwidth: occupied}
     unit: "-"
