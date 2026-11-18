@@ -1,0 +1,133 @@
+topology: upclock_zero_if
+waveform: ay_sc
+carrier_hz: 60480000000.0
+upclock_k: 1
+xo_ppm_tx: 20.0
+xo_ppm_rx: 20.0
+phy:
+  standard: 11ac
+  bandwidth_hz: 20000000.0
+  mcs: 0
+  packet_bytes: 4096
+  gi: long
+  oversampling: 2
+  window_fraction: 0.0625
+  stf_periods: 10
+  scrambler_seed: 93
+  pilot_seed: 42
+  evm_symbols: 16
+  evm_qam_order: 16
+lo:
+  scheme: zero_if
+  phase_noise:
+    model: pole_zero
+    psd0_dbchz: -93.0
+    f_pole_hz: 1000000.0
+    f_zero_hz: 100000000.0
+    apply: both
+    profile_path: null
+  if_hz: 0.0
+frontend:
+  model: zero_if_chain
+  pa:
+    model: rapp_11ad
+    obo_db: 7.5
+    obo_reference: psat
+    ampm: true
+    rapp_p: 1.286
+  pa_gain_db: 23.2
+  psat_dbm: 14.6
+  converters:
+    enob_ref: 10.0
+    fs_ref_hz: 1000000000.0
+    bits_per_octave: 0.5
+    backoff_db: 12.0
+    enabled: true
+  iq:
+    gain_db: 0.25
+    phase_deg: 1.5
+    gd_mismatch_ps: 150.0
+    rail_ripple_db: 0.3
+    rail_gd_ripple_ns: 0.12
+    enabled: true
+  lo_leak_dbc: -30.0
+  rx_dc_dbc: -25.0
+  pa_pae_max: 0.163
+  antenna_gain_dbi: 0.0
+  antenna_gain_rx_dbi: null
+  tx_rx_isolation_db: null
+  rx_front:
+    model: wifi7_ladder
+    nf_db: null
+    iip3_dbm: null
+    gain_db: null
+    p1db_oob_dbm: null
+  eirp_limit_dbm: null
+  array:
+    tx_nx: 1
+    tx_ny: 1
+    rx_nx: 1
+    rx_ny: 1
+    spacing_lambda: 0.5
+    element_pattern: isotropic
+    phase_bits: null
+    steering: phase
+    gain_err_db_rms: 0.0
+    phase_err_deg_rms: 0.0
+    error_seed: 0
+    scan_max_deg: 60.0
+    sector_oversampling: 1.0
+channel:
+  model: tdl_exp
+  rms_delay_ns: 7.0
+  los_k_db: 10.0
+  taps: null
+rx:
+  cfo_estimation: stf_ltf
+  extended_max_subcarriers: 8
+  ce_smooth_tones: 3
+  timing: genie
+  cpe_tracking: true
+  cpe_window_symbols: 17
+  ce_smooth_auto: true
+  ce_smooth_max_tones: 9
+  genie_csi: false
+  ce_ltf_symbols: 2
+  llr_channel_weighting: true
+  hard_decision: false
+  ldpc_max_iterations: 30
+  ldpc_minsum_scale: 0.8
+  dc_removal: true
+ifext:
+  chip: wifitrx
+  chip_seed: 5
+  chip_pout_dbm: null
+  with_dpd: true
+  chip_pa_bypass: false
+  dpd_observation: chip
+  dpd_max_iterations: 2
+  filter_enabled: true
+  filter_bw_hz: 1200000000.0
+  filter_order: 5
+  filter_ripple_db: 0.5
+  filter_center_hz: 6525000000.0
+  image_rejection_db: 30.0
+  mlo_enabled: true
+  mlo_sub7_hz: 5500000000.0
+  mlo_sub7_snr_db: 20.0
+ay:
+  gi: normal
+  mcs: 14
+  units: 64
+  sc_rolloff: 0.25
+  sc_span_symbols: 16
+  stf_length: 128
+  stf_repeats: 16
+  ofdm_training: edmg
+  ofdm_ce_rcond: 0.001
+  ofdm_llr_weights: estimate
+  ce_window: true
+  sc_phase: interp
+  sc_equalizer: mmse
+seed: 0
+label: ay_sc MCS14 normal GI @60.48 GHz

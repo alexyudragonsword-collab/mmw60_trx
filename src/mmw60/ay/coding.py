@@ -250,10 +250,11 @@ def coded_packet(sim, code, snr_db: float | None, rng: np.random.Generator,
     """One coded packet through ``sim`` at an in-band SNR of ``snr_db``:
     ``{"packet_error", "bit_errors", "codewords", "iterations", "evm_db"}``.
     ``n_codewords`` (default: as many as the payload holds) codewords are
-    sent; the rest of the payload is random padding.  The LLRs are not
-    weighted per chip or tone: the SC MMSE gives every chip the same SINR,
-    and on a flat channel OFDM's zero forcing gives every tone the same;
-    under multipath OFDM would need per-tone weights (not built)."""
+    sent; the rest of the payload is random padding.  SC's LLRs are not
+    weighted per chip: its MMSE gives every chip the same SINR.  OFDM's are
+    weighted per tone by |H|² of the channel estimate (``ay.ofdm_llr_weights``;
+    until 2026-11-18 they were not, which is exact only for an exact estimate
+    of a flat channel and cost up to 1 dB at the DCM BPSK thresholds)."""
     order = int(sim.mcs.order)
     n_bits = payload_bits(sim)
     n_cw = n_bits // code.n if n_codewords is None else int(n_codewords)
@@ -267,11 +268,19 @@ def coded_packet(sim, code, snr_db: float | None, rng: np.random.Generator,
     y, _, _ = sim.impair(frame.x, rng, snr_db)
     res = sim.receive(y, ref, snr_db, keep_symbols=True)
     noise = 1.0 if snr_db is None else 10.0 ** (-float(snr_db) / 10.0)
+    weight = 1.0 / noise
+    eq = np.asarray(res.eq_symbols)
+    if sim.cfg.waveform == "ay_ofdm" and sim.cfg.ay.ofdm_llr_weights == "estimate":
+        # zero forcing leaves tone k the noise σ² / |H_k|²: the weight is |H_k|² of the estimate, on
+        # the estimate's own scale.  With an exact estimate of a flat channel every tone gets the
+        # same weight; with a noisy one a tone whose estimate came out small is told so, instead of
+        # handing the decoder large, wrong LLRs on that tone in every symbol of the packet
+        h2 = np.abs(np.asarray(sim.data_tone_estimate)) ** 2
+        weight = np.broadcast_to(h2 / h2.mean() / noise, eq.shape)
     if _is_dcm(sim):   # the pair's two tones together (ay.dcm)
-        llrs = _dcm.llr(np.asarray(res.eq_symbols), int(np.log2(order)), len(sim.phy.num.data_tones),
-                        1.0 / noise)[:cw.size]
+        llrs = _dcm.llr(eq, int(np.log2(order)), len(sim.phy.num.data_tones), weight)[:cw.size]
     else:
-        llrs = _llr(np.asarray(res.eq_symbols).reshape(-1), order, 1.0 / noise)[:cw.size]
+        llrs = _llr(eq.reshape(-1), order, np.reshape(weight, -1) if np.ndim(weight) else weight)[:cw.size]
     dec, iters = code.decode(llrs.reshape(n_cw, code.n), max_iter=max_iter)
     errors = int(np.count_nonzero(dec[:, :code.k] != info))
     return {"packet_error": errors > 0, "bit_errors": errors, "codewords": n_cw, "iterations": int(iters),

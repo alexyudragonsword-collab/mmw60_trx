@@ -59,7 +59,7 @@ def packet_values(cfg, snr, seed=11) -> dict:
            "cfo_ltf_hz": repr(r.rx.cfo_ltf_hz), "cfo_true_hz": repr(r.cfo_true_hz),
            "eq_symbols": digest(r.rx.eq_symbols), "taps": digest(r.taps)}
     for k, v in sorted(r.pa_info.items()):
-        out["pa." + k] = repr(float(v))
+        out["pa." + k] = repr(v if isinstance(v, complex) else float(v))      # the chain model reports a complex gain
     return out
 
 

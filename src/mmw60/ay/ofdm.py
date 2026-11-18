@@ -103,8 +103,14 @@ def _time_to_bins(num: OfdmNumerology, rx: np.ndarray, first: int, count: int) -
 
 
 def receive(num: OfdmNumerology, rx: np.ndarray, training: np.ndarray | None, n_symbols: int,
-            n_training: int = 2, cpe: bool = True, h: np.ndarray | None = None) -> np.ndarray:
+            n_training: int = 2, cpe: bool = True, h: np.ndarray | None = None,
+            cpe_window: int = 1) -> np.ndarray:
     """Equalised data-tone values, shape (n_symbols, n_data).
+
+    ``cpe_window`` > 1 combines each symbol's pilot phase with its
+    neighbours' over that many symbols (``rx.tracking.smoothed_cpe``, the
+    be rows' receiver refinement C1, used as it is); 1 is the per-symbol
+    pilot phase.
 
     ``h`` (one value per used tone) replaces the training-symbol estimate:
     the isolation reading of a PA, where the training field's own peaks
@@ -123,6 +129,12 @@ def receive(num: OfdmNumerology, rx: np.ndarray, training: np.ndarray | None, n_
     z = y[:, num.bins(num.data_tones)] / h_used[[pos[k] for k in num.data_tones]][None, :]
     if cpe and num.pilot_tones:
         zp = y[:, num.bins(num.pilot_tones)] / h_used[[pos[k] for k in num.pilot_tones]][None, :]
+        if int(cpe_window) > 1:
+            from ..rx.tracking import smoothed_cpe
+            n_d = z.shape[1]
+            both = smoothed_cpe(np.concatenate([z, zp], axis=1), np.arange(n_d, n_d + zp.shape[1]),
+                                np.tile(num.pilots(), (z.shape[0], 1)), int(cpe_window))
+            return both[:, :n_d]
         phi = np.angle(zp @ np.conj(num.pilots()))
         z = z * np.exp(-1j * phi)[:, None]
     return z

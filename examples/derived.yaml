@@ -47,7 +47,8 @@
     be_pj: {example: "04", line: "be rows at their calibrated cap, fastest and fewest pJ/bit: be_upclocked 11be 80M K=32 @60.48 GHz MCS2 {*} Mb/s {} pJ/bit"}
     be_dec: {example: "04", line: "be rows at their calibrated cap, fastest and fewest pJ/bit: be_upclocked 11be 80M K=32 @60.48 GHz MCS2 {*} Mb/s {*} pJ/bit (decoder {} of it)"}
   quotes:
-    - {doc: cairn/comparison-table.md, text: "SC 行 {sc_rate} Mb/s、{sc_pj} pJ/bit，OFDM 行 {of_rate} Mb/s、{of_pj} pJ/bit：SC 快 {100 * (sc_rate / of_rate - 1)} %，每比特省 {100 * (1 - sc_pj / of_pj)} %"}
+    # 2026-11-18: the OFDM row passed MCS 14 by 0.05 dB and the order turned round (before: SC 5.6 % faster, 6.9 % fewer pJ/bit)
+    - {doc: cairn/comparison-table.md, text: "OFDM 行 {of_rate} Mb/s、{of_pj} pJ/bit，SC 行 {sc_rate} Mb/s、{sc_pj} pJ/bit：OFDM 快 {100 * (of_rate / sc_rate - 1)} %，每比特省 {100 * (1 - of_pj / sc_pj)} %"}
     - {doc: cairn/comparison-table.md, text: "MCS2、{be_rate} Mb/s、{be_pj} pJ/bit（其中解码器 {be_dec}）"}
     - {doc: cairn/comparison-table.md, text: "SC 行快 {sc_rate / be_rate} 倍，每比特省 {be_pj / sc_pj} 倍；扣掉 be 的解码器也是 {(be_pj - be_dec) / sc_pj} 倍"}
 
@@ -302,18 +303,20 @@
 
 - name: ex15 SC against OFDM at matched modulation and code rate — the smallest and largest SC back-off saving (ΔPout)
   values:
-    d64h: {example: "15", after: "(ΔPout = SC − OFDM; Δrate", line: "64-QAM 1/2 17 {*} {*} 16 {*} {*} {} {*}"}
-    d16q: {example: "15", after: "(ΔPout = SC − OFDM; Δrate", line: "16-QAM 5/8 13 {*} {*} 12 {*} {*} {} {*}"}
+    # 2026-11-18 (the OFDM receiver round): the smallest saving is now at 16-QAM 1/2 and the largest at 16-QAM 3/4
+    # (before: 64-QAM 1/2 0.36 and 16-QAM 5/8 0.68).  The LOG entry of 2026-11-16 keeps its numbers as history and
+    # is no longer checked against today's output
+    dlo: {example: "15", after: "(ΔPout = SC − OFDM; Δrate", line: "16-QAM 1/2 12 {*} {*} 11 {*} {*} {} {*}"}
+    dhi: {example: "15", after: "(ΔPout = SC − OFDM; Δrate", line: "16-QAM 3/4 14 {*} {*} 13 {*} {*} {} {*}"}
   quotes:
-    - {doc: cairn/LOG.md, text: "同调制同码率：SC 少退 {d64h}–{d16q} dB（64-QAM 5/8 持平）"}
-    - {doc: cairn/ay.md, text: "SC 少退 {d64h}–{d16q} dB（16-QAM 1/2 … 7/8、64-QAM 1/2）"}
+    - {doc: cairn/ay.md, text: "SC 少退 {dlo}–{dhi} dB（16-QAM 1/2 … 7/8、64-QAM 1/2）"}
 
 - name: ex15 the best EVM-limited rate at 1 dB back-off (13.6 dBm), SC against OFDM
   values:
-    sc1: {example: "15", after: "== 6. the best EVM-limited rate", line: "13.60 1.0 {} (MCS11) {*} (MCS2)"}
-    of1: {example: "15", after: "== 6. the best EVM-limited rate", line: "13.60 1.0 {*} (MCS11) {} (MCS2)"}
+    # 2026-11-18: OFDM reaches MCS 6 there (before MCS 2, 0.91 Gb/s); the LOG entry keeps its numbers as history
+    sc1: {example: "15", after: "== 6. the best EVM-limited rate", line: "13.60 1.0 {} (MCS11) {*} (MCS6)"}
+    of1: {example: "15", after: "== 6. the best EVM-limited rate", line: "13.60 1.0 {*} (MCS11) {} (MCS6)"}
   quotes:
-    - {doc: cairn/LOG.md, text: "13.6 dBm 上 {sc1} 对 {of1} Gb/s"}
     - {doc: cairn/ay.md, text: "13.6 dBm 上 {sc1} 对 {of1} Gb/s"}
 
 - name: ex10 the smallest arrays that reach the EIRP limit — SC at its own operating point against OFDM at its own

@@ -1,4 +1,4 @@
-# Vendored from spec_sources@25b2c5eb25fae98027a190b9757e50056b776d81: src/spec_sources/data/regulatory.yaml
+# Vendored from spec_sources@65ff5e44146d257f2a26955cf0af0eb005fbd308: src/spec_sources/data/regulatory.yaml
 # Adapted-copy policy: see src/mmw60/vendor/__init__.py
 # regulatory —— 频谱规管条文（47 CFR §15.255 等）。
 #

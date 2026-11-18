@@ -166,7 +166,7 @@ def evaluate_ay(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None = No
     sim = LinkSim(cfg, frontend=fe)
     phy = sim.phy
     unit_s = (phy.num.symbol_samples / phy.num.fs_hz if wf == "ay_ofdm" else phy.num.block / phy.num.fs_hz)
-    stf_range = phy.native_fs / (2 * int(cfg.ay.stf_length))
+    stf_range = phy.native_fs / (2 * sim.stf_period)
     out = {"label": s.label, "topology": s.topology, "waveform": wf, "channel": phy.channel, "gi": cfg.ay.gi,
            "fs_eff_hz": phy.fs_eff, "bw_eff_hz": phy.bandwidth_eff, "occupied_bw_hz": phy.occupied_bw_hz,
            "unit_s": unit_s, "scs_hz": phy.num.scs_hz if wf == "ay_ofdm" else None,

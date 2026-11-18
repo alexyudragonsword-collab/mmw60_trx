@@ -6,9 +6,16 @@ CFO, phase noise and SNR plumbing as the be links (iron rule 2), with the
 EDMG single-channel waveform in place of the wifitrx frame and an ay
 receiver in place of the wifitrx one.
 
-The frame, at the waveform's own rate (data/spec: assumed.ay_preamble):
+The frame, at the waveform's own rate:
 
-    [ STF: a 128-point Golay sequence × 16 ] [ CEF: Golay pair a, b, each behind a GI ] [ payload ]
+    ay_sc    [ STF: a 128-point Golay sequence × 16 ] [ CEF: Golay pair a, b, each behind a GI ] [ payload ]
+    ay_ofdm  [ EDMG-STF: 30 periods of 128 samples ] [ EDMG-CEF: 2 symbols, long GI, P = (+1, −1) ] [ payload ]
+
+The OFDM fields are the standard's (edmg.ofdm_stf_ncb1, edmg.ofdm_cef_ncb1;
+``ay.training``); the SC ones are this library's (assumed.ay_preamble), and
+``ay.ofdm_training: golay_pair`` puts the OFDM waveform back on them — its
+training until 2026-11-18, kept as the before row.  The legacy part of the
+PPDU (L-STF, L-CEF and the headers at 1.76 GHz) is not sent.
 
 * ``ay_sc``: payload = 64 blocks [G | 448 data chips] and a closing G at
   1.76 Gchip/s, π/2-rotated, root-raised-cosine shaped at 3 samples per
@@ -17,8 +24,9 @@ The frame, at the waveform's own rate (data/spec: assumed.ay_preamble):
   domain block by block, tracking each block's phase on its tail guard;
 * ``ay_ofdm``: payload = 64 symbols of the channel's 336 data + 16 pilot
   tones at 2.64 GS/s, interpolated × 2; the receiver decimates, estimates
-  the CFO on the STF and the 512-bin channel on the pair, zero-forces and
-  removes each symbol's common phase on its pilots.
+  the CFO on the EDMG-STF and the channel of the 352 used tones on the
+  EDMG-CEF, zero-forces and removes the common phase on the pilots,
+  combined across ``rx.cpe_window_symbols`` symbols (the be rows' C1).
 
 Both reach the chain at 5.28 GS/s (assumed.ay_chain_rate).  The SNR is in
 band: per chip for SC (noise bandwidth = chip rate), per active tone for
@@ -26,7 +34,8 @@ OFDM, as for the be links; ``snr_per_sample_offset_db`` says how far that
 is from a per-sample SNR at 5.28 GS/s.
 
 Iron rule 3: the CFO is (ppm_tx + ppm_rx) × f_c as everywhere; the ay link
-catches it with its own STF — at a lag of 128 samples the estimate spans
+catches it with its own STF (SC: the Golay field; OFDM: the EDMG-STF, whose
+period is the same 128 samples) — at that lag the estimate spans
 ±fs / 256 (±6.875 MHz for SC, ±10.3 MHz for OFDM), so the 2.42 MHz of
 40 ppm at 60.48 GHz is 35 % / 23 % of the range — and tracks what is left
 with the pilots / tail guards.  No MLO pre-compensation.
@@ -37,7 +46,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ..ay import dcm, edmg, golay, ofdm, papr, sc
+from ..ay import dcm, edmg, golay, ofdm, papr, sc, training
 from ..channel import make_channel
 from ..impairments.cfo import CfoModel
 from ..impairments.phase_noise import lo_phase, make_profile
@@ -133,6 +142,11 @@ class AyLinkSim(LinkSim):
         self.snr_offset_db = 10.0 * np.log10(self.phy.fs_eff / self.occupied_bw_hz)
         a = cfg.ay
         self.stf_seq = _golay(int(a.stf_length))[0]
+        self.stf_period, self.stf_periods = int(a.stf_length), int(a.stf_repeats)
+        #: the standard's EDMG-STF / EDMG-CEF (OFDM only; an SC single-stream PPDU has neither)
+        self.edmg_training = cfg.waveform == "ay_ofdm" and a.ofdm_training == "edmg"
+        if self.edmg_training:
+            self.stf_field, self.stf_period, self.stf_periods = training.stf_field(self.phy.num)
         if cfg.waveform == "ay_sc":
             n = self.phy.num.block
             self.cef_cp = self.phy.num.guard
@@ -147,6 +161,10 @@ class AyLinkSim(LinkSim):
         self.frontend = None
         self.ifx = None
         self.calibrated = False
+        #: diagnostics only: called with the OFDM channel estimate (one value per used tone), returns
+        #: the one the receiver uses (tools/diag_ay_ofdm_receiver.py reads and replaces it)
+        self.ce_hook = None
+        self.data_tone_estimate = None
         if self.model == "behavioural":
             if chains is not None:
                 raise ValueError("calibrated chains need frontend.model zero_if_chain")
@@ -167,9 +185,13 @@ class AyLinkSim(LinkSim):
 
     # --- transmitter ----------------------------------------------------
     def _stf(self) -> np.ndarray:
+        if self.edmg_training:
+            return self.stf_field
         return golay.repeated(self.stf_seq, int(self.cfg.ay.stf_repeats)).astype(complex)
 
     def _cef(self) -> np.ndarray:
+        if self.edmg_training:
+            return training.cef_field(self.phy.num)
         a, b = (np.asarray(v, dtype=complex) for v in self.pair)
         cp = self.cef_cp
         return np.concatenate([a[-cp:], a, b[-cp:], b])
@@ -248,7 +270,7 @@ class AyLinkSim(LinkSim):
         fs = self.phy.native_fs
         f_stf = 0.0
         if rxc.cfo_estimation != "off":
-            f_stf = cfo_est.stf_coarse_cfo(r, int(self.cfg.ay.stf_length), int(self.cfg.ay.stf_repeats), fs)
+            f_stf = cfo_est.stf_coarse_cfo(r, self.stf_period, self.stf_periods, fs)
             r = cfo_est.correct(r, f_stf, fs)
         body = r[ref.stf_len:]
         cp = self.cef_cp
@@ -266,13 +288,24 @@ class AyLinkSim(LinkSim):
                              track_phase=self.cfg.ay.sc_phase if rxc.cpe_tracking else "off")
         else:
             num = self.phy.num
-            a, b = self.pair
-            h512 = sc.pair_estimate(body, a, b, cp)
-            if self.cfg.ay.ce_window:
-                h512 = sc.window_estimate(h512, cp, max(4, cp // 8))
-            h_used = h512[num.bins(num.used_tones)]
+            if self.edmg_training:
+                # the two EDMG-CEF symbols, then the fit of the windowed impulse response to the used
+                # tones (ay.training); called through the module so a diagnostic can stand in for it
+                h_used = training.cef_estimate(num, body, 0, cp if self.cfg.ay.ce_window else None,
+                                               max(4, cp // 8), float(self.cfg.ay.ofdm_ce_rcond))
+            else:
+                a, b = self.pair
+                h512 = sc.pair_estimate(body, a, b, cp)
+                if self.cfg.ay.ce_window:
+                    h512 = sc.window_estimate(h512, cp, max(4, cp // 8))
+                h_used = h512[num.bins(num.used_tones)]
+            if self.ce_hook is not None:
+                h_used = self.ce_hook(h_used)
+            pos = {int(k): i for i, k in enumerate(num.used_tones)}
+            #: the estimate on the data tones, for the demapper's weights (``ay.coding``)
+            self.data_tone_estimate = h_used[[pos[int(k)] for k in num.data_tones]]
             eq = ofdm.receive(num, body[ref.cef_len:], None, self.n_symbols, n_training=0,
-                              cpe=rxc.cpe_tracking, h=h_used)
+                              cpe=rxc.cpe_tracking, h=h_used, cpe_window=int(rxc.cpe_window_symbols))
         tx = ref.symbols
         evm_db = float(10 * np.log10(np.mean(np.abs(eq - tx) ** 2) / np.mean(np.abs(tx) ** 2)))
         return RxResult(bit_errors=None, packet_error=None, evm_db=evm_db, cfo_hat_hz=float(f_stf),
@@ -290,7 +323,7 @@ class AyLinkSim(LinkSim):
     def describe(self) -> dict:
         d = self.phy.summary()
         d.update({"coded": False, "n_units": self.n_symbols, "cfo_hz": self.cfo.cfo_hz,
-                  "cfo_range_hz": self.phy.native_fs / (2 * int(self.cfg.ay.stf_length)),
+                  "cfo_range_hz": self.phy.native_fs / (2 * self.stf_period),
                   "pn": self.pn_sides,
                   "pa": self.cfg.frontend.pa.model if self.cfg.frontend.pa.enabled else "ideal",
                   "pa_obo_db": self.cfg.frontend.pa.obo_db if self.cfg.frontend.pa.enabled else None,

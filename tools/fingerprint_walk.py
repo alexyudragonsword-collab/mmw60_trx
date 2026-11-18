@@ -45,13 +45,25 @@ def git(*args: str, cwd: Path = REPO) -> str:
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
 
 
-def commits(base: str, head: str = "HEAD") -> list[str]:
-    """The first-parent commits of base..head, oldest first."""
-    return git("rev-list", "--reverse", "--first-parent", f"{base}..{head}").split()
+def commits(base: str, head: str = "HEAD", cwd: Path = REPO) -> list[str]:
+    """The commits the range brought, oldest first.
+
+    A push: the first-parent commits of base..head.  A pull request's job
+    checks out GitHub's merge of the PR into its base, and that commit's
+    first parent *is* the base: the first-parent walk then saw the merge
+    commit alone, whose message carries no marker, so a PR that moved a
+    number failed however its commits were marked (found 2026-11-18 on PR
+    #76, the first PR whose fingerprint moved; mmw60's own defect, not
+    d2d_link's rule).  When ``head`` is such a merge the range is the
+    first-parent history of its second parent, the PR's own commits."""
+    parents = git("rev-list", "--parents", "-n", "1", head, cwd=cwd).split()[1:]
+    if len(parents) == 2 and parents[0] == git("rev-parse", f"{base}^{{commit}}", cwd=cwd).strip():
+        head = parents[1]
+    return git("rev-list", "--reverse", "--first-parent", f"{base}..{head}", cwd=cwd).split()
 
 
-def marked(sha: str) -> bool:
-    return bool(MARKER.search(git("log", "-1", "--format=%B", sha)))
+def marked(sha: str, cwd: Path = REPO) -> bool:
+    return bool(MARKER.search(git("log", "-1", "--format=%B", sha, cwd=cwd)))
 
 
 def record_at(sha: str, out: Path) -> dict:

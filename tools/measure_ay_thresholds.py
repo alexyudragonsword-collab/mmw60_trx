@@ -190,7 +190,8 @@ def document(tables: dict, cis: dict, step: float, max_packets: int, min_errors:
                  f"to {RESTARTS} times; an interval wider than {CI_MAX_DB:g} dB runs the points just outside the "
                  f"bracket on as well), log-linear interpolation; ci_db = 95 % bootstrap interval of the crossing "
                  f"from the counts"),
-        "note": ("本库接收机自己的 EDMG 门限（Golay 信道估计；SC 的 MMSE、OFDM 的逐音迫零；"
+        "note": ("本库接收机自己的 EDMG 门限（SC：Golay 对信道估计、MMSE；OFDM：EDMG-CEF 信道估计、逐音迫零、"
+                 "公共相位跨 17 个符号合并、LLR 按估计的 |H|² 逐音加权，2026-11-18 起；"
                  "max-log LLR、归一化 min-sum），"
                  "不是规范数；接收机或码一改就要重量（tests/test_ay_link.py 复量一个点）。"
                  "SC MCS 1（重复 2）按 dmg.data_encoding 的 rho = 2 码字（数据、数据 ⊕ PN、校验，spec_sources#43），"

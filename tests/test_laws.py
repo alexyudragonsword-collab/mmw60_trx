@@ -26,6 +26,11 @@ def test_law1_form_defaults_reproduce_config():
 def test_law1_yaml_configs_round_trip_to_the_presets():
     assert Mmw60Config.from_yaml(REPO / "configs" / "liu2025_table2.yaml") == liu2025_table2(k=8, mcs=0)
     assert Mmw60Config.from_yaml(REPO / "configs" / "wifi7_baseline_k1.yaml") == wifi7_baseline_k1(0)
+    # the two 802.11ay waveforms: in the fingerprint since 2026-11-18, so "SC did not move" is the
+    # fingerprint's to say (before, it covered the be configs only)
+    from mmw60.config import ay_60ghz
+    assert Mmw60Config.from_yaml(REPO / "configs" / "ay_sc_ch2_mcs14.yaml") == ay_60ghz("ay_sc", 14)
+    assert Mmw60Config.from_yaml(REPO / "configs" / "ay_ofdm_ch2_mcs13.yaml") == ay_60ghz("ay_ofdm", 13)
 
 
 def test_law1_both_topologies_are_named_and_an_inconsistent_config_refuses():

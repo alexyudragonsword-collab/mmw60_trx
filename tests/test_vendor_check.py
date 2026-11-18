@@ -9,7 +9,7 @@ import vendor_check as vc          # tools/ is on sys.path (conftest)
 from conftest import REPO
 
 PIN = "a8edf503df74cf11d6069a6354c4c0ddbf6e82d1"
-SPEC_SOURCES_PIN = "25b2c5eb25fae98027a190b9757e50056b776d81"
+SPEC_SOURCES_PIN = "65ff5e44146d257f2a26955cf0af0eb005fbd308"
 ARRAY_TX_PIN = "286609e99c495712e026a913d4a2a066be11352c"
 PINS = {"wifi_trx_cal": PIN, "spec_sources": SPEC_SOURCES_PIN, "array_tx": ARRAY_TX_PIN}
 SPEC_SOURCES_SIB = Path("/home/user/alexyudragonsword-collab/spec_sources")

@@ -93,6 +93,114 @@ def test_law2_both_ay_waveforms_run_on_the_shared_front_end_and_one_chain():
     assert b.pout_dbm == pytest.approx(fe.target_pout_dbm(), abs=0.05)
 
 
+def test_the_ofdm_training_fields_are_the_standards_edmg_stf_and_cef():
+    """spec_sources#48: an EDMG OFDM PPDU's data is channel-estimated on the
+    EDMG-CEF.  The two OFDM-rate fields are built from the spec's sequences:
+    the STF on every fourth tone (88 of them: period 128 samples, 30 periods,
+    no GI), the CEF's unit-modulus sequence on the 352 used tones, twice,
+    the second negated (P = [+1, −1]), each behind the long GI."""
+    from mmw60.ay import training
+    num = edmg.ofdm_numerology(2)
+    ppdu = spec.value("edmg.ofdm_ppdu_ncb1")
+    stf, period, n = training.stf_field(num)
+    assert (stf.size, period, n) == (ppdu["edmg_stf_samples"], 128, 30) == (3840, 128, 30)
+    assert np.allclose(stf[:period], stf[period:2 * period]) and np.mean(np.abs(stf) ** 2) == pytest.approx(1.0)
+    k, v = training.sequence("edmg.ofdm_stf_ncb1")
+    assert np.count_nonzero(v) == 88 and not np.any(k[v != 0] % 4) and set(np.abs(v[v != 0])) == {1.0}
+    cef = training.cef_field(num)
+    gi = spec.ref("edmg.ofdm_ppdu_ncb1#n_gi@gi_order=long")
+    assert gi == 192 and cef.size == 2 * (512 + gi) == 2 * ppdu["edmg_cef_samples_per_symbol"]
+    assert spec.ref("edmg.ofdm_ppdu_ncb1#n_edmg_cef_symbols@n_sts=1") == 2
+    one, two = cef[:704], cef[704:]
+    assert np.allclose(two, -one) and np.allclose(one[:gi], one[-gi:])          # P = [+1, −1]; a cyclic GI
+    c = training.cef_values(num)
+    assert c.size == 352 and np.allclose(np.abs(c), 1.0) and np.mean(np.abs(one[gi:]) ** 2) == pytest.approx(1.0)
+    spectrum = np.fft.fft(one[gi:]) * np.sqrt(352) / 512
+    assert np.allclose(spectrum[num.bins(num.used_tones)], c)
+    assert np.allclose(np.delete(spectrum, num.bins(num.used_tones)), 0.0, atol=1e-12)
+    # both fields have the low peaks of the Golay sequences they are made of (3.0 dB)
+    for x in (stf, one[gi:]):
+        assert 10 * np.log10(np.max(np.abs(x) ** 2) / np.mean(np.abs(x) ** 2)) < 3.1
+    # the frame the link sends: [EDMG-STF | EDMG-CEF | payload]; golay_pair is the field before 2026-11-18
+    sim = LinkSim(_ideal("ay_ofdm", 13, model="behavioural"))
+    ref, _ = sim.transmit(np.random.default_rng(0))
+    assert (ref.stf_len, ref.cef_len, sim.stf_period, sim.stf_periods) == (3840, 1408, 128, 30)
+    old = LinkSim(_ideal("ay_ofdm", 13, model="behavioural", ofdm_training="golay_pair"))
+    ref, _ = old.transmit(np.random.default_rng(0))
+    assert (ref.stf_len, ref.cef_len) == (128 * 16, 2 * (512 + 96))
+    assert old.describe()["cfo_range_hz"] == sim.describe()["cfo_range_hz"] == pytest.approx(2.64e9 / 256)
+    assert not LinkSim(_ideal("ay_sc", 14, model="behavioural")).edmg_training     # SC single stream has neither
+    with pytest.raises(ValueError, match="ofdm_training"):
+        _ideal("ay_ofdm", 13, ofdm_training="l_cef")
+
+
+def test_the_edmg_cef_estimate_fits_the_window_to_the_used_tones():
+    """The response is seen on 352 of 512 bins.  The 108 window taps (the GI
+    and an eighth of pre-cursor) span about 108 × 352 / 512 = 74 directions
+    there; the fit keeps the 82 whose singular value is above 1e-3 of the
+    largest, so the estimate carries (82 / 352) / 2 = 0.1165 of a data
+    tone's noise — an exact least-squares fit would leave 108 / 704 = 0.153,
+    what the Golay pair at 2.64 GHz left.  A channel inside the window comes
+    back under −60 dB, and the band edge pays: the 8 tones at each edge
+    1.85 times the mean, the outermost 4 times, the two tones beside the
+    three empty DC bins 1.65 times."""
+    from mmw60.ay import training
+    num = edmg.ofdm_numerology(2)
+    keep, pre = num.cp, max(4, num.cp // 8)
+    assert training.window_basis(num, keep, pre, 1e-3).shape == (352, 82)
+    assert training.window_basis(num, keep, pre, 1e-12).shape[1] > 95               # the fit unregularised: → 108
+    g = training.estimate_noise_gain(num, keep, pre, 1e-3)
+    assert g.mean() == pytest.approx(82 / 704) and training.estimate_noise_gain(num, None).mean() == 0.5
+    assert np.concatenate([g[:8], g[-8:]]).mean() / g.mean() == pytest.approx(1.85, abs=0.05)
+    assert 3.5 < g[0] / g.mean() < 4.5 and np.r_[g[20:170], g[182:332]].max() / g.mean() < 1.05
+    assert 1.5 < g[175] / g.mean() < 1.8 and g[175] == pytest.approx(g[176])       # k = ∓2, next to the DC gap
+    rng = np.random.default_rng(0)
+    cef = training.cef_field(num)
+    k = num.used_tones
+    for taps in ({0: 1.0}, {0: 1.0, 40: 0.5j, 95: -0.3}):
+        rx = sum(a * np.roll(cef, d) for d, a in taps.items())      # the long GI makes the roll a delay
+        h = sum(a * np.exp(-2j * np.pi * k * d / 512) for d, a in taps.items())
+        est = training.cef_estimate(num, rx, 0, keep, pre, 1e-3)
+        assert 10 * np.log10(np.max(np.abs(est - h) ** 2)) < -60, taps
+        assert np.allclose(training.cef_estimate(num, rx, 0, None), h)             # per-tone least squares
+    # the pre-cursor taps are in the fit as well (a response, not a field: before the window the
+    # field is not cyclic)
+    u = training.window_basis(num, keep, pre, 1e-3)
+    h = np.exp(2j * np.pi * k * 12 / 512)
+    assert 10 * np.log10(np.max(np.abs(u @ (u.conj().T @ h) - h) ** 2)) < -60
+    # a tap outside the window is not in the fit
+    rx = np.roll(cef, 150)
+    assert np.mean(np.abs(training.cef_estimate(num, rx, 0, keep, pre, 1e-3)) ** 2) < 0.5
+    # the noise: measured against the projector (unit noise per sample is 352 / 512 per tone on the
+    # data's scale, where a tone is 1 at unit power per sample)
+    noise = (rng.standard_normal((400, cef.size)) + 1j * rng.standard_normal((400, cef.size))) / np.sqrt(2)
+    err = np.array([training.cef_estimate(num, cef + n, 0, keep, pre, 1e-3) - 1.0 for n in noise])
+    assert np.mean(np.abs(err) ** 2) / (352 / 512) == pytest.approx(82 / 704, rel=0.05)
+
+
+def test_the_ofdm_receiver_loses_about_half_a_db_on_the_ideal_chain():
+    """The break-check of the 2026-11-18 round (tools/diag_ay_ofdm_receiver.py):
+    16-QAM 3/4 on the ideal chain at an in-band SNR of 13 dB, loss = EVM +
+    SNR.  The preset's receiver — the EDMG-CEF fit and the common phase
+    combined over 17 symbols — reads 0.57 dB over these 8 packets (0.54 over
+    24); the Golay pair at 2.64 GHz reads 0.76 dB, the per-symbol pilot phase
+    0.68 dB, both together (the receiver before) 0.86 dB.  Putting either
+    back as the preset turns the first assertion red."""
+    def loss(**kw):
+        c = _ideal("ay_ofdm", 13)
+        if "window" in kw:
+            c = dc.replace(c, rx=dc.replace(c.rx, cpe_window_symbols=kw.pop("window")))
+        sim = LinkSim(dc.replace(c, ay=dc.replace(c.ay, **kw)))
+        ev = [10 ** (sim.packet(13.0, np.random.default_rng(s)).rx.evm_db / 10) for s in range(8)]
+        return 10 * np.log10(np.mean(ev)) + 13.0
+    now = loss()
+    assert 0.50 < now < 0.62
+    assert loss(ofdm_training="golay_pair") > now + 0.12
+    assert loss(window=1) > now + 0.07
+    assert loss(ofdm_training="golay_pair", window=1) > now + 0.22
+    assert ay_60ghz("ay_ofdm", 13).rx.cpe_window_symbols == spec.value("assumed.cpe_window_symbols") == 17
+
+
 def test_law3_the_ay_links_catch_the_cfo_with_their_own_stf():
     """(ppm_tx + ppm_rx) × f_c as everywhere, exactly zero at zero ppm; the
     STF's lag-128 estimate spans ±fs/256 (±6.875 MHz SC, ±10.3 MHz OFDM) and
@@ -282,8 +390,13 @@ def test_the_two_ay_rows_of_the_comparison_table():
         p = r["power_cal"]
         assert "decoder" not in p["blocks"] and any("decoder" in o for o in p["omitted"])
         assert p["pj_per_bit"] == pytest.approx(sum(b["pj_per_bit"] for b in p["blocks"].values()), rel=1e-6)
-    # the preset back-off: single carrier's lower floor reaches a faster MCS than OFDM's
-    assert by["ay_sc"]["rate_cal_mbps"] > by["ay_ofdm"]["rate_cal_mbps"]
+    # the preset back-off: single carrier's floor is 3 dB under OFDM's on every constellation both carry,
+    # and with no margin it reaches the faster MCS.  Under the 3 dB margin the order is not asserted:
+    # since the OFDM receiver's 2026-11-18 round OFDM's 16-QAM floor (−21.05 dB) passes MCS 14's
+    # −18 − 3 dB by 0.05 dB and its 4742 Mb/s is ahead of SC MCS 14's 4620 (before: −20.83, MCS 13)
+    fs, fo = by["ay_sc"]["floor_cal_db"], by["ay_ofdm"]["floor_cal_db"]
+    assert all(fs[o] < fo[o] - 3.0 for o in fo)
+    assert by["ay_sc"]["rate_cal_at_limit_mbps"] > by["ay_ofdm"]["rate_cal_at_limit_mbps"]
     assert "802.11ay rows" in compare.to_markdown(rep)
 
 
@@ -631,6 +744,45 @@ def test_the_coded_ofdm_path_puts_the_codewords_on_the_data_tones_in_order():
     s16 = LinkSim(cfg)
     need = coding.codewords_for(4096, coding.ay_code(s16)) * 672
     assert coding.payload_bits(s16) >= need > coding.payload_bits(s16) - n_data * 6
+
+
+def test_the_ofdm_demapper_weights_each_tone_by_its_channel_estimate():
+    """Zero forcing leaves tone k the noise σ² / |H_k|², so its LLRs carry
+    |H_k|² of the estimate (``ay.ofdm_llr_weights: estimate``).  With an
+    exact estimate of a flat channel the weights are all one and nothing
+    changes; a tone whose estimate came out small is told so.  The check: an
+    estimate a twentieth of the truth on 64 data tones (their points come
+    out twenty times too large, the noise with them) at 3 dB, 1.7 dB over
+    the threshold — the weighted demapper decodes every packet, the uniform
+    one (the demapper until 2026-11-18, which cost the
+    DCM BPSK thresholds up to 1 dB through the estimate's own noise at the
+    band edge) loses every one."""
+    from mmw60.ay import coding
+    cfg = coding.threshold_config(1, packet_bytes=1024, waveform="ay_ofdm")
+    cfg = dc.replace(cfg, frontend=dc.replace(cfg.frontend, model="behavioural"))
+    num = edmg.ofdm_numerology(2)
+    bad = [list(num.used_tones).index(k) for k in num.data_tones[40:104]]
+
+    def run(weights, hook, snr=3.0, seed=3):
+        sim = LinkSim(dc.replace(cfg, ay=dc.replace(cfg.ay, ofdm_llr_weights=weights)))
+        sim.ce_hook = hook
+        r = coding.coded_packet(sim, coding.ay_code(sim), snr, np.random.default_rng(seed))
+        return r["packet_error"], sim
+
+    def small(h):
+        h = h.copy()
+        h[bad] *= 0.05
+        return h
+    for seed in range(3):
+        err_w, sim = run("estimate", small, seed=seed)
+        assert not err_w and run("uniform", small, seed=seed)[0], seed
+    assert sim.data_tone_estimate.shape == (len(num.data_tones),)
+    # an exact flat estimate: both demappers hand the decoder the same LLRs, so the same outcome
+    flat = lambda h: np.full_like(h, np.mean(h))                                        # noqa: E731
+    assert run("estimate", flat, snr=1.0)[0] == run("uniform", flat, snr=1.0)[0]
+    assert ay_60ghz("ay_ofdm", 1).ay.ofdm_llr_weights == "estimate"
+    with pytest.raises(ValueError, match="ofdm_llr_weights"):
+        dc.replace(cfg, ay=dc.replace(cfg.ay, ofdm_llr_weights="mmse"))
 
 
 def test_the_dcm_mapping_is_edmg_ofdm_modulation_mappings_and_its_demapper_uses_both_tones():

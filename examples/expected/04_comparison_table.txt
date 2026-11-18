@@ -29,7 +29,7 @@ ay_sc on if_extender                         n/a: the ay waveforms are topology 
 
 == 1b. the two 802.11ay rows (same front end instance; EVM only; no analytic sum: the floor is the time-domain EVM, raw and on the chains wifitrx's sequence calibrated, per payload constellation) ==
 scheme                                       fs[GS/s] occ[GHz] unit[ns]  CFO/STF[MHz] raw floor cal floor raw cap cal cap   Mb/s  pJ/bit at limit   Mb/s
-ay_ofdm EDMG channel 2 @60.48 GHz                5.28    1.815    230.3  2.42/10.31      -6.21    -20.83       —   MCS13   4377     203    MCS15   5106
+ay_ofdm EDMG channel 2 @60.48 GHz                5.28    1.815    230.3  2.42/10.31      -7.45    -20.99       —   MCS14   4742     188    MCS15   5106
 ay_sc EDMG channel 2 @60.48 GHz                  5.28    1.760    290.9  2.42/6.88       -8.14    -24.31       —   MCS14   4620     189    MCS16   5390
 (floors: the worst constellation's; cal = wifitrx's sequence on the ay chain at the preset back-off, IRR 43.9 dB, LO leak -58.8 dBc; caps by the EDMG TX EVM limits under the be rows' rule, the floor 3 dB under the limit (assumed.mcs_evm_margin_db), the passing MCS with the highest rate; Mb/s and pJ/bit at the calibrated cap, no decoder counted; 'at limit' = the calibrated cap with no margin, example 15's reading; per constellation and back-off: example 15)
 be rows at their calibrated cap, fastest and fewest pJ/bit: be_upclocked 11be 80M K=32 @60.48 GHz MCS2 3459 Mb/s 272 pJ/bit (decoder 14 of it)
@@ -99,7 +99,7 @@ be_upclocked 11be 80M K=16 @60.48 GHz           576    129    139    805      �
 be_upclocked 11be 80M K=32 @60.48 GHz             —  (no MCS reachable)
 be 11be 320M IF extender @60.48 GHz             576    129    208    569    256     21     22    1718  DPD on the 60 GHz PA (the floor takes the PA without predistortion); total includes the chip's PA as the driver, 512
 be 11be 320M IF ext. PA bypass @60.48 GHz       576    129    208    569      —     21     22     950  the chip's PA bypassed and powered down (the IF taken at its mixer output; assumed.ifext_chip_pa_bypass): no driver counted; DPD on the 60 GHz PA (the floor takes the PA without predistortion)
-ay_ofdm EDMG channel 2 @60.48 GHz              4377     17     18    152      —     16      —     203  at the calibrated cap MCS13; DPD on the 60 GHz PA (the floor takes the PA without predistortion); decoder (802.11ay, EVM only in milestone 3: the EDMG LDPC is not built)
+ay_ofdm EDMG channel 2 @60.48 GHz              4742     16     17    141      —     14      —     188  at the calibrated cap MCS14; DPD on the 60 GHz PA (the floor takes the PA without predistortion); decoder (802.11ay, EVM only in milestone 3: the EDMG LDPC is not built)
 ay_sc EDMG channel 2 @60.48 GHz                4620     16     17    144      —     12      —     189  at the calibrated cap MCS14; DPD on the 60 GHz PA (the floor takes the PA without predistortion); decoder (802.11ay, EVM only in milestone 3: the EDMG LDPC is not built)
 coefficients: Walden 70.815 fJ/step; Horowitz 3.1 / 0.1 pJ at 45 nm (node scale 1); 16 bit; synthesizers 40 / 20 mW
 c.dpd = the chip's own DPD (topology A: its calibration runs it and the floor's chip residual is read after it); no row pays for a DPD on the 60 GHz PA, whose floor term is the PA without predistortion (ROADMAP C8)
