@@ -66,7 +66,17 @@ over the noise-free row: a crossing of -0.25 to -0.1 dB, level with SC's
 estimate's relative error is four times smaller and the change should be
 under 0.1 dB.
 
-    python tools/diag_ay_ofdm_low_snr.py [--packets 120] [--jobs 4]
+**What the second run showed.**  With the weights the crossing is +0.05 dB
+(0.29 over SC, before 0.65) and the errors at 0.5 dB go from 8/120 to
+0/120; the noise-free row is where it was (-0.49).  That is outside what
+was written (-0.25 .. -0.1): the estimate's noise still costs 0.54 dB over
+the noise-free row, its whole first-order 0.48 dB.  The expectation took
+only the phase half of the estimate's error to touch PSK; near 0 dB the
+error is 12 % of a tone's power, the weights are noisy with it, and the
+split into a harmless amplitude half does not hold.  Not chased further:
+it is the estimate's own noise, and the field's length sets it.
+
+    python tools/diag_ay_ofdm_low_snr.py [--packets 120] [--jobs 4] [--rows 0 1 7 8]
 """
 from __future__ import annotations
 
