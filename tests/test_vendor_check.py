@@ -36,9 +36,18 @@ def test_every_vendored_file_has_the_header():
     at = sorted(str(f.relative_to(vc.VENDOR)) for f in files if f.relative_to(vc.VENDOR).parts[0] == "arraytx")
     assert at == ["arraytx/beam.py", "arraytx/geometry.py"]
     assert not (vc.VENDOR / "arraytx" / "__init__.py").exists()
-    from setuptools.discovery import PEP420PackageFinder
-    assert "mmw60.vendor.arraytx" in PEP420PackageFinder.find(where=str(REPO / "src"))     # it ships in the wheel
-    import mmw60.vendor.arraytx.beam as beam                                                 # and imports
+    # it ships in the wheel: the package finder is told to take namespace packages (setuptools itself is
+    # not in every test environment -- Python 3.12 does not bundle it -- so its finder is asked only if there)
+    find = (REPO / "pyproject.toml").read_text().split("[tool.setuptools.packages.find]")[1].split("\n[")[0]
+    assert [ln.split("#")[0].split() for ln in find.splitlines() if ln.startswith("namespaces")] \
+        == [["namespaces", "=", "true"]]
+    try:
+        from setuptools.discovery import PEP420PackageFinder
+    except ImportError:
+        pass
+    else:
+        assert "mmw60.vendor.arraytx" in PEP420PackageFinder.find(where=str(REPO / "src"))
+    import mmw60.vendor.arraytx.beam as beam                                                 # and it imports
     assert beam.ArrayGeometry.__module__ == "mmw60.vendor.arraytx.geometry"
 
 
