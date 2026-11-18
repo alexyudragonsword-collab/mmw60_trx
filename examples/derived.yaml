@@ -71,8 +71,9 @@
 
 - name: ex04 decoder cap vs conformance cap on 11be 80 MHz x 4 (rate doubles, pJ/bit halves)
   values:
-    rate_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} {*} MCS{*} {*} {} {*}"}
-    pj_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} {*} MCS{*} {*} {*} {}"}
+    # 2026-11-18 (C9): this row's calibrated decoder cap prints as MCS5–6 (inside the threshold interval) since the IRR table was re-derived
+    rate_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} {*} MCS5–6 {*} {} {*}"}
+    pj_dec: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS{*} {*} {*} {*} {*} MCS5–6 {*} {*} {}"}
     pj_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} {*} {*} {*} — {*} {*} {}"}
     rate_conf: {example: "04", after: "== 4. power blocks per bit", line: "be_upclocked 11be 80M K=4 @60.48 GHz {} {*} {*} {*} — {*} {*} {*}"}
   quotes:
@@ -110,7 +111,7 @@
 - name: ex04 topology A against topology B on the same 320 MHz (decoder cap, pJ/bit)
   values:
     a_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be 11be 320M IF extender @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} {*} MCS{*} {*} {*} {}"}
-    b_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} {*} MCS{*} {*} {*} {}"}
+    b_pj: {example: "04", after: "== 4b. the decoder's cap", line: "be_upclocked 11be 80M K=4 @60.48 GHz {*} MCS{*} MCS5 {*} {*} {*} {*} MCS5–6 {*} {*} {}"}
   quotes:
     - {doc: cairn/topology-a.md, text: "拓扑 A（11be 320 MHz，K = 1）{a_pj} pJ/bit，拓扑 B（80 MHz × 4）{b_pj} pJ/bit"}
     - {doc: cairn/topology-a.md, text: "A 每比特贵 {a_pj / b_pj} 倍"}
@@ -163,13 +164,14 @@
     f8_25: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=8 -25 dB {*} dB {} dB {*} dB"}
     s8_27: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=8 -27 dB {} dB {*} dB {*} dB"}
     f8_27: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=8 -27 dB {*} dB {} dB {*} dB"}
-    s32_25: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -25 dB {} dB {*} dB {*} dB"}
-    f32_25: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -25 dB {*} dB {} dB {*} dB"}
+    # 2026-11-18 (C9): at K = 32 the scales-with-the-signal PA is already at -25 dB at the first point of the sweep ("<= 7.0 dB", no cost printed)
+    s32_25: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -25 dB <= {} dB {*} dB —"}
+    f32_25: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -25 dB <= {*} dB {} dB —"}
     s32_27: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -27 dB {} dB {*} dB {*} dB"}
     f32_27: {example: "07", after: "== what the memory law costs: the back-off needed", line: "K=32 -27 dB {*} dB {} dB {*} dB"}
   quotes:
     - {doc: ROADMAP.md, text: "随信号缩放的要退 {s8_25} / {s8_27} dB，按秒固定的要退 {f8_25} / {f8_27} dB（代价 {f8_25 - s8_25} / {f8_27 - s8_27} dB）"}
-    - {doc: ROADMAP.md, text: "K = 32 上 {s32_25} / {s32_27} 对 {f32_25} / {f32_27} dB（代价 {f32_25 - s32_25} / {f32_27 - s32_27} dB）"}
+    - {doc: ROADMAP.md, text: "K = 32 上 ≤ {s32_25} / {s32_27} 对 {f32_25} / {f32_27} dB（代价 ≥ {f32_25 - s32_25} / {f32_27 - s32_27} dB"}
 
 - name: ex07 the DPD cliff on the scales-with-the-signal PA at K = 8 (7.0 to 7.5 dB of back-off)
   values:
@@ -181,19 +183,19 @@
 
 - name: ex08 what the receive noise figure moves in the calibration readings (K = 8, preset ladder vs the surveyed pick vs the radar chip's)
   values:
-    lb_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (the presets) {*} {*} {*} {*} {*} {} {*} {*}"}
-    lb_comm: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz comm. transceiver, 65 nm {*} {*} {*} {*} {*} {} {*} {*}"}
+    lb_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (until 2026-11-18) {*} {*} {*} {*} {*} {} {*} {*}"}
+    lb_comm: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz comm. transceiver (the presets) {*} {*} {*} {*} {*} {} {*} {*}"}
     lb_radar: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz radar chip {*} {*} {*} {*} {*} {} {*} {*}"}
-    tx_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (the presets) {*} {*} {*} {*} {*} {*} {} {*}"}
+    tx_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (until 2026-11-18) {*} {*} {*} {*} {*} {*} {} {*}"}
     tx_radar: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz radar chip {*} {*} {*} {*} {*} {*} {} {*}"}
   quotes:
     - {doc: cairn/topology-b.md, text: "NF 从 3.5 到 6.1 dB，最终回环 EVM 差 {lb_comm - lb_w7} dB；到 12 dB 差 {lb_radar - lb_w7} dB，TX 单独的读数差 {tx_radar - tx_w7} dB"}
-    - {doc: ROADMAP.md, text: "K = 8 的回环 EVM {lb_w7} → {lb_comm} dB，NF 取 12 dB 时 {lb_radar} dB"}
+    - {doc: cairn/topology-b.md, text: "K = 8 的回环 EVM {lb_w7} → {lb_comm} dB，NF 取 12 dB 时 {lb_radar} dB"}
 
 - name: ex08 sensitivity at MCS 0, topology B, preset ladder vs the surveyed pick
   values:
-    s_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (the presets) {*} {} {*} {*} {*} {*} {*} {*}"}
-    s_comm: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz comm. transceiver, 65 nm {*} {} {*} {*} {*} {*} {*} {*}"}
+    s_w7: {example: "08", after: "== 2. what the receive noise figure moves", line: "WiFi 7 chip ladder (until 2026-11-18) {*} {} {*} {*} {*} {*} {*} {*}"}
+    s_comm: {example: "08", after: "== 2. what the receive noise figure moves", line: "60 GHz comm. transceiver (the presets) {*} {} {*} {*} {*} {*} {*} {*}"}
   quotes:
     - {doc: cairn/topology-a.md, text: "拓扑 B 同一换法从 {s_w7} 变 {s_comm} dBm（差 {s_comm - s_w7} dB）"}
     - {doc: cairn/topology-b.md, text: "拓扑 A 的灵敏度不动（−92.5 dBm，差 0.00 dB），拓扑 B 动 {s_comm - s_w7} dB"}
@@ -216,8 +218,11 @@
     p1: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "11ad EM 8 {*} {*} {} {*} {*}"}
     s0: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {} {*} {*} {*}"}
     s1: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {*} {} {*} {*}"}
+    # the gain as the example prints it: the difference of the two printed EVMs can round the other way (2026-11-18: 2.2 against -22.2 -> -24.5)
+    gp: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "11ad EM 8 {*} {*} {*} {} {*}"}
+    gs: {example: "09", after: "== 4. wifitrx's DPD step on each PA", line: "presets 8 {*} {*} {*} {} {*}"}
   quotes:
-    - {doc: ROADMAP.md, text: "拿回 {p0 - p1} dB（{p0} → {p1}），对测量形状（现在的预设）拿回 {s0 - s1} dB（{s0} → {s1}）"}
+    - {doc: ROADMAP.md, text: "拿回 {gp} dB（{p0} → {p1}），对测量形状（现在的预设）拿回 {gs} dB（{s0} → {s1}）"}
 
 - name: ex11 CFO lost beyond the L-STF range at K = 4 without the multi-link estimate, topology A and topology B (11ac 20 MHz base, 400 packets per cell)
   values:
@@ -263,7 +268,7 @@
     tdf: {example: "03", after: "== the calibrated column in a link over multipath", line: "11be 80M x32 (2.56 GHz) {*} {*} {*} {*} {} {*} {*}"}
     tdc: {example: "03", after: "== the calibrated column in a link over multipath", line: "11be 80M x32 (2.56 GHz) {*} {*} {*} {*} {*} {} {*}"}
   quotes:
-    - {doc: cairn/topology-b.md, text: "现在这一列斜坡 {ramp} rad、相干度 0.99，isolation {iso}、modem {mod} dB"}
+    - {doc: cairn/topology-b.md, text: "现在这一列斜坡 {ramp} rad、相干度 0.98，isolation {iso}、modem {mod} dB"}
     - {doc: cairn/topology-b.md, text: "2.56 GHz 时域 flat {tdf}、CR 替身 {tdc} dB"}
     - {doc: cairn/topology-b.md, text: "多径只多 {tdf - tdc} dB"}
 
@@ -275,7 +280,7 @@
     wide_short: {example: "10", after: "== 4c.", line: "B 11be 80M x4 (320 MHz) MCS0 edge {*} 64xR64 {*}us 16 {*} 16x short {} 4xR64 {*}us —"}
   quotes:
     - {doc: cairn/array-layer.md, text: "16 × 1 次 110 µs / 28 µs / **{two_cap} µs**"}
-    - {doc: cairn/array-layer.md, text: "| B 11be 80M × 4 | 解码器上限（124.9 dB） | 64 × 1 次，{flat_cap} µs |"}
+    - {doc: cairn/array-layer.md, text: "| B 11be 80M × 4 | 解码器上限（122.3 dB） | 64 × 1 次，{flat_cap} µs |"}
     - {doc: cairn/array-layer.md, text: "够不到（{wide_short}）/ 4 × 64 次 {narrow_edge / 1000} ms / — |"}
 
 - name: ex14 hard decisions, the most selective single candidate (sel = Δ4 − mean Δ0/1; ROADMAP C12)
@@ -307,7 +312,8 @@
     # (before: 64-QAM 1/2 0.36 and 16-QAM 5/8 0.68).  The LOG entry of 2026-11-16 keeps its numbers as history and
     # is no longer checked against today's output
     dlo: {example: "15", after: "(ΔPout = SC − OFDM; Δrate", line: "16-QAM 1/2 12 {*} {*} 11 {*} {*} {} {*}"}
-    dhi: {example: "15", after: "(ΔPout = SC − OFDM; Δrate", line: "16-QAM 3/4 14 {*} {*} 13 {*} {*} {} {*}"}
+    # 2026-11-18 (C9): the largest is now at 16-QAM 13/16 (0.45; 3/4 reads 0.44)
+    dhi: {example: "15", after: "(ΔPout = SC − OFDM; Δrate", line: "16-QAM 13/16 15 {*} {*} 14 {*} {*} {} {*}"}
   quotes:
     - {doc: cairn/ay.md, text: "SC 少退 {dlo}–{dhi} dB（16-QAM 1/2 … 7/8、64-QAM 1/2）"}
 
@@ -378,7 +384,8 @@
 
 - name: ex15 on the calibrated chains (calibrated at every back-off) — the SC back-off saving at matched 16-QAM (smallest and largest) and the 64-QAM 5/8 deficit
   values:
-    c78: {example: "15", after: "on the calibrated chains (back-off from Psat", line: "16-QAM 7/8 {*} {*} {} {*}"}
+    # 2026-11-18 (C9): the smallest saving is now at 16-QAM 1/2 (0.20; 7/8 reads 0.24); the name is kept
+    c78: {example: "15", after: "on the calibrated chains (back-off from Psat", line: "16-QAM 1/2 {*} {*} {} {*}"}
     c34: {example: "15", after: "on the calibrated chains (back-off from Psat", line: "16-QAM 3/4 {*} {*} {} {*}"}
     c58: {example: "15", after: "on the calibrated chains (back-off from Psat", line: "64-QAM 5/8 {*} {*} {} {*}"}
   quotes:
@@ -412,7 +419,7 @@
 
 - name: ex15 the fastest rate each waveform keeps at 1 m (both on their measured thresholds)
   values:
-    sc1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {} (MCS16) {*} (MCS15)"}
-    of1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {*} (MCS16) {} (MCS15)"}
+    sc1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {} (MCS16) {*} (MCS14)"}
+    of1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {*} (MCS16) {} (MCS14)"}
   quotes:
-    - {doc: cairn/ay.md, text: "| 1 m | {sc1m}（MCS16） | {of1m}（MCS15） |"}
+    - {doc: cairn/ay.md, text: "| 1 m | {sc1m}（MCS16） | {of1m}（MCS14） |"}

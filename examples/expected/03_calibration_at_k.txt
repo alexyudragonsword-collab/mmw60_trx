@@ -127,9 +127,9 @@ isolation = wifitrx's isolation view as it computes it (the per-tone equaliser, 
 
 == the calibrated column in a link over multipath (ROADMAP C7): the library's receiver, per-packet estimates, IQ mismatch scaled to the calibrated residual the comparison table uses; EVM at no noise, dB ==
 cell                     IRR  scale  floor CR  floor flat  TD flat  TD CR  ideal CR
-11be 80M x8 (0.64 GHz)  47.2  0.053     -19.8       -19.8    -20.4  -20.4     -49.2
-11be 80M x16 (1.28 GHz)  47.2  0.026     -19.9       -19.9    -20.6  -20.4     -43.2
-11be 80M x32 (2.56 GHz)  39.6  0.031     -19.0       -19.9    -19.6  -18.9     -33.2
+11be 80M x8 (0.64 GHz)  46.9  0.055     -19.8       -19.8    -20.4  -20.4     -49.2
+11be 80M x16 (1.28 GHz)  46.9  0.027     -19.9       -19.9    -20.6  -20.4     -43.2
+11be 80M x32 (2.56 GHz)  38.6  0.035     -18.9       -19.9    -19.5  -18.8     -33.2
 IRR = the calibrated residual per side (example 03's, derived.irr_after_cal_measured_db); scale = the factor on every IQ mismatch term that puts the analytic image there; floor CR includes the ISI beyond the guard interval on the stand-in (7 ns rms, LOS K 10 dB), floor flat does not; TD = 16 packets each; ideal CR = the ideal chain on the same channel (ISI and the receiver's estimates alone)
 
 == sensitivity: capture length at K = 32, base 20 MHz (assumed.cal_capture_symbols) ==
