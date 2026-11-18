@@ -5,6 +5,7 @@ OFDM) and write ``src/mmw60/data/spec/ay_per_thresholds.yaml`` (source: derived)
     python tools/measure_ay_thresholds.py --waveform ay_ofdm --jobs 4 --cache DIR   # one waveform; the other kept
     python tools/measure_ay_thresholds.py --waveform ay_sc --only 14 --only 16
     python tools/measure_ay_thresholds.py --check           # re-measure and compare with the file (exit 1 beyond --tol)
+    python tools/measure_ay_thresholds.py --waveform ay_sc --channel multipath --jobs 4 --cache DIR   # the CR stand-in
 
 The threshold of an MCS is the in-band SNR (over the occupied band: SC
 the 1.76 GHz chip rate, OFDM the used tones; the same reading as
@@ -109,7 +110,7 @@ def _one(job: dict) -> dict:
     time) the curve has no crossing.  Such a sweep is run again from two
     steps under its last point, on a new seed, and the new sweep replaces it
     (``restarts`` says how often)."""
-    cfg = coding.threshold_config(job["mcs"], waveform=job["waveform"])
+    cfg = coding.threshold_config(job["mcs"], waveform=job["waveform"], channel=job.get("channel", "flat"))
     kw = dict(refine_errors=job["refine_errors"], refine_max_packets=job["refine_max_packets"], target=TARGET,
               packet=coding.sweep_packet)
     sw = per_sweep(cfg, job["grid"], job["max_packets"], job["min_errors"], **kw)
@@ -137,10 +138,12 @@ def _from_counts(mcs: int, sweep: dict) -> dict:
 
 def measure(mcs: list[int], step: float, max_packets: int, min_errors: int, jobs: int,
             refine_errors: int, refine_max_packets: int, log=print, cache_dir: Path | None = None,
-            waveform: str = "ay_sc") -> tuple[dict, dict, list]:
+            waveform: str = "ay_sc", channel: str = "flat") -> tuple[dict, dict, list]:
     """``cache_dir``: every finished MCS's sweep is kept there as JSON (the
     settings in its name) and a rerun reuses it — a stopped run resumes."""
     tag = f"s{step:g}_p{max_packets}_e{min_errors}_r{refine_errors}_{refine_max_packets}"
+    if channel != "flat":
+        tag = f"{channel}_{tag}"
     todo, out = [], []
     for m in mcs:
         name = f"mcs{m}_{tag}.json" if waveform == "ay_sc" else f"{waveform}_mcs{m}_{tag}.json"
@@ -150,7 +153,8 @@ def measure(mcs: list[int], step: float, max_packets: int, min_errors: int, jobs
             continue
         todo.append({"mcs": m, "grid": grid_for(m, step, waveform=waveform), "max_packets": max_packets,
                      "min_errors": min_errors, "refine_errors": refine_errors,
-                     "refine_max_packets": refine_max_packets, "file": f, "waveform": waveform})
+                     "refine_max_packets": refine_max_packets, "file": f, "waveform": waveform,
+                     "channel": channel})
     if cache_dir is not None:
         Path(cache_dir).mkdir(parents=True, exist_ok=True)
     with get_context("fork").Pool(max(1, jobs)) as pool:
@@ -212,6 +216,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--waveform", choices=WAVEFORMS + ("both",), default="both")
+    ap.add_argument("--channel", choices=coding.THRESHOLD_CHANNELS, default="flat",
+                    help="multipath: the preset's CR stand-in in place of the flat channel; written to the "
+                         "file's 'multipath' section, the flat tables untouched")
     ap.add_argument("--only", type=int, action="append", help="one MCS of --waveform (repeatable)")
     ap.add_argument("--step", type=float, default=0.5)
     ap.add_argument("--max-packets", type=int, default=200)
@@ -231,9 +238,10 @@ def main(argv=None) -> int:
     for wf in wfs:
         tables[wf], cis[wf], _ = measure(a.only or mcs_list(wf), a.step, a.max_packets, a.min_errors,
                                          a.jobs, a.refine_errors, a.refine_max_packets, cache_dir=a.cache,
-                                         waveform=wf)
+                                         waveform=wf, channel=a.channel)
     if a.check:
-        ref = yaml.safe_load(OUT.read_text(encoding="utf-8"))["thresholds_db"]
+        ref = yaml.safe_load(OUT.read_text(encoding="utf-8"))
+        ref = ref["thresholds_db"] if a.channel == "flat" else ref.get("multipath", {}).get("thresholds_db", {})
         bad = 0
         for wf, table in tables.items():
             for m, v in table.items():
@@ -245,6 +253,31 @@ def main(argv=None) -> int:
         print(f"[{time.time() - t0:.0f}s]")
         return 1 if bad else 0
     old = yaml.safe_load(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
+    if a.channel != "flat":
+        # the flat tables and their header stay as they are; only the multipath section changes
+        mp = dict(old.get("multipath", {}))
+        mt, mc = dict(mp.get("thresholds_db", {})), dict(mp.get("ci_db", {}))
+        for wf in wfs:
+            if a.only:
+                mt.setdefault(wf, {}).update(tables[wf])
+                mc.setdefault(wf, {}).update(cis[wf])
+            else:
+                mt[wf], mc[wf] = tables[wf], cis[wf]
+        ch = coding.threshold_config(mcs_list(wfs[0])[0], waveform=wfs[0], channel=a.channel).channel
+        old["multipath"] = {
+            "channel": {"model": ch.model, "rms_delay_ns": float(ch.rms_delay_ns), "los_k_db": float(ch.los_k_db)},
+            "note": ("同一条理想链、同一套测法，只把 flat 信道换成预设的 CR 替身（指数 PDP，assumed.cr_rms_delay_ns、"
+                     "assumed.cr_los_k_db），每包一个实现。带内 SNR 仍是逐包的接收信号对噪声，"
+                     "所以门限的移动是频率选择性对均衡与码的代价，不含衰落余量。"
+                     "只量 SC：OFDM 的 16 / 64-QAM 符号内交织置换不公开"
+                     "（assumed.ay_ofdm_tone_order），多径下的 OFDM 门限量出来不是规范的数，"
+                     "距离表里 OFDM 用 assumed.ay_ofdm_multipath_margin_db。"),
+            "thresholds_db": {wf: mt[wf] for wf in WAVEFORMS if wf in mt},
+            "ci_db": {wf: mc.get(wf, {}) for wf in WAVEFORMS if wf in mt},
+        }
+        OUT.write_text(yaml.safe_dump(old, allow_unicode=True, sort_keys=False, width=160), encoding="utf-8")
+        print(f"wrote the multipath section of {OUT.relative_to(REPO)} [{time.time() - t0:.0f}s]")
+        return 0
     keep_t, keep_c = dict(old.get("thresholds_db", {})), dict(old.get("ci_db", {}))
     for wf in wfs:
         if a.only:
@@ -255,6 +288,8 @@ def main(argv=None) -> int:
     order = [wf for wf in WAVEFORMS if wf in keep_t]
     doc = document({wf: keep_t[wf] for wf in order}, {wf: keep_c.get(wf, {}) for wf in order}, a.step,
                    a.max_packets, a.min_errors, a.refine_errors, a.refine_max_packets)
+    if "multipath" in old:
+        doc["multipath"] = old["multipath"]
     OUT.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False, width=160), encoding="utf-8")
     print(f"wrote {OUT.relative_to(REPO)} [{time.time() - t0:.0f}s]")
     return 0

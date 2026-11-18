@@ -220,7 +220,7 @@ THRESHOLD_RULES = ("measured", "twin")
 
 
 def threshold_db(waveform: str, mcs: int, occupied_bw_hz: float, rule: str = "measured",
-                 keep_implementation_loss: bool = False) -> tuple[float | None, str | None]:
+                 keep_implementation_loss: bool = False, channel: str = "flat") -> tuple[float | None, str | None]:
     """``(in-band SNR, source)`` an ideal decoder needs for EDMG ``mcs``.
     ``rule="measured"`` (the preset) takes this library's own threshold
     where the payload is coded here (``spec.ay_per_threshold_db``: the SC
@@ -232,9 +232,28 @@ def threshold_db(waveform: str, mcs: int, occupied_bw_hz: float, rule: str = "me
     ``rule="twin"`` takes the twin's everywhere (the reading before the
     measurement).
     ``keep_implementation_loss`` applies to the twin's only.  Source is
-    "measured", "twin" or None (no threshold)."""
+    "measured", "twin" or None (no threshold).
+
+    ``channel="multipath"`` (with ``rule="measured"``): the threshold on the
+    preset's CR stand-in.  SC's is measured there (the ``multipath`` section
+    of the file; source "measured"); OFDM's is its flat threshold plus
+    assumed.ay_ofdm_multipath_margin_db (source "margin"): the interleaver
+    permutation of the 16 / 64-QAM MCS is not public, so an OFDM threshold
+    measured under multipath here would not be the standard's."""
     if rule not in THRESHOLD_RULES:
         raise ValueError(f"rule must be one of {THRESHOLD_RULES}")
+    if channel not in ("flat", "multipath"):
+        raise ValueError("channel must be flat or multipath")
+    if channel == "multipath":
+        if rule != "measured":
+            raise ValueError("the multipath thresholds exist for rule='measured' only")
+        t = spec.ay_per_threshold_db(waveform, mcs, "multipath")
+        if t is not None:
+            return float(t), "measured"
+        flat = spec.ay_per_threshold_db(waveform, mcs)
+        if flat is None or waveform != "ay_ofdm":
+            return None, None
+        return float(flat) + float(spec.value("assumed.ay_ofdm_multipath_margin_db")), "margin"
     if rule == "measured":
         t = spec.ay_per_threshold_db(waveform, mcs)
         if t is not None:
