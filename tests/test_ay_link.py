@@ -710,6 +710,74 @@ def test_one_measured_edmg_sc_threshold_reproduces_from_the_code():
     assert sw["per"][0] > 0.5 and sw["per"][1] < 0.05, (t, sw["per"])
 
 
+def test_the_multipath_thresholds_are_scs_measured_ones_and_ofdms_flat_plus_an_assumed_margin():
+    """The range tables' multipath column (milestone 3 wrap-up): SC's
+    thresholds measured on the preset's CR stand-in (the file's
+    ``multipath`` section; the flat tables beside it untouched), OFDM's its
+    flat thresholds plus assumed.ay_ofdm_multipath_margin_db — the 16 /
+    64-QAM interleaver permutation is not public, so an OFDM threshold
+    measured under multipath here would not be the standard's.  SC's cost
+    grows with the modulation order: 0.3-0.7 dB for BPSK, 1.2-1.6 dB for
+    64-QAM."""
+    from mmw60 import arraylink as al
+    from mmw60.ay import coding
+    doc = spec.ay_per_threshold_document()
+    ch = doc["multipath"]["channel"]
+    assert ch == {"model": "tdl_exp", "rms_delay_ns": spec.value("assumed.cr_rms_delay_ns"),
+                  "los_k_db": spec.value("assumed.cr_los_k_db")}
+    preset = ay_60ghz("ay_sc", 14)
+    mp_cfg = coding.threshold_config(14, channel="multipath")
+    assert mp_cfg.channel == preset.channel and coding.threshold_config(14).channel.model == "flat"
+    assert dc.replace(mp_cfg, channel=FLAT) == coding.threshold_config(14)          # the same chain otherwise
+    with pytest.raises(ValueError, match="channel"):
+        coding.threshold_config(14, channel="cr15")
+    cost = {}
+    for e in edmg.mcs_table("ay_sc"):
+        flat, mp = spec.ay_per_threshold_db("ay_sc", e.mcs), spec.ay_per_threshold_db("ay_sc", e.mcs, "multipath")
+        lo, hi = spec.ay_per_threshold_ci_db("ay_sc", e.mcs, "multipath")
+        assert lo <= mp <= hi and hi - lo < 0.5 and 0.2 < mp - flat < 1.7, e.mcs
+        cost.setdefault(e.order, []).append(mp - flat)
+        assert edmg.threshold_db("ay_sc", e.mcs, 1.76e9, channel="multipath") == (mp, "measured")
+    mean = {o: float(np.mean(v)) for o, v in cost.items()}
+    assert mean[2] < mean[4] < mean[16] < mean[64] and mean[2] < 0.6 and mean[64] > 1.3
+    margin = spec.value("assumed.ay_ofdm_multipath_margin_db")
+    assert spec.all_entries()["assumed.ay_ofdm_multipath_margin_db"].source == "assumed" and 0.5 < margin < 1.2
+    for e in edmg.mcs_table("ay_ofdm"):
+        assert spec.ay_per_threshold_db("ay_ofdm", e.mcs, "multipath") is None      # not measured, by intent
+        t, src = edmg.threshold_db("ay_ofdm", e.mcs, 1.815e9, channel="multipath")
+        assert src == "margin" and t == pytest.approx(spec.ay_per_threshold_db("ay_ofdm", e.mcs) + margin)
+    assert edmg.threshold_db("ay_ofdm", 13, 1.815e9) == (spec.ay_per_threshold_db("ay_ofdm", 13), "measured")
+    with pytest.raises(ValueError, match="measured"):
+        edmg.threshold_db("ay_sc", 14, 1.76e9, rule="twin", channel="multipath")
+    with pytest.raises(ValueError, match="channel"):
+        edmg.threshold_db("ay_sc", 14, 1.76e9, channel="tgn")
+    # the ranges: the default is the flat table as before; the multipath one is shorter for every MCS, by
+    # the threshold's move (no oxygen: the path loss moves by exactly the cost)
+    cfg = dc.replace(ay_60ghz("ay_sc", 1), channel=FLAT)
+    sim = LinkSim(cfg, frontend=Frontend60.from_config(cfg))
+    clean = {o: -60.0 for o in (2, 4, 16, 64)}
+    flat_r = al.ay_mcs_ranges(sim, clean, 10.0, 3.0, oxygen_db_km=0.0)
+    assert flat_r == al.ay_mcs_ranges(sim, clean, 10.0, 3.0, oxygen_db_km=0.0, channel="flat")
+    mp_r = al.ay_mcs_ranges(sim, clean, 10.0, 3.0, oxygen_db_km=0.0, channel="multipath")
+    for m in flat_r:
+        d = mp_r[m]["threshold_db"] - flat_r[m]["threshold_db"]
+        assert mp_r[m]["range_m"] == pytest.approx(flat_r[m]["range_m"] * 10 ** (-d / 20), rel=2e-3), m
+
+
+@pytest.mark.slow
+def test_one_measured_sc_multipath_threshold_reproduces_from_the_code():
+    """As for the flat table: 1.5 dB under the recorded multipath threshold
+    of SC MCS 14 the link fails, 1.5 dB over it it holds (a wider bracket
+    than the flat test's: one channel realisation per packet makes the
+    curve shallower)."""
+    from mmw60.ay import coding
+    from mmw60.sim.link import per_sweep
+    t = spec.ay_per_threshold_db("ay_sc", 14, "multipath")
+    sw = per_sweep(coding.threshold_config(14, channel="multipath"), [t - 1.5, t + 1.5], max_packets=40,
+                   min_errors=8, seed=5, packet=coding.sweep_packet)
+    assert sw["per"][0] > 0.5 and sw["per"][1] < 0.05, (t, sw["per"])
+
+
 def test_the_coded_ofdm_path_puts_the_codewords_on_the_data_tones_in_order():
     """ay.coding on OFDM (assumed.ay_ofdm_tone_order): the 16-QAM / 64-QAM MCS
     carry whole 672-bit codewords on the data tones of every symbol in
