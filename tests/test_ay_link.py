@@ -760,8 +760,12 @@ def test_the_multipath_thresholds_are_scs_measured_ones_and_ofdms_flat_plus_an_a
     assert flat_r == al.ay_mcs_ranges(sim, clean, 10.0, 3.0, oxygen_db_km=0.0, channel="flat")
     mp_r = al.ay_mcs_ranges(sim, clean, 10.0, 3.0, oxygen_db_km=0.0, channel="multipath")
     for m in flat_r:
-        d = mp_r[m]["threshold_db"] - flat_r[m]["threshold_db"]
+        # the threshold is read from the file's multipath section here, not from the function under test:
+        # a range function that ignored ``channel`` would otherwise pass with a difference of zero
+        d = spec.ay_per_threshold_db("ay_sc", m, "multipath") - spec.ay_per_threshold_db("ay_sc", m)
+        assert mp_r[m]["threshold_db"] == spec.ay_per_threshold_db("ay_sc", m, "multipath") and d > 0.2, m
         assert mp_r[m]["range_m"] == pytest.approx(flat_r[m]["range_m"] * 10 ** (-d / 20), rel=2e-3), m
+        assert mp_r[m]["range_m"] < flat_r[m]["range_m"], m
 
 
 @pytest.mark.slow
