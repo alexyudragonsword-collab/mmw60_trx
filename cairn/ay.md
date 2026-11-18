@@ -60,11 +60,13 @@ EVM 到目标所需的输出回退（dB，从 Psat 算；PA 隔离读法：两�
 - 预设 `config.ay_60ghz(waveform, mcs)` 建在 `zero_if_60ghz(k=1)` 上，前端设置与 be 预设逐字段相同。
 - 两种波形跑在同一条链上（`assumed.ay_chain_rate`）：OFDM 2.64 GS/s × 2 = SC 1.76 Gchip/s × 3 = 5.28 GS/s，滤波器按 2.16 GHz 信道间隔建。
 - 帧（`assumed.ay_preamble`）：STF 是 128 点 Golay × 16，CEF 是一对 Golay，各带一段 GI 长的循环前缀，后面是载荷。SC 用 RRC 0.25 成形（`assumed.ay_sc_pulse`）。
+  （2026-11-18 更正：这是 SC 的帧，也是 OFDM 到那天为止的帧。OFDM 现在发规范的 EDMG-STF 与 EDMG-CEF，见 §9e。）
 - 接收机（`assumed.ay_receiver`）：
   - STF 用 lag 128 自相关估 CFO（范围 ±fs/256）；
   - 用 CEF 那一对估信道，冲激响应截在 GI 内；
   - SC 用 MMSE 频域均衡，相位在每块前后两段 GI 之间线性插值；
   - OFDM 用 ZF，逐符号用 16 个导频去公共相位。
+    （2026-11-18 更正：OFDM 的信道在 EDMG-CEF 上估，公共相位跨 17 个符号合并，见 §9e。）
 - 载荷不编码（`assumed.ay_evm_payload`）。
 - SNR 定义：SC 按每码片、OFDM 按每有效子载波的 in-band SNR，与 be 同一口径。理想链在 20 dB 上读 −19.7 / −19.2 dB。
 
