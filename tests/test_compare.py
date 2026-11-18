@@ -136,7 +136,10 @@ def test_rows_cross_check_and_the_uncaught_cfo_row_is_flagged():
     # the measured PA since 2026-11-12 (ROADMAP C10): MCS3 at 208 Mb/s; the 11ad EM shape read MCS2, 156 Mb/s
     assert k8["cfo_captured"] and k8["max_mcs"] == 3 and k8["rate_mbps"] == pytest.approx(208, abs=1)
     pout = fe.psat_dbm - fe.obo_db
-    assert k8["eirp"]["ok"] and k8["eirp"]["margin_avg_db"] == pytest.approx(fe.eirp.avg_dbm - pout)
+    # the EIRP column carries the preset's antenna gain since 2026-11-18 (assumed.preset_antenna)
+    assert fe.antenna_gain_tx_dbi == spec.value("rx60.comm_asada2011")["antenna_gain_dbi"] > 0
+    assert k8["eirp"]["ok"]
+    assert k8["eirp"]["margin_avg_db"] == pytest.approx(fe.eirp.avg_dbm - pout - fe.antenna_gain_tx_dbi)
     k1_6 = by["be 11ac 20M K=1 @6 GHz (WiFi 7 chain)"]
     assert k1_6["eirp"] is None and k1_6["plan_ok"] is None
     # the EvmBudget's phase-noise convention is the optimistic one (no floor above 100 MHz, no 1–10 kHz)

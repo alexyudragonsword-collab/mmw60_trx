@@ -300,7 +300,8 @@ def main(argv=None) -> int:
             best = max(ok, key=lambda e: e.rate_bps()) if ok else None
             row.append("—" if best is None else f"{best.rate_bps() / 1e9:.3f} (MCS{best.mcs})")
         print(f"{psat - ob:8.2f} {ob:8.1f} {row[0]:>14} {row[1]:>14}")
-    print(f"(single element at {fe.antenna_gain_tx_dbi:g} dBi: EIRP = Pout + {fe.antenna_gain_tx_dbi:g} dB, far under the regulatory cap; with an "
+    print(f"(single element at {fe.antenna_gain_tx_dbi:g} dBi: EIRP = Pout + {fe.antenna_gain_tx_dbi:g} dB, "
+          f"far under the regulatory cap; with an "
           f"array the cap binds first and the SC power margin becomes fewer elements or less DC power — stage 2)")
 
     # ---------------------------------------------------------------- 7. calibration on the ay chain

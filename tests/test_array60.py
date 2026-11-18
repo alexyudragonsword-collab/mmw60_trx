@@ -46,8 +46,11 @@ def test_ideal_array_gain_is_20logn_on_transmit_and_10logn_on_receive_and_matche
     fe = Frontend60.from_config(cfg)
     for n in (2, 8, 32):
         ar = Array60.from_config(with_array(cfg, tx_nx=n, rx_nx=n), fe)
-        assert ar.tx_gain_db(0.0, 0.0)[0] == pytest.approx(20 * np.log10(n), abs=1e-9)
-        assert ar.rx_gain_db(0.0, 0.0)[0] == pytest.approx(10 * np.log10(n), abs=1e-9)
+        # on top of the element gain: the preset's antenna (assumed.preset_antenna), one for both directions
+        g = fe.antenna_gain_tx_dbi
+        assert g == fe.antenna_gain_rx_resolved_dbi == spec.value("rx60.comm_asada2011")["antenna_gain_dbi"]
+        assert ar.tx_gain_db(0.0, 0.0)[0] == pytest.approx(20 * np.log10(n) + g, abs=1e-9)
+        assert ar.rx_gain_db(0.0, 0.0)[0] == pytest.approx(10 * np.log10(n) + g, abs=1e-9)
         # the array factor is arraytx's (normalised to 1 there, to N here) for the ideal weights
         th = np.linspace(-80, 80, 33)
         ours = ar.af("tx", ar.weights("tx", 25.0, ideal=True), th) / n

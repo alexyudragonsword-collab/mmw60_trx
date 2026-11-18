@@ -41,7 +41,8 @@ def test_law2_presets_carry_the_60ghz_receive_front_end_and_antenna_and_not_the_
     assert surveyed_rx_front() == want
     ant = spec.value("assumed.preset_antenna")
     assert (ant["from"], ant["field"]) == ("assumed.frontend_faces_pick", "antenna_gain_tx_dbi")
-    assert surveyed_antenna_gain_dbi() == pick["antenna_gain_tx_dbi"] == spec.value("rx60.comm_asada2011")["antenna_gain_dbi"]
+    assert surveyed_antenna_gain_dbi() == pick["antenna_gain_tx_dbi"]
+    assert pick["antenna_gain_tx_dbi"] == spec.value("rx60.comm_asada2011")["antenna_gain_dbi"]
     presets = (zero_if_60ghz(k=8), zero_if_60ghz(k=4, standard="11be", bandwidth_hz=80e6), if_extender_60ghz(),
                if_extender_60ghz(k=4, bandwidth_hz=20e6), ay_60ghz("ay_sc"), ay_60ghz("ay_ofdm"))
     for cfg in presets:
@@ -87,8 +88,8 @@ def test_law2_the_wifi7_ladder_is_still_wifitrx_own_on_the_k1_row_and_as_a_sensi
     assert (k1.antenna_gain_dbi, k1.antenna_gain_rx_dbi) == (0.0, None)
     bare = unspecified_antenna(zero_if_60ghz(k=8))
     assert (bare.frontend.antenna_gain_dbi, bare.frontend.antenna_gain_rx_dbi) == (0.0, None)
-    assert dc.replace(bare, label="", frontend=dc.replace(bare.frontend, antenna_gain_dbi=surveyed_antenna_gain_dbi())) == \
-        dc.replace(zero_if_60ghz(k=8), label="")
+    back = dc.replace(bare.frontend, antenna_gain_dbi=surveyed_antenna_gain_dbi())
+    assert dc.replace(bare, label="", frontend=back) == dc.replace(zero_if_60ghz(k=8), label="")
     for cfg in (wifi7_chain_k1(), wifi7_rx_ladder(zero_if_60ghz(k=8)), wifi7_rx_ladder(ay_60ghz("ay_sc")),
                 liu2025_table2()):
         assert cfg.frontend.rx_front == RxFrontConfig(), cfg.label
