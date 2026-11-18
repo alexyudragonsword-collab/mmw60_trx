@@ -602,14 +602,16 @@ def main(argv=None) -> int:
         if cost is not None:
             ds = []
             for r in table["ay_ofdm"]:
-                req = al.required_snr_db(r[om]["threshold_db"] + cost, r[om]["floor_db"]) if r[om]["conforms"] else None
+                req = (al.required_snr_db(r[om]["threshold_db"] + cost, r[om]["floor_db"])
+                       if r[om]["conforms"] else None)
                 if req is not None:
                     pl = r[om]["pout_dbm"] + g_tx + g_rx - float(sim_o.rx_input_dbm_for_snr(req))
                     ds.append(al.range_m(pl, sim_o.cfg.carrier_hz))
             alt = max(ds) if ds else None
         print(f"{edmg.mcs_entry('ay_ofdm', om).modulation.replace('DCM ', ''):<10} {str(es.code_rate):>5}  "
               f"{fmt(cost, '{:7.2f}')} {fmt(best_mp.get(('ay_sc', sm)), '{:8.2f}', '       —')}  {margin:9.2f} "
-              f"{fmt(best_mp.get(('ay_ofdm', om)), '{:9.2f}', '        —')}  {fmt(alt, '{:17.2f}', '                —')}")
+              f"{fmt(best_mp.get(('ay_ofdm', om)), '{:9.2f}', '        —')}  "
+              f"{fmt(alt, '{:17.2f}', '                —')}")
     print("(OFDM m at SC cost = OFDM's distance if its threshold moved by what SC's measured one does at that "
           "modulation and code rate: a sensitivity reading, not an OFDM measurement)")
     caps = {"ay_sc": 14, "ay_ofdm": 13}
