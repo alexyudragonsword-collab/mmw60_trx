@@ -2,8 +2,8 @@ engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cy
 mmw60 0.2.0; full; topology B, K = 8 on the 11ac 20 MHz base (160 MHz), carrier 60.48 GHz, PA output 7.1 dBm
 [spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; [assumed] = this library's choice
 
-== 1. the faces: the WiFi 7 ladder (config.wifi7_rx_ladder, the presets until 2026-11-18), the preset, config.surveyed_frontend ==
-face                       WiFi 7 ladder            preset                          surveyed                        60 GHz figure from
+== 1. the faces: the presets until 2026-11-18 (config.wifi7_rx_ladder and config.unspecified_antenna), the preset, config.surveyed_frontend ==
+face                       until 2026-11-18         preset                          surveyed                        60 GHz figure from
 receive front end          wifi7_ladder             anchored                        anchored                        assumed.rx60_ladder_shape [assumed]
   a 60 GHz figure?         no                       yes: nf_db, iip3_dbm, gain_db   yes: nf_db, iip3_dbm, gain_db   assumed.preset_rx_front [assumed], assumed.frontend_faces_pick [assumed]
   gain, max state          37.0 dB                  27.0 dB                         27.0 dB                         rx60.comm_asada2011 [spec]
@@ -12,10 +12,10 @@ receive front end          wifi7_ladder             anchored                    
   input P1dB, in band      -29.6 dBm                -29.6 dBm                       -29.6 dBm                       assumed.rx60_p1db_from_iip3_db [assumed]
   input P1dB, out of band  not specified            not specified                   not specified                   no communication paper read gives it
   gain states              8 (down to -5 dB)        8 (down to -15 dB)              8 (down to -15 dB)              assumed.rx60_ladder_shape [assumed]
-TX antenna gain            0.0 dBi                  0.0 dBi                         2.0 dBi                         rx60.comm_asada2011 [spec]
-RX antenna gain            0.0 dBi (the TX antenna) 0.0 dBi (the TX antenna)        2.0 dBi                         rx60.comm_asada2011 [spec]
+TX antenna gain            0.0 dBi                  2.0 dBi                         2.0 dBi                         rx60.comm_asada2011 [spec]
+RX antenna gain            0.0 dBi (the TX antenna) 2.0 dBi (the TX antenna)        2.0 dBi                         rx60.comm_asada2011 [spec]
 TX-RX isolation            not specified            not specified                   20.0 dB                         isolation.tx_rx_tue2018 [spec]
-the presets carry the receive front end of the three faces; the antenna gains and the isolation are config.surveyed_frontend's
+the presets carry the receive front end and the antenna (one for transmit and receive, assumed.preset_antenna); the isolation is config.surveyed_frontend's, which also states the receive antenna as a field of its own
 the 60 GHz IIP3 happens to equal the WiFi 7 ladder's top state's: the compression rows are the same for both, by coincidence of the two figures
 
 == 2. what the receive noise figure moves (IIP3 kept at -20 dBm) ==
@@ -51,10 +51,10 @@ the isolation figures are isolation.tx_rx_tue2018 [spec]: one abstract; the 20 a
 
 == 4. antenna gains (the same on both ends): EIRP limit and the path loss the link takes at MCS 0 ==
  gain  EIRP avg  margin avg  margin peak  path loss   figure from
-  0.0       7.1        32.9         25.9       91.4   the presets (not specified)
-  2.0       9.1        30.9         23.9       95.4   rx60.comm_asada2011 [spec], the pick
+  0.0       7.1        32.9         25.9       91.4   not specified (the presets until 2026-11-18)
+  2.0       9.1        30.9         23.9       95.4   rx60.comm_asada2011 [spec], the presets
   6.0      13.1        26.9         19.9      103.4   antenna60.okada2013_dbi [spec]
-(dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.3 dBm, the surveyed receive front end; one element each end, no array gain — milestone 2)
+(dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.3 dBm, the presets' receive front end; one element each end, no array gain — milestone 2)
 
 == 5. topology A's receive face: the 60 GHz LNA / mixer ahead of the chip (assumed.ifext_rx_front60) ==
 topology A (11be 80 MHz): sensitivity at MCS 0, WiFi 7 ladder -92.4 dBm (noise figure 3.50 dB), preset -89.8 dBm (6.10 dB), difference 2.60 dB
