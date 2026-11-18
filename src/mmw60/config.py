@@ -683,10 +683,14 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
     The receive front end is a 60 GHz one (since 2026-11-18, ROADMAP C9):
     wifitrx's gain ladder moved so its top state reads one 60 GHz
     communication transceiver's conversion gain, noise figure and IIP3
-    (``surveyed_rx_front``; data/spec: assumed.preset_rx_front).  The antenna
-    gain stays 0 dBi ("not specified") and the TX-RX isolation unset: those
-    two faces are ``surveyed_frontend(cfg)``.  The presets' ladder before
-    2026-11-18 (a sub-7 GHz WiFi 7 chip's, NF 3.5 dB) is ``wifi7_rx_ladder(cfg)``."""
+    (``surveyed_rx_front``; data/spec: assumed.preset_rx_front), and the
+    antenna is that transceiver's in-package antenna, one for transmit and
+    receive (``surveyed_antenna_gain_dbi``; data/spec: assumed.preset_antenna;
+    an array takes it as its element gain).  The TX-RX isolation stays unset
+    (nothing in a TDD link consumes it): ``surveyed_frontend(cfg)`` adds it.
+    The presets' ladder before 2026-11-18 (a sub-7 GHz WiFi 7 chip's, NF
+    3.5 dB) is ``wifi7_rx_ladder(cfg)``; their 0 dBi "not specified" antenna
+    is ``unspecified_antenna(cfg)``."""
     s = spec.value
     base = liu2025_table2(k=k, mcs=mcs)
     pick = s("assumed.pa60_surveyed_pick")
@@ -702,7 +706,7 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
                                    backoff_db=float(s("assumed.converter_backoff_db")), enabled=True),
         iq=IqConfig(**{k2: float(v) for k2, v in s("assumed.iq_mismatch").items()}, enabled=True),
         lo_leak_dbc=float(s("assumed.lo_leak_dbc")), rx_dc_dbc=float(s("assumed.rx_dc_dbc")),
-        rx_front=surveyed_rx_front())
+        rx_front=surveyed_rx_front(), antenna_gain_dbi=surveyed_antenna_gain_dbi())
     cfg = dataclasses.replace(base, carrier_hz=float(carrier_hz), frontend=fe,
                               phy=dataclasses.replace(base.phy, standard=standard,
                                                       bandwidth_hz=float(bandwidth_hz)),
@@ -781,6 +785,25 @@ def surveyed_rx_front() -> RxFrontConfig:
     return RxFrontConfig(model="anchored", nf_db=nf, iip3_dbm=iip3, gain_db=gain)
 
 
+def surveyed_antenna_gain_dbi() -> float:
+    """The antenna gain the 60 GHz presets carry (data/spec:
+    assumed.preset_antenna, which names the field of
+    assumed.frontend_faces_pick it takes): the in-package antenna of the same
+    60 GHz communication transceiver the receive front end is read from.  One
+    antenna for transmit and receive (a TDD link; ``antenna_gain_rx_dbi``
+    stays None), and the element gain of every array built on the preset."""
+    take = spec.value("assumed.preset_antenna")
+    return float(spec.value(str(take["from"]))[str(take["field"])])
+
+
+def unspecified_antenna(cfg: Mmw60Config) -> Mmw60Config:
+    """``cfg`` with the antenna the 60 GHz presets had until 2026-11-18:
+    0 dBi at both ends, "not specified".  A sensitivity row, and what the
+    6 GHz K = 1 row keeps (the 60 GHz in-package antenna is not a 6 GHz one)."""
+    fe = dataclasses.replace(cfg.frontend, antenna_gain_dbi=0.0, antenna_gain_rx_dbi=None)
+    return dataclasses.replace(cfg, frontend=fe, label=(cfg.label + " 0 dBi antenna").strip())
+
+
 def wifi7_rx_ladder(cfg: Mmw60Config) -> Mmw60Config:
     """``cfg`` with the receive ladder the 60 GHz presets had until
     2026-11-18: wifitrx's own, a sub-7 GHz WiFi 7 chip's (top state 37 dB /
@@ -796,10 +819,11 @@ def surveyed_frontend(cfg: Mmw60Config) -> Mmw60Config:
     figures (data/spec: assumed.frontend_faces_pick and the survey entries it
     names): a receive front end anchored at a 60 GHz communication
     transceiver's noise figure / IIP3, the TX-RX isolation, and a transmit
-    and a receive antenna gain.  The 60 GHz presets carry the first of the
-    three since 2026-11-18 (``surveyed_rx_front``, ROADMAP C9); on them this
-    adds the other two — the presets keep a 0 dBi antenna and no isolation
-    figure.  The receiver and antenna figures are one 60 GHz
+and a receive antenna gain.  The 60 GHz presets carry the receive front
+    end and the antenna since 2026-11-18 (``surveyed_rx_front``,
+    ``surveyed_antenna_gain_dbi``, ROADMAP C9); on them this adds the
+    isolation figure and states the receive antenna as a field of its own
+    (the same 2 dBi).  The receiver and antenna figures are one 60 GHz
     communication transceiver's, read from its paper; the isolation is a
     subtraction of two numbers in one abstract (data/spec says which
     entries were read in the original and which only as a search snippet)."""
@@ -838,12 +862,15 @@ def wifi7_chain_k1(mcs: int = 0, standard: str = "11ac", bandwidth_hz: float = 2
     but the sub-7 GHz carrier and the WiFi 7 synthesizer's own phase-noise
     profile (wifitrx's ``DEFAULT_WIFI7_LO_PROFILE``, the LO a 4096-QAM chip
     ships with) — "the WiFi 7 chip as delivered, measured on our bench".
-    Its receive ladder is the chip's own too (wifitrx's, ``wifi7_rx_ladder``):
-    the 60 GHz presets' receive front end is a 60 GHz part and does not sit in
-    front of a 6 GHz chip (data/spec: assumed.preset_rx_front)."""
+    Its receive ladder is the chip's own too (wifitrx's, ``wifi7_rx_ladder``)
+    and its antenna is not specified (0 dBi, ``unspecified_antenna``):
+    the 60 GHz presets' receive front end and in-package antenna are 60 GHz
+    parts and do not sit on a 6 GHz chip (data/spec: assumed.preset_rx_front,
+    assumed.preset_antenna)."""
     cfg = zero_if_60ghz(k=1, mcs=mcs, standard=standard, bandwidth_hz=bandwidth_hz,
                         carrier_hz=carrier_hz)
-    cfg = dataclasses.replace(cfg, frontend=dataclasses.replace(cfg.frontend, rx_front=RxFrontConfig()))
+    cfg = dataclasses.replace(cfg, frontend=dataclasses.replace(cfg.frontend, rx_front=RxFrontConfig(),
+                                                                antenna_gain_dbi=0.0, antenna_gain_rx_dbi=None))
     return dataclasses.replace(
         cfg, waveform="be",
         lo=dataclasses.replace(cfg.lo, phase_noise=dataclasses.replace(

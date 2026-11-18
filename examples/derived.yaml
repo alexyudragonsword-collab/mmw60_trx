@@ -249,8 +249,8 @@
     p16: {example: "10", after: "== 3c.", line: "B 11be 80M x4 (320 MHz) 16 {*} {*} {*} {*} {*} {*} MCS{*} {*} {} {*} {*}"}
     p64: {example: "10", after: "== 3c.", line: "B 11be 80M x4 (320 MHz) 64 {*} {*} {*} {*} {*} {*} MCS{*} {*} {} {*} {*}"}
   quotes:
-    - {doc: cairn/array-layer.md, text: "| B 11be 80M × 4，pJ/bit（上限、Mb/s） | {p1}（MCS5、1153） | {p4} | {p16} | {p64}（MCS6、1297） |"}
-    - {doc: cairn/array-layer.md, text: "每比特能耗 B 11be × 4 涨到 ×{p4 / p1} / ×{p16 / p1} / ×{p64 / p1}（N = 4 / 16 / 64）"}
+    - {doc: cairn/array-layer.md, text: "| B 11be 80M × 4，pJ/bit（上限、Mb/s） | {p1}（MCS5、1153） | {p4} | {p16} | {p64}（MCS7、1441） |"}
+    - {doc: cairn/array-layer.md, text: "每比特能耗 B 11be × 4 涨到 ×{p4 / p1} / ×{p16 / p1} / ×{p64 / p1}（N = 4 / 16 / 64"}
 
 - name: ex10 repetitions of the training field the transmit sweep needs to reach the MCS0 edge at N = 64 (B 11be 80 MHz x 4)
   values:
@@ -280,7 +280,7 @@
     wide_short: {example: "10", after: "== 4c.", line: "B 11be 80M x4 (320 MHz) MCS0 edge {*} 64xR64 {*}us 16 {*} 16x short {} 4xR64 {*}us —"}
   quotes:
     - {doc: cairn/array-layer.md, text: "16 × 1 次 110 µs / 28 µs / **{two_cap} µs**"}
-    - {doc: cairn/array-layer.md, text: "| B 11be 80M × 4 | 解码器上限（122.3 dB） | 64 × 1 次，{flat_cap} µs |"}
+    - {doc: cairn/array-layer.md, text: "| B 11be 80M × 4 | 解码器上限（121.7 dB） | 64 × 1 次，{flat_cap} µs |"}
     - {doc: cairn/array-layer.md, text: "够不到（{wide_short}）/ 4 × 64 次 {narrow_edge / 1000} ms / — |"}
 
 - name: ex14 hard decisions, the most selective single candidate (sel = Δ4 − mean Δ0/1; ROADMAP C12)
@@ -419,7 +419,7 @@
 
 - name: ex15 the fastest rate each waveform keeps at 1 m (both on their measured thresholds)
   values:
-    sc1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {} (MCS16) {*} (MCS14)"}
-    of1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {*} (MCS16) {} (MCS14)"}
+    sc1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {} (MCS18) {*} (MCS17)"}
+    of1m: {example: "15", after: "the fastest rate each waveform keeps", line: "1.0 {*} (MCS18) {} (MCS17)"}
   quotes:
-    - {doc: cairn/ay.md, text: "| 1 m | {sc1m}（MCS16） | {of1m}（MCS14） |"}
+    - {doc: cairn/ay.md, text: "| 1 m | {sc1m}（MCS18） | {of1m}（MCS17） |"}

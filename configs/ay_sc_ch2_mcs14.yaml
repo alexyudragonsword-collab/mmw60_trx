@@ -53,7 +53,7 @@ frontend:
   lo_leak_dbc: -30.0
   rx_dc_dbc: -25.0
   pa_pae_max: 0.163
-  antenna_gain_dbi: 0.0
+  antenna_gain_dbi: 2.0
   antenna_gain_rx_dbi: null
   tx_rx_isolation_db: null
   rx_front:

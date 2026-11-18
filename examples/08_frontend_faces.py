@@ -11,16 +11,18 @@ A link budget and a radar (fmcw_radar, mmw60_trx#14) read three things off
 * the isolation between the transmitter output and the receiver input;
 * the transmit and receive antenna gains.
 
-The presets carry the first of the three; the isolation and the antenna
-gains are ``config.surveyed_frontend`` (the presets keep a 0 dBi antenna and
-no isolation figure).  The literature figures are of two kinds (data/spec/survey.yaml):
+The presets carry the receive front end and that transceiver's antenna
+(one antenna for transmit and receive; data/spec: assumed.preset_antenna;
+0 dBi "not specified" until 2026-11-18, ``config.unspecified_antenna`` now);
+the isolation is ``config.surveyed_frontend``.  The literature figures are
+of two kinds (data/spec/survey.yaml):
 ``spec`` entries were read in the original and carry the quoted text,
 ``survey`` entries were read from a search snippet only.  Every table names
 the entry behind each figure and which kind it is.
 
 What the tables answer:
 
-1. the faces — the WiFi 7 ladder, the preset, the surveyed set — with the entry each figure comes from;
+1. the faces — the presets until 2026-11-18, the preset, the surveyed set — with the entry each figure comes from;
 2. what the receive noise figure moves: the sensitivity (dB for dB), not the
    link EVM on an SNR axis, and the calibration sequence's own readings;
 3. the transmitter's leakage at the receiver input against the receive front
@@ -46,8 +48,8 @@ sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, spec                          # noqa: E402
 from mmw60.calcheck import run_cal_at                                       # noqa: E402
-from mmw60.config import (ChannelConfig, if_extender_60ghz, surveyed_frontend, wifi7_rx_ladder,  # noqa: E402
-                          zero_if_60ghz)
+from mmw60.config import (ChannelConfig, if_extender_60ghz, surveyed_frontend, unspecified_antenna,  # noqa: E402
+                          wifi7_rx_ladder, zero_if_60ghz)
 from mmw60.frontend import Frontend60                                       # noqa: E402
 from mmw60.sim.link import LinkSim, evm_at                                  # noqa: E402
 
@@ -106,7 +108,7 @@ def faces_table(old, preset, surveyed):
             row("TX antenna gain", lambda f: fmt(f["antenna_gain_tx_dbi"], " dBi"), comm),
             row("RX antenna gain", ant_rx, comm),
             row("TX-RX isolation", lambda f: fmt(f["tx_rx_isolation_db"], " dB"), tag("isolation.tx_rx_tue2018")))
-    print(f"{'face':<26} {'WiFi 7 ladder':<24} {'preset':<31} {'surveyed':<31} 60 GHz figure from")
+    print(f"{'face':<26} {'until 2026-11-18':<24} {'preset':<31} {'surveyed':<31} 60 GHz figure from")
     for name, x, y, z, src in rows:
         print(f"{name:<26} {x:<24} {y:<31} {z:<31} {src}")
 
@@ -120,7 +122,7 @@ def main(argv=None) -> int:
     quick = a.quick or os.environ.get("MMW60_SMOKE") == "1"
     t0 = time.time()
     preset = zero_if_60ghz(k=K, standard=STD, bandwidth_hz=BASE_BW)
-    old = wifi7_rx_ladder(preset)
+    old = unspecified_antenna(wifi7_rx_ladder(preset))       # the presets until 2026-11-18
     surveyed = surveyed_frontend(preset)
     fe_s = Frontend60.from_config(surveyed)
     pout = fe_s.target_pout_dbm()
@@ -129,11 +131,12 @@ def main(argv=None) -> int:
     print("[spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; "
           "[assumed] = this library's choice")
 
-    print("\n== 1. the faces: the WiFi 7 ladder (config.wifi7_rx_ladder, the presets until 2026-11-18), the preset, "
-          "config.surveyed_frontend ==")
+    print("\n== 1. the faces: the presets until 2026-11-18 (config.wifi7_rx_ladder and config.unspecified_antenna), "
+          "the preset, config.surveyed_frontend ==")
     faces_table(old, preset, surveyed)
-    print("the presets carry the receive front end of the three faces; the antenna gains and the isolation are "
-          "config.surveyed_frontend's")
+    print("the presets carry the receive front end and the antenna (one for transmit and receive, "
+          "assumed.preset_antenna); the isolation is config.surveyed_frontend's, which also states the receive "
+          "antenna as a field of its own")
     if fe_s.rx_front.iip3_dbm == Frontend60.from_config(old).rx_front.iip3_dbm:
         print("the 60 GHz IIP3 happens to equal the WiFi 7 ladder's top state's: the compression rows are the same "
               "for both, by coincidence of the two figures")
@@ -224,8 +227,8 @@ def main(argv=None) -> int:
           f"{iso_rows[1][1]:g} dB rows are a subtraction of its numbers, not a figure it gives")
 
     # ---------------------------------------------------------------- 4
-    gains = ((0.0, "the presets (not specified)"),
-             (spec.value("rx60.comm_asada2011")["antenna_gain_dbi"], tag("rx60.comm_asada2011") + ", the pick"),
+    gains = ((0.0, "not specified (the presets until 2026-11-18)"),
+             (spec.value("rx60.comm_asada2011")["antenna_gain_dbi"], tag("rx60.comm_asada2011") + ", the presets"),
              (spec.value("antenna60.okada2013_dbi"), tag("antenna60.okada2013_dbi")))
     sim = LinkSim(dc.replace(surveyed, channel=FLAT), frontend=fe_s)
     s0 = sim.rx_input_dbm_for_snr(thr[MCS_ROWS[0]])
@@ -235,7 +238,7 @@ def main(argv=None) -> int:
         c = fe_s.eirp.check(pout, float(g))
         print(f"{g:5.1f} {c['eirp_avg_dbm']:9.1f} {c['margin_avg_db']:11.1f} {c['margin_peak_db']:12.1f} "
               f"{pout + 2 * g - s0:10.1f}   {src}")
-    print(f"(dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity {s0:.1f} dBm, the surveyed "
+    print(f"(dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity {s0:.1f} dBm, the presets' "
           f"receive front end; one element each end, no array gain — milestone 2)")
 
     # ---------------------------------------------------------------- 5

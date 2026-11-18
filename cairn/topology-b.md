@@ -230,11 +230,11 @@ K = 8 上 DPD 步自己的读数是 −21.6（比不开好 0.1 dB；0.7.42 起�
 |---|---|---|---|---|
 | 接收前端（最高增益档） | `fe.rx_front.gain_db / nf_db / iip3_dbm / p1db_inband_dbm / p1db_oob_dbm`，`fe.rx_front.sourced` | wifitrx 的梯子整体平移到增益 27 dB、NF 6.1 dB、IIP3 −20 dBm（带内 P1dB −29.6 dBm），`sourced = True`（`config.surveyed_rx_front`，`assumed.preset_rx_front`） | 同预设 | wifitrx 的 WiFi 7 梯子：37 dB / 3.5 dB / −20 dBm / −29.6 dBm，`sourced = False` |
 | 收发隔离 | `fe.tx_rx_isolation_db`，`fe.leakage_budget()` | 未指定（None） | 20 dB | 未指定 |
-| 天线增益 | `fe.antenna_gain_tx_dbi`、`fe.antenna_gain_rx_resolved_dbi`、`fe.shared_antenna` | 发 0 dBi，收同发（时分双工一副天线） | 发 2 dBi、收 2 dBi（两个字段） | 同预设 |
+| 天线增益 | `fe.antenna_gain_tx_dbi`、`fe.antenna_gain_rx_resolved_dbi`、`fe.shared_antenna` | 发 2 dBi，收同发（时分双工一副天线；`config.surveyed_antenna_gain_dbi`，`assumed.preset_antenna`；阵列上是单元增益） | 发 2 dBi、收 2 dBi（两个字段） | 同预设；2026-11-18 之前的预设是 0 dBi“未指定”（`config.unspecified_antenna`） |
 
 `fe.faces()` 把它们放在一个 dict 里；`fe.describe()` 的形状不变。
 
-**预设带三个面里的第一个**（2026-11-18，ROADMAP C9，用户定；推翻 2026-11-14 的“预设不换”）：60 GHz 预设（`zero_if_60ghz`，以及建在它上面的 `if_extender_60ghz`、`ay_60ghz`）的接收前端是上表那一档。天线增益与收发隔离不进预设，仍是 0 dBi / 未指定，要它们用 `config.surveyed_frontend`。同台表里 6 GHz 的 K = 1 行（`wifi7_chain_k1`）单独仿真时仍是芯片自己的 WiFi 7 梯子；在同台表里它与每一行一样跑在共享实例上（它自己的 LO 剖面也是这个待遇）。
+**预设带三个面里的两个**（2026-11-18，ROADMAP C9，用户定；推翻 2026-11-14 的“预设不换”）：60 GHz 预设（`zero_if_60ghz`，以及建在它上面的 `if_extender_60ghz`、`ay_60ghz`）的接收前端是上表那一档，天线是同一颗收发机的封装内天线 2 dBi（同日稍后用户定“要进”；先合进去的一版只换了接收前端，天线仍 0 dBi）。收发隔离不进预设（时分双工链路不消费它），要它用 `config.surveyed_frontend`。同台表里 6 GHz 的 K = 1 行（`wifi7_chain_k1`）单独仿真时仍是芯片自己的 WiFi 7 梯子、0 dBi 的天线；在同台表里它与每一行一样跑在共享实例上（它自己的 LO 剖面也是这个待遇）。
 换过去动了什么：灵敏度随 NF 2.60 dB（下表），全部距离表；经接收机观测的校准读数（§3，示例 03 / 06 / 07 / 09 / 15；换之前在示例 08 上预先读到的是 K = 8 的回环 EVM −22.1 → −22.0 dB，NF 取 12 dB 时 −21.3 dB，宽带各列动得比这多）；SNR 轴上的链路 EVM、同台表的 MCS 上限 / 速率 / pJ/bit 不动。已存的 PER 门限没有重量：同一批种子在两种前端上的错包数逐点相同（6 个点各 200 包 × 3 个 SNR，`cairn/LOG.md` 2026-11-18）。
 （2026-11-18 之前这里写：“**预设不用这一档**，所以现有数字逐位不变（指纹相同，示例 02–07 的输出不动）。预设的梯子是 sub-7 GHz WiFi 7 芯片的表，不是 60 GHz 前端的数，`sourced` 说的就是这件事。”）
 
@@ -308,8 +308,8 @@ K = 8 上 DPD 步自己的读数是 −21.6（比不开好 0.1 dB；0.7.42 起�
 
 | 增益 dBi | 出处 | EIRP 平均 dBm | 平均 / 峰值余量 dB | 链路接得住的路径损耗 dB |
 |---|---|---|---|---|
-| 0 | 预设，未指定 | 7.1 | 32.9 / 25.9 | 91.4 |
-| 2 | 通信收发机封装内天线（基准档，读过原文） | 9.1 | 30.9 / 23.9 | 95.4 |
+| 0 | 未指定（2026-11-18 之前的预设） | 7.1 | 32.9 / 25.9 | 91.4 |
+| 2 | 通信收发机封装内天线（**预设**；读过原文） | 9.1 | 30.9 / 23.9 | 95.4 |
 | 6 | 另一颗通信收发机的封装内天线（读过原文，2026-11-17） | 13.1 | 26.9 / 19.9 | 103.4 |
 
 单个天线单元，没有阵列增益（里程碑 2）。
