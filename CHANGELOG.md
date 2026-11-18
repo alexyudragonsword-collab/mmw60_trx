@@ -4,7 +4,14 @@
 
 ## 未发布
 
-（空）
+### 预设换成 60 GHz 自己的接收前端（2026-11-18，ROADMAP C9）—— 数值变化（`(numbers-move)`）
+- **为什么**：预设的接收梯子是 wifitrx 自己的、sub-7 GHz WiFi 7 芯片的表（最高增益档 37 dB / NF 3.5 dB），每张距离表都带着“不是 60 GHz 的数”这句话。用户 2026-11-18 定换（推翻 2026-11-14 的“预设不换”）。
+- **做了什么**：`zero_if_60ghz`（以及建在它上面的 `if_extender_60ghz`、`ay_60ghz`）带 `config.surveyed_rx_front()`——wifitrx 的梯子整体平移到一颗 60 GHz 通信收发机的高增益档：变频增益 27 dB、NF 6.1 dB、IIP3 −20 dBm（`rx60.comm_asada2011`，读过原文）。新 assumed `preset_rx_front` 记这个取舍：三个面里只取接收前端，**天线仍是 0 dBi、收发隔离仍留空**（`config.surveyed_frontend` 加这两个）；6 GHz 的 K = 1 行（`wifi7_chain_k1`）单独仿真时仍是芯片自己的梯子。新 `config.wifi7_rx_ladder(cfg)` 把旧梯子放回去，作灵敏度行（示例 08、15）。
+- **动了什么**：灵敏度 2.60 dB（dB 对 dB）；全部距离——单天线 ×0.74，N = 64 上氧吸收主导、只短 9–18 %（阵列表 MCS0：B 11be × 4 1052 → 943 m；ay N = 64、16-QAM 3/4：SC 337 → 277 m、OFDM 329 → 270 m）；经接收机观测的校准读数（校准后 IRR 低 0.3–3.9 dB，`derived.irr_after_cal_measured_db` 重导：57.5 / 55.7 / 52.9 / 52.3 / 47.2 / 39.6 → 53.6 / 53.8 / 50.5 / 51.7 / 46.9 / 38.6 dB；2.56 GHz 列最终回环 EVM −22.4 → −20.9 dB）。
+- **没动的**：SNR 轴上的链路 EVM；同台表每一行的 MCS 上限、速率、pJ/bit；`cairn/ay.md` 的结论（SC 对 OFDM 谁赢、赢多少：乘积高 8 % / 15 %，之前 8 % / 14 %，差在米数取整）；Liu 预设与 K = 1 基线的指纹。已存的 PER 门限没有重量：同一批种子在两种前端上的错包数逐点相同（6 个点 × 3 个 SNR × 200 包）。
+- **过程中发现并修的**：① 拓扑 A 的理想行（`ifext.chip: frontend`，芯片取共享前端自己的链）在 60 GHz 前端下把同一个前端算了两遍——链的梯子已经是它，前面又串一级 LNA——读 −39.4 dB 对 K = 1 链的 −43.0 dB，被铁律 2 的理想实例测试抓到；现在只在芯片有自己的梯子（`chip: wifitrx`）时串。② 接收直流（`assumed.rx_dc_dbc`）是混频器输出处的绝对电平，前端增益低 10 dB 后相对信号高约 8 dB：不做数字去直流时 EVM −30.2 → −21.8 dB；预设开着数字去直流，不受影响。该不该随增益缩放没有出处，记 ROADMAP C9。
+- 指纹：22 个值动，全在两份 ay 配置里（接收输入 −68.02 → −65.42 dBm，EVM 动 0.002 dB）。重跑并验收示例 02–11、15。测试：`test_law2_presets_carry_the_60ghz_receive_front_end_and_nothing_else_of_the_three_faces`、`test_law2_the_wifi7_ladder_is_still_wifitrx_own_on_the_k1_row_and_as_a_sensitivity_row` 换下原来守“预设是 WiFi 7 梯子”的那条；接收直流的测试改成两种前端都读。
+- ROADMAP：“当前优先级”清空（C9 做完）；C9 一节加本轮发现的五条（天线没进预设、接收直流、校准读数随观测通路动、门限没重量、`diag_c8` 没重跑），删掉“查到的前端不在数值指纹里”（现在在了）。
 
 ## 0.2.0 —— 里程碑 1 收尾、里程碑 2（阵列层）、里程碑 3（802.11ay）（2026-11-18）
 0.1.0（里程碑 1-B）之后的全部条目，新的在上。**没有打 tag、没有发 release**（用户定）。一句话：拓扑 A 与同台表建成，外部的数迁到 spec_sources，阵列层进来，802.11ay 的两种波形在拓扑 B 的硬件上跑到编码 PER、距离与阵列预算；结论在 `cairn/ay.md` 开头。
