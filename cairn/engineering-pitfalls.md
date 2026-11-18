@@ -106,6 +106,7 @@ authoring_mode: ai_generated
 - **polar_tx 的 vendor_check 会剥掉所有前导 `# ` 行**，而 wifitrx 自己的文件就以 `# Vendored from PA_DPD…` 开头：本库的检查器只剥自己加的两行头（`_strip_header`），并检查 `__init__.py`。
 - `tools/example_drift.py` 与 `fingerprint_walk.py` 是 d2d_link 的文件原样（ruff 对它们放开 E501）。
   （2026-11-18 更正：`fingerprint_walk.py` 不再是原样，`commits()` 改了，见下一条。）
+- **断言的期望值不能取自被测函数自己的输出**（contains: 空守卫、变异、多径距离）：多径距离的测试原来写成“多径距离 = flat 距离 × 10^(−d/20)，d = 两次调用返回的门限之差”。把距离函数改成无视 `channel` 后，d = 0、两个距离相等，断言照样成立——变异没让它变红。我当时已经把“break-check 变红”写进了提交说明，是在看结果之前写的。改法：期望的移动量从门限文件里读，再另断言多径距离严格更短；同一个变异下变红，还原转绿。教训两条：守卫的期望要有独立来源；变异的结果看到了再写进记录（2026-11-18，`tests/test_ay_link.py`）。
 - **指纹守卫的两个盲区，同一天露出来**（contains: 指纹、numbers-move、PR 合并提交、ay 配置）：
   - 指纹只跑 `configs/*.yaml`，当时只有两个 be 配置。ay OFDM 接收机整个改完，指纹与 main 逐位相同；它同样看不见 SC 动没动，“SC 逐位不变（指纹）”这句守卫是空的。补法：ay 两种波形各加一个配置；SC 不变另用 main 的工作树直接比。教训：守卫说“不变”之前，先确认它看得见会变的那一边（变异一次：改 OFDM，指纹必须动）。
   - PR 事件下 CI 检出的是 GitHub 合成的合并提交，第一父提交就是 base；`fingerprint_walk.commits` 按 first-parent 走 base..HEAD 只得到这一个提交，它的消息没有标记，于是报“范围内没有提交带 (numbers-move)”。PR #76 是第一个动了指纹的 PR，之前这条路径没走到过（push 事件一直是对的）。补法：head 是“PR 并入 base”的合并提交时走第二父提交的历史；测试在合成仓库上验，换回旧规则变红。

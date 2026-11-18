@@ -4,6 +4,27 @@
 
 ## 未发布
 
+### ay 距离表：多径一列，SC 低阶档的回退从 0 dB 起（2026-11-18）—— flat 的门限表不变；距离表的 flat 数在末位动
+**为什么**：ay 的距离表只有 flat、视距、AWGN 门限；SC 低阶档的最佳回退卡在网格最小的 1 dB 上，SC MCS1 的 16.70 m 只是下限。里程碑 3 收尾的第三件。
+- `tools/measure_ay_thresholds.py --channel multipath`：同一条理想链，flat 信道换成预设的 CR 替身（rms 7 ns，K 10 dB，每包一个实现）；写进 `ay_per_thresholds.yaml` 新的 `multipath` 一节（**文件多了一节**；flat 的表、区间与表头逐字不动）。SC 的 21 档量了：比 flat 高 0.29–1.56 dB，随调制阶数涨（BPSK 0.44–0.67、QPSK 0.64–0.77、16-QAM 0.99–1.15、64-QAM 1.22–1.56）。
+- 新 assumed `ay_ofdm_multipath_margin_db` = 0.85 dB：OFDM 不量（16 / 64-QAM 的符号内交织置换没有公开），多径一列用 flat 门限加这个数；合并表 214 → 215。
+- `spec.ay_per_threshold_db(..., channel=)`、`ay.edmg.threshold_db(..., channel=)`、`arraylink.ay_mcs_ranges(..., channel=)`、`ay.coding.threshold_config(..., channel=)`（**公开签名多了一个带缺省值的参数**，缺省 flat，行为不变）；`ArrayBudget.range_multipath_by_mcs`（新字段）。
+- 示例 15 §9：网格在 1 dB 以下加要 0 / 0.25 / 0.5 / 0.75 dB 四个点；距离按 PA 实际落到的功率算（原来按要的功率）；多一列多径门限与距离；“每个距离上的最快速率”多两列；末尾一张对照表（OFDM 若按 SC 实测的代价算）。示例 10 §3d：两张表各多一列 16-QAM 3/4 的多径距离。示例 15 的 §1–§8、§10 与示例 10 的其余各节输出不变。
+
+| 量 | before | after |
+|---|---|---|
+| SC MCS1 最佳回退 / 距离 | 1.0 dB（网格边）/ 16.70 m | 0.04 dB（PA 的极限）/ 18.50 m |
+| SC π/2-QPSK 1/2 最佳回退 / 距离 | 1.0 dB（网格边）/ 10.18 m | 0.18 dB / 10.95 m |
+| OFDM MCS1 最佳回退 / 距离 | 1.0 dB（网格边）/ 13.01 m | 0.11 dB（PA 的极限）/ 13.87 m |
+| SC MCS14（16-QAM 3/4）最佳距离 | 2.19 m | 2.20 m（落到的功率） |
+| SC MCS1 预设回退的距离 | 8.07 m | 8.09 m（落到的功率） |
+| 16-QAM 3/4 多径距离，SC / OFDM（单天线，最佳回退） | — | 1.91 / 1.60 m（flat 2.20 / 1.86） |
+| N = 64、16-QAM 3/4 多径距离，SC / OFDM | — | 311 / 308 m（flat 337 / 329） |
+| 最小阵列、预设回退、16-QAM 3/4 多径距离，SC / OFDM | — | 275 / 265 m（flat 299 / 286） |
+
+- **两列不同口径**：SC 的多径代价是逐档量的，OFDM 的是一个 assumed 数；16-QAM 起 SC 实测的代价比 0.85 dB 大，多径一列在高阶上偏向 OFDM（N = 64 上差从 8 m 缩到 3 m，缩掉的就是口径差）。没有翻。
+- 新测试 2 条（一条慢测试复量一个多径门限）；变异：距离函数无视信道 → 红。第一版的断言是空的（期望取自被测函数的输出），已改并记进 `engineering-pitfalls.md`。
+
 ### ay OFDM 接收机：规范的 EDMG 训练场、跨符号公共相位、按估计加权的 LLR（2026-11-18）—— **OFDM 的数动了（numbers-move）；SC 与 be 各行逐位不变**
 **为什么**：OFDM 的实测门限比 SC 同调制同码率高 0.42–1.69 dB，其中多少是本库接收机自己的，决定了 SC 对 OFDM 的结论站不站得住。里程碑 3 收尾里唯一会改结论的一件。
 - **重新 pin spec_sources 到 `65ff5e4`**（#48 → #49）：`data/ieee80211.yaml` 新增 6 条（EDMG OFDM PPDU 的结构、EDMG-CEF、EDMG-STF、hFilt、DMG CEF 的拼法、Golay 序列），原有条目不动；合并表 208 → 214，未核实仍 4；换 pin 本身指纹不变。对方的答复改了做法：EDMG OFDM 包的数据信道用 EDMG-CEF 估，不是 DMG 的混合速率前导。

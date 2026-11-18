@@ -365,7 +365,8 @@
     of13: {example: "15", after: "== 9. rate against range", line: "ay_ofdm 13 16-QAM 3/4 {*} {*} {*} m {*} {*} {}"}
   quotes:
     - {doc: cairn/ay.md, text: "SC 的低阶星座能把回退压到 {edge} dB，多出 {preset - edge} dB 输出功率"}
-    - {doc: cairn/ay.md, text: "16-QAM 的最佳回退比预设小 {preset - of13}–{preset - sc14} dB"}
+    # 2026-11-18: the range table reads the back-off the PA landed on (4.99 / 4.98 dB), so both are 2.5 dB
+    - {doc: cairn/ay.md, text: "16-QAM 的最佳回退比预设小 {preset - sc14} dB"}
 
 - name: ex15 the conformance caps at the preset back-off with IQ and LO leakage calibrated away
   values:
