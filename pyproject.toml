@@ -25,6 +25,7 @@ jit = ["numba>=0.59"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+namespaces = true        # vendor/arraytx and vendor/wifitrx/report carry no __init__.py (PEP 420); the default, stated
 
 [tool.setuptools.package-data]
 mmw60 = ["data/spec/*.yaml", "data/clock_profiles/*.yaml", "vendor/spec_sources/data/*.yaml"]

@@ -109,7 +109,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: alexyudragonsword-collab/array_tx
-          ref: 5815c5a7ea43143fd58502d4894ac840b5b5fb86
+          ref: 286609e99c495712e026a913d4a2a066be11352c
           path: _siblings/array_tx
       - uses: actions/setup-python@v5
         with:

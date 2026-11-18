@@ -4,6 +4,11 @@
 
 ## 未发布
 
+### 重新 pin array_tx 到 `286609e`，只拷 import 到的文件（2026-11-17）—— 指纹与示例输出不变
+- `vendor/arraytx`：135 个文件 → 2 个。`geometry.py`、`beam.py` 原样（两个 pin 之间上游没改它们）；没有 `__init__.py`（PEP 420 命名空间包，`pyproject.toml` 写明 `namespaces = true`），vendor 里每个文件仍是 verbatim。
+- **不再可用**：`mmw60.vendor.arraytx` 下除 `geometry`、`beam` 以外的模块（`coupling`、`sim`、`config`、嵌套的 `vendor.polartx` 等）；本库自己没有用过它们。
+- AGENTS.md 的 vendor 规矩、`vendor/__init__.py`、`cairn/array-layer.md`、README 同步。
+
 ### 重新 pin wifitrx 到 `a8edf50`（0.7.46，wifi_trx_cal#7）：宽带回环的捕获对齐（2026-11-17）—— 指纹不变；2.56 GHz 的校准与记忆研究读数变了
 - vendored wifitrx 换成 `a8edf50`（0.7.42–0.7.46）：对齐搜索跟着相关峰走（B47）、isolation 读法先均衡（B46）、DPD 步与 RX 读数的口径（B38 / B45）、`BoundedDPD` 可深拷贝（B44）。
 - `calcheck.loopback_views`：`isolation_eq_first_db` **改名并改义**为 `isolation_cpe_first_db`（wifitrx 0.7.44 之前的顺序，同一个 EVM 定义）；wifitrx 自己的 isolation 读法现在就是先均衡。

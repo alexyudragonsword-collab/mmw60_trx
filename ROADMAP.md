@@ -36,7 +36,7 @@
   待做：be 的宽带行（至少 1.28 / 2.56 GHz）也用 `calcheck.run_cal_at` 实跑，在校准过的链上读时域。be 的 `LinkSim` 要先加一个 `chains=` 入口，现在只有 ay 有（2a）。复现：`python examples/04_comparison_table.py` §1b 末行（约 1 分钟）。
 - 表单字段：`guispec.py` 已有 19 个 Knob，桌面 GUI / Android 这一轮不做。
 
-## B. 里程碑 2：阵列层（主体已落地：vendor array_tx @ `5815c5a`、`frontend/array60.py`、`arraylink.py`、示例 10、`cairn/array-layer.md`）
+## B. 里程碑 2：阵列层（主体已落地：vendor array_tx @ `286609e` 的 `geometry` / `beam`、`frontend/array60.py`、`arraylink.py`、示例 10、`cairn/array-layer.md`）
 - **N = 64 的训练太长**（示例 10 §4b、§4c）：重复训练场补到 MCS0 的边，N = 64 一个方向 27.9 / 16.4 / 111 ms（B 11be × 4 / B 11ac × 8 / A）。两级扫描（2026-11-16 建，§4c）补不了：宽扫子阵少 9–15 dB EIRP，重复到 256 次也够不到边；它只在有余量的距离上快 1.8–3.2 倍。边上贵的是挑扇区：只扫粗方向附近 4 个窄扇区时是 1.74 / 1.02 / 6.96 ms（快 16 倍）。待做：粗方向来自 sub-7 链路（MLO 测到达角）一档——要 sub-7 测向精度的出处（外部输入，经 spec_sources），精度决定第二级要扫几个扇区；或者量 CFO 残差与相噪下跨重复相干累加能撑几段（相干上界 8 / 32 / 8 次）。复现：`python examples/10_array_link_and_training.py`（约 9 分钟）。
 - **氧吸收是估算，没有原文**：距离现在按自由空间 + `assumed.oxygen_absorption` 15 dB/km（60 GHz 吸收峰的常用估算，按载频不变）算，路径损耗不含它。N ≥ 16 时距离对它很敏感：B 11be 80M × 4、N = 64 的 MCS0 在 0 / 10 / 15 / 20 dB/km 是 6474 / 1357 / 1052 / 871 m（2026-11-15 门限加逼近之前 6596 / 1367 / 1059 / 877）；N ≤ 4 只差 1–85 m。复现：`python examples/10_array_link_and_training.py` §3b。待做：要 ITU-R P.676 的原文数（海平面、按载频；57–71 GHz 两侧比峰值小得多），经 spec_sources 进来后删掉这条 assumed。用户 2026-11-14 定先用估算、这次不向 spec_sources 开 issue，后面找机会再打开。
 - **逐单元 PA 没进时域**：PA 只按 EIRP 上限下的回退进底板；单元误差让各 PA 驱动不同、远场合成后的失真没算。待做：时域里 N 路 PA + `arraytx.beam.far_field` 合成的一档。

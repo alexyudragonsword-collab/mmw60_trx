@@ -17,7 +17,7 @@ authoring_mode: ai_generated
 
 ## 1. 用了 arraytx 的什么（用户 2026-11-14 定：只拿线性部分）
 
-- vendor array_tx @ `5815c5a`（包名 `arraytx`）整包 135 个 `.py`，原样；它的 `data/`、`webui/` 资源不搬。
+- vendor array_tx @ `286609e`（包名 `arraytx`）：只拷本库 import 到的 `geometry.py` 与 `beam.py`（`beam` 只依赖 `geometry`），原样；不放 `__init__.py`（上游的那份会 import `config` / `sim`，也就是整包），目录是 PEP 420 命名空间包，vendor 里每个文件仍是 verbatim。（2026-11-17 之前拷的是 @ `5815c5a` 的整包 135 个 `.py`，连它嵌套的 polartx、padpd；本库从没 import 过那些。这两个文件在两个 pin 之间没有变，指纹与示例 10 的输出不动。）
 - 用到的只有：`ArrayGeometry`（单元位置、远场时延 τ_k(θ)、单元因子）、`beam.steering_phase_weights`、`beam.array_factor_cw`（测试里对照）、`beam.beam_response`（斜视）、`beam.beamwidth_3db_deg`。
 - arraytx 是 28 GHz FR2 的库：没有 60 GHz 标准、没有码本、没有移相器量化、没有绝对功率和 SNR。这些都在本库补：
   - 移相器量化：以第一个单元为相位参考、四舍五入（坑：arraytx 的阵列以中心为原点，相位落在半步上，`np.round` 的取偶会让 2 bit 在 30° 处平白丢 3 dB，`tests/test_array60.py` 守着）；

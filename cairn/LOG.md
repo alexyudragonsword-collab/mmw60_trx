@@ -3,6 +3,15 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-17 · 重新 pin array_tx 到 286609e，只拷 import 到的两个文件（chore/arraytx-pin-286609e）
+
+- 里程碑 3 收尾的第一件（用户定：不动数字的先做）。vendor/arraytx 原来是 @ `5815c5a` 的整包 135 个 `.py`（连嵌套的 polartx、padpd）；本库只 import `geometry` 与 `beam`（`arraylink` 经 `frontend/array60.py`，示例 10 与 `tests/test_array60.py` 直接用 `beam`）。
+- 现在 2 个文件：`geometry.py`、`beam.py` 原样 @ `286609e`（上游这两个文件在两个 pin 之间没有变；上游改的 config / dpd / element / metrics / report / sim / standards / clock 本库都不拷）。不放 `__init__.py`：上游的那份 import `config` / `sim`，等于整包；目录当 PEP 420 命名空间包（`wifitrx/report` 早就是），`pyproject.toml` 写明 `namespaces = true`。
+- **被推翻的做法**：先试了留一个裁剪过的 `__init__.py`（extracted，按哈希记清单）。守卫 `test_no_drift_against_sibling_and_injected_drift_is_caught` 断言 vendor 里每个文件都是 verbatim，红了；与其放宽守卫和 AGENTS 的“必须全 verbatim”，不如不放这个文件。AGENTS.md 的 vendor 一条只把“arraytx 整包”改成“geometry / beam 两个文件”。
+- CI 第一次红在 Python 3.12 一档：新断言 import 了 `setuptools`，3.12 不自带（本地 3.13 与 CI 的 3.10 都有，所以本地全绿）。断言改成读 `pyproject.toml` 里的 `namespaces = true`，setuptools 在才问它的 finder；把这一行改成 false，测试变红，还原变绿。
+- 验收：`vendor_check --strict` 117 个文件全 verbatim，清单仍为空，指纹逐位不变，示例 10 的输出不变，测试与 ruff 过。`assumed.array_element_errors` 引的 `ElementErrorsCfg` 默认值在新 pin 上相同（0.5 dB / 5°），cite 的 SHA 跟着改。
+- 下一步：收尾第二件，OFDM 接收机。训练场的数不在 spec_sources 里（Golay 的 D / W、3/2 重采样滤波器、EDMG-CEF 的 OFDM 序列），已开 spec_sources#48；`edmg.ofdm_pilot_tones_ncb1` 的引文说 EDMG OFDM PPDU 有 OFDM 域的 EDMG-STF / EDMG-CEF，所以 EDMG OFDM 的数据可能该用 EDMG-CEF 而不是混合速率的 L-CEF 估信道，请对方按原文确认。跨符号公共相位平滑不依赖外部的数。
+
 ## 2026-11-17 · 重新 pin wifitrx 到 a8edf50（0.7.46，wifi_trx_cal#7）：D5 已解；K = 32 的记忆代价是在错位的训练捕获上读的（feat/wifitrx-pin-a8edf50）
 
 - 对方 0.7.46 按全部 lag 上的相关峰重搜（B47 更正），0.7.45 起 isolation 读法先均衡再估公共相位（B46），0.7.42 / 0.7.43 改了 DPD 步读数与 RX 读数的口径（B38 / B45）。一次 pin 到 `a8edf50`；vendor 250 verbatim，指纹逐位不变。

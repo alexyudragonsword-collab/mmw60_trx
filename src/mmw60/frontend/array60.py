@@ -1,7 +1,7 @@
 """The array layer (milestone 2): N elements of the shared front end behind
 arraytx's linear array model.
 
-arraytx (vendored @5815c5a, used as is) gives the geometry — element
+arraytx (vendored @286609e, used as is) gives the geometry — element
 positions, the far-field delays tau_k(theta), the element factor — and the
 beam functions (squint, beamwidth).  It has no phase-shifter quantisation,
 no codebook, no absolute power and no receive array, so those are here.
