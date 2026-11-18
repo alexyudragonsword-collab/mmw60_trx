@@ -164,6 +164,7 @@ class AyLinkSim(LinkSim):
         #: diagnostics only: called with the OFDM channel estimate (one value per used tone), returns
         #: the one the receiver uses (tools/diag_ay_ofdm_receiver.py reads and replaces it)
         self.ce_hook = None
+        self.data_tone_estimate = None
         if self.model == "behavioural":
             if chains is not None:
                 raise ValueError("calibrated chains need frontend.model zero_if_chain")
@@ -300,6 +301,9 @@ class AyLinkSim(LinkSim):
                 h_used = h512[num.bins(num.used_tones)]
             if self.ce_hook is not None:
                 h_used = self.ce_hook(h_used)
+            pos = {int(k): i for i, k in enumerate(num.used_tones)}
+            #: the estimate on the data tones, for the demapper's weights (``ay.coding``)
+            self.data_tone_estimate = h_used[[pos[int(k)] for k in num.data_tones]]
             eq = ofdm.receive(num, body[ref.cef_len:], None, self.n_symbols, n_training=0,
                               cpe=rxc.cpe_tracking, h=h_used, cpe_window=int(rxc.cpe_window_symbols))
         tx = ref.symbols

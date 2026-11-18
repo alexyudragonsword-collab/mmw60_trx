@@ -36,6 +36,36 @@ shift at 0.01 to about 0.1 dB, and it needs a tenth of the packets):
   So either one of them is far from its first-order number at 1 dB, or the
   first expectation fails.
 
+**What the first run showed (2026-11-18, the demapper with uniform weights).**
+PER 0.1 crossings: SC -0.24 dB; OFDM as it was +0.41 (+0.65 over SC); with
+the noise-free channel estimate -0.50 (0.25 under SC); no CFO estimate
++0.41; no CFO estimate and no phase tracking +0.41; all three -0.54.
+
+* The first expectation held, a little better than written: behind AWGN the
+  OFDM demapper and decoder are 0.29 dB ahead of SC's whole receiver.
+* The CFO estimate and the phase tracking cost nothing (the tracking is
+  needed: with the STF's CFO error left in and no tracking nothing decodes).
+* The whole gap is the channel estimate, 0.9 dB where the first-order
+  arithmetic said 0.25, and the curve has a tail: the thresholds' own sweep
+  reads 13/200 at 0.5 dB, 45/3000 at 1.0 dB, 22/3000 at 1.5 dB, where SC
+  falls from 60/2089 to 1/3000 in half a dB.  A tail is a per-packet event,
+  and the estimate is the only thing drawn once per packet: at 1 dB its
+  error is 0.12 / 1.26 = 9 % of a tone's power on average and 4.4 times
+  that on the outermost tone (a relative error of 0.6), fixed for the
+  packet.  The demapper took zero-forced points with one weight for every
+  tone, so a tone whose estimate came out small handed the decoder large,
+  wrong LLRs in every symbol and every codeword.
+
+**(c) The demapper's weights follow the estimate — written before the run.**
+Zero forcing leaves tone k the noise sigma^2 / |H_k|^2, so its LLRs are
+weighted by |H_k|^2 of the estimate (``ay.ofdm_llr_weights: estimate``;
+``uniform`` is the demapper before).  Expected: the tail goes, and what is
+left of the estimate's noise is its first-order cost, about 0.25-0.3 dB
+over the noise-free row: a crossing of -0.25 to -0.1 dB, level with SC's
+-0.24 dB to within 0.2 dB.  At the higher thresholds (6 dB and up) the
+estimate's relative error is four times smaller and the change should be
+under 0.1 dB.
+
     python tools/diag_ay_ofdm_low_snr.py [--packets 120] [--jobs 4]
 """
 from __future__ import annotations
@@ -49,15 +79,17 @@ import numpy as np
 TARGET = 0.1
 GRID = (-1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5)
 
-#: label, waveform, mcs, genie channel estimate, CFO estimate on, phase tracking on
+#: label, waveform, mcs, genie channel estimate, CFO estimate on, phase tracking on, LLR weights
 ROWS = (
-    ("SC MCS 2 (pi/2-BPSK 1/2), as it is", "ay_sc", 2, False, True, True),
-    ("OFDM MCS 1 (DCM BPSK 1/2), as it is", "ay_ofdm", 1, False, True, True),
-    ("  noise-free channel estimate", "ay_ofdm", 1, True, True, True),
-    ("  no CFO estimate", "ay_ofdm", 1, False, False, True),
-    ("  no phase tracking", "ay_ofdm", 1, False, True, False),
-    ("  no CFO estimate, no phase tracking", "ay_ofdm", 1, False, False, False),
-    ("  all three: demapper and decoder behind AWGN", "ay_ofdm", 1, True, False, False),
+    ("SC MCS 2 (pi/2-BPSK 1/2), as it is", "ay_sc", 2, False, True, True, "estimate"),
+    ("OFDM MCS 1 (DCM BPSK 1/2), uniform LLR weights", "ay_ofdm", 1, False, True, True, "uniform"),
+    ("  noise-free channel estimate", "ay_ofdm", 1, True, True, True, "uniform"),
+    ("  no CFO estimate", "ay_ofdm", 1, False, False, True, "uniform"),
+    ("  no phase tracking", "ay_ofdm", 1, False, True, False, "uniform"),
+    ("  no CFO estimate, no phase tracking", "ay_ofdm", 1, False, False, False, "uniform"),
+    ("  all three: demapper and decoder behind AWGN", "ay_ofdm", 1, True, False, False, "uniform"),
+    ("OFDM MCS 1, (c) weights from the estimate (now)", "ay_ofdm", 1, False, True, True, "estimate"),
+    ("  noise-free channel estimate", "ay_ofdm", 1, True, True, True, "estimate"),
 )
 
 
@@ -65,8 +97,9 @@ def _point(job: tuple) -> tuple:
     row, snr_db, n_packets = job
     from mmw60.ay import coding
     from mmw60.sim.link import LinkSim
-    _, wf, mcs, genie, cfo, cpe = ROWS[row]
+    _, wf, mcs, genie, cfo, cpe, weights = ROWS[row]
     cfg = coding.threshold_config(mcs, waveform=wf)
+    cfg = dc.replace(cfg, ay=dc.replace(cfg.ay, ofdm_llr_weights=weights))
     rx = dc.replace(cfg.rx, cpe_tracking=cpe, **({} if cfo else {"cfo_estimation": "off"}))
     sim = LinkSim(dc.replace(cfg, rx=rx))
     code = coding.ay_code(sim)
@@ -97,16 +130,19 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--packets", type=int, default=120)
     ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--rows", type=int, nargs="*", help="row numbers to run (default: all)")
     a = ap.parse_args(argv)
     from mmw60 import __version__
     print(f"mmw60 {__version__}; ideal chain, flat, 4096-byte PSDU, {a.packets} packets per point; "
           f"packet errors on the grid and the PER {TARGET:g} crossing (dB)")
-    jobs = [(i, s, a.packets) for i in range(len(ROWS)) for s in GRID]
+    rows = list(range(len(ROWS))) if not a.rows else sorted(set(a.rows) | {0})
+    jobs = [(i, s, a.packets) for i in rows for s in GRID]
     with get_context("fork").Pool(a.jobs) as pool:
         got = {(i, s): e for i, s, e in pool.imap_unordered(_point, jobs)}
     print(f"{'receiver':<48} " + " ".join(f"{s:>5g}" for s in GRID) + "   crossing   vs SC")
     ref = None
-    for i, row in enumerate(ROWS):
+    for i in rows:
+        row = ROWS[i]
         errs = [got[(i, s)] for s in GRID]
         x = crossing(list(GRID), [e / a.packets for e in errs])
         ref = x if i == 0 else ref

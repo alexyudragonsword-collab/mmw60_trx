@@ -361,6 +361,11 @@ class AyConfig:
     #: keeps the directions above this fraction of the largest singular value (data/spec:
     #: assumed.ay_receiver)
     ofdm_ce_rcond: float = 1.0e-3
+    #: the OFDM demapper's LLR weights (coded payloads, ``ay.coding``): estimate (each tone's
+    #: |H|² of the channel estimate over the noise, what zero forcing leaves a tone) | uniform
+    #: (every tone the same: the demapper until 2026-11-18, exact only when the estimate is;
+    #: data/spec: assumed.ay_receiver)
+    ofdm_llr_weights: str = "estimate"
     #: keep the channel estimate's impulse response inside the GI (+ GI/8 of
     #: pre-cursor): the receiver's noise reduction (data/spec: assumed.ay_receiver)
     ce_window: bool = True
@@ -476,6 +481,8 @@ class Mmw60Config:
             raise ValueError("ay.sc_equalizer must be mmse | zf")
         if a.ofdm_training not in ("edmg", "golay_pair"):
             raise ValueError("ay.ofdm_training must be edmg | golay_pair")
+        if a.ofdm_llr_weights not in ("estimate", "uniform"):
+            raise ValueError("ay.ofdm_llr_weights must be estimate | uniform")
         if not 0.0 < float(a.ofdm_ce_rcond) < 1.0:
             raise ValueError("ay.ofdm_ce_rcond must lie in (0, 1)")
         if int(a.stf_length) & (int(a.stf_length) - 1) or int(a.stf_repeats) < 3:
@@ -710,6 +717,7 @@ def ay_60ghz(waveform: str = "ay_sc", mcs: int = 12, carrier_hz: float = 60.48e9
                   stf_repeats=int(pre["stf_repeats"]),
                   ce_window=bool(s("assumed.ay_receiver")["ce_window_to_gi"]),
                   ofdm_ce_rcond=float(s("assumed.ay_receiver")["ofdm_ce_rcond"]),
+                  ofdm_llr_weights=str(s("assumed.ay_receiver")["ofdm_llr_weights"]),
                   sc_phase=str(s("assumed.ay_receiver")["sc_phase"]))
     base = zero_if_60ghz(k=1, carrier_hz=carrier_hz)
     cfg = dataclasses.replace(base, waveform=waveform, ay=ay,

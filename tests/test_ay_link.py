@@ -746,6 +746,45 @@ def test_the_coded_ofdm_path_puts_the_codewords_on_the_data_tones_in_order():
     assert coding.payload_bits(s16) >= need > coding.payload_bits(s16) - n_data * 6
 
 
+def test_the_ofdm_demapper_weights_each_tone_by_its_channel_estimate():
+    """Zero forcing leaves tone k the noise σ² / |H_k|², so its LLRs carry
+    |H_k|² of the estimate (``ay.ofdm_llr_weights: estimate``).  With an
+    exact estimate of a flat channel the weights are all one and nothing
+    changes; a tone whose estimate came out small is told so.  The check: an
+    estimate a twentieth of the truth on 64 data tones (their points come
+    out twenty times too large, the noise with them) at 3 dB, 1.7 dB over
+    the threshold — the weighted demapper decodes every packet, the uniform
+    one (the demapper until 2026-11-18, which cost the
+    DCM BPSK thresholds up to 1 dB through the estimate's own noise at the
+    band edge) loses every one."""
+    from mmw60.ay import coding
+    cfg = coding.threshold_config(1, packet_bytes=1024, waveform="ay_ofdm")
+    cfg = dc.replace(cfg, frontend=dc.replace(cfg.frontend, model="behavioural"))
+    num = edmg.ofdm_numerology(2)
+    bad = [list(num.used_tones).index(k) for k in num.data_tones[40:104]]
+
+    def run(weights, hook, snr=3.0, seed=3):
+        sim = LinkSim(dc.replace(cfg, ay=dc.replace(cfg.ay, ofdm_llr_weights=weights)))
+        sim.ce_hook = hook
+        r = coding.coded_packet(sim, coding.ay_code(sim), snr, np.random.default_rng(seed))
+        return r["packet_error"], sim
+
+    def small(h):
+        h = h.copy()
+        h[bad] *= 0.05
+        return h
+    for seed in range(3):
+        err_w, sim = run("estimate", small, seed=seed)
+        assert not err_w and run("uniform", small, seed=seed)[0], seed
+    assert sim.data_tone_estimate.shape == (len(num.data_tones),)
+    # an exact flat estimate: both demappers hand the decoder the same LLRs, so the same outcome
+    flat = lambda h: np.full_like(h, np.mean(h))                                        # noqa: E731
+    assert run("estimate", flat, snr=1.0)[0] == run("uniform", flat, snr=1.0)[0]
+    assert ay_60ghz("ay_ofdm", 1).ay.ofdm_llr_weights == "estimate"
+    with pytest.raises(ValueError, match="ofdm_llr_weights"):
+        dc.replace(cfg, ay=dc.replace(cfg.ay, ofdm_llr_weights="mmse"))
+
+
 def test_the_dcm_mapping_is_edmg_ofdm_modulation_mappings_and_its_demapper_uses_both_tones():
     """ay.dcm (edmg.ofdm_modulation_mapping, spec_sources#43): DCM BPSK puts
     (x0 + j x1)/sqrt(2) on data tone k and (x0 - j x1)/sqrt(2) on P(k) =
