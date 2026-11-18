@@ -2,27 +2,28 @@ engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cy
 mmw60 0.2.0; full; topology B, K = 8 on the 11ac 20 MHz base (160 MHz), carrier 60.48 GHz, PA output 7.1 dBm
 [spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; [assumed] = this library's choice
 
-== 1. the faces: preset against config.surveyed_frontend ==
-face                       preset                     surveyed                        surveyed figure from
-receive front end          wifi7_ladder               anchored                        assumed.rx60_ladder_shape [assumed]
-  a 60 GHz figure?         no                         yes: nf_db, iip3_dbm, gain_db   assumed.frontend_faces_pick [assumed]
-  gain, max state          37.0 dB                    27.0 dB                         rx60.comm_asada2011 [spec]
-  noise figure             3.5 dB                     6.1 dB                          rx60.comm_asada2011 [spec]
-  IIP3                     -20.0 dBm                  -20.0 dBm                       rx60.comm_asada2011 [spec]
-  input P1dB, in band      -29.6 dBm                  -29.6 dBm                       assumed.rx60_p1db_from_iip3_db [assumed]
-  input P1dB, out of band  not specified              not specified                   no communication paper read gives it
-  gain states              8 (down to -5 dB)          8 (down to -15 dB)              assumed.rx60_ladder_shape [assumed]
-TX antenna gain            0.0 dBi                    2.0 dBi                         rx60.comm_asada2011 [spec]
-RX antenna gain            0.0 dBi (the TX antenna)   2.0 dBi                         rx60.comm_asada2011 [spec]
-TX-RX isolation            not specified              20.0 dB                         isolation.tx_rx_tue2018 [spec]
-the surveyed IIP3 happens to equal the WiFi 7 ladder's top state's: the compression rows are the same for both, by coincidence of the two figures
+== 1. the faces: the WiFi 7 ladder (config.wifi7_rx_ladder, the presets until 2026-11-18), the preset, config.surveyed_frontend ==
+face                       WiFi 7 ladder            preset                          surveyed                        60 GHz figure from
+receive front end          wifi7_ladder             anchored                        anchored                        assumed.rx60_ladder_shape [assumed]
+  a 60 GHz figure?         no                       yes: nf_db, iip3_dbm, gain_db   yes: nf_db, iip3_dbm, gain_db   assumed.preset_rx_front [assumed], assumed.frontend_faces_pick [assumed]
+  gain, max state          37.0 dB                  27.0 dB                         27.0 dB                         rx60.comm_asada2011 [spec]
+  noise figure             3.5 dB                   6.1 dB                          6.1 dB                          rx60.comm_asada2011 [spec]
+  IIP3                     -20.0 dBm                -20.0 dBm                       -20.0 dBm                       rx60.comm_asada2011 [spec]
+  input P1dB, in band      -29.6 dBm                -29.6 dBm                       -29.6 dBm                       assumed.rx60_p1db_from_iip3_db [assumed]
+  input P1dB, out of band  not specified            not specified                   not specified                   no communication paper read gives it
+  gain states              8 (down to -5 dB)        8 (down to -15 dB)              8 (down to -15 dB)              assumed.rx60_ladder_shape [assumed]
+TX antenna gain            0.0 dBi                  0.0 dBi                         2.0 dBi                         rx60.comm_asada2011 [spec]
+RX antenna gain            0.0 dBi (the TX antenna) 0.0 dBi (the TX antenna)        2.0 dBi                         rx60.comm_asada2011 [spec]
+TX-RX isolation            not specified            not specified                   20.0 dB                         isolation.tx_rx_tue2018 [spec]
+the presets carry the receive front end of the three faces; the antenna gains and the isolation are config.surveyed_frontend's
+the 60 GHz IIP3 happens to equal the WiFi 7 ladder's top state's: the compression rows are the same for both, by coincidence of the two figures
 
 == 2. what the receive noise figure moves (IIP3 kept at -20 dBm) ==
 sensitivity = the receiver input for the measured PER 1e-2 threshold of this receiver (MCS 0: 2.16 dB, MCS 4: 14.33 dB per active tone; no implementation loss added)
 link EVM = time-domain, flat channel, SNR 10 dB per active tone; calibration = wifitrx's sequence, profile poweron, final check at the preset PA back-off (7.5 dB from psat)
 receive front end                        NF  sens MCS0  sens MCS4  link EVM  cal RX NF  loopback  TX alone  RX alone   figure from
-WiFi 7 chip ladder (the presets)        3.5      -86.9      -74.7     -9.26       11.2     -22.1     -21.4     -27.5   wifitrx DEFAULT_LNA_STATES
-60 GHz comm. transceiver, 65 nm         6.1      -84.3      -72.1     -9.26       13.4     -22.0     -21.4     -27.5   rx60.comm_asada2011 [spec]
+WiFi 7 chip ladder (until 2026-11-18)   3.5      -86.9      -74.7     -9.26       11.2     -22.1     -21.4     -27.5   wifitrx DEFAULT_LNA_STATES
+60 GHz comm. transceiver (the presets)   6.1      -84.3      -72.1     -9.26       13.4     -22.0     -21.4     -27.5   rx60.comm_asada2011 [spec]
 60 GHz comm. receiver, 90 nm, DSB       7.1      -83.3      -71.1     -9.26       14.4     -21.9     -21.4     -27.4   rx60.comm_iscas2015 [spec]
   the same, single sideband            10.1      -80.3      -68.1     -9.26       17.2     -21.6     -21.4     -27.4   rx60.comm_iscas2015 [spec] + assumed.rx_nf_dsb_to_ssb_db [assumed]
 802.11ad sensitivity-table receiver    10.0      -80.4      -68.2     -9.26       17.1     -21.6     -21.4     -27.4   dmg.sensitivity_assumptions [spec]
@@ -56,8 +57,8 @@ the isolation figures are isolation.tx_rx_tue2018 [spec]: one abstract; the 20 a
 (dBi, dBm, dB, dB, dB; path loss = PA output + TX gain + RX gain − sensitivity -84.3 dBm, the surveyed receive front end; one element each end, no array gain — milestone 2)
 
 == 5. topology A's receive face: the 60 GHz LNA / mixer ahead of the chip (assumed.ifext_rx_front60) ==
-topology A (11be 80 MHz): sensitivity at MCS 0, preset -92.4 dBm (noise figure 3.50 dB), surveyed front end -89.8 dBm (6.10 dB), difference 2.60 dB
-topology B (this example's 11ac 20 MHz x 8): preset -86.9 dBm, surveyed front end -84.3 dBm, difference 2.60 dB
-with a 60 GHz front end, topology A puts its maximum-gain state ahead of the chip (gain 27 dB, NF 6.1 dB, IIP3 -20 dBm) and cascades the chip's ladder behind it (Friis); the preset's WiFi 7 ladder is the chip's own and is not put in front of it twice
+topology A (11be 80 MHz): sensitivity at MCS 0, WiFi 7 ladder -92.4 dBm (noise figure 3.50 dB), preset -89.8 dBm (6.10 dB), difference 2.60 dB
+topology B (this example's 11ac 20 MHz x 8): WiFi 7 ladder -86.9 dBm, preset -84.3 dBm, difference 2.60 dB
+the preset's 60 GHz front end: topology A puts its maximum-gain state ahead of the chip (gain 27 dB, NF 6.1 dB, IIP3 -20 dBm) and cascades the chip's ladder behind it (Friis); a WiFi 7 ladder is the chip's own and is not put in front of it twice
 
 [~s]

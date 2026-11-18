@@ -3,54 +3,54 @@ mmw60 0.2.0; full size; topology A changes digital baseband only: the analog is 
 
 == 1. one analog channel, the subcarrier spacing set by the base PHY (flat channel; floor / TD in dB; caps: 802.11ad TX-EVM limit / the decoder) ==
 scheme               chan[M]   SCS[k]  pn ICI  floor     TD   cap   Mb/s   pJ/b   dec   Mb/s   pJ/b  dominant
-A 11be 320M              320     78.1   -25.0  -19.5  -20.0  MCS3    576   1718  MCS5   1153    865  pa
-A 11be 80M x4            320    312.5   -25.3  -19.6  -20.5  MCS3    576   1715  MCS5   1153    863  pa
+A 11be 320M              320     78.1   -25.0  -19.5  -19.8  MCS3    576   1718  MCS5   1153    865  pa
+A 11be 80M x4            320    312.5   -25.3  -19.6  -20.2  MCS3    576   1715  MCS5   1153    863  pa
 B 11be 80M x4            320    312.5   -25.4  -18.5  -18.9  MCS2    432    932  MCS5   1153    361  pa
-A 11be 40M x8            320    625.0   -25.7  -19.7  -20.5  MCS3    551   1793  MCS6   1239    801  pa
+A 11be 40M x8            320    625.0   -25.7  -19.7  -20.3  MCS3    551   1793  MCS6   1239    801  pa
 B 11be 40M x8            320    625.0   -25.8  -18.7  -19.1  MCS2    413    973  MCS5   1101    376  pa
-A 11be 20M x16           320   1250.0   -26.4  -19.9  -20.8  MCS3    551   1791  MCS6   1239    800  pa
+A 11be 20M x16           320   1250.0   -26.4  -19.9  -20.5  MCS3    551   1791  MCS6   1239    800  pa
 B 11be 20M x16           320   1250.0   -26.6  -18.8  -19.1  MCS2    413    970  MCS5   1101    375  pa
-A 11ac 20M x16           320   5000.0   -29.5  -20.4  -20.9  MCS3    416   2344  MCS4    624   1566  pa
+A 11ac 20M x16           320   5000.0   -29.5  -20.4  -20.6  MCS3    416   2344  MCS4    624   1566  pa
 B 11ac 20M x16           320   5000.0   -29.8  -19.3  -19.1  MCS3    416    952  MCS4    624    638  pa
-A 11ac 20M x8            160   2500.0   -27.9  -20.2  -20.7  MCS3    208   3847  MCS4    312   2568  pa
+A 11ac 20M x8            160   2500.0   -27.9  -20.2  -20.4  MCS3    208   3847  MCS4    312   2568  pa
 B 11ac 20M x8            160   2500.0   -28.0  -19.9  -19.1  MCS3    208   1554  MCS4    312   1039  pa
-A 11ac 20M x4             80   1250.0   -26.6  -20.0  -20.4  MCS3    104   6653  MCS4    156   4439  pa
+A 11ac 20M x4             80   1250.0   -26.6  -20.0  -20.1  MCS3    104   6653  MCS4    156   4439  pa
 B 11ac 20M x4             80   1250.0   -26.7  -19.7  -19.3  MCS3    104   2624  MCS4    156   1753  pa
 A = the chip's analog at its native channel, digital at K x; B = topology B's zero-IF chain at fs x K (uncalibrated IQ in its floor; its calibrated cap is the comparison table's IQcal column)
 
 == 2. CFO (iron rule 3): 40 ppm at 60.48 GHz = 2.42 MHz against the chip's own L-STF (+-625 kHz x K), with and without the multi-link pre-compensation (link EVM at SNR 30 dB, 4 packets) ==
 scheme                 K  L-STF range  CFO [sc]  caught w/o MLO  EVM MLO on  EVM MLO off  |CFO err| off
-A 11be 320M            1     0.625 MHz     30.97              NO      -19.73         4.77     2500.1 kHz
-A 11be 80M x4          4     2.500 MHz      7.74             yes      -19.94       -19.99        1.0 kHz
-A 11be 40M x8          8     5.000 MHz      3.87             yes      -20.07       -20.09        4.3 kHz
-A 11be 20M x16        16    10.000 MHz      1.94             yes      -20.12       -20.04       10.3 kHz
-A 11ac 20M x16        16    10.000 MHz      0.48             yes      -20.05       -20.19       51.0 kHz
-A 11ac 20M x8          8     5.000 MHz      0.97             yes      -19.80       -19.91       27.9 kHz
-A 11ac 20M x4          4     2.500 MHz      1.94             yes      -19.44       -19.70       11.8 kHz
+A 11be 320M            1     0.625 MHz     30.97              NO      -19.46         3.16     2499.9 kHz
+A 11be 80M x4          4     2.500 MHz      7.74             yes      -19.69       -19.65        1.6 kHz
+A 11be 40M x8          8     5.000 MHz      3.87             yes      -19.76       -19.79        2.6 kHz
+A 11be 20M x16        16    10.000 MHz      1.94             yes      -19.98       -19.76        9.1 kHz
+A 11ac 20M x16        16    10.000 MHz      0.48             yes      -19.92       -20.12       33.2 kHz
+A 11ac 20M x8          8     5.000 MHz      0.97             yes      -19.89       -20.02       17.3 kHz
+A 11ac 20M x4          4     2.500 MHz      1.94             yes      -19.47       -19.61        7.5 kHz
 MLO on: the sub-7 estimate x f_c / f_sub7 is taken out first (the preset); MLO off: the raw offset reaches the chip's L-STF / L-LTF.  K = 4 at 60.48 GHz leaves 3 % of range (2.50 against 2.42 MHz); at Liu's 73.44 GHz (2.94 MHz) it would need K >= 8
 
 == 2b. how often the CFO is lost (K = 4 / 8; 400 packets of 64 B per cell; lost = |CFO error| beyond half a subcarrier, which the L-LTF cannot take back) ==
 scheme                 K channel         offset    margin  SNR  beyond range  95 % upper  hand-off  rms err (kept)
-A 11be 80M x4          4 flat          2.42 MHz    81 kHz    0     4/400        2.54 %    0/400          2.2 kHz
+A 11be 80M x4          4 flat          2.42 MHz    81 kHz    0     0/400        0.92 %    0/400          2.4 kHz
 A 11be 80M x4          4 flat          2.42 MHz    81 kHz    3     0/400        0.92 %    0/400          1.8 kHz
 A 11be 80M x4          4 flat          2.42 MHz    81 kHz   10     0/400        0.92 %    0/400          1.3 kHz
-A 11be 80M x4          4 flat          0.00 MHz  2500 kHz    0     0/400        0.92 %    0/400          2.3 kHz
-A 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz    0     3/400        2.18 %    0/400          2.3 kHz
+A 11be 80M x4          4 flat          0.00 MHz  2500 kHz    0     0/400        0.92 %    0/400          2.4 kHz
+A 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz    0     0/400        0.92 %    0/400          2.3 kHz
 A 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz    3     0/400        0.92 %    0/400          1.7 kHz
-A 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz   10     0/400        0.92 %    0/400          1.3 kHz
+A 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz   10     0/400        0.92 %    0/400          1.4 kHz
 B 11be 80M x4          4 flat          2.42 MHz    81 kHz    0     1/400        1.38 %    0/400          2.3 kHz
 B 11be 80M x4          4 flat          2.42 MHz    81 kHz    3     0/400        0.92 %    0/400          1.7 kHz
 B 11be 80M x4          4 flat          2.42 MHz    81 kHz   10     0/400        0.92 %    0/400          1.2 kHz
 B 11be 80M x4          4 flat          0.00 MHz  2500 kHz    0     0/400        0.92 %    0/400          2.2 kHz
-B 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz    0     2/400        1.79 %    0/400          2.3 kHz
+B 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz    0     1/400        1.38 %    0/400          2.3 kHz
 B 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz    3     0/400        0.92 %    0/400          1.7 kHz
 B 11be 80M x4          4 CR stand-in   2.42 MHz    81 kHz   10     0/400        0.92 %    0/400          1.3 kHz
-A 11be 40M x8          8 flat          2.42 MHz  2581 kHz    0     0/400        0.92 %    2/400          6.3 kHz
+A 11be 40M x8          8 flat          2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400          6.5 kHz
 A 11be 40M x8          8 flat          2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400          4.7 kHz
 A 11be 40M x8          8 flat          2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400          3.5 kHz
-A 11be 40M x8          8 flat          0.00 MHz  5000 kHz    0     0/400        0.92 %    1/400          6.6 kHz
-A 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400          6.9 kHz
-A 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400          4.8 kHz
+A 11be 40M x8          8 flat          0.00 MHz  5000 kHz    0     0/400        0.92 %    1/400          6.5 kHz
+A 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400          6.0 kHz
+A 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400          5.0 kHz
 A 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400          3.7 kHz
 B 11be 40M x8          8 flat          2.42 MHz  2581 kHz    0     0/400        0.92 %    1/400          6.4 kHz
 B 11be 40M x8          8 flat          2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400          4.9 kHz
@@ -59,13 +59,13 @@ B 11be 40M x8          8 flat          0.00 MHz  5000 kHz    0     0/400        
 B 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400          6.7 kHz
 B 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400          4.9 kHz
 B 11be 40M x8          8 CR stand-in   2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400          3.7 kHz
-A 11ac 20M x8          8 flat          2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400         72.1 kHz
-A 11ac 20M x8          8 flat          2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400         45.8 kHz
-A 11ac 20M x8          8 flat          2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400         23.9 kHz
-A 11ac 20M x8          8 flat          0.00 MHz  5000 kHz    0     0/400        0.92 %    0/400         73.6 kHz
-A 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400         71.8 kHz
-A 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400         45.6 kHz
-A 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400         26.6 kHz
+A 11ac 20M x8          8 flat          2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400         68.1 kHz
+A 11ac 20M x8          8 flat          2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400         48.7 kHz
+A 11ac 20M x8          8 flat          2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400         24.7 kHz
+A 11ac 20M x8          8 flat          0.00 MHz  5000 kHz    0     0/400        0.92 %    0/400         69.6 kHz
+A 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400         66.5 kHz
+A 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400         42.8 kHz
+A 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400         25.5 kHz
 B 11ac 20M x8          8 flat          2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400         68.8 kHz
 B 11ac 20M x8          8 flat          2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400         43.9 kHz
 B 11ac 20M x8          8 flat          2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400         24.8 kHz
@@ -73,19 +73,19 @@ B 11ac 20M x8          8 flat          0.00 MHz  5000 kHz    0     0/400        
 B 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz    0     0/400        0.92 %    0/400         67.2 kHz
 B 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz    3     0/400        0.92 %    0/400         45.2 kHz
 B 11ac 20M x8          8 CR stand-in   2.42 MHz  2581 kHz   10     0/400        0.92 %    0/400         26.2 kHz
-A 11ac 20M x4          4 flat          2.42 MHz    81 kHz    0    46/400       15.04 %    0/400         35.3 kHz
-A 11ac 20M x4          4 flat          2.42 MHz    81 kHz    3     2/400        1.79 %    0/400         23.6 kHz
-A 11ac 20M x4          4 flat          2.42 MHz    81 kHz   10     0/400        0.92 %    0/400         11.1 kHz
-A 11ac 20M x4          4 flat          0.00 MHz  2500 kHz    0     0/400        0.92 %    0/400         36.9 kHz
-A 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz    0    27/400        9.67 %    0/400         33.0 kHz
-A 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz    3     4/400        2.54 %    0/400         22.5 kHz
-A 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz   10     0/400        0.92 %    0/400         11.9 kHz
+A 11ac 20M x4          4 flat          2.42 MHz    81 kHz    0    57/400       18.07 %    0/400         33.7 kHz
+A 11ac 20M x4          4 flat          2.42 MHz    81 kHz    3     5/400        2.89 %    0/400         23.7 kHz
+A 11ac 20M x4          4 flat          2.42 MHz    81 kHz   10     0/400        0.92 %    0/400         10.8 kHz
+A 11ac 20M x4          4 flat          0.00 MHz  2500 kHz    0     0/400        0.92 %    0/400         34.3 kHz
+A 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz    0    45/400       14.76 %    0/400         32.0 kHz
+A 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz    3     5/400        2.89 %    0/400         22.3 kHz
+A 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz   10     0/400        0.92 %    0/400         12.6 kHz
 B 11ac 20M x4          4 flat          2.42 MHz    81 kHz    0    45/400       14.76 %    0/400         35.7 kHz
 B 11ac 20M x4          4 flat          2.42 MHz    81 kHz    3     2/400        1.79 %    0/400         22.3 kHz
 B 11ac 20M x4          4 flat          2.42 MHz    81 kHz   10     0/400        0.92 %    0/400         11.7 kHz
 B 11ac 20M x4          4 flat          0.00 MHz  2500 kHz    0     0/400        0.92 %    0/400         32.9 kHz
 B 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz    0    45/400       14.76 %    0/400         33.5 kHz
-B 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz    3     4/400        2.54 %    0/400         23.0 kHz
+B 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz    3     5/400        2.89 %    0/400         23.0 kHz
 B 11ac 20M x4          4 CR stand-in   2.42 MHz    81 kHz   10     0/400        0.92 %    0/400         12.0 kHz
 offset = what reaches the chip without the multi-link pre-compensation (40 ppm at 60.48 GHz; 0.00 = the estimators on no offset at all, as behind a perfect pre-compensation; B rows: what reaches topology B's receiver, which has no pre-compensation, on the shared front end); margin = the L-STF's range (+-625 kHz x K) minus it; beyond range = the L-STF folded the offset (95 % upper: Clopper-Pearson on those counts); hand-off = the L-STF's noisy coarse estimate missed by more than half a subcarrier and the L-LTF locked one subcarrier off — STF and LTF scale together with K, so that is the estimator pair's low-SNR behaviour at any K
 

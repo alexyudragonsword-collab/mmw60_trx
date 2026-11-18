@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.2.0; full size; one Frontend60 at every element: PA Pout 7.1 dBm (back-off 7.5 dB from Psat), receive NF 3.5 dB, element 0 dBi; EIRP limit 40 dBm avg (FCC 15.255)
+mmw60 0.2.0; full size; one Frontend60 at every element: PA Pout 7.1 dBm (back-off 7.5 dB from Psat), receive NF 6.1 dB, element 0 dBi; EIRP limit 40 dBm avg (FCC 15.255)
 arrays: n x 1 at both ends, 0.5 lambda, element factor cos, 3-bit phase shifters, element errors {'gain_db_rms': 0.5, 'phase_deg_rms': 5.0}; line of sight at the carrier, free space plus 15 dB/km oxygen absorption (an estimate)
 
 == 1. the array's faces (beam at broadside unless stated; dB) ==
@@ -12,34 +12,34 @@ TX gain = EIRP over one element's output (20 log10 N + element); RX gain = SNR g
 
 == 2. the EIRP limit and the per-element operating point; 3. the data link (largest path loss, dB) ==
 scheme                       N     Pe    OBO  PA EVM   EIRP   G_rx  floor   cap  PL MCS0  PL cap  d MCS0 [m]  d cap [m]
-B 11be 80M x4 (320 MHz)      1    7.1   7.50   -21.1    7.1    0.0  -18.5  MCS5     93.4    74.9          18          2
-B 11be 80M x4 (320 MHz)      4    7.1   7.50   -21.1   19.2    5.7  -18.5  MCS5    111.2    92.7         117         16
-B 11be 80M x4 (320 MHz)     16    7.1   7.50   -21.1   31.0   12.3  -18.5  MCS5    129.6   111.1         502        116
-B 11be 80M x4 (320 MHz)     64    3.9  10.74   -27.8   40.0   18.0  -21.0  MCS6    144.3   124.9        1052        368
-B 11ac 20M x8 (160 MHz)      1    7.1   7.50   -21.1    7.1    0.0  -19.9  MCS4     93.9    80.4          19          4
-B 11ac 20M x8 (160 MHz)      4    7.1   7.50   -21.1   19.2    5.7  -19.9  MCS4    111.7    98.2         123         30
-B 11ac 20M x8 (160 MHz)     16    7.1   7.50   -21.1   31.0   12.3  -19.9  MCS4    130.1   116.6         517        191
-B 11ac 20M x8 (160 MHz)     64    3.9  10.74   -27.8   40.0   18.0  -23.8  MCS6    144.8   124.1        1074        346
-A 11be 80M (IF extender)     1    7.1   7.50   -21.1    7.1    0.0  -19.6  MCS5     99.4    81.6          35          5
-A 11be 80M (IF extender)     4    7.1   7.50   -21.1   19.2    5.7  -19.6  MCS5    117.2    99.4         202         35
-A 11be 80M (IF extender)    16    7.1   7.50   -21.1   31.0   12.3  -19.6  MCS5    135.6   117.9         706        213
-A 11be 80M (IF extender)    64    3.9  10.74   -27.8   40.0   18.0  -23.1  MCS7    150.3   129.3        1322        493
+B 11be 80M x4 (320 MHz)      1    7.1   7.50   -21.1    7.1    0.0  -18.5  MCS5     90.8    72.3          13          2
+B 11be 80M x4 (320 MHz)      4    7.1   7.50   -21.1   19.2    5.7  -18.5  MCS5    108.6    90.1          91         12
+B 11be 80M x4 (320 MHz)     16    7.1   7.50   -21.1   31.0   12.3  -18.5  MCS5    127.0   108.5         425         90
+B 11be 80M x4 (320 MHz)     64    3.9  10.74   -27.8   40.0   18.0  -21.0  MCS6    141.7   122.3         943        304
+B 11ac 20M x8 (160 MHz)      1    7.1   7.50   -21.1    7.1    0.0  -19.9  MCS4     91.3    77.8          14          3
+B 11ac 20M x8 (160 MHz)      4    7.1   7.50   -21.1   19.2    5.7  -19.9  MCS4    109.1    95.6          95         23
+B 11ac 20M x8 (160 MHz)     16    7.1   7.50   -21.1   31.0   12.3  -19.9  MCS4    127.5   114.0         439        152
+B 11ac 20M x8 (160 MHz)     64    3.9  10.74   -27.8   40.0   18.0  -23.8  MCS6    142.2   121.5         964        285
+A 11be 80M (IF extender)     1    7.1   7.50   -21.1    7.1    0.0  -19.6  MCS5     96.8    79.0          26          4
+A 11be 80M (IF extender)     4    7.1   7.50   -21.1   19.2    5.7  -19.6  MCS5    114.6    96.8         161         26
+A 11be 80M (IF extender)    16    7.1   7.50   -21.1   31.0   12.3  -19.6  MCS5    133.0   115.3         614        170
+A 11be 80M (IF extender)    64    3.9  10.74   -27.8   40.0   18.0  -23.1  MCS7    147.7   126.7        1203        417
 Pe / OBO: the per-element output and its back-off from Psat (the front end's 7.5 dB unless the EIRP limit asks for more); PL = EIRP + G_rx - sensitivity at the MCS's required SNR over the floor; d = the distance of that path loss at 60.48 GHz: free space plus 15 dB/km oxygen (an estimate; 3b)
 
 == 3b. sensitivity: the MCS0 distance (m) at other oxygen absorptions (the path loss does not move) ==
 scheme                       N  PL MCS0    0 dB/km   10 dB/km   15 dB/km   20 dB/km
-B 11be 80M x4 (320 MHz)      1     93.4         18         18         18         18
-B 11be 80M x4 (320 MHz)      4    111.2        143        124        117        111
-B 11be 80M x4 (320 MHz)     16    129.6       1193        599        502        437
-B 11be 80M x4 (320 MHz)     64    144.3       6474       1357       1052        871
-B 11ac 20M x8 (160 MHz)      1     93.9         19         19         19         19
-B 11ac 20M x8 (160 MHz)      4    111.7        151        130        123        116
-B 11ac 20M x8 (160 MHz)     16    130.1       1262        619        517        449
-B 11ac 20M x8 (160 MHz)     64    144.8       6865       1388       1074        888
-A 11be 80M (IF extender)     1     99.4         37         35         35         34
-A 11be 80M (IF extender)     4    117.2        287        222        202        187
-A 11be 80M (IF extender)    16    135.6       2389        874        706        600
-A 11be 80M (IF extender)    64    150.3      12966       1743       1322       1080
+B 11be 80M x4 (320 MHz)      1     90.8         14         13         13         13
+B 11be 80M x4 (320 MHz)      4    108.6        106         95         91         87
+B 11be 80M x4 (320 MHz)     16    127.0        884        498        425        374
+B 11be 80M x4 (320 MHz)     64    141.7       4800       1202        943        786
+B 11ac 20M x8 (160 MHz)      1     91.3         14         14         14         14
+B 11ac 20M x8 (160 MHz)      4    109.1        112        100         95         91
+B 11ac 20M x8 (160 MHz)     16    127.5        935        516        439        385
+B 11ac 20M x8 (160 MHz)     64    142.2       5089       1232        964        802
+A 11be 80M (IF extender)     1     96.8         27         27         26         26
+A 11be 80M (IF extender)     4    114.6        212        174        161        150
+A 11be 80M (IF extender)    16    133.0       1770        748        614        527
+A 11be 80M (IF extender)    64    147.7       9609       1572       1203        988
 0 dB/km = free space alone; 15 dB/km is the preset (the round figure for the absorption peak near 60 GHz at sea level, no original consulted: ROADMAP B)
 
 == 3c. power per link direction at the decoder cap: N PAs at the per-element output, one phase shifter per element and side (15 mW, assumed; none at N = 1), the rest as the single-element column ==
@@ -61,46 +61,46 @@ PA = N_tx x Pout / PAE(Pout) at the per-element output (class-B law; the EIRP li
 == 3d. the two 802.11ay waveforms (topology B, EDMG channel 2) on the same arrays and front end: floors on the chain wifitrx's sequence calibrated at each per-element back-off; thresholds measured with spec_sources#33's codes (data/spec/ay_per_thresholds.yaml; SC MCS 1's repetition and OFDM's DCM through spec_sources#43); the decoder cap by the be rows' rule ==
 each element at the shared preset back-off, and at the waveform's own operating point — the preset rule (the PA alone at the 802.11ad 16-QAM 3/4 TX EVM limit) on its own 16-QAM payload (assumed.ay_operating_point): ay_sc 3.97 dB (the PA alone at the preset 7.5 dB: -28.4 dB); ay_ofdm 7.02 dB (the PA alone at the preset 7.5 dB: -21.9 dB)
 waveform point    N     Pe    OBO  PA EVM   EIRP   G_rx  floor   cap   Mb/s  d MCS1  d 16Q3/4   d cap   pJ/b  mp 16Q3/4
-ay_sc    preset   1    7.1   7.50   -28.4    7.1    0.0  -24.3 MCS21   8085       8         2       1    108          1
-ay_sc    preset   4    7.1   7.50   -28.4   19.2    5.7  -24.3 MCS21   8085      58        13       4    151         11
-ay_sc    preset  16    7.1   7.50   -28.4   31.0   12.3  -24.3 MCS21   8085     310        94      33    306         84
-ay_sc    preset  64    3.9  10.74   -35.3   40.0   18.0  -26.4 MCS21   8085     765       337     161    743        311
-ay_sc    own      1   10.6   3.97   -21.0   10.6    0.0  -19.3 MCS18   5775      12         2       1    158          2
-ay_sc    own      4   10.6   3.97   -21.0   22.7    5.7  -19.3 MCS18   5775      83        18      10    237         16
-ay_sc    own     16   10.6   3.97   -21.0   34.6   12.3  -19.3 MCS18   5775     399       125      76    532        111
-ay_sc    own     64    3.9  10.74   -35.3   40.0   18.0  -26.4 MCS21   8085     765       337     161    743        311
-ay_ofdm  preset   1    7.1   7.50   -21.9    7.1    0.0  -21.0 MCS18   6565       7         2       1    135          1
-ay_ofdm  preset   4    7.1   7.50   -21.9   19.2    5.7  -21.0 MCS18   6565      47        12       5    188         11
-ay_ofdm  preset  16    7.1   7.50   -21.9   31.0   12.3  -21.0 MCS18   6565     269        88      39    379         80
-ay_ofdm  preset  64    3.9  10.74   -28.0   40.0   18.0  -25.3 MCS20   7659     697       329     149    787        308
-ay_ofdm  own      1    7.6   7.02   -21.0    7.6    0.0  -20.3 MCS17   5471       7         2       1    163          1
-ay_ofdm  own      4    7.6   7.02   -21.0   19.7    5.7  -20.3 MCS17   5471      50        13       7    228         11
-ay_ofdm  own     16    7.6   7.02   -21.0   31.5   12.3  -20.3 MCS17   5471     279        91      57    467         82
-ay_ofdm  own     64    3.9  10.74   -28.0   40.0   18.0  -25.3 MCS20   7659     697       329     149    787        308
+ay_sc    preset   1    7.1   7.50   -28.4    7.1    0.0  -24.4 MCS21   8085       6         1       0    108          1
+ay_sc    preset   4    7.1   7.50   -28.4   19.2    5.7  -24.4 MCS21   8085      44        10       3    151          8
+ay_sc    preset  16    7.1   7.50   -28.4   31.0   12.3  -24.4 MCS21   8085     253        72      25    306         64
+ay_sc    preset  64    3.9  10.74   -35.3   40.0   18.0  -26.4 MCS21   8085     669       277     127    743        254
+ay_sc    own      1   10.6   3.97   -21.0   10.6    0.0  -19.3 MCS18   5775       9         2       1    158          2
+ay_sc    own      4   10.6   3.97   -21.0   22.7    5.7  -19.3 MCS18   5775      63        14       8    237         12
+ay_sc    own     16   10.6   3.97   -21.0   34.6   12.3  -19.3 MCS18   5775     332        97      58    532         86
+ay_sc    own     64    3.9  10.74   -35.3   40.0   18.0  -26.4 MCS21   8085     669       277     127    743        254
+ay_ofdm  preset   1    7.1   7.50   -21.9    7.1    0.0  -21.0 MCS18   6565       5         1       0    135          1
+ay_ofdm  preset   4    7.1   7.50   -21.9   19.2    5.7  -21.0 MCS18   6565      36         9       4    188          8
+ay_ofdm  preset  16    7.1   7.50   -21.9   31.0   12.3  -21.0 MCS18   6565     218        68      30    379         61
+ay_ofdm  preset  64    3.9  10.74   -28.0   40.0   18.0  -25.2 MCS20   7659     605       270     117    787        252
+ay_ofdm  own      1    7.6   7.02   -21.0    7.6    0.0  -20.3 MCS17   5471       5         1       1    163          1
+ay_ofdm  own      4    7.6   7.02   -21.0   19.7    5.7  -20.3 MCS17   5471      38         9       5    228          8
+ay_ofdm  own     16    7.6   7.02   -21.0   31.5   12.3  -20.3 MCS17   5471     227        70      43    467         63
+ay_ofdm  own     64    3.9  10.74   -28.0   40.0   18.0  -25.2 MCS20   7659     605       270     117    787        252
 PA EVM = the PA alone on the waveform's 16-QAM payload at the per-element back-off; floor = the cap MCS's constellation on the calibrated chain; d = metres (free space plus oxygen) at MCS1 (the slowest), at 16-QAM 3/4 (SC MCS14 / OFDM MCS13) and at the cap; pJ/b at the cap as in 3c.  Every MCS of both waveforms has a threshold measured the same way (cairn/ay.md 9d).  mp 16Q3/4 = the 16-QAM 3/4 distance with the threshold of the CR stand-in (rms 7 ns): SC's measured there (data/spec/ay_per_thresholds.yaml, multipath), OFDM's its flat one plus 0.85 dB (assumed.ay_ofdm_multipath_margin_db: the 16 / 64-QAM interleaver permutation is not public); the cap and every other column stay on the flat thresholds
 
 the smallest array that reaches the EIRP limit (40 dBm) at each operating point, and its cost (PA = N x Pout / PAE; PS = 2N x 15 mW; d and pJ/b at 16-QAM 3/4):
 waveform point     OBO    N     Pe  PAE %   PA mW   PS mW   G_rx  d MCS1  d 16Q3/4   pJ/b  mp 16Q3/4
-ay_sc    preset   7.50   45   6.96    6.8    3304    1350  16.48     709       299   1181        275
-ay_sc    own      3.97   30  10.54   10.2    3325     900  14.85     650       253   1088        228
-ay_ofdm  preset   7.50   45   6.96    6.8    3304    1350  16.48     642       286   1250        265
-ay_ofdm  own      7.02   43   7.37    7.1    3308    1290  16.32     636       280   1237        259
+ay_sc    preset   7.50   45   6.96    6.8    3304    1350  16.48     616       244   1181        223
+ay_sc    own      3.97   30  10.54   10.2    3325     900  14.85     561       204   1088        183
+ay_ofdm  preset   7.50   45   6.96    6.8    3304    1350  16.48     554       233   1250        214
+ay_ofdm  own      7.02   43   7.37    7.1    3308    1290  16.32     549       228   1237        209
 at the limit the PA's DC power hardly moves with the operating point: fewer elements at a smaller back-off, each at a higher PAE (the class-B law: PAE grows with the output amplitude), the product constant; what the smaller back-off saves is elements — phase shifters, area — and what it costs is receive gain (the same array at both ends, a TDD link)
 
 == 4. beam training, MLO-triggered: training field GI2 + 2 L-LTF symbols of the base PHY, upclocked, estimator noncoherent_tones, a pick within 1 dB of the best sector in 99 % of sweeps ==
 scheme                       N  tones  req TX  req RX  PL TXSS  PL RXSS  TXSS-MCS0  TXSS-cap  sweep [us]
 B 11be 80M x4 (320 MHz)      1    996       —       —        —        —          —         —           —   (one sector: no sweep)
-B 11be 80M x4 (320 MHz)      4    996    -9.5   -10.0    114.3    120.4       +3.1     +21.6        55.2
-B 11be 80M x4 (320 MHz)     16    996   -10.5   -10.5    127.1    139.4       -2.5     +16.0       220.8
-B 11be 80M x4 (320 MHz)     64    996   -10.0   -10.0    135.5    153.5       -8.8     +10.6       883.2
+B 11be 80M x4 (320 MHz)      4    996    -9.5   -10.0    111.7    117.8       +3.1     +21.6        55.2
+B 11be 80M x4 (320 MHz)     16    996   -10.5   -10.5    124.5    136.8       -2.5     +16.0       220.8
+B 11be 80M x4 (320 MHz)     64    996   -10.0   -10.0    132.9    150.9       -8.8     +10.6       883.2
 B 11ac 20M x8 (160 MHz)      1     56       —       —        —        —          —         —           —   (one sector: no sweep)
-B 11ac 20M x8 (160 MHz)      4     56    -1.5    -2.0    109.7    115.9       -2.0     +11.6         8.8
-B 11ac 20M x8 (160 MHz)     16     56    -3.0    -3.0    123.1    135.3       -7.0      +6.5        35.2
-B 11ac 20M x8 (160 MHz)     64     56    -2.5    -2.5    131.5    149.5      -13.3      +7.5       140.8
+B 11ac 20M x8 (160 MHz)      4     56    -1.5    -2.0    107.1    113.3       -2.0     +11.6         8.8
+B 11ac 20M x8 (160 MHz)     16     56    -3.0    -3.0    120.5    132.7       -7.0      +6.5        35.2
+B 11ac 20M x8 (160 MHz)     64     56    -2.5    -2.5    128.9    146.9      -13.3      +7.5       140.8
 A 11be 80M (IF extender)     1    996       —       —        —        —          —         —           —   (one sector: no sweep)
-A 11be 80M (IF extender)     4    996    -9.5   -10.0    120.3    126.5       +3.1     +20.8       218.4
-A 11be 80M (IF extender)    16    996   -10.5   -10.5    133.1    145.4       -2.5     +15.3       873.6
-A 11be 80M (IF extender)    64    996   -10.0   -10.0    141.6    159.6       -8.8     +12.2      3494.4
+A 11be 80M (IF extender)     4    996    -9.5   -10.0    117.7    123.9       +3.1     +20.8       218.4
+A 11be 80M (IF extender)    16    996   -10.5   -10.5    130.5    142.8       -2.5     +15.3       873.6
+A 11be 80M (IF extender)    64    996   -10.0   -10.0    139.0    157.0       -8.8     +12.2      3494.4
 req = per-tone SNR of the best sector the sweep needs (dB); PL TXSS = the path loss the transmit sweep takes with the far end on one element, PL RXSS = the receive sweep behind the chosen transmit beam; TXSS - MCS0 / cap: positive = the training reaches further than that data rate; sweep = transmit + receive sweep, one direction
 
 == 4b. the transmit sweep's training field repeated R times per sector until it reaches the MCS0 edge (R a power of two up to 256; noncoherent across repetitions = the preset, coherent = a sensitivity, an optimistic bound) ==
@@ -118,26 +118,26 @@ R = the fewest repetitions at which the transmit sweep (far end on one element) 
 
 == 4c. a two-stage transmit sweep at N = 64: the first m elements' wide sectors, then the full array inside the chosen one (the ceil(N/m) narrow sectors with the most gain toward the station), each stage repeated until it reaches the target alone (noncoherent); against the flat sweep of 4b ==
 scheme                     target         PL           flat   m  wide EIRP             wide         narrow  two-stage
-B 11be 80M x4 (320 MHz)    MCS0 edge   144.3 64xR64 27859us   8       25.3   8x short 132.9   8xR64 3482us          —
-B 11be 80M x4 (320 MHz)    MCS0 edge   144.3 64xR64 27859us  16       31.0  16x short 139.6   4xR64 1741us          —
-B 11be 80M x4 (320 MHz)    cap         124.9    64xR1 442us   8       25.3      8xR16 871us      8xR1 55us      926us
-B 11be 80M x4 (320 MHz)    cap         124.9    64xR1 442us  16       31.0      16xR1 110us      4xR1 28us      138us
-B 11ac 20M x8 (160 MHz)    MCS0 edge   144.8 64xR256 16390us   8       25.3   8x short 129.8  8xR256 2049us          —
-B 11ac 20M x8 (160 MHz)    MCS0 edge   144.8 64xR256 16390us  16       31.0  16x short 136.6  4xR256 1024us          —
-B 11ac 20M x8 (160 MHz)    cap         124.1     64xR1 70us   8       25.3      8xR32 257us       8xR1 9us      266us
-B 11ac 20M x8 (160 MHz)    cap         124.1     64xR1 70us  16       31.0       16xR2 34us       4xR1 4us       38us
-A 11be 80M (IF extender)   MCS0 edge   150.3 64xR64 111418us   8       25.3   8x short 138.9  8xR64 13927us          —
-A 11be 80M (IF extender)   MCS0 edge   150.3 64xR64 111418us  16       31.0  16x short 145.6   4xR64 6964us          —
-A 11be 80M (IF extender)   cap         129.3   64xR1 1747us   8       25.3       8xR4 871us     8xR1 218us     1090us
-A 11be 80M (IF extender)   cap         129.3   64xR1 1747us  16       31.0      16xR1 437us     4xR1 109us      546us
+B 11be 80M x4 (320 MHz)    MCS0 edge   141.7 64xR64 27859us   8       25.3   8x short 130.3   8xR64 3482us          —
+B 11be 80M x4 (320 MHz)    MCS0 edge   141.7 64xR64 27859us  16       31.0  16x short 137.0   4xR64 1741us          —
+B 11be 80M x4 (320 MHz)    cap         122.3    64xR1 442us   8       25.3      8xR16 871us      8xR1 55us      926us
+B 11be 80M x4 (320 MHz)    cap         122.3    64xR1 442us  16       31.0      16xR1 110us      4xR1 28us      138us
+B 11ac 20M x8 (160 MHz)    MCS0 edge   142.2 64xR256 16390us   8       25.3   8x short 127.2  8xR256 2049us          —
+B 11ac 20M x8 (160 MHz)    MCS0 edge   142.2 64xR256 16390us  16       31.0  16x short 134.0  4xR256 1024us          —
+B 11ac 20M x8 (160 MHz)    cap         121.5     64xR1 70us   8       25.3      8xR32 257us       8xR1 9us      266us
+B 11ac 20M x8 (160 MHz)    cap         121.5     64xR1 70us  16       31.0       16xR2 34us       4xR1 4us       38us
+A 11be 80M (IF extender)   MCS0 edge   147.7 64xR64 111418us   8       25.3   8x short 136.3  8xR64 13927us          —
+A 11be 80M (IF extender)   MCS0 edge   147.7 64xR64 111418us  16       31.0  16x short 143.0   4xR64 6964us          —
+A 11be 80M (IF extender)   cap         126.7   64xR1 1747us   8       25.3       8xR4 871us     8xR1 218us     1090us
+A 11be 80M (IF extender)   cap         126.7   64xR1 1747us  16       31.0      16xR1 437us     4xR1 109us      546us
 PL = the target path loss (dB): the MCS0 data link's edge, or the decoder cap's; flat / wide / narrow = sectors x repetitions and the sweep time (one direction), or 'short' and the path loss the stage takes at the most repetitions; wide EIRP = the m-element sub-array at its own per-element output (dBm).  The wide stage loses 20 log10(N/m) of EIRP, which repetitions buy back only at about 1.5 dB per doubling: the two stages save time where the link has margin, not at its edge
 
 == 4d. the 802.11ay waveforms' own sector sweep: one SSW frame per sector in the DMG control PHY (MCS 0), decoded at the far end; threshold -11.48 dB in-band over 1.76 GHz from its sensitivity with the reference receiver taken out (assumed.ay_sector_sweep); the same arrays at the preset back-off as 3d; one sweep serves both ay waveforms ==
   N   EIRP  PL TXSS  PL RXSS     ay_sc MCS1  TXSS-MCS1   cap  TXSS-cap   ay_ofdm MCS1  TXSS-MCS1   cap  TXSS-cap    be TXSS  TXSS-MCS0    ay [us]  be [us]
   1   (one sector: no sweep)
-  4   19.2    108.7    114.4          104.1       +4.6 MCS21     +28.1          102.3       +6.4 MCS18     +26.6      114.3       +3.1      127.3     55.2
- 16   31.0    120.5    132.8          122.6       -2.0 MCS21     +21.5          120.7       -0.2 MCS18     +20.0      127.1       -2.5      509.1    220.8
- 64   40.0    129.5    147.5          137.2       -7.7 MCS21     +14.8          135.4       -5.9 MCS20     +15.7      135.5       -8.8     2036.4    883.2
+  4   19.2    106.1    111.8          101.5       +4.6 MCS21     +28.1           99.7       +6.4 MCS18     +26.6      111.7       +3.1      127.3     55.2
+ 16   31.0    117.9    130.2          120.0       -2.0 MCS21     +21.5          118.1       -0.2 MCS18     +20.0      124.5       -2.5      509.1    220.8
+ 64   40.0    126.9    144.9          134.6       -7.7 MCS21     +14.9          132.8       -5.9 MCS20     +15.7      132.9       -8.8     2036.4    883.2
 PL = the path loss the sweep's frame still decodes at (dB): TXSS with the far end on one element, RXSS behind the chosen transmit beam; MCS1 / cap = the ay data link's edges at that MCS (3d, preset); positive = the sweep reaches further.  be TXSS / TXSS-MCS0 = section 4's MLO-triggered row for B 11be 80M x4 (320 MHz).  The implementation loss kept in the threshold takes 5 dB off every PL.  ay [us] = transmit + receive sweep, one direction: every sector one SSW frame of 14.909 us (a control PHY PPDU: its preamble, then the header and the 26-octet frame in 2 LDPC codewords, dmg.control_phy_encoding), SBIFS (1 us) apart; be [us] = section 4's sweep time for B 11be 80M x4 (320 MHz)
 
 == 5. squint across the occupied band at a 45 deg beam (phase shifters vs true time delay; dB) ==

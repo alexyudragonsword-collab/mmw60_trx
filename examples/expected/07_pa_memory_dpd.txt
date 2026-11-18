@@ -8,79 +8,79 @@ the Rapp rows: the preset PA (a measured 60 GHz CMOS PA's scale and compression,
 == K = 4 at the preset back-off 7.5 dB: 320 MHz at 0.64 GS/s; a 12.5 ns tap is 8 samples ==
 PA                                                  DPD taps   OBO  dpd step  TX EVM  loopback
 Rapp, memoryless (the preset)                            off   7.5         —   -21.1     -21.8
-Rapp, memoryless (the preset)                             x1   7.4     -22.5   -21.5     -22.4
+Rapp, memoryless (the preset)                             x1   7.4     -22.6   -21.7     -22.6
 reference PA, memory scales with the signal              off   7.5         —   -20.4     -21.0
-reference PA, memory scales with the signal               x1   7.6     -25.9   -25.3     -28.0
+reference PA, memory scales with the signal               x1   7.6     -25.5   -24.8     -27.0
 reference PA, taps 12.5 ns apart (x8 samples)            off   7.5         —   -20.1     -20.7
-reference PA, taps 12.5 ns apart (x8 samples)             x1   7.5     -20.7   -19.8     -20.4
-reference PA, taps 12.5 ns apart (x8 samples)             x2   7.5     -21.6   -20.4     -21.2
-reference PA, taps 12.5 ns apart (x8 samples)             x4   7.5     -22.3   -21.1     -22.0  <- best spacing
-reference PA, taps 12.5 ns apart (x8 samples)             x8   7.5     -21.4   -20.5     -21.3
+reference PA, taps 12.5 ns apart (x8 samples)             x1   7.5     -21.0   -20.2     -20.9
+reference PA, taps 12.5 ns apart (x8 samples)             x2   7.5     -21.5   -20.4     -21.1
+reference PA, taps 12.5 ns apart (x8 samples)             x4   7.5     -22.2   -21.1     -21.9  <- best spacing
+reference PA, taps 12.5 ns apart (x8 samples)             x8   7.5     -21.4   -20.5     -21.2
 
 == K = 8 at the preset back-off 7.5 dB: 640 MHz at 1.28 GS/s; a 12.5 ns tap is 16 samples ==
 PA                                                  DPD taps   OBO  dpd step  TX EVM  loopback
-Rapp, memoryless (the preset)                            off   7.5         —   -21.5     -21.9
-Rapp, memoryless (the preset)                             x1   7.5     -21.6   -21.5     -21.9
-reference PA, memory scales with the signal              off   7.5         —   -20.7     -21.1
-reference PA, memory scales with the signal               x1   7.5     -25.7   -26.0     -28.0
-reference PA, taps 12.5 ns apart (x16 samples)           off   7.5         —   -20.5     -20.7
-reference PA, taps 12.5 ns apart (x16 samples)            x1   7.5     -20.6   -20.5     -20.7  <- best spacing
-reference PA, taps 12.5 ns apart (x16 samples)            x2   7.5     -20.6   -20.5     -20.7
-reference PA, taps 12.5 ns apart (x16 samples)            x4   7.5     -20.6   -20.5     -20.7
-reference PA, taps 12.5 ns apart (x16 samples)           x16   7.5     -20.6   -20.5     -20.7
+Rapp, memoryless (the preset)                            off   7.5         —   -21.5     -21.7
+Rapp, memoryless (the preset)                             x1   7.5     -21.6   -21.5     -21.7
+reference PA, memory scales with the signal              off   7.5         —   -20.7     -21.0
+reference PA, memory scales with the signal               x1   7.6     -25.4   -25.9     -27.2
+reference PA, taps 12.5 ns apart (x16 samples)           off   7.5         —   -20.5     -20.6
+reference PA, taps 12.5 ns apart (x16 samples)            x1   7.5     -20.6   -20.5     -20.6  <- best spacing
+reference PA, taps 12.5 ns apart (x16 samples)            x2   7.5     -20.6   -20.5     -20.6
+reference PA, taps 12.5 ns apart (x16 samples)            x4   7.3     -20.4   -20.2     -20.4
+reference PA, taps 12.5 ns apart (x16 samples)           x16   7.5     -20.6   -20.5     -20.6
 
 == K = 32 at the preset back-off 7.5 dB: 2560 MHz at 5.12 GS/s; a 12.5 ns tap is 64 samples ==
 PA                                                  DPD taps   OBO  dpd step  TX EVM  loopback
-Rapp, memoryless (the preset)                            off   7.5         —   -21.7     -21.3
-Rapp, memoryless (the preset)                             x1   7.5     -22.4   -22.8     -22.4
-reference PA, memory scales with the signal              off   7.5         —   -21.0     -20.6
-reference PA, memory scales with the signal               x1   7.5     -26.3   -26.7     -25.9
-reference PA, taps 12.5 ns apart (x64 samples)           off   7.5         —   -20.2     -19.8
-reference PA, taps 12.5 ns apart (x64 samples)            x1   7.4     -21.1   -21.0     -20.8
-reference PA, taps 12.5 ns apart (x64 samples)            x2   7.5     -20.8   -20.2     -19.8
-reference PA, taps 12.5 ns apart (x64 samples)            x4   7.5     -21.8   -21.2     -21.0  <- best spacing
-reference PA, taps 12.5 ns apart (x64 samples)           x64   7.5     -20.2   -20.8     -20.5
+Rapp, memoryless (the preset)                            off   7.5         —   -21.8     -20.9
+Rapp, memoryless (the preset)                             x1   7.5     -21.9   -21.8     -20.9
+reference PA, memory scales with the signal              off   7.5         —   -21.0     -20.3
+reference PA, memory scales with the signal               x1   7.5     -26.1   -26.4     -24.6
+reference PA, taps 12.5 ns apart (x64 samples)           off   7.5         —   -20.2     -19.5
+reference PA, taps 12.5 ns apart (x64 samples)            x1   7.5     -21.3   -21.0     -20.4
+reference PA, taps 12.5 ns apart (x64 samples)            x2   7.5     -21.0   -20.6     -20.1
+reference PA, taps 12.5 ns apart (x64 samples)            x4   7.5     -22.3   -21.6     -20.9  <- best spacing
+reference PA, taps 12.5 ns apart (x64 samples)           x64   7.5     -20.3   -20.7     -20.1
 
 == the EVM gap at the preset back-off 7.5 dB (TX EVM after DPD, dB; the reference PA only) ==
        scales  fixed, x1  fixed, matched   gap at x1   gap at matched  fixed, best  best taps   fixed, off
- K=4    -25.3      -19.8           -20.5         5.5              4.8        -21.1         x4        -20.1
- K=8    -26.0      -20.5           -20.5         5.6              5.6        -20.5         x1        -20.5   DPD does not help
-K=32    -26.7      -21.0           -20.8         5.7              5.9        -21.2         x4        -20.2
+ K=4    -24.8      -20.2           -20.5         4.6              4.3        -21.1         x4        -20.1
+ K=8    -25.9      -20.5           -20.5         5.4              5.4        -20.5         x1        -20.5   DPD does not help
+K=32    -26.4      -21.0           -20.7         5.4              5.7        -21.6         x4        -20.2
 gap = fixed-in-seconds memory minus memory that scales with the signal; 'matched' is x(fs_eff / fir_fs); 'fixed, off' is the same PA without the DPD step
 this gap is read on the DPD's cliff (next table): it says where the two cliffs are, not what the memory costs
 
 == K = 8: TX EVM after DPD against the back-off (assumed.pa_memory_obo_sweep_db; a tap is 16 samples) ==
  OBO[dB]   scales  fixed, x1   fixed, x16  fixed, best  gap at best
-     7.0    -22.6      -19.9        -19.9        -19.9          2.7
-     7.5    -26.0      -20.5        -20.5        -20.5          5.6
-     8.0    -27.5      -21.1        -21.4        -21.4          6.1
-     8.5    -28.2      -24.2        -23.2        -24.2          4.0
-     9.0    -28.3      -23.9        -24.7        -24.7          3.7
-    10.0    -28.5      -25.2        -26.9        -26.9          1.6
-    12.0    -28.6      -27.1        -28.1        -28.1          0.4
+     7.0    -21.9      -19.9        -19.9        -19.9          1.9
+     7.5    -25.9      -20.5        -20.5        -20.5          5.4
+     8.0    -27.5      -21.1        -21.2        -21.2          6.3
+     8.5    -28.2      -23.9        -23.3        -23.9          4.3
+     9.0    -28.3      -24.3        -24.8        -24.8          3.5
+    10.0    -28.4      -25.5        -26.9        -26.9          1.5
+    12.0    -28.5      -27.0        -28.1        -28.1          0.4
 
 == K = 32: TX EVM after DPD against the back-off (assumed.pa_memory_obo_sweep_db; a tap is 64 samples) ==
  OBO[dB]   scales  fixed, x1   fixed, x64  fixed, best  gap at best
-     7.0    -25.0      -19.7        -19.7        -19.7          5.3
-     7.5    -26.7      -21.0        -20.8        -21.0          5.7
-     8.0    -27.6      -22.0        -23.0        -23.0          4.7
-     8.5    -28.2      -22.7        -24.8        -24.8          3.4
-     9.0    -28.4      -23.7        -26.3        -26.3          2.0
-    10.0    -28.6      -24.6        -27.9        -27.9          0.6
-    12.0    -28.5      -25.5        -28.9        -28.9         -0.4
+     7.0    -25.1      -19.8        -19.7        -19.8          5.3
+     7.5    -26.4      -21.0        -20.7        -21.0          5.4
+     8.0    -27.1      -22.2        -21.5        -22.2          4.9
+     8.5    -27.5      -22.4        -23.1        -23.1          4.5
+     9.0    -27.8      -23.2        -25.1        -25.1          2.7
+    10.0    -27.8      -24.2        -27.7        -27.7          0.2
+    12.0    -27.8      -23.7        -28.3        -28.3         -0.6
 
 == what the memory law costs: the back-off needed for the same TX EVM after DPD (assumed.pa_memory_target_evm_db) ==
        target  scales needs  fixed needs  cost in back-off
- K=8   -25 dB       7.3 dB       9.1 dB            1.8 dB
+ K=8   -25 dB       7.4 dB       9.1 dB            1.7 dB
  K=8   -27 dB       7.8 dB      10.1 dB            2.3 dB
-K=32   -25 dB       7.0 dB       8.6 dB            1.6 dB
-K=32   -27 dB       7.7 dB       9.4 dB            1.7 dB
+K=32   -25 dB    <= 7.0 dB       9.0 dB                 —
+K=32   -27 dB       7.9 dB       9.7 dB            1.8 dB
 'fixed needs' takes the better of the two tap spacings at each back-off; linear between the grid points; '<=' = already there at the first point of the sweep, 'not reached' = not inside the swept range (no cost then)
 
 == sensitivity: how fast the PA's memory is, K = 32 (assumed.pa_memory_fir_fs_hz; back-off needed, coarse grid) ==
  taps defined at       tap  samples          for -25 dB: scales / fixed / cost          for -27 dB: scales / fixed / cost
-         80 MS/s   12.5 ns       64           7.0 dB /       8.6 dB /   1.6 dB           7.8 dB /       9.4 dB /   1.6 dB
-        320 MS/s   3.12 ns       16           7.0 dB /       7.9 dB /   0.9 dB           7.8 dB /       8.8 dB /   1.0 dB
-       1280 MS/s  0.781 ns        4           7.0 dB /       7.6 dB /   0.6 dB           7.8 dB /       9.6 dB /   1.8 dB
+         80 MS/s   12.5 ns       64        <= 7.0 dB /       9.0 dB /        —           8.0 dB /       9.7 dB /   1.8 dB
+        320 MS/s   3.12 ns       16        <= 7.0 dB /       7.8 dB /        —           8.0 dB /       8.8 dB /   0.8 dB
+       1280 MS/s  0.781 ns        4        <= 7.0 dB /       7.6 dB /        —           8.0 dB /      11.3 dB /   3.3 dB
 
 [~s]
