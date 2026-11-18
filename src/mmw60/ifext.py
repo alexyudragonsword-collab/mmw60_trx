@@ -152,10 +152,13 @@ class MmwRxStage:
     The LNA is the shared front end's ``rx_front`` at its maximum-gain state,
     a fixed-gain block (``lna_gain_db``, ``lna_nf_db``, ``lna_iip3_dbm``; the
     chip's own ladder does the AGC behind it) — present only when that front end is a 60 GHz
-    one (``RxFront60.sourced``).  The preset's WiFi 7 ladder is the chip's own
+    one (``RxFront60.sourced``), as the presets' is since 2026-11-18 (ROADMAP C9).
+    The WiFi 7 ladder (``config.wifi7_rx_ladder``, the presets' before) is the chip's own
     ladder, so with it the stage has no LNA (``lna_nf_db`` None) and unit
-    gain: the noise figure is the chip's, as it was (data/spec:
-    assumed.ifext_rx_front60).  The observation loopback (``lo_shared_loopback``)
+    gain: the noise figure is the chip's (data/spec:
+    assumed.ifext_rx_front60).  ``ifext.chip: frontend`` (the ideal row: the
+    chip is the shared front end's own chain at 1×) has no LNA either — the
+    60 GHz receive face is already that chain's ladder.  The observation loopback (``lo_shared_loopback``)
     enters at the mixer, past the LNA."""
     lo_profile: NoiseSource | None = None
     if_filter: IfFilter = field(default_factory=IfFilter)
@@ -460,13 +463,17 @@ class IfExtender:
                               lo_profile=lo_prof if sides in ("tx", "both") else None,
                               if_filter=flt, seed=cfg.seed)
         # the 60 GHz LNA / mixer ahead of the chip is the shared front end's receive face when that
-        # is a 60 GHz one; the preset's WiFi 7 ladder is the chip's own (assumed.ifext_rx_front60)
+        # is a 60 GHz one (the presets'); a WiFi 7 ladder is the chip's own (assumed.ifext_rx_front60)
+        # — and only ahead of a chip that has a ladder of its own: with ``chip: frontend`` the
+        # chip's receiver *is* the shared front end's chain, that face already in it as its
+        # ladder, and a second copy in front would count one front end twice
         rxf = fe.rx_front
+        lna = rxf.sourced and ix.chip == "wifitrx"
         rx_stage = MmwRxStage(lo_profile=lo_prof if sides in ("rx", "both") else None, if_filter=flt,
                               image_rejection_db=ix.image_rejection_db, seed=cfg.seed,
-                              lna_gain_db=rxf.gain_db if rxf.sourced else 0.0,
-                              lna_nf_db=rxf.nf_db if rxf.sourced else None,
-                              lna_iip3_dbm=rxf.iip3_dbm if rxf.sourced else None)
+                              lna_gain_db=rxf.gain_db if lna else 0.0,
+                              lna_nf_db=rxf.nf_db if lna else None,
+                              lna_iip3_dbm=rxf.iip3_dbm if lna else None)
         if ix.chip == "wifitrx":
             tx, rx, res = calibrated_chip(bandwidth_hz, fs_hz, ix.chip_seed, ix.with_dpd,
                                           ix.chip_pout_dbm, drive_scale, pa_bypass=ix.chip_pa_bypass)

@@ -76,19 +76,19 @@ converters                         SC  -41.77   OFDM  -36.04
 IQ mismatch (raw)                  SC   -5.07   OFDM    0.31
 TX LO leakage (raw), no CFO        SC  -49.84   OFDM  -37.24
 TX LO leakage (raw) + CFO          SC  -24.50   OFDM  -34.49
-RX DC + CFO                        SC  -49.86   OFDM  -37.23
+RX DC + CFO                        SC  -49.85   OFDM  -37.23
 phase noise, one phase per block   SC  -25.07   OFDM       —
 (TX LO leakage -30 dBc (assumed.lo_leak_dbc [assumed]): the receiver removes the DC it measures on its quiet lead-in, which takes the leak out exactly while there is no CFO; with the CFO the leak arrives turning at +CFO, averages out on the lead-in, and is DC again after the CFO correction — on OFDM's three empty DC tones, on every SC chip.  The IQ terms are the uncalibrated mismatch, assumed.iq_mismatch [assumed].  SC tracks the phase between the guards (assumed.ay_receiver [assumed]); 'one phase per block' is the sensitivity row)
 
 == 4. the floor with everything on, at the preset back-off, and the conformance cap it allows ==
-ay_sc    π/2-BPSK                   raw   -8.24   IQ + LO leak calibrated away  -25.46
-ay_sc    π/2-QPSK                   raw   -8.13   IQ + LO leak calibrated away  -25.29
-ay_sc    π/2-16-QAM                 raw   -8.21   IQ + LO leak calibrated away  -24.85
-ay_sc    π/2-64-QAM                 raw   -8.18   IQ + LO leak calibrated away  -24.30
+ay_sc    π/2-BPSK                   raw   -8.24   IQ + LO leak calibrated away  -25.50
+ay_sc    π/2-QPSK                   raw   -8.14   IQ + LO leak calibrated away  -25.33
+ay_sc    π/2-16-QAM                 raw   -8.21   IQ + LO leak calibrated away  -24.88
+ay_sc    π/2-64-QAM                 raw   -8.18   IQ + LO leak calibrated away  -24.33
 ay_ofdm  QPSK points (DCM BPSK)     raw   -7.47   IQ + LO leak calibrated away  -20.99
-ay_ofdm  16-QAM points (DCM QPSK)   raw   -7.54   IQ + LO leak calibrated away  -21.00
-ay_ofdm  16-QAM                     raw   -7.54   IQ + LO leak calibrated away  -21.00
-ay_ofdm  64-QAM                     raw   -7.54   IQ + LO leak calibrated away  -21.00
+ay_ofdm  16-QAM points (DCM QPSK)   raw   -7.54   IQ + LO leak calibrated away  -21.01
+ay_ofdm  16-QAM                     raw   -7.54   IQ + LO leak calibrated away  -21.01
+ay_ofdm  64-QAM                     raw   -7.54   IQ + LO leak calibrated away  -21.01
 cap, raw chain                    ay_ofdm  MCS1 DCM BPSK 1/2 (limit -7 dB), 0.729 Gb/s
 cap, raw chain                    ay_sc    MCS2 π/2-BPSK 1/2 (limit -7 dB), 0.770 Gb/s
 cap, IQ + LO leak calibrated away ay_ofdm  MCS15 16-QAM 7/8 (limit -19 dB), 5.106 Gb/s
@@ -97,35 +97,35 @@ cap, IQ + LO leak calibrated away ay_sc    MCS16 π/2-16-QAM 7/8 (limit -23 dB),
 
 == 5. EVM against back-off from Psat on the chain (IQ + LO leak calibrated away), and the back-off each MCS's limit needs ==
 back-off           sc π/2-BPSK           sc π/2-QPSK         sc π/2-16-QAM         sc π/2-64-QAM     ofdm QPSK points      ofdm 16-QAM point           ofdm 16-QAM           ofdm 64-QAM
-     1.0                -18.08                -17.68                -13.69                -13.25                -10.71                -10.66                -10.66                -10.64
-     1.5                -18.81                -18.62                -15.02                -14.47                -11.56                -11.51                -11.51                -11.48
-     2.0                -19.49                -19.43                -16.22                -15.60                -12.43                -12.38                -12.38                -12.34
-     2.5                -20.18                -20.19                -17.33                -16.67                -13.26                -13.20                -13.20                -13.16
-     3.0                -20.84                -20.91                -18.33                -17.66                -14.05                -14.00                -14.00                -13.94
-     3.5                -21.49                -21.58                -19.29                -18.60                -14.84                -14.78                -14.78                -14.73
-     4.0                -22.11                -22.21                -20.19                -19.48                -15.62                -15.56                -15.56                -15.51
-     4.5                -22.70                -22.80                -21.01                -20.33                -16.40                -16.35                -16.35                -16.29
-     5.0                -23.20                -23.32                -21.80                -21.14                -17.17                -17.11                -17.11                -17.05
-     5.5                -23.72                -23.82                -22.51                -21.88                -17.93                -17.89                -17.89                -17.82
-     6.0                -24.16                -24.25                -23.19                -22.58                -18.70                -18.64                -18.64                -18.58
-     6.5                -24.54                -24.63                -23.80                -23.23                -19.47                -19.44                -19.44                -19.36
-     7.0                -24.88                -24.95                -24.37                -23.84                -20.24                -20.18                -20.18                -20.13
-     7.5                -25.16                -25.22                -24.87                -24.39                -21.02                -20.96                -20.96                -20.91
-     8.0                -25.36                -25.45                -25.31                -24.88                -21.78                -21.69                -21.69                -21.66
-     8.5                -25.56                -25.65                -25.69                -25.30                -22.51                -22.43                -22.43                -22.39
-     9.0                -25.70                -25.79                -26.02                -25.67                -23.19                -23.11                -23.11                -23.10
-     9.5                -25.82                -25.92                -26.29                -25.97                -23.84                -23.76                -23.76                -23.77
-    10.0                -25.91                -26.03                -26.51                -26.23                -24.43                -24.36                -24.36                -24.36
-    10.5                -26.00                -26.11                -26.70                -26.43                -24.96                -24.89                -24.89                -24.92
-    11.0                -26.05                -26.18                -26.84                -26.61                -25.46                -25.37                -25.37                -25.40
-    11.5                -26.10                -26.24                -26.96                -26.74                -25.89                -25.78                -25.78                -25.84
-    12.0                -26.13                -26.27                -27.07                -26.85                -26.25                -26.13                -26.13                -26.21
-    12.5                -26.16                -26.31                -27.15                -26.95                -26.56                -26.42                -26.42                -26.52
-    13.0                -26.19                -26.34                -27.21                -27.01                -26.82                -26.68                -26.68                -26.80
-    13.5                -26.21                -26.36                -27.26                -27.07                -27.04                -26.89                -26.89                -27.04
-    14.0                -26.22                -26.38                -27.29                -27.09                -27.21                -27.08                -27.08                -27.24
-    14.5                -26.22                -26.40                -27.32                -27.12                -27.36                -27.22                -27.22                -27.38
-    15.0                -26.24                -26.41                -27.34                -27.15                -27.46                -27.33                -27.33                -27.51
+     1.0                -18.10                -17.69                -13.70                -13.25                -10.71                -10.66                -10.66                -10.64
+     1.5                -18.82                -18.63                -15.02                -14.47                -11.56                -11.51                -11.51                -11.48
+     2.0                -19.51                -19.45                -16.23                -15.61                -12.43                -12.38                -12.38                -12.33
+     2.5                -20.20                -20.21                -17.33                -16.67                -13.26                -13.20                -13.20                -13.16
+     3.0                -20.86                -20.93                -18.34                -17.66                -14.05                -14.00                -14.00                -13.94
+     3.5                -21.53                -21.60                -19.30                -18.61                -14.84                -14.78                -14.78                -14.73
+     4.0                -22.13                -22.24                -20.20                -19.49                -15.62                -15.56                -15.56                -15.51
+     4.5                -22.72                -22.83                -21.03                -20.34                -16.40                -16.35                -16.35                -16.29
+     5.0                -23.23                -23.35                -21.81                -21.15                -17.17                -17.11                -17.11                -17.05
+     5.5                -23.75                -23.85                -22.53                -21.89                -17.93                -17.88                -17.88                -17.83
+     6.0                -24.19                -24.27                -23.21                -22.60                -18.70                -18.64                -18.64                -18.58
+     6.5                -24.57                -24.65                -23.82                -23.26                -19.47                -19.45                -19.45                -19.36
+     7.0                -24.91                -24.98                -24.39                -23.86                -20.25                -20.19                -20.19                -20.14
+     7.5                -25.19                -25.26                -24.90                -24.41                -21.02                -20.96                -20.96                -20.91
+     8.0                -25.40                -25.49                -25.34                -24.91                -21.78                -21.70                -21.70                -21.67
+     8.5                -25.59                -25.69                -25.72                -25.33                -22.51                -22.43                -22.43                -22.39
+     9.0                -25.74                -25.82                -26.06                -25.70                -23.19                -23.11                -23.11                -23.11
+     9.5                -25.86                -25.96                -26.32                -26.00                -23.84                -23.76                -23.76                -23.77
+    10.0                -25.94                -26.05                -26.55                -26.26                -24.43                -24.36                -24.36                -24.37
+    10.5                -26.02                -26.13                -26.74                -26.47                -24.96                -24.90                -24.90                -24.93
+    11.0                -26.09                -26.22                -26.87                -26.64                -25.46                -25.37                -25.37                -25.41
+    11.5                -26.12                -26.27                -27.01                -26.78                -25.90                -25.79                -25.79                -25.84
+    12.0                -26.17                -26.31                -27.12                -26.89                -26.26                -26.13                -26.13                -26.22
+    12.5                -26.20                -26.35                -27.18                -26.98                -26.56                -26.43                -26.43                -26.52
+    13.0                -26.23                -26.37                -27.24                -27.05                -26.82                -26.68                -26.68                -26.81
+    13.5                -26.25                -26.39                -27.29                -27.10                -27.03                -26.90                -26.90                -27.05
+    14.0                -26.25                -26.41                -27.33                -27.14                -27.21                -27.08                -27.08                -27.24
+    14.5                -26.26                -26.43                -27.37                -27.16                -27.35                -27.23                -27.23                -27.39
+    15.0                -26.28                -26.43                -27.39                -27.19                -27.46                -27.34                -27.34                -27.52
 
 wf       MCS  modulation    rate   Gb/s  limit  back-off  Pout dBm
 ay_ofdm    1  DCM BPSK       1/2  0.729   -7.0      1.00     13.60
@@ -141,13 +141,13 @@ ay_ofdm   10  DCM QPSK       7/8  2.553  -15.0      3.64     10.96
 ay_ofdm   11  16-QAM         1/2  2.918  -15.0      3.64     10.96
 ay_ofdm   12  16-QAM         5/8  3.647  -16.0      4.28     10.32
 ay_ofdm   13  16-QAM         3/4  4.377  -17.0      4.93      9.67
-ay_ofdm   14  16-QAM       13/16  4.742  -18.0      5.57      9.03
+ay_ofdm   14  16-QAM       13/16  4.742  -18.0      5.58      9.02
 ay_ofdm   15  16-QAM         7/8  5.106  -19.0      6.22      8.38
 ay_ofdm   16  64-QAM         1/2  4.377  -21.0      7.56      7.04
 ay_ofdm   17  64-QAM         5/8  5.471  -22.0      8.23      6.37
 ay_ofdm   18  64-QAM         3/4  6.565  -23.0      8.93      5.67
 ay_ofdm   19  64-QAM       13/16  7.112  -25.0     10.58      4.02
-ay_ofdm   20  64-QAM         7/8  7.659  -27.0     13.42      1.18
+ay_ofdm   20  64-QAM         7/8  7.659  -27.0     13.40      1.20
 ay_sc      1  π/2-BPSK       1/2  0.385   -6.0      1.00     13.60
 ay_sc      2  π/2-BPSK       1/2  0.770   -7.0      1.00     13.60
 ay_sc      3  π/2-BPSK       5/8  0.963   -9.0      1.00     13.60
@@ -159,30 +159,30 @@ ay_sc      8  π/2-QPSK       5/8  1.925  -12.0      1.00     13.60
 ay_sc      9  π/2-QPSK       3/4  2.310  -13.0      1.00     13.60
 ay_sc     10  π/2-QPSK     13/16  2.502  -15.0      1.00     13.60
 ay_sc     11  π/2-QPSK       7/8  2.695  -16.0      1.00     13.60
-ay_sc     12  π/2-16-QAM     1/2  3.080  -19.0      3.35     11.25
+ay_sc     12  π/2-16-QAM     1/2  3.080  -19.0      3.34     11.26
 ay_sc     13  π/2-16-QAM     5/8  3.850  -20.0      3.89     10.71
-ay_sc     14  π/2-16-QAM     3/4  4.620  -21.0      4.49     10.11
-ay_sc     15  π/2-16-QAM   13/16  5.005  -22.0      5.14      9.46
-ay_sc     16  π/2-16-QAM     7/8  5.390  -23.0      5.86      8.74
-ay_sc     17  π/2-64-QAM     1/2  4.620  -24.0      7.15      7.45
-ay_sc     18  π/2-64-QAM     5/8  5.775  -25.0      8.14      6.46
-ay_sc     19  π/2-64-QAM     3/4  6.930  -27.0     12.94      1.66
+ay_sc     14  π/2-16-QAM     3/4  4.620  -21.0      4.48     10.12
+ay_sc     15  π/2-16-QAM   13/16  5.005  -22.0      5.13      9.47
+ay_sc     16  π/2-16-QAM     7/8  5.390  -23.0      5.85      8.75
+ay_sc     17  π/2-64-QAM     1/2  4.620  -24.0      7.12      7.48
+ay_sc     18  π/2-64-QAM     5/8  5.775  -25.0      8.11      6.49
+ay_sc     19  π/2-64-QAM     3/4  6.930  -27.0     12.66      1.94
 ay_sc     20  π/2-64-QAM   13/16  7.508  -28.0     never         —
 ay_sc     21  π/2-64-QAM     7/8  8.085  -29.0     never         —
 (the grid runs 1–15 dB; 'never' = the floor stays above the limit there; at 1 dB = met at the smallest back-off on the grid)
 
 SC against OFDM at the same modulation and code rate (ΔPout = SC − OFDM; Δrate = SC / OFDM):
 modulation  rate  SC MCS  limit back-off   OFDM MCS  limit back-off    ΔPout  Δrate
-16-QAM       1/2      12  -19.0     3.35         11  -15.0     3.64     0.29  1.056
-16-QAM       5/8      13  -20.0     3.89         12  -16.0     4.28     0.38  1.056
-16-QAM       3/4      14  -21.0     4.49         13  -17.0     4.93     0.43  1.056
-16-QAM     13/16      15  -22.0     5.14         14  -18.0     5.57     0.43  1.056
-16-QAM       7/8      16  -23.0     5.86         15  -19.0     6.22     0.36  1.056
-64-QAM       1/2      17  -24.0     7.15         16  -21.0     7.56     0.42  1.056
-64-QAM       5/8      18  -25.0     8.14         17  -22.0     8.23     0.09  1.056
-64-QAM       3/4      19  -27.0    12.94         18  -23.0     8.93    -4.01  1.056
+16-QAM       1/2      12  -19.0     3.34         11  -15.0     3.64     0.30  1.056
+16-QAM       5/8      13  -20.0     3.89         12  -16.0     4.28     0.39  1.056
+16-QAM       3/4      14  -21.0     4.48         13  -17.0     4.93     0.44  1.056
+16-QAM     13/16      15  -22.0     5.13         14  -18.0     5.58     0.45  1.056
+16-QAM       7/8      16  -23.0     5.85         15  -19.0     6.22     0.37  1.056
+64-QAM       1/2      17  -24.0     7.12         16  -21.0     7.56     0.44  1.056
+64-QAM       5/8      18  -25.0     8.11         17  -22.0     8.23     0.12  1.056
+64-QAM       3/4      19  -27.0    12.66         18  -23.0     8.93    -3.73  1.056
 64-QAM     13/16      20  -28.0    never         19  -25.0    10.58     —     1.056
-64-QAM       7/8      21  -29.0    never         20  -27.0    13.42     —     1.056
+64-QAM       7/8      21  -29.0    never         20  -27.0    13.40     —     1.056
 
 == 6. the best EVM-limited rate at each PA output power (Gb/s; same PA, same chain) ==
 Pout dBm back-off             SC           OFDM
@@ -207,133 +207,133 @@ Pout dBm back-off             SC           OFDM
 probe: 11be 80 MHz x22 upclocked (996 tones at 1.71875 MHz, the base's 16 pilots) (assumed.ay_cal_probe [assumed]); no DPD (as the be rows)
   tx_lpf_corner          ok        fc_err_pct           0.00
   rx_lpf_corner          degraded  fc_err_pct           6.38
-  rx_dc_offset           ok        worst_dc_dbfs      -57.80
-  tx_lo_leak_loopback    ok        lo_leak_dbc        -58.85
-  loopback_delay         ok        delay_ns             6.76
-  tx_iq                  degraded  irr_min_db          43.90
-  group_delay            ok        error_ps             4.97
-  rx_iq                  degraded  irr_min_db          44.08
+  rx_dc_offset           ok        worst_dc_dbfs      -64.98
+  tx_lo_leak_loopback    ok        lo_leak_dbc        -59.01
+  loopback_delay         ok        delay_ns             6.98
+  tx_iq                  degraded  irr_min_db          45.17
+  group_delay            ok        error_ps             5.28
+  rx_iq                  degraded  irr_min_db          43.00
   tx_power               ok                                —
-  agc_sweep              ok        worst_landing_err_db     0.33
-  final_loopback_evm     ok        evm_db             -21.79
-final check: isolation reading -21.79 dB; modem reading -21.31 dB (TX -21.46, RX -29.04); PA output 7.27 dBm.  (Until wifitrx 0.7.46 the isolation reading here was −7.63 dB: the capture alignment left 3.3 samples of delay at 5.28 GS/s, wifi_trx_cal#7)
+  agc_sweep              ok        worst_landing_err_db     0.07
+  final_loopback_evm     ok        evm_db             -21.53
+final check: isolation reading -21.53 dB; modem reading -21.04 dB (TX -21.46, RX -28.61); PA output 7.27 dBm.  (Until wifitrx 0.7.46 the isolation reading here was −7.63 dB: the capture alignment left 3.3 samples of delay at 5.28 GS/s, wifi_trx_cal#7)
 
 == 8. on the chains the sequence calibrated: floors at the preset back-off, against section 4 ==
-ay_sc    π/2-BPSK                   calibrated  -25.33   section 4: raw   -8.24, calibrated away  -25.46
-ay_sc    π/2-QPSK                   calibrated  -25.19   section 4: raw   -8.13, calibrated away  -25.29
-ay_sc    π/2-16-QAM                 calibrated  -24.73   section 4: raw   -8.21, calibrated away  -24.85
-ay_sc    π/2-64-QAM                 calibrated  -24.21   section 4: raw   -8.18, calibrated away  -24.30
+ay_sc    π/2-BPSK                   calibrated  -25.40   section 4: raw   -8.24, calibrated away  -25.50
+ay_sc    π/2-QPSK                   calibrated  -25.23   section 4: raw   -8.14, calibrated away  -25.33
+ay_sc    π/2-16-QAM                 calibrated  -24.77   section 4: raw   -8.21, calibrated away  -24.88
+ay_sc    π/2-64-QAM                 calibrated  -24.24   section 4: raw   -8.18, calibrated away  -24.33
 ay_ofdm  QPSK points (DCM BPSK)     calibrated  -21.09   section 4: raw   -7.47, calibrated away  -20.99
-ay_ofdm  16-QAM points (DCM QPSK)   calibrated  -21.09   section 4: raw   -7.54, calibrated away  -21.00
-ay_ofdm  16-QAM                     calibrated  -21.09   section 4: raw   -7.54, calibrated away  -21.00
-ay_ofdm  64-QAM                     calibrated  -21.09   section 4: raw   -7.54, calibrated away  -21.00
+ay_ofdm  16-QAM points (DCM QPSK)   calibrated  -21.10   section 4: raw   -7.54, calibrated away  -21.01
+ay_ofdm  16-QAM                     calibrated  -21.10   section 4: raw   -7.54, calibrated away  -21.01
+ay_ofdm  64-QAM                     calibrated  -21.09   section 4: raw   -7.54, calibrated away  -21.01
 cap, calibrated chain ay_ofdm  MCS15 16-QAM 7/8 (limit -19 dB), 5.106 Gb/s
 cap, calibrated chain ay_sc    MCS16 π/2-16-QAM 7/8 (limit -23 dB), 5.390 Gb/s
 
-one calibration at 7.5 dB, run at 15 dB (drive re-trimmed, π/2-16-QAM): -27.01 dB; the same without the CFO -26.95 dB; calibrated at 15 dB -26.75 dB — the VGA re-trim goes through wifitrx's set_gain, which rescales dc_pre with the gain (0.7.41, B43), so the TX LO-leak null found at one gain state holds at another (before it, a bare VGA assignment un-nulled it and the CFO carried the DC past the receiver's DC removal)
+one calibration at 7.5 dB, run at 15 dB (drive re-trimmed, π/2-16-QAM): -27.02 dB; the same without the CFO -26.77 dB; calibrated at 15 dB -26.62 dB — the VGA re-trim goes through wifitrx's set_gain, which rescales dc_pre with the gain (0.7.41, B43), so the TX LO-leak null found at one gain state holds at another (before it, a bare VGA assignment un-nulled it and the CFO carried the DC past the receiver's DC removal)
 
 SC against OFDM at the same modulation and code rate on the calibrated chains (back-off from Psat; ΔPout = SC − OFDM; section 5's ΔPout beside it):
 modulation  rate      SC   OFDM   ΔPout   sec. 5
-16-QAM       1/2    3.43   3.65    0.22     0.29
-16-QAM       5/8    3.98   4.28    0.30     0.38
-16-QAM       3/4    4.57   4.91    0.34     0.43
-16-QAM     13/16    5.28   5.56    0.28     0.43
-16-QAM       7/8    5.97   6.18    0.21     0.36
-64-QAM       1/2    7.22   7.51    0.28     0.42
-64-QAM       5/8    8.42   8.17   -0.25     0.09
-64-QAM       3/4   never   8.89    —       -4.01
-64-QAM     13/16   never  10.48    —        —
-64-QAM       7/8   never  13.11    —        —
+16-QAM       1/2    3.44   3.65    0.20     0.30
+16-QAM       5/8    4.00   4.28    0.28     0.39
+16-QAM       3/4    4.59   4.91    0.32     0.44
+16-QAM     13/16    5.26   5.55    0.30     0.45
+16-QAM       7/8    5.94   6.18    0.24     0.37
+64-QAM       1/2    7.18   7.50    0.32     0.44
+64-QAM       5/8    8.49   8.18   -0.32     0.12
+64-QAM       3/4   never   8.89    —       -3.73
+64-QAM     13/16   never  10.51    —        —
+64-QAM       7/8   never  13.49    —        —
 
 == 8b. what the single carrier loses on the calibrated chain, item by item: each calibration residual alone on the calibrated chain, every other impairment off (converters, phase noise, receiver noise; the PA switched off after the VGA was trimmed with it in), the CFO on (EVM dB, 16-QAM payloads) ==
 back-off 7.5 dB:
-  ay_sc    none  -53.52  TX IQ  -43.96  TX LO leak  -52.05  RX IQ  -46.02  RX DC  -53.52  TX LO leak without the CFO  -53.51, without the lead-in DC removal  -52.47;  calibrated away  -24.85 + these =  -24.75, the calibrated chain  -24.73
-  ay_sc    the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -24.73 /  -24.73;  CFO off  -24.70 /  -24.70
-  ay_ofdm  none  -49.88  TX IQ  -40.36  TX LO leak  -49.86  RX IQ  -40.35  RX DC  -49.88  TX LO leak without the CFO  -49.92, without the lead-in DC removal  -49.88;  calibrated away  -21.00 + these =  -20.89, the calibrated chain  -21.09
-  ay_ofdm  the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -21.09 /  -21.09;  CFO off  -21.09 /  -21.09
-  direct (DAC off): TX LO leak left after dc_pre -73.8 dBc (without dc_pre -23.9); TX image rejection at 0.5, 0.86, 1, 1.1 GHz: 54.3, 51.6, 41.9, 27.1 dB (uncorrected 13.0, 7.7, 6.1, 5.1; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)
+  ay_sc    none  -53.52  TX IQ  -43.05  TX LO leak  -52.40  RX IQ  -44.87  RX DC  -53.52  TX LO leak without the CFO  -53.51, without the lead-in DC removal  -52.73;  calibrated away  -24.88 + these =  -24.76, the calibrated chain  -24.77
+  ay_sc    the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -24.77 /  -24.77;  CFO off  -24.59 /  -24.59
+  ay_ofdm  none  -49.88  TX IQ  -40.10  TX LO leak  -49.86  RX IQ  -39.98  RX DC  -49.88  TX LO leak without the CFO  -49.92, without the lead-in DC removal  -49.88;  calibrated away  -21.01 + these =  -20.89, the calibrated chain  -21.10
+  ay_ofdm  the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -21.10 /  -21.10;  CFO off  -21.09 /  -21.08
+  direct (DAC off): TX LO leak left after dc_pre -69.6 dBc (without dc_pre -23.9); TX image rejection at 0.5, 0.86, 1, 1.1 GHz: 56.5, 48.3, 42.3, 27.3 dB (uncorrected 13.0, 7.7, 6.1, 5.1; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)
 back-off 15 dB:
-  ay_sc    none  -53.52  TX IQ  -39.87  TX LO leak  -49.06  RX IQ  -41.62  RX DC  -53.52  TX LO leak without the CFO  -53.46, without the lead-in DC removal  -50.10;  calibrated away  -27.20 + these =  -26.79, the calibrated chain  -26.75
-  ay_sc    the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -26.75 /  -26.76;  CFO off  -26.82 /  -26.81
-  ay_ofdm  none  -49.88  TX IQ  -38.75  TX LO leak  -49.73  RX IQ  -38.59  RX DC  -49.88  TX LO leak without the CFO  -49.92, without the lead-in DC removal  -49.88;  calibrated away  -27.32 + these =  -26.68, the calibrated chain  -27.32
-  ay_ofdm  the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -27.32 /  -27.31;  CFO off  -27.39 /  -27.36
-  direct (DAC off): TX LO leak left after dc_pre -61.5 dBc (without dc_pre -16.4); TX image rejection at 0.5, 0.86, 1, 1.1 GHz: 43.8, 41.9, 43.3, 28.3 dB (uncorrected 13.0, 7.7, 6.1, 5.1; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)
+  ay_sc    none  -53.52  TX IQ  -38.09  TX LO leak  -50.08  RX IQ  -39.80  RX DC  -53.52  TX LO leak without the CFO  -53.46, without the lead-in DC removal  -50.93;  calibrated away  -27.25 + these =  -26.66, the calibrated chain  -26.62
+  ay_sc    the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -26.62 /  -26.63;  CFO off  -26.54 /  -26.57
+  ay_ofdm  none  -49.88  TX IQ  -37.75  TX LO leak  -49.78  RX IQ  -37.51  RX DC  -49.88  TX LO leak without the CFO  -49.92, without the lead-in DC removal  -49.88;  calibrated away  -27.33 + these =  -26.55, the calibrated chain  -27.14
+  ay_ofdm  the whole calibrated chain with the sequence's dc_pre / with dc_pre solved to cancel the leak exactly: CFO on  -27.14 /  -27.15;  CFO off  -27.23 /  -27.24
+  direct (DAC off): TX LO leak left after dc_pre -58.6 dBc (without dc_pre -16.4); TX image rejection at 0.5, 0.86, 1, 1.1 GHz: 41.7, 40.9, 44.1, 28.9 dB (uncorrected 13.0, 7.7, 6.1, 5.1; the probe spans ±0.86 GHz, the SC payload ±1.10 GHz)
 isolation: one residual at a time, read directly (contributions do not add up as powers in general; the power sum is a check, not a decomposition).  The leak left after dc_pre (wifitrx 0.7.41: the step reads its offset on the FFT grid, B42, and the link's VGA re-trim keeps the null, B43) is read with the DAC off: through the 9-bit DAC a zero input rounds dc_pre away.  The sequence's dc_pre and one solved to cancel the leak exactly read alike on the whole chain, with and without the CFO; what SC still loses over 'calibrated away' is the IQ residual.  OFDM puts the leak on its three empty DC tones
 
 == 9. rate against range: one element, line of sight, the calibrated chain at every back-off; the decoder thresholds measured on the ideal chain with spec_sources#33's codes (data/spec/ay_per_thresholds.yaml, tools/measure_ay_thresholds.py; OFDM's bits on the data tones in order, assumed.ay_ofdm_tone_order [assumed]; the DCM MCS through spec_sources#43's static pairing, SC MCS 1 through its rho = 2 codeword); the DMG twin's sensitivity (assumed.ay_sensitivity [assumed]) is a sensitivity row; the floor as a noise term; the multipath column: SC's thresholds measured on the CR stand-in, OFDM's flat ones plus 0.85 dB (assumed.ay_ofdm_multipath_margin_db [assumed]) ==
 wf       MCS  modulation    rate   Gb/s  DMG  T[dB] src  @preset m   best m back-off   Pout  floor    T mp    mp m
-ay_sc      1  π/2-BPSK       1/2  0.385    1  -1.23   m       8.09    18.50    0.04*   14.6 -15.00   -0.94   17.90
-ay_sc      2  π/2-BPSK       1/2  0.770    2   0.12   m       6.94    15.84    0.04*   14.6 -15.00    0.56   15.05
-ay_sc      3  π/2-BPSK       5/8  0.963    3   1.46   m       5.95    13.55    0.04*   14.6 -15.00    1.92   12.83
-ay_sc      4  π/2-BPSK       3/4  1.155    4   2.81   m       5.10    11.54    0.04*   14.6 -15.00    3.36   10.80
-ay_sc      5  π/2-BPSK     13/16  1.251    5   4.02   m       4.44     9.96    0.04*   14.6 -15.00    4.68    9.18
-ay_sc      6  π/2-BPSK       7/8  1.347    —   4.75   m       4.08     9.10    0.04*   14.6 -15.00    5.42    8.36
-ay_sc      7  π/2-QPSK       1/2  1.540    6   3.03   m       4.96    10.95    0.18    14.4 -13.86    3.67   10.12
-ay_sc      8  π/2-QPSK       5/8  1.925    7   4.44   m       4.22     9.18    0.18    14.4 -13.86    5.17    8.35
-ay_sc      9  π/2-QPSK       3/4  2.310    8   5.89   m       3.57     7.59    0.18    14.4 -13.86    6.61    6.88
-ay_sc     10  π/2-QPSK     13/16  2.502    9   7.15   m       3.08     6.30    0.65    13.9 -15.72    7.87    5.72
-ay_sc     11  π/2-QPSK       7/8  2.695  9.1   7.87   m       2.83     5.62    0.95    13.7 -16.48    8.64    5.07
-ay_sc     12  π/2-16-QAM     1/2  3.080   10   8.52   m       2.62     4.02    3.49    11.1 -19.13    9.51    3.54
-ay_sc     13  π/2-16-QAM     5/8  3.850   11  10.44   m       2.09     3.01    3.98    10.6 -20.04   11.51    2.62
-ay_sc     14  π/2-16-QAM     3/4  4.620   12  12.17   m       1.70     2.20    4.98     9.6 -21.62   13.22    1.91
-ay_sc     15  π/2-16-QAM   13/16  5.005 12.1  13.58   m       1.43     1.74    5.49     9.1 -22.30   14.64    1.51
-ay_sc     16  π/2-16-QAM     7/8  5.390 12.2  14.35   m       1.30     1.50    6.00     8.6 -23.04   15.50    1.29
-ay_sc     17  π/2-64-QAM     1/2  4.620    —  13.34   m       1.46     1.46    7.50     7.1 -24.31   14.69    1.23
-ay_sc     18  π/2-64-QAM     5/8  5.775 12.3  15.61   m          —     0.99    8.49     6.1 -25.05   16.83    0.84
+ay_sc      1  π/2-BPSK       1/2  0.385    1  -1.23   m       6.02    13.83    0.04*   14.6 -15.03   -0.94   13.37
+ay_sc      2  π/2-BPSK       1/2  0.770    2   0.12   m       5.16    11.83    0.04*   14.6 -15.03    0.56   11.23
+ay_sc      3  π/2-BPSK       5/8  0.963    3   1.46   m       4.42    10.10    0.04*   14.6 -15.03    1.92    9.57
+ay_sc      4  π/2-BPSK       3/4  1.155    4   2.81   m       3.79     8.60    0.04*   14.6 -15.03    3.36    8.04
+ay_sc      5  π/2-BPSK     13/16  1.251    5   4.02   m       3.29     7.42    0.04*   14.6 -15.03    4.68    6.83
+ay_sc      6  π/2-BPSK       7/8  1.347    —   4.75   m       3.03     6.77    0.04*   14.6 -15.03    5.42    6.22
+ay_sc      7  π/2-QPSK       1/2  1.540    6   3.03   m       3.68     8.16    0.18    14.4 -13.87    3.67    7.53
+ay_sc      8  π/2-QPSK       5/8  1.925    7   4.44   m       3.13     6.83    0.18    14.4 -13.87    5.17    6.21
+ay_sc      9  π/2-QPSK       3/4  2.310    8   5.89   m       2.65     5.64    0.18    14.4 -13.87    6.61    5.11
+ay_sc     10  π/2-QPSK     13/16  2.502    9   7.15   m       2.29     4.69    0.65    13.9 -15.72    7.87    4.25
+ay_sc     11  π/2-QPSK       7/8  2.695  9.1   7.87   m       2.10     4.18    0.95    13.7 -16.49    8.64    3.77
+ay_sc     12  π/2-16-QAM     1/2  3.080   10   8.52   m       1.95     2.98    3.49    11.1 -19.11    9.51    2.63
+ay_sc     13  π/2-16-QAM     5/8  3.850   11  10.44   m       1.55     2.23    3.98    10.6 -20.00   11.51    1.94
+ay_sc     14  π/2-16-QAM     3/4  4.620   12  12.17   m       1.26     1.63    4.98     9.6 -21.62   13.22    1.42
+ay_sc     15  π/2-16-QAM   13/16  5.005 12.1  13.58   m       1.06     1.29    5.49     9.1 -22.36   14.64    1.12
+ay_sc     16  π/2-16-QAM     7/8  5.390 12.2  14.35   m       0.96     1.12    6.00     8.6 -23.09   15.50    0.95
+ay_sc     17  π/2-64-QAM     1/2  4.620    —  13.34   m       1.09     1.09    7.50     7.1 -24.35   14.69    0.92
+ay_sc     18  π/2-64-QAM     5/8  5.775 12.3  15.61   m          —     0.73    8.49     6.1 -25.00   16.83    0.62
 ay_sc     19  π/2-64-QAM     3/4  6.930 12.4  17.59   m          —        —       —       —      —   18.99       —
 ay_sc     20  π/2-64-QAM   13/16  7.508 12.5  19.22   m          —        —       —       —      —   20.65       —
 ay_sc     21  π/2-64-QAM     7/8  8.085 12.6  20.18   m          —        —       —       —      —   21.74       —
-ay_ofdm    1  DCM BPSK       1/2  0.729   13   0.46   m       6.55    13.87    0.11*   14.5  -8.24    1.31   12.33
-ay_ofdm    2  DCM BPSK       5/8  0.912   14   1.78   m       5.62    11.39    0.46    14.1  -9.20    2.63   10.10
-ay_ofdm    3  DCM BPSK       3/4  1.094    —   3.01   m       4.88     9.34    0.97    13.6 -10.37    3.86    8.27
-ay_ofdm    4  DCM BPSK     13/16  1.185    —   4.21   m       4.24     7.39    1.99    12.6 -12.34    5.06    6.58
-ay_ofdm    5  DCM BPSK       7/8  1.277    —   4.91   m       3.91     6.47    2.48    12.1 -13.20    5.76    5.76
-ay_ofdm    6  DCM QPSK       1/2  1.459   15   3.32   m       4.71     8.92    0.97    13.6 -10.28    4.17    7.88
-ay_ofdm    7  DCM QPSK       5/8  1.824   16   4.71   m       4.00     7.11    1.49    13.1 -11.34    5.56    6.26
-ay_ofdm    8  DCM QPSK       3/4  2.188   17   6.03   m       3.43     5.70    1.99    12.6 -12.27    6.88    5.00
-ay_ofdm    9  DCM QPSK     13/16  2.371    —   7.29   m       2.95     4.32    3.48    11.1 -14.76    8.14    3.83
-ay_ofdm   10  DCM QPSK       7/8  2.553    —   7.94   m       2.73     3.80    3.99    10.6 -15.57    8.79    3.37
-ay_ofdm   11  16-QAM         1/2  2.918   18   8.73   m       2.48     3.40    3.99    10.6 -15.57    9.58    3.00
-ay_ofdm   12  16-QAM         5/8  3.647   19  10.60   m       1.97     2.49    4.49    10.1 -16.35   11.45    2.17
-ay_ofdm   13  16-QAM         3/4  4.377   20  12.28   m       1.58     1.86    4.99     9.6 -17.14   13.13    1.60
-ay_ofdm   14  16-QAM       13/16  4.742   21  13.69   m       1.31     1.42    5.99     8.6 -18.72   14.54    1.23
-ay_ofdm   15  16-QAM         7/8  5.106    —  14.45   m       1.17     1.23    6.50     8.1 -19.51   15.30    1.06
-ay_ofdm   16  64-QAM         1/2  4.377    —  13.52   m          —     1.28    8.00     6.6 -21.75   14.37    1.14
-ay_ofdm   17  64-QAM         5/8  5.471   22  15.79   m          —     0.90    8.50     6.1 -22.47   16.64    0.79
-ay_ofdm   18  64-QAM         3/4  6.565   23  17.81   m          —     0.64    9.00     5.6 -23.14   18.66    0.55
-ay_ofdm   19  64-QAM       13/16  7.112   24  19.47   m          —     0.45   10.49     4.1 -25.02   20.32    0.39
-ay_ofdm   20  64-QAM         7/8  7.659    —  20.38   m          —     0.30   13.51     1.1 -27.16   21.23    0.26
-(EIRP = Pout + 0 dBi, receive 0 dBi, the preset receive ladder: NF 3.5 dB at the sensitivity's AGC state, not a 60 GHz figure — ROADMAP C9; oxygen 15 dB/km; '—' at the preset = the floor misses the TX EVM limit there; the grid asks 0, 0.25, 0.5, 0.75 dB and then 1–15 dB in 0.5 dB steps; back-off / Pout = where the PA landed, which the distances use; * = the smallest back-off the PA reaches (asked 0 dB, lands at sc 0.04, ofdm 0.11 dB on the lowest-order payload): the best is the PA's limit, not a point inside the grid; src = m measured / t the DMG twin's; T mp / mp m = the threshold on the CR stand-in and the best distance with it (SC measured, OFDM flat + 0.85 dB); the floors are the flat chain's)
+ay_ofdm    1  DCM BPSK       1/2  0.729   13   0.46   m       4.87    10.34    0.11*   14.5  -8.24    1.31    9.19
+ay_ofdm    2  DCM BPSK       5/8  0.912   14   1.78   m       4.18     8.48    0.46    14.1  -9.20    2.63    7.52
+ay_ofdm    3  DCM BPSK       3/4  1.094    —   3.01   m       3.62     6.95    0.97    13.6 -10.37    3.86    6.16
+ay_ofdm    4  DCM BPSK     13/16  1.185    —   4.21   m       3.15     5.50    1.99    12.6 -12.35    5.06    4.89
+ay_ofdm    5  DCM BPSK       7/8  1.277    —   4.91   m       2.90     4.81    2.48    12.1 -13.20    5.76    4.28
+ay_ofdm    6  DCM QPSK       1/2  1.459   15   3.32   m       3.50     6.64    0.97    13.6 -10.28    4.17    5.86
+ay_ofdm    7  DCM QPSK       5/8  1.824   16   4.71   m       2.97     5.29    1.49    13.1 -11.34    5.56    4.65
+ay_ofdm    8  DCM QPSK       3/4  2.188   17   6.03   m       2.54     4.24    1.99    12.6 -12.27    6.88    3.72
+ay_ofdm    9  DCM QPSK     13/16  2.371    —   7.29   m       2.19     3.21    3.48    11.1 -14.76    8.14    2.84
+ay_ofdm   10  DCM QPSK       7/8  2.553    —   7.94   m       2.03     2.82    3.99    10.6 -15.57    8.79    2.50
+ay_ofdm   11  16-QAM         1/2  2.918   18   8.73   m       1.84     2.52    3.99    10.6 -15.57    9.58    2.22
+ay_ofdm   12  16-QAM         5/8  3.647   19  10.60   m       1.46     1.85    4.49    10.1 -16.34   11.45    1.61
+ay_ofdm   13  16-QAM         3/4  4.377   20  12.28   m       1.17     1.38    4.99     9.6 -17.14   13.13    1.18
+ay_ofdm   14  16-QAM       13/16  4.742   21  13.69   m       0.97     1.06    5.99     8.6 -18.72   14.54    0.91
+ay_ofdm   15  16-QAM         7/8  5.106    —  14.45   m       0.87     0.91    6.50     8.1 -19.51   15.30    0.79
+ay_ofdm   16  64-QAM         1/2  4.377    —  13.52   m          —     0.95    8.00     6.6 -21.75   14.37    0.85
+ay_ofdm   17  64-QAM         5/8  5.471   22  15.79   m          —     0.66    8.50     6.1 -22.46   16.64    0.58
+ay_ofdm   18  64-QAM         3/4  6.565   23  17.81   m          —     0.47    9.00     5.6 -23.15   18.66    0.41
+ay_ofdm   19  64-QAM       13/16  7.112   24  19.47   m          —     0.32   10.99     3.6 -25.47   20.32    0.28
+ay_ofdm   20  64-QAM         7/8  7.659    —  20.38   m          —     0.22   13.51     1.1 -27.00   21.23    0.19
+(EIRP = Pout + 0 dBi, receive 0 dBi, the preset's 60 GHz receive front end: NF 6.1 dB at the sensitivity's AGC state (assumed.preset_rx_front); oxygen 15 dB/km; '—' at the preset = the floor misses the TX EVM limit there; the grid asks 0, 0.25, 0.5, 0.75 dB and then 1–15 dB in 0.5 dB steps; back-off / Pout = where the PA landed, which the distances use; * = the smallest back-off the PA reaches (asked 0 dB, lands at sc 0.04, ofdm 0.11 dB on the lowest-order payload): the best is the PA's limit, not a point inside the grid; src = m measured / t the DMG twin's; T mp / mp m = the threshold on the CR stand-in and the best distance with it (SC measured, OFDM flat + 0.85 dB); the floors are the flat chain's)
 
 the fastest rate each waveform keeps at each distance (Gb/s, MCS; each MCS at its best back-off; flat, then with the multipath thresholds):
     m            ay_sc          ay_ofdm         ay_sc mp       ay_ofdm mp
-  1.0    5.390 (MCS16)    5.106 (MCS15)    5.390 (MCS16)    5.106 (MCS15)
-  1.5    5.390 (MCS16)    4.377 (MCS13)    5.005 (MCS15)    4.377 (MCS13)
-  2.0    4.620 (MCS14)    3.647 (MCS12)    3.850 (MCS13)    3.647 (MCS12)
-  3.0    3.850 (MCS13)    2.918 (MCS11)    3.080 (MCS12)    2.553 (MCS10)
-  5.0    2.695 (MCS11)     2.188 (MCS8)    2.695 (MCS11)     2.188 (MCS8)
-  8.0     1.925 (MCS8)     1.459 (MCS6)     1.925 (MCS8)     1.094 (MCS3)
+  1.0    5.390 (MCS16)    4.742 (MCS14)    5.005 (MCS15)    4.377 (MCS13)
+  1.5    4.620 (MCS14)    3.647 (MCS12)    3.850 (MCS13)    3.647 (MCS12)
+  2.0    3.850 (MCS13)    2.918 (MCS11)    3.080 (MCS12)    2.918 (MCS11)
+  3.0    2.695 (MCS11)     2.371 (MCS9)    2.695 (MCS11)     2.188 (MCS8)
+  5.0     2.310 (MCS9)     1.824 (MCS7)     2.310 (MCS9)     1.459 (MCS6)
+  8.0     1.540 (MCS7)     0.912 (MCS2)     1.155 (MCS4)     0.729 (MCS1)
 
 the multipath columns are not like for like — SC's cost is measured per MCS, OFDM's is one assumed number (0.85 dB) for every MCS.  At the same modulation and code rate (dB over flat; metres at each MCS's best back-off):
 modulation  rate  SC cost  SC mp m  OFDM cost OFDM mp m  OFDM m at SC cost
-QPSK         1/2     0.64    10.12       0.85      7.88               8.13
-QPSK         3/4     0.72     6.88       0.85      5.00               5.11
-QPSK         7/8     0.77     5.07       0.85      3.37               3.41
-16-QAM       1/2     0.99     3.54       0.85      3.00               2.93
-16-QAM       5/8     1.07     2.62       0.85      2.17               2.09
-16-QAM       3/4     1.05     1.91       0.85      1.60               1.54
-16-QAM     13/16     1.06     1.51       0.85      1.23               1.18
-16-QAM       7/8     1.15     1.29       0.85      1.06               1.00
-64-QAM       1/2     1.35     1.23       0.85      1.14               1.06
-64-QAM       5/8     1.22     0.84       0.85      0.79               0.74
-64-QAM       3/4     1.40        —       0.85      0.55               0.50
-64-QAM     13/16     1.43        —       0.85      0.39               0.35
-64-QAM       7/8     1.56        —       0.85      0.26               0.23
+QPSK         1/2     0.64     7.53       0.85      5.86               6.05
+QPSK         3/4     0.72     5.11       0.85      3.72               3.79
+QPSK         7/8     0.77     3.77       0.85      2.50               2.53
+16-QAM       1/2     0.99     2.63       0.85      2.22               2.18
+16-QAM       5/8     1.07     1.94       0.85      1.61               1.55
+16-QAM       3/4     1.05     1.42       0.85      1.18               1.14
+16-QAM     13/16     1.06     1.12       0.85      0.91               0.87
+16-QAM       7/8     1.15     0.95       0.85      0.79               0.74
+64-QAM       1/2     1.35     0.92       0.85      0.85               0.79
+64-QAM       5/8     1.22     0.62       0.85      0.58               0.55
+64-QAM       3/4     1.40        —       0.85      0.41               0.37
+64-QAM     13/16     1.43        —       0.85      0.28               0.25
+64-QAM       7/8     1.56        —       0.85      0.19               0.17
 (OFDM m at SC cost = OFDM's distance if its threshold moved by what SC's measured one does at that modulation and code rate: a sensitivity reading, not an OFDM measurement)
 
 sensitivity rows, at the preset back-off, for the comparison table's calibrated caps (SC MCS14, OFDM MCS13; metres):
-  ay_sc    MCS14: preset 1.70; the DMG twin's threshold (rule twin) 1.44; the twin's with its implementation loss kept in 0.74; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.99
-  ay_ofdm  MCS13: preset 1.58; the DMG twin's threshold (rule twin) 1.56; the twin's with its implementation loss kept in 0.71; surveyed 60 GHz front end (NF 6.1 dB at its AGC state, 2 + 2 dBi) 1.86
+  ay_sc    MCS14: preset 1.26; the DMG twin's threshold (rule twin) 1.07; the twin's with its implementation loss kept in 0.55; the surveyed antennas as well (2 + 2 dBi, config.surveyed_frontend) 1.99; the WiFi 7 receive ladder the presets had until 2026-11-18 (NF 3.5 dB at its AGC state, config.wifi7_rx_ladder) 1.70
+  ay_ofdm  MCS13: preset 1.17; the DMG twin's threshold (rule twin) 1.16; the twin's with its implementation loss kept in 0.53; the surveyed antennas as well (2 + 2 dBi, config.surveyed_frontend) 1.86; the WiFi 7 receive ladder the presets had until 2026-11-18 (NF 3.5 dB at its AGC state, config.wifi7_rx_ladder) 1.58
 the DMG-derived thresholds against this library's measured ones at the same modulation and code rate: the EDMG codes on both waveforms (data/spec/ay_per_thresholds.yaml) and the 11be LDPC (data/spec/per_thresholds.yaml, 80 MHz; its SNR is per active subcarrier):
                               twin measured    11be  twin - meas twin - 11be
   BPSK 1/2     ay_sc    MCS2    0.52     0.12       —     +0.40            —
@@ -349,15 +349,15 @@ the DMG-derived thresholds against this library's measured ones at the same modu
 
 == 10. under multipath: the CR stand-in (exponential PDP, rms 7 ns, K 10 dB, one realisation per packet; assumed.cr_rms_delay_ns [assumed]), the calibrated chain at the preset back-off, 16-QAM payloads; EVM dB over 40 packets, mean (90th percentile) ==
 waveform channel                            no noise        SNR 20 dB        SNR 12 dB  12 dB vs flat
-ay_sc    flat                        -24.40 (-24.11)  -18.32 (-18.25)  -11.32 (-11.23)          +0.00
-ay_sc    CR 7 ns                     -23.90 (-23.57)  -17.50 (-17.28)  -10.54 (-10.36)          +0.78
-ay_sc    CR 15 ns                    -18.84 (-17.86)  -15.81 (-15.38)  -10.19 ( -9.99)          +1.14
-ay_sc    CR 15 ns, long GI           -23.55 (-23.23)  -17.21 (-17.03)  -10.28 (-10.14)          +1.04
-ay_sc    CR 7 ns, zero forcing       -23.90 (-23.57)  -17.47 (-17.24)  -10.36 (-10.12)          +0.96
-ay_ofdm  flat                        -21.07 (-20.95)  -17.32 (-17.22)  -11.19 (-11.09)          +0.00
-ay_ofdm  CR 7 ns                     -20.92 (-20.75)  -16.71 (-16.50)  -10.34 (-10.13)          +0.85
+ay_sc    flat                        -24.44 (-24.13)  -18.32 (-18.25)  -11.32 (-11.23)          +0.00
+ay_sc    CR 7 ns                     -23.92 (-23.59)  -17.50 (-17.28)  -10.54 (-10.37)          +0.78
+ay_sc    CR 15 ns                    -18.85 (-17.87)  -15.81 (-15.38)  -10.19 ( -9.99)          +1.14
+ay_sc    CR 15 ns, long GI           -23.58 (-23.26)  -17.21 (-17.02)  -10.28 (-10.14)          +1.04
+ay_sc    CR 7 ns, zero forcing       -23.92 (-23.59)  -17.47 (-17.23)  -10.36 (-10.13)          +0.96
+ay_ofdm  flat                        -21.07 (-20.94)  -17.32 (-17.21)  -11.19 (-11.09)          +0.00
+ay_ofdm  CR 7 ns                     -20.92 (-20.76)  -16.71 (-16.49)  -10.34 (-10.13)          +0.85
 ay_ofdm  CR 15 ns                    -17.93 (-17.42)  -15.24 (-14.75)   -9.83 ( -9.61)          +1.36
-ay_ofdm  CR 15 ns, long GI           -20.63 (-20.35)  -16.30 (-16.05)   -9.89 ( -9.60)          +1.30
+ay_ofdm  CR 15 ns, long GI           -20.62 (-20.36)  -16.30 (-16.05)   -9.89 ( -9.60)          +1.30
 (the in-band SNR is the received signal over the noise in the occupied band; SC equalises with the unbiased MMSE on the channel estimate's scale, OFDM zero-forces per tone; the GI is 36.4 ns normal, 72.7 ns long)
 
 [~s]

@@ -50,7 +50,7 @@ python examples/07_pa_memory_dpd.py                       # 全量约 5 分钟�
 ## 前端的三个面：接收前端、收发隔离、天线增益（示例 08）
 
 链路预算和雷达（fmcw_radar，mmw60_trx#14）要从共享的 `Frontend60` 读三样东西：60 GHz 接收前端在最高增益档的增益 / NF / 输入压缩点（`fe.rx_front`；压缩点分带内 `p1db_inband_dbm` 与带外 `p1db_oob_dbm` 两个量）、收发隔离（`fe.tx_rx_isolation_db`、`fe.leakage_budget()`）、发 / 收天线增益（两个字段）。
-预设不动：接收机仍是 wifitrx 的 WiFi 7 梯子（`fe.rx_front.sourced` 为 False，不要当成 60 GHz 前端的数读），天线 0 dBi，隔离未指定。`config.surveyed_frontend(cfg)` 换成查到的一档（增益 27 dB、NF 6.1 dB、IIP3 −20 dBm、天线 2 dBi、隔离 20 dB）。
+预设带三个面里的第一个（2026-11-18 起，ROADMAP C9）：接收前端是一颗 60 GHz 通信收发机的数（增益 27 dB、NF 6.1 dB、IIP3 −20 dBm，`config.surveyed_rx_front`，`assumed.preset_rx_front`）；天线仍是 0 dBi，隔离未指定。`config.surveyed_frontend(cfg)` 再加上查到的天线（两端 2 dBi）与隔离（20 dB）。`config.wifi7_rx_ladder(cfg)` 换回 2026-11-18 之前预设用的 wifitrx 的 WiFi 7 梯子（NF 3.5 dB，`fe.rx_front.sourced` 为 False，不是 60 GHz 前端的数），作灵敏度行；同台表里 6 GHz 的 K = 1 行单独仿真时仍是它。
 
 ```bash
 python examples/08_frontend_faces.py                      # 全量约 15 秒；--quick 冒烟

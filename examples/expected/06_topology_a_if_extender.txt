@@ -75,22 +75,22 @@ no DPD / chip-only / TX EVM programmed: wifitrx tx_evm on the 64-QAM scoring fra
 == 4. MCS cap against the fixed LO's phase noise at 1 MHz (one-pole / one-zero profile, TX and RX LO) ==
 L(1MHz)   IPN 10k-100M   ICI analytic   EvmBudget PN   TD, LO only   budget-TD   floor   TD all   conf cap   dec cap   Mb/s@dec
     -85          -20.1          -14.1          -14.1         -14.0      -0.16   -13.3    -13.3      MCS1      MCS3        144
-    -90          -25.1          -19.1          -19.1         -19.0      -0.11   -16.9    -17.3      MCS2      MCS4        216
-    -95          -30.1          -24.1          -24.1         -24.0      -0.09   -19.3    -20.0      MCS3      MCS5        288
-   -100          -35.1          -29.1          -29.1         -29.0      -0.10   -20.4    -21.4      MCS3      MCS6        324
-   -105          -40.1          -34.1          -34.1         -34.0      -0.13   -20.8    -21.9      MCS3      MCS6        324
-   -110          -45.1          -39.1          -39.1         -38.9      -0.23   -21.0    -22.1      MCS3      MCS6        324
-  -99.4          -34.0          -28.1          -28.1         -27.9      -0.21   -20.2    -21.2      MCS3      MCS6        324   <- pllsim wu19 6 GHz x9 = 54 GHz (survey.clock_profile_wu19_x9, lo.scheme fixed_lo_x9)
+    -90          -25.1          -19.1          -19.1         -19.0      -0.11   -16.9    -17.2      MCS2      MCS4        216
+    -95          -30.1          -24.1          -24.1         -24.0      -0.09   -19.3    -19.8      MCS3      MCS5        288
+   -100          -35.1          -29.1          -29.1         -29.0      -0.10   -20.4    -21.1      MCS3      MCS6        324
+   -105          -40.1          -34.1          -34.1         -34.0      -0.13   -20.8    -21.6      MCS3      MCS6        324
+   -110          -45.1          -39.1          -39.1         -38.9      -0.23   -21.0    -21.8      MCS3      MCS6        324
+  -99.4          -34.0          -28.1          -28.1         -27.9      -0.21   -20.2    -20.9      MCS3      MCS6        324   <- pllsim wu19 6 GHz x9 = 54 GHz (survey.clock_profile_wu19_x9, lo.scheme fixed_lo_x9)
 the pllsim row: L(1MHz) read off its profile; the profile sits at the LO frequency, not the carrier (20*log10(60.48/54) = 1.0 dB less than at 60.48 GHz)
 ICI analytic = this library's term (cpe_partition to fs/2, both LOs); EvmBudget PN = wifitrx's budget term (IPN 10 kHz-100 MHz less the CPE-tracked share, both LOs); TD, LO only = the time-domain chain with nothing else on. floor / TD all / caps: the whole link at OBO 7.5 dB (PA isolated EVM -21.1 dB, chip residual and chip LO included).
 per step of the LO level: -85->-90: analytic 5.00, budget 5.00, TD 5.06 dB; -90->-95: analytic 5.00, budget 5.00, TD 5.02 dB; -95->-100: analytic 5.00, budget 5.00, TD 5.00 dB; -100->-105: analytic 5.00, budget 5.00, TD 4.97 dB; -105->-110: analytic 5.00, budget 5.00, TD 4.89 dB
 
 == 5. cascade back-off: chip PA output x 60 GHz PA back-off (link EVM, flat channel, no noise; decoder cap) ==
 chip Pout[dBm] (OBO1 from its Psat)   chip residual   OBO2 6: EVM / cap   OBO2 8: EVM / cap   OBO2 10: EVM / cap   OBO2 12: EVM / cap
-    10.1 (17.9)                  -42.0         -18.2 / MCS4          -20.9 / MCS6          -22.9 / MCS7          -24.0 / MCS7      chip PA DC 203 mW
-    13.3 (14.7)                  -43.9         -18.3 / MCS4          -21.0 / MCS6          -23.0 / MCS7          -24.1 / MCS7      chip PA DC 294 mW
-    16.5 (11.5)                  -42.5         -18.4 / MCS4          -21.1 / MCS6          -23.1 / MCS7          -24.1 / MCS7      chip PA DC 423 mW
-    18.9 ( 9.1)                  -32.5         -18.2 / MCS4          -20.7 / MCS6          -22.4 / MCS7          -23.2 / MCS7      chip PA DC 558 mW
+    10.1 (17.9)                  -42.0         -18.0 / MCS4          -20.7 / MCS6          -22.6 / MCS7          -23.7 / MCS7      chip PA DC 203 mW
+    13.3 (14.7)                  -43.9         -18.1 / MCS4          -20.7 / MCS6          -22.7 / MCS7          -23.8 / MCS7      chip PA DC 294 mW
+    16.5 (11.5)                  -42.5         -18.2 / MCS4          -20.8 / MCS6          -22.8 / MCS7          -23.9 / MCS7      chip PA DC 423 mW
+    18.9 ( 9.1)                  -32.5         -18.1 / MCS4          -20.5 / MCS6          -22.1 / MCS7          -23.0 / MCS7      chip PA DC 558 mW
 the chip's output is padded down to the 60 GHz PA's drive (interstage), so its back-off costs DC power, not link EVM, until its own residual reaches the 60 GHz PA's.
 
 == 5b. the chip's PA bypassed: the IF taken at its mixer output, the PA powered down (assumed.ifext_chip_pa_bypass) ==
@@ -105,8 +105,8 @@ final_loopback_evm     tx_evm_db           -43.18    -45.35
 final_loopback_evm     rx_evm_db           -40.54    -40.55
 interstage to the 60 GHz PA: -28.50 dB with the chip PA in, -2.65 dB bypassed (an attenuation either way: no driver needed); 60 GHz PA out 7.08 / 7.10 dBm
                             floor     TD  dec cap   Mb/s  pJ/bit of it chip PA
-chip PA in (the preset)     -19.6  -20.4     MCS5    288    2418          1020
-chip PA bypassed            -19.6  -20.3     MCS5    288    1270             —
+chip PA in (the preset)     -19.6  -20.1     MCS5    288    2418          1020
+chip PA bypassed            -19.6  -20.1     MCS5    288    1270             —
 the 320 MHz pair against topology B's 80 MHz x 4 is in example 04 (tables 4 / 4b)
 
 == 6. CFO (iron rule 3): crystals x carrier against the chip's estimators, and the multi-link pre-compensation ==
@@ -117,30 +117,30 @@ sub-7 SNR[dB]   sub-7 estimate rms error[Hz]   60 GHz residual rms / max[kHz]   
         10                         2275               25.02 /  69.22                 0.89   yes
         20                          677                7.44 /  24.01                 0.31   yes
         30                          212                2.33 /   7.99                 0.10   yes
-  MLO pre-compensation on (the preset)       link EVM  -20.44 dB
-  MLO off: the raw offset reaches the chip   link EVM    4.10 dB
-  ppm = 0 (the CFO term off)                 link EVM  -20.39 dB
+  MLO pre-compensation on (the preset)       link EVM  -20.21 dB
+  MLO off: the raw offset reaches the chip   link EVM    4.12 dB
+  ppm = 0 (the CFO term off)                 link EVM  -20.16 dB
 
 == 7. sensitivity: one assumed input at a time (link EVM, flat channel, no noise) ==
-  preset                                                                 EVM  -20.37 dB (+0.00)   ripple 0.22 dB, group-delay spread 61 ps
-  IF filter off                                                          EVM  -20.38 dB (-0.00)   ripple 0.00 dB, group-delay spread 0 ps
-  channel at the filter's band edge                                      EVM  -20.37 dB (+0.01)   ripple 0.50 dB, group-delay spread 1231 ps
-  IF filter ripple 2 dB                                                  EVM  -20.36 dB (+0.02)   ripple 0.96 dB, group-delay spread 321 ps
-  another chip (seed 6)                                                  EVM  -20.37 dB (+0.00)   ripple 0.22 dB, group-delay spread 61 ps
-  chip without DPD                                                       EVM  -19.13 dB (+1.25)   ripple 0.22 dB, group-delay spread 61 ps
-  the shared front end's own chain as the chip (uncalibrated, like B's)  EVM  -19.95 dB (+0.42)   ripple 0.22 dB, group-delay spread 61 ps
-  phase noise on the RX LO only                                          EVM  -21.19 dB (-0.81)   ripple 0.22 dB, group-delay spread 61 ps
+  preset                                                                 EVM  -20.14 dB (+0.00)   ripple 0.22 dB, group-delay spread 61 ps
+  IF filter off                                                          EVM  -20.14 dB (-0.00)   ripple 0.00 dB, group-delay spread 0 ps
+  channel at the filter's band edge                                      EVM  -20.13 dB (+0.00)   ripple 0.50 dB, group-delay spread 1231 ps
+  IF filter ripple 2 dB                                                  EVM  -20.12 dB (+0.02)   ripple 0.96 dB, group-delay spread 321 ps
+  another chip (seed 6)                                                  EVM  -20.14 dB (+0.00)   ripple 0.22 dB, group-delay spread 61 ps
+  chip without DPD                                                       EVM  -18.94 dB (+1.20)   ripple 0.22 dB, group-delay spread 61 ps
+  the shared front end's own chain as the chip (uncalibrated, like B's)  EVM  -19.96 dB (+0.18)   ripple 0.22 dB, group-delay spread 61 ps
+  phase noise on the RX LO only                                          EVM  -20.90 dB (-0.77)   ripple 0.22 dB, group-delay spread 61 ps
   image rejection   30 dB -> noise-figure penalty 0.004 dB (sensitivity, not EVM)
   image rejection   20 dB -> noise-figure penalty 0.043 dB (sensitivity, not EVM)
   image rejection   10 dB -> noise-figure penalty 0.414 dB (sensitivity, not EVM)
   image rejection    0 dB -> noise-figure penalty 3.010 dB (sensitivity, not EVM)
-  the widest WiFi 7 channel, 11be 320 MHz: EVM -20.04 dB, in-channel ripple 0.50 dB, chip residual -39.0 dB, decoder cap MCS5 (1153 Mb/s)
+  the widest WiFi 7 channel, 11be 320 MHz: EVM -19.81 dB, in-channel ripple 0.50 dB, chip residual -39.0 dB, decoder cap MCS5 (1153 Mb/s)
 
 == 8. the decoder cap checked with PER (impaired link, flat channel) ==
 floor   cap    T[dB]  SNR needed (predicted)  measured @ PER 1e-2   one MCS above: predicted  measured
--19.6   MCS5   15.11       17.03                 16.71              MCS6:    19.69      19.28
+-19.6   MCS5   15.11       17.03                 16.73              MCS6:    19.69      19.40
 measured: 1 dB grid round the prediction, the two points bracketing PER 1e-2 run on to 60 errors or 3000 packets; 95 % bootstrap intervals (threshold's: spec.per_threshold_ci_db):
-  MCS5  measured  16.71 [16.60, 16.81]   threshold 15.11 [15.06, 15.17]
-  MCS6  measured  19.28 [19.16, 19.40]   threshold 16.63 [16.59, 16.70]
+  MCS5  measured  16.73 [16.63, 16.84]   threshold 15.11 [15.06, 15.17]
+  MCS6  measured  19.40 [19.29, 19.52]   threshold 16.63 [16.59, 16.70]
 
 wrote examples/output/06_sweeps.json  [~s]

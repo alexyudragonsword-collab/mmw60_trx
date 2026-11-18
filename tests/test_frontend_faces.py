@@ -1,8 +1,9 @@
-"""ROADMAP D4: the receive front end, the TX-RX isolation and the two antenna
-gains as faces of the shared ``Frontend60``.
+"""ROADMAP D4 / C9: the receive front end, the TX-RX isolation and the two
+antenna gains as faces of the shared ``Frontend60``.
 
-The presets do not use any of them: their chains are the ones they were
-(the fingerprint guards the numbers; here the objects)."""
+Since 2026-11-18 (C9) the 60 GHz presets carry the first face — a 60 GHz
+receive front end; the antenna gains and the isolation stay off them, and
+the 6 GHz K = 1 row keeps wifitrx's own ladder."""
 import dataclasses as dc
 import re
 
@@ -11,7 +12,8 @@ import pytest
 
 from conftest import REPO
 from mmw60 import spec
-from mmw60.config import ChannelConfig, Mmw60Config, RxFrontConfig, surveyed_frontend, zero_if_60ghz
+from mmw60.config import (ChannelConfig, Mmw60Config, RxFrontConfig, ay_60ghz, if_extender_60ghz, liu2025_table2,
+                          surveyed_frontend, surveyed_rx_front, wifi7_chain_k1, wifi7_rx_ladder, zero_if_60ghz)
 from mmw60.frontend import Frontend60
 from mmw60.frontend.rxfront import RxFront60
 from mmw60.sim.link import LinkSim, evm_at
@@ -25,22 +27,60 @@ def anchored(cfg, **kw):
     return dc.replace(cfg, frontend=dc.replace(cfg.frontend, rx_front=RxFrontConfig(model="anchored", **kw)))
 
 
-# ------------------------------------------------------------------ the presets are untouched
-def test_law2_presets_keep_the_wifitrx_ladder_and_say_it_is_not_a_60ghz_figure():
-    cfg = zero_if_60ghz(k=8)
-    assert cfg.frontend.rx_front == RxFrontConfig()
-    assert (cfg.frontend.antenna_gain_rx_dbi, cfg.frontend.tx_rx_isolation_db) == (None, None)
+# ------------------------------------------------------------------ what the presets carry
+def test_law2_presets_carry_the_60ghz_receive_front_end_and_nothing_else_of_the_three_faces():
+    """ROADMAP C9: every 60 GHz preset has one receive front end, read from the
+    spec entries; the antenna gain and the isolation are not in the presets."""
+    take = spec.value("assumed.preset_rx_front")
+    pick = spec.value(take["from"])
+    assert take["from"] == "assumed.frontend_faces_pick" and take["fields"] == ["rx_nf_db", "rx_iip3_dbm", "rx_gain_db"]
+    want = RxFrontConfig(model="anchored", nf_db=pick["rx_nf_db"], iip3_dbm=pick["rx_iip3_dbm"],
+                         gain_db=pick["rx_gain_db"])
+    assert surveyed_rx_front() == want
+    presets = (zero_if_60ghz(k=8), zero_if_60ghz(k=4, standard="11be", bandwidth_hz=80e6), if_extender_60ghz(),
+               if_extender_60ghz(k=4, bandwidth_hz=20e6), ay_60ghz("ay_sc"), ay_60ghz("ay_ofdm"))
+    for cfg in presets:
+        assert cfg.frontend.rx_front == want, cfg.label
+        assert (cfg.frontend.antenna_gain_dbi, cfg.frontend.antenna_gain_rx_dbi, cfg.frontend.tx_rx_isolation_db) \
+            == (0.0, None, None), cfg.label
+    cfg = presets[0]
     fe = Frontend60.from_config(cfg)
-    assert fe.rx_front.model == "wifi7_ladder" and not fe.rx_front.sourced
-    assert fe.rx_front.states is DEFAULT_LNA_STATES
+    assert fe.rx_front.sourced and fe.rx_front.anchored_fields == ("nf_db", "iip3_dbm", "gain_db")
+    assert (fe.rx_front.nf_db, fe.rx_front.iip3_dbm, fe.rx_front.gain_db) == \
+        (pick["rx_nf_db"], pick["rx_iip3_dbm"], pick["rx_gain_db"])
     sim = LinkSim(cfg, frontend=fe)
-    assert sim.rx.params.lna_states == DEFAULT_LNA_STATES
+    assert sim.rx.params.lna_states is fe.rx_front.states and sim.rx.params.lna_states != DEFAULT_LNA_STATES
     f = fe.faces()
-    assert f["rx_front_sourced"] is False and f["tx_rx_isolation_db"] is None
+    assert f["rx_front_sourced"] is True and f["tx_rx_isolation_db"] is None
     assert f["shared_antenna"] and f["antenna_gain_rx_dbi"] == f["antenna_gain_tx_dbi"] == cfg.frontend.antenna_gain_dbi
     assert fe.leakage_budget() is None and fe.tx_leak_at_rx_dbm() is None
     # the reports built on describe() keep their shape
     assert not {"rx_front", "rx_nf_db", "rx_iip3_dbm", "tx_rx_isolation_db", "antenna_gain_rx_dbi"} & set(fe.describe())
+    # surveyed_frontend adds the other two faces and leaves the receive one as the presets have it
+    full = surveyed_frontend(cfg)
+    assert full.frontend.rx_front == want
+    assert (full.frontend.antenna_gain_dbi, full.frontend.antenna_gain_rx_dbi, full.frontend.tx_rx_isolation_db) == \
+        (pick["antenna_gain_tx_dbi"], pick["antenna_gain_rx_dbi"], pick["tx_rx_isolation_db"])
+
+
+def test_law2_the_wifi7_ladder_is_still_wifitrx_own_on_the_k1_row_and_as_a_sensitivity_row():
+    """The 6 GHz K = 1 row is the WiFi 7 chip and keeps the chip's ladder
+    (assumed.preset_rx_front: k1_row_at_6ghz); ``wifi7_rx_ladder`` puts it
+    back on a 60 GHz preset (the presets before 2026-11-18); Liu's preset
+    never had a front-end ladder to change."""
+    assert spec.value("assumed.preset_rx_front")["k1_row_at_6ghz"] == "wifi7_ladder"
+    for cfg in (wifi7_chain_k1(), wifi7_rx_ladder(zero_if_60ghz(k=8)), wifi7_rx_ladder(ay_60ghz("ay_sc")),
+                liu2025_table2()):
+        assert cfg.frontend.rx_front == RxFrontConfig(), cfg.label
+        fe = Frontend60.from_config(cfg)
+        assert fe.rx_front.model == "wifi7_ladder" and not fe.rx_front.sourced
+        assert fe.rx_front.states is DEFAULT_LNA_STATES
+    cfg = wifi7_rx_ladder(zero_if_60ghz(k=8))
+    sim = LinkSim(cfg)
+    assert sim.rx.params.lna_states == DEFAULT_LNA_STATES
+    # nothing else of the preset moves with the ladder
+    assert dc.replace(cfg, label="", frontend=dc.replace(cfg.frontend, rx_front=surveyed_rx_front())) == \
+        dc.replace(zero_if_60ghz(k=8), label="")
 
 
 def test_law2_the_chain_runs_on_the_shared_front_ends_ladder():

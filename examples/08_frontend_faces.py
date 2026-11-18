@@ -4,21 +4,23 @@ A link budget and a radar (fmcw_radar, mmw60_trx#14) read three things off
 ``Frontend60`` that it did not say out loud before ROADMAP D4:
 
 * the receive front end at its maximum-gain state — gain, noise figure,
-  input compression.  The presets run on wifitrx's own ladder, a sub-7 GHz
-  WiFi 7 chip's; ``config.surveyed_frontend`` moves it to a 60 GHz
-  communication transceiver's figures;
+  input compression.  The presets carry a 60 GHz communication
+  transceiver's figures (since 2026-11-18, ROADMAP C9; data/spec:
+  assumed.preset_rx_front); until then they ran on wifitrx's own ladder, a
+  sub-7 GHz WiFi 7 chip's, which is ``config.wifi7_rx_ladder`` now;
 * the isolation between the transmitter output and the receiver input;
 * the transmit and receive antenna gains.
 
-The presets do not use any of it (their numbers are the ones they always
-were).  The literature figures are of two kinds (data/spec/survey.yaml):
+The presets carry the first of the three; the isolation and the antenna
+gains are ``config.surveyed_frontend`` (the presets keep a 0 dBi antenna and
+no isolation figure).  The literature figures are of two kinds (data/spec/survey.yaml):
 ``spec`` entries were read in the original and carry the quoted text,
 ``survey`` entries were read from a search snippet only.  Every table names
 the entry behind each figure and which kind it is.
 
 What the tables answer:
 
-1. the faces, preset against surveyed, with the entry each figure comes from;
+1. the faces — the WiFi 7 ladder, the preset, the surveyed set — with the entry each figure comes from;
 2. what the receive noise figure moves: the sensitivity (dB for dB), not the
    link EVM on an SNR axis, and the calibration sequence's own readings;
 3. the transmitter's leakage at the receiver input against the receive front
@@ -44,7 +46,8 @@ sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, spec                          # noqa: E402
 from mmw60.calcheck import run_cal_at                                       # noqa: E402
-from mmw60.config import ChannelConfig, if_extender_60ghz, surveyed_frontend, zero_if_60ghz  # noqa: E402
+from mmw60.config import (ChannelConfig, if_extender_60ghz, surveyed_frontend, wifi7_rx_ladder,  # noqa: E402
+                          zero_if_60ghz)
 from mmw60.frontend import Frontend60                                       # noqa: E402
 from mmw60.sim.link import LinkSim, evm_at                                  # noqa: E402
 
@@ -55,8 +58,8 @@ MCS_ROWS = (0, 4)
 
 #: the receive noise figures looked at: (label, spec key or None for wifitrx's own ladder, or (key, offset key):
 #: the entry's NF plus an assumed offset — the ISCAS 2015 receiver's figure is double-sideband)
-NF_ROWS = (("WiFi 7 chip ladder (the presets)", None),
-           ("60 GHz comm. transceiver, 65 nm", "rx60.comm_asada2011"),
+NF_ROWS = (("WiFi 7 chip ladder (until 2026-11-18)", None),
+           ("60 GHz comm. transceiver (the presets)", "rx60.comm_asada2011"),
            ("60 GHz comm. receiver, 90 nm, DSB", "rx60.comm_iscas2015"),
            ("  the same, single sideband", ("rx60.comm_iscas2015", "assumed.rx_nf_dsb_to_ssb_db")),
            ("802.11ad sensitivity-table receiver", "dmg.sensitivity_assumptions"),
@@ -64,7 +67,7 @@ NF_ROWS = (("WiFi 7 chip ladder (the presets)", None),
 
 
 def with_rx_nf(cfg, nf_db):
-    """``cfg`` with its receive front end anchored at ``nf_db`` (the IIP3 stays the surveyed pick's)."""
+    """``cfg`` with its receive front end anchored at ``nf_db`` (gain and IIP3 stay the preset's)."""
     front = dc.replace(cfg.frontend.rx_front, model="anchored", nf_db=float(nf_db))
     return dc.replace(cfg, frontend=dc.replace(cfg.frontend, rx_front=front))
 
@@ -79,31 +82,33 @@ def fmt(v, unit="", nd=1):
     return "not specified" if v is None else f"{v:.{nd}f}{unit}"
 
 
-def faces_table(preset, surveyed):
+def faces_table(old, preset, surveyed):
     pick, comm = tag("assumed.frontend_faces_pick"), tag("rx60.comm_asada2011")
-    a, b = Frontend60.from_config(preset).faces(), Frontend60.from_config(surveyed).faces()
-    rows = (("receive front end", a["rx_front"], b["rx_front"], tag("assumed.rx60_ladder_shape")),
-            ("  a 60 GHz figure?", "no" if not a["rx_front_sourced"] else "yes",
-             "yes: " + ", ".join(b["rx_front_given"]), pick),
-            ("  gain, max state", fmt(a["rx_gain_db"], " dB"), fmt(b["rx_gain_db"], " dB"), comm),
-            ("  noise figure", fmt(a["rx_nf_db"], " dB"), fmt(b["rx_nf_db"], " dB"), comm),
-            ("  IIP3", fmt(a["rx_iip3_dbm"], " dBm"), fmt(b["rx_iip3_dbm"], " dBm"), comm),
-            ("  input P1dB, in band", fmt(a["rx_p1db_inband_dbm"], " dBm"), fmt(b["rx_p1db_inband_dbm"], " dBm"),
-             tag("assumed.rx60_p1db_from_iip3_db")),
-            ("  input P1dB, out of band", fmt(a["rx_p1db_oob_dbm"], " dBm"), fmt(b["rx_p1db_oob_dbm"], " dBm"),
-             "no communication paper read gives it"),
-            ("  gain states", f"{a['rx_gain_states']} (down to {a['rx_gain_min_db']:g} dB)",
-             f"{b['rx_gain_states']} (down to {b['rx_gain_min_db']:g} dB)", tag("assumed.rx60_ladder_shape")),
-            ("TX antenna gain", fmt(a["antenna_gain_tx_dbi"], " dBi"), fmt(b["antenna_gain_tx_dbi"], " dBi"),
-             comm),
-            ("RX antenna gain", fmt(a["antenna_gain_rx_dbi"], " dBi") + (" (the TX antenna)" if a["shared_antenna"] else ""),
-             fmt(b["antenna_gain_rx_dbi"], " dBi") + (" (the TX antenna)" if b["shared_antenna"] else ""),
-             comm),
-            ("TX-RX isolation", fmt(a["tx_rx_isolation_db"], " dB"), fmt(b["tx_rx_isolation_db"], " dB"),
-             tag("isolation.tx_rx_tue2018")))
-    print(f"{'face':<26} {'preset':<26} {'surveyed':<31} surveyed figure from")
-    for name, x, y, src in rows:
-        print(f"{name:<26} {x:<26} {y:<31} {src}")
+    cols = [Frontend60.from_config(c).faces() for c in (old, preset, surveyed)]
+
+    def row(name, cell, src):
+        return (name,) + tuple(cell(f) for f in cols) + (src,)
+
+    def ant_rx(f):
+        return fmt(f["antenna_gain_rx_dbi"], " dBi") + (" (the TX antenna)" if f["shared_antenna"] else "")
+
+    rows = (row("receive front end", lambda f: f["rx_front"], tag("assumed.rx60_ladder_shape")),
+            row("  a 60 GHz figure?", lambda f: "yes: " + ", ".join(f["rx_front_given"]) if f["rx_front_sourced"] else "no",
+                tag("assumed.preset_rx_front") + ", " + pick),
+            row("  gain, max state", lambda f: fmt(f["rx_gain_db"], " dB"), comm),
+            row("  noise figure", lambda f: fmt(f["rx_nf_db"], " dB"), comm),
+            row("  IIP3", lambda f: fmt(f["rx_iip3_dbm"], " dBm"), comm),
+            row("  input P1dB, in band", lambda f: fmt(f["rx_p1db_inband_dbm"], " dBm"), tag("assumed.rx60_p1db_from_iip3_db")),
+            row("  input P1dB, out of band", lambda f: fmt(f["rx_p1db_oob_dbm"], " dBm"),
+                "no communication paper read gives it"),
+            row("  gain states", lambda f: f"{f['rx_gain_states']} (down to {f['rx_gain_min_db']:g} dB)",
+                tag("assumed.rx60_ladder_shape")),
+            row("TX antenna gain", lambda f: fmt(f["antenna_gain_tx_dbi"], " dBi"), comm),
+            row("RX antenna gain", ant_rx, comm),
+            row("TX-RX isolation", lambda f: fmt(f["tx_rx_isolation_db"], " dB"), tag("isolation.tx_rx_tue2018")))
+    print(f"{'face':<26} {'WiFi 7 ladder':<24} {'preset':<31} {'surveyed':<31} 60 GHz figure from")
+    for name, x, y, z, src in rows:
+        print(f"{name:<26} {x:<24} {y:<31} {z:<31} {src}")
 
 
 def main(argv=None) -> int:
@@ -115,6 +120,7 @@ def main(argv=None) -> int:
     quick = a.quick or os.environ.get("MMW60_SMOKE") == "1"
     t0 = time.time()
     preset = zero_if_60ghz(k=K, standard=STD, bandwidth_hz=BASE_BW)
+    old = wifi7_rx_ladder(preset)
     surveyed = surveyed_frontend(preset)
     fe_s = Frontend60.from_config(surveyed)
     pout = fe_s.target_pout_dbm()
@@ -123,10 +129,13 @@ def main(argv=None) -> int:
     print("[spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; "
           "[assumed] = this library's choice")
 
-    print("\n== 1. the faces: preset against config.surveyed_frontend ==")
-    faces_table(preset, surveyed)
-    if fe_s.rx_front.iip3_dbm == Frontend60.from_config(preset).rx_front.iip3_dbm:
-        print("the surveyed IIP3 happens to equal the WiFi 7 ladder's top state's: the compression rows are the same "
+    print("\n== 1. the faces: the WiFi 7 ladder (config.wifi7_rx_ladder, the presets until 2026-11-18), the preset, "
+          "config.surveyed_frontend ==")
+    faces_table(old, preset, surveyed)
+    print("the presets carry the receive front end of the three faces; the antenna gains and the isolation are "
+          "config.surveyed_frontend's")
+    if fe_s.rx_front.iip3_dbm == Frontend60.from_config(old).rx_front.iip3_dbm:
+        print("the 60 GHz IIP3 happens to equal the WiFi 7 ladder's top state's: the compression rows are the same "
               "for both, by coincidence of the two figures")
 
     # ---------------------------------------------------------------- 2
@@ -148,7 +157,7 @@ def main(argv=None) -> int:
         else:
             nf = None if key is None else float(spec.value(key)["nf_db"])
             src = "wifitrx DEFAULT_LNA_STATES" if key is None else tag(key)
-        cfg = preset if key is None else with_rx_nf(surveyed, nf)
+        cfg = old if key is None else with_rx_nf(preset, nf)
         fe = Frontend60.from_config(cfg)
         sim = LinkSim(dc.replace(cfg, channel=FLAT), frontend=fe)
         s = {m: sim.rx_input_dbm_for_snr(thr[m]) for m in MCS_ROWS}
@@ -234,22 +243,22 @@ def main(argv=None) -> int:
     if quick:
         print("topology A (skipped in quick mode: it calibrates the chip first)")
     else:
-        a0 = if_extender_60ghz()
-        a1 = surveyed_frontend(a0)
+        a1 = if_extender_60ghz()
+        a0 = wifi7_rx_ladder(a1)
         t = spec.per_threshold_db(a0.phy.standard, a0.phy.bandwidth_hz, MCS_ROWS[0])
         sims = [LinkSim(dc.replace(c, channel=FLAT)) for c in (a0, a1)]
         sa = [s.rx_input_dbm_for_snr(t) for s in sims]
         nfa = [s._rx_nf_db() for s in sims]
-        sb = [LinkSim(dc.replace(c, channel=FLAT)).rx_input_dbm_for_snr(thr[MCS_ROWS[0]]) for c in (preset, surveyed)]
+        sb = [LinkSim(dc.replace(c, channel=FLAT)).rx_input_dbm_for_snr(thr[MCS_ROWS[0]]) for c in (old, preset)]
         st = sims[1].ifx.rx.stage
-        print(f"topology A ({a0.phy.standard} {a0.phy.bandwidth_hz / 1e6:g} MHz): sensitivity at MCS {MCS_ROWS[0]}, preset "
-              f"{sa[0]:.1f} dBm (noise figure {nfa[0]:.2f} dB), surveyed front end {sa[1]:.1f} dBm ({nfa[1]:.2f} dB), "
+        print(f"topology A ({a0.phy.standard} {a0.phy.bandwidth_hz / 1e6:g} MHz): sensitivity at MCS {MCS_ROWS[0]}, WiFi 7 "
+              f"ladder {sa[0]:.1f} dBm (noise figure {nfa[0]:.2f} dB), preset {sa[1]:.1f} dBm ({nfa[1]:.2f} dB), "
               f"difference {sa[1] - sa[0]:.2f} dB")
-        print(f"topology B (this example's {preset.phy.standard} {BASE_BW / 1e6:g} MHz x {K}): preset {sb[0]:.1f} dBm, "
-              f"surveyed front end {sb[1]:.1f} dBm, difference {sb[1] - sb[0]:.2f} dB")
-        print(f"with a 60 GHz front end, topology A puts its maximum-gain state ahead of the chip (gain {st.lna_gain_db:g} dB, "
-              f"NF {st.lna_nf_db:g} dB, IIP3 {st.lna_iip3_dbm:g} dBm) and cascades the chip's ladder behind it (Friis); "
-              "the preset's WiFi 7 ladder is the chip's own and is not put in front of it twice")
+        print(f"topology B (this example's {preset.phy.standard} {BASE_BW / 1e6:g} MHz x {K}): WiFi 7 ladder {sb[0]:.1f} dBm, "
+              f"preset {sb[1]:.1f} dBm, difference {sb[1] - sb[0]:.2f} dB")
+        print(f"the preset's 60 GHz front end: topology A puts its maximum-gain state ahead of the chip (gain "
+              f"{st.lna_gain_db:g} dB, NF {st.lna_nf_db:g} dB, IIP3 {st.lna_iip3_dbm:g} dBm) and cascades the chip's ladder "
+              "behind it (Friis); a WiFi 7 ladder is the chip's own and is not put in front of it twice")
     print(f"\n[{time.time() - t0:.0f}s]")
     return 0
 

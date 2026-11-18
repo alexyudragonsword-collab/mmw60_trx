@@ -73,7 +73,7 @@ from mmw60 import ENGINE_BANNER, __version__, spec                # noqa: E402
 from mmw60 import arraylink as al                                 # noqa: E402
 from mmw60.ay import edmg, papr                                   # noqa: E402
 from mmw60.calcheck import run_cal_ay                             # noqa: E402
-from mmw60.config import ChannelConfig, ay_60ghz, surveyed_frontend  # noqa: E402
+from mmw60.config import ChannelConfig, ay_60ghz, surveyed_frontend, wifi7_rx_ladder  # noqa: E402
 from mmw60.frontend import Frontend60                             # noqa: E402
 from mmw60.sim.link import DIGITAL_DRIVE_RMS, LinkSim             # noqa: E402
 
@@ -564,8 +564,8 @@ def main(argv=None) -> int:
                   f"{fmt(t_mp, '{:6.2f}', '     —')} {fmt(best_mp[(wf, m)], '{:7.2f}', '      —')}")
     lands = ", ".join(f"{wf[3:]} {psat - landed[(wf, min(orders[wf]), round(float(obos9[0]), 3))]:.2f}"
                       for wf in orders)
-    print(f"(EIRP = Pout + {g_tx:g} dBi, receive {g_rx:g} dBi, the preset receive ladder: NF "
-          f"{rx_sim['ay_sc']._rx_nf_db():.1f} dB at the sensitivity's AGC state, not a 60 GHz figure — ROADMAP C9; "
+    print(f"(EIRP = Pout + {g_tx:g} dBi, receive {g_rx:g} dBi, the preset's 60 GHz receive front end: NF "
+          f"{rx_sim['ay_sc']._rx_nf_db():.1f} dB at the sensitivity's AGC state (assumed.preset_rx_front); "
           f"oxygen {al.oxygen_db_per_km():g} dB/km; '—' at the preset = the floor misses the TX EVM limit there; "
           f"the grid asks {', '.join(f'{v:g}' for v in low)} dB and then {obos8[0]:g}–{obos8[-1]:g} dB in "
           f"{obos8[1] - obos8[0]:g} dB steps; back-off / Pout = where the PA landed, which the distances use; "
@@ -620,17 +620,20 @@ def main(argv=None) -> int:
     sv_cfg = {wf: surveyed_frontend(dc.replace(ay_60ghz(wf, 1), channel=FLAT)) for wf in orders}
     sv_fe = {wf: Frontend60.from_config(c) for wf, c in sv_cfg.items()}
     sv_sim = {wf: LinkSim(sv_cfg[wf], frontend=sv_fe[wf]) for wf in orders}
+    w7_sim = {wf: LinkSim(wifi7_rx_ladder(dc.replace(ay_60ghz(wf, 1), channel=FLAT))) for wf in orders}
     for wf, m in caps.items():
         base_r = table[wf][i0][m]["range_m"]
         il = ranges_at(wf, i0, keep_il=True, rule="twin")[m]["range_m"]
         tw = ranges_at(wf, i0, rule="twin")[m]["range_m"]
         sv = ranges_at(wf, i0, sim=sv_sim[wf], gains=(sv_fe[wf].antenna_gain_tx_dbi,
                                                       sv_fe[wf].antenna_gain_rx_resolved_dbi))[m]["range_m"]
+        w7 = ranges_at(wf, i0, sim=w7_sim[wf])[m]["range_m"]
         twin_txt = f"the DMG twin's threshold (rule twin) {tw:.2f}; "
         print(f"  {wf:<8} MCS{m}: preset {base_r:.2f}; {twin_txt}the twin's with its implementation loss kept in "
-              f"{il:.2f}; surveyed 60 GHz front end "
-              f"(NF {sv_sim[wf]._rx_nf_db():.1f} dB at its AGC state, {sv_fe[wf].antenna_gain_tx_dbi:g} + "
-              f"{sv_fe[wf].antenna_gain_rx_resolved_dbi:g} dBi) {sv:.2f}")
+              f"{il:.2f}; the surveyed antennas as well "
+              f"({sv_fe[wf].antenna_gain_tx_dbi:g} + {sv_fe[wf].antenna_gain_rx_resolved_dbi:g} dBi, "
+              f"config.surveyed_frontend) {sv:.2f}; the WiFi 7 receive ladder the presets had until 2026-11-18 "
+              f"(NF {w7_sim[wf]._rx_nf_db():.1f} dB at its AGC state, config.wifi7_rx_ladder) {w7:.2f}")
     print("the DMG-derived thresholds against this library's measured ones at the same modulation and code rate: "
           "the EDMG codes on both waveforms (data/spec/ay_per_thresholds.yaml) and the 11be LDPC "
           "(data/spec/per_thresholds.yaml, 80 MHz; its SNR is per active subcarrier):")

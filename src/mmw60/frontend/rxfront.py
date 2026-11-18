@@ -9,11 +9,13 @@ measured with a tone below its corner: what an FMCW radar's transmit leakage
 meets.  A radar chip's datasheet gives both and they are tens of dB apart;
 the communication receivers read so far give only the first.
 
-``wifi7_ladder`` is wifitrx's own table, a sub-7 GHz WiFi 7 chip's: every
-result before ROADMAP D4 was produced with it and the presets still are, so
-their numbers do not move.  It is not a 60 GHz front end; ``sourced`` says
-so.  ``anchored`` moves that ladder so its top state reads a 60 GHz noise
-figure / IIP3 / gain (data/spec: assumed.rx60_ladder_shape).
+``wifi7_ladder`` is wifitrx's own table, a sub-7 GHz WiFi 7 chip's.  It is
+not a 60 GHz front end; ``sourced`` says so.  ``anchored`` moves that ladder
+so its top state reads a 60 GHz noise figure / IIP3 / gain (data/spec:
+assumed.rx60_ladder_shape).  The 60 GHz presets carry ``anchored`` at one
+60 GHz communication transceiver's figures since 2026-11-18 (ROADMAP C9,
+assumed.preset_rx_front); before that, and still on the 6 GHz K = 1 row,
+``wifi7_ladder``.
 """
 from __future__ import annotations
 

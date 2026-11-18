@@ -57,10 +57,10 @@ frontend:
   antenna_gain_rx_dbi: null
   tx_rx_isolation_db: null
   rx_front:
-    model: wifi7_ladder
-    nf_db: null
-    iip3_dbm: null
-    gain_db: null
+    model: anchored
+    nf_db: 6.1
+    iip3_dbm: -20.0
+    gain_db: 27.0
     p1db_oob_dbm: null
   eirp_limit_dbm: null
   array:
