@@ -462,7 +462,10 @@ def to_markdown(rep: dict) -> str:
              f"IPN {_f(fe['lo_ipn_dbc'])} dBc (10 kHz–100 MHz); TX leak {fe['tx_leak_dbc']} dBc; RX DC {fe['rx_dc_dbc']} dBc; "
              f"PA isolated EVM {_f(rep['pa_isolated_evm_db'])} dB. The LO chain is part of that instance: every row, "
              f"the sub-7 GHz K = 1 row included, runs on the same profile (its own ``lo.phase_noise`` setting is used "
-             f"only when it is simulated on its own — example 04's LO section).", "",
+             f"only when it is simulated on its own — example 04's LO section). So is the receive front end: every row "
+             f"runs on the instance's 60 GHz ladder (assumed.preset_rx_front); the K = 1 row's own WiFi 7 ladder is "
+             f"likewise used only when it is simulated on its own. The table's axis is SNR, so the receive noise figure "
+             f"sets no column of it.", "",
              _HDR, "|" + "---|" * (_HDR.count("|") - 1)]
     for r in rep["rows"]:
         eirp = "—" if not r["eirp"] else f"{r['pout_dbm']:.0f} dBm / {r['eirp']['margin_avg_db']:+.0f} dB"

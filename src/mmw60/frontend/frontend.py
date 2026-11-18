@@ -131,8 +131,8 @@ class Frontend60:
             ref = 0.02 / 10 ** (-20 / 20)                     # the ladder's top ≈ -20 dBc at -20 dBm
             scale = 10 ** (self.lo.rx_dc_dbc / 20) / ref
             dc = tuple(complex(s * scale * np.exp(1j * 0.6)) for s in ladder)
-        # the WiFi 7 ladder is wifitrx's own default: left to RxParams, so the
-        # presets' numbers are the ones they always were
+        # the WiFi 7 ladder is wifitrx's own default: left to RxParams (bit-identical
+        # to the unmodified wifitrx receiver, the K = 1 anchors of iron rule 2)
         front = {} if self.rx_front.model == "wifi7_ladder" else {"lna_states": self.rx_front.states}
         return RxParams(bandwidth_hz=bw_eff_hz, iq=self.rx_iq.model(), dc_offset=dc,
                         lpf=TunableLPF(fc_nominal_hz=recommended_lpf_corner_hz(bw_eff_hz, "rx")),

@@ -238,9 +238,11 @@ RX_FRONT_MODELS = ("wifi7_ladder", "anchored")
 class RxFrontConfig:
     """The 60 GHz receive front end (LNA + mixer) in front of the baseband.
 
-    ``wifi7_ladder`` (the default, and what every number up to ROADMAP D4 was
-    produced with) is wifitrx's own eight-state gain ladder: a sub-7 GHz
-    WiFi 7 chip's table, top state 37 dB / NF 3.5 dB / IIP3 −20 dBm.
+    ``wifi7_ladder`` (the dataclass default; the 60 GHz presets' ladder until
+    2026-11-18, ROADMAP C9, and still the 6 GHz K = 1 row's) is wifitrx's own
+    eight-state gain ladder: a sub-7 GHz WiFi 7 chip's table, top state
+    37 dB / NF 3.5 dB / IIP3 −20 dBm.  The 60 GHz presets carry ``anchored``
+    at one 60 GHz communication transceiver's figures (``surveyed_rx_front``).
     ``anchored`` keeps that ladder's shape and moves it so its top
     (maximum-gain) state reads ``nf_db`` / ``iip3_dbm`` / ``gain_db``: every
     state's NF, IIP3 and gain move by the same number of dB, the gain steps
@@ -676,7 +678,15 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
     waveform (data/spec: assumed.pa60_operating_rule,
     derived.pa60_obo_at_evm_limit_db): 7.5 dB from Psat, where Liu's preset
     keeps Liu's 8 dB.  The AM/PM is still the 11ad evaluation methodology's.
-    The presets' PA and back-off before 2026-11-12 are ``tgad_em_pa(cfg)``."""
+    The presets' PA and back-off before 2026-11-12 are ``tgad_em_pa(cfg)``.
+
+    The receive front end is a 60 GHz one (since 2026-11-18, ROADMAP C9):
+    wifitrx's gain ladder moved so its top state reads one 60 GHz
+    communication transceiver's conversion gain, noise figure and IIP3
+    (``surveyed_rx_front``; data/spec: assumed.preset_rx_front).  The antenna
+    gain stays 0 dBi ("not specified") and the TX-RX isolation unset: those
+    two faces are ``surveyed_frontend(cfg)``.  The presets' ladder before
+    2026-11-18 (a sub-7 GHz WiFi 7 chip's, NF 3.5 dB) is ``wifi7_rx_ladder(cfg)``."""
     s = spec.value
     base = liu2025_table2(k=k, mcs=mcs)
     pick = s("assumed.pa60_surveyed_pick")
@@ -691,7 +701,8 @@ def zero_if_60ghz(k: int = 8, mcs: int = 0, standard: str = "11ac", bandwidth_hz
                                    bits_per_octave=float(s("assumed.converter_bits_per_octave")),
                                    backoff_db=float(s("assumed.converter_backoff_db")), enabled=True),
         iq=IqConfig(**{k2: float(v) for k2, v in s("assumed.iq_mismatch").items()}, enabled=True),
-        lo_leak_dbc=float(s("assumed.lo_leak_dbc")), rx_dc_dbc=float(s("assumed.rx_dc_dbc")))
+        lo_leak_dbc=float(s("assumed.lo_leak_dbc")), rx_dc_dbc=float(s("assumed.rx_dc_dbc")),
+        rx_front=surveyed_rx_front())
     cfg = dataclasses.replace(base, carrier_hz=float(carrier_hz), frontend=fe,
                               phy=dataclasses.replace(base.phy, standard=standard,
                                                       bandwidth_hz=float(bandwidth_hz)),
@@ -756,14 +767,39 @@ def tgad_em_pa(cfg: Mmw60Config) -> Mmw60Config:
     return dataclasses.replace(cfg, frontend=fe, label=(cfg.label + " 11ad EM PA").strip())
 
 
+def surveyed_rx_front() -> RxFrontConfig:
+    """The 60 GHz receive front end the presets carry (data/spec:
+    assumed.preset_rx_front, which names the fields of
+    assumed.frontend_faces_pick it takes): wifitrx's ladder anchored at one
+    60 GHz communication transceiver's high-gain conversion gain, noise
+    figure and IIP3, read from its paper.  Only the top state's three
+    figures have a source; the other seven states are the ladder's shape
+    (assumed.rx60_ladder_shape)."""
+    take = spec.value("assumed.preset_rx_front")
+    pick = spec.value(str(take["from"]))
+    nf, iip3, gain = (float(pick[k]) for k in take["fields"])
+    return RxFrontConfig(model="anchored", nf_db=nf, iip3_dbm=iip3, gain_db=gain)
+
+
+def wifi7_rx_ladder(cfg: Mmw60Config) -> Mmw60Config:
+    """``cfg`` with the receive ladder the 60 GHz presets had until
+    2026-11-18: wifitrx's own, a sub-7 GHz WiFi 7 chip's (top state 37 dB /
+    NF 3.5 dB / IIP3 −20 dBm).  A sensitivity row — what the tables read with
+    it — and what the 6 GHz K = 1 row keeps (``wifi7_chain_k1``: that row is
+    the WiFi 7 chip, and this ladder is its own)."""
+    fe = dataclasses.replace(cfg.frontend, rx_front=RxFrontConfig())
+    return dataclasses.replace(cfg, frontend=fe, label=(cfg.label + " WiFi 7 RX ladder").strip())
+
+
 def surveyed_frontend(cfg: Mmw60Config) -> Mmw60Config:
     """``cfg`` with the three faces of ROADMAP D4 filled from the surveyed
     figures (data/spec: assumed.frontend_faces_pick and the survey entries it
     names): a receive front end anchored at a 60 GHz communication
     transceiver's noise figure / IIP3, the TX-RX isolation, and a transmit
-    and a receive antenna gain.  The presets do not call this: their numbers
-    are the ones produced with wifitrx's ladder, a 0 dBi antenna and no
-    isolation figure.  The receiver and antenna figures are one 60 GHz
+    and a receive antenna gain.  The 60 GHz presets carry the first of the
+    three since 2026-11-18 (``surveyed_rx_front``, ROADMAP C9); on them this
+    adds the other two — the presets keep a 0 dBi antenna and no isolation
+    figure.  The receiver and antenna figures are one 60 GHz
     communication transceiver's, read from its paper; the isolation is a
     subtraction of two numbers in one abstract (data/spec says which
     entries were read in the original and which only as a search snippet)."""
@@ -801,9 +837,13 @@ def wifi7_chain_k1(mcs: int = 0, standard: str = "11ac", bandwidth_hz: float = 2
     the 60 GHz part would have them at 1×, the same Rapp at the same OBO,
     but the sub-7 GHz carrier and the WiFi 7 synthesizer's own phase-noise
     profile (wifitrx's ``DEFAULT_WIFI7_LO_PROFILE``, the LO a 4096-QAM chip
-    ships with) — "the WiFi 7 chip as delivered, measured on our bench"."""
+    ships with) — "the WiFi 7 chip as delivered, measured on our bench".
+    Its receive ladder is the chip's own too (wifitrx's, ``wifi7_rx_ladder``):
+    the 60 GHz presets' receive front end is a 60 GHz part and does not sit in
+    front of a 6 GHz chip (data/spec: assumed.preset_rx_front)."""
     cfg = zero_if_60ghz(k=1, mcs=mcs, standard=standard, bandwidth_hz=bandwidth_hz,
                         carrier_hz=carrier_hz)
+    cfg = dataclasses.replace(cfg, frontend=dataclasses.replace(cfg.frontend, rx_front=RxFrontConfig()))
     return dataclasses.replace(
         cfg, waveform="be",
         lo=dataclasses.replace(cfg.lo, phase_noise=dataclasses.replace(

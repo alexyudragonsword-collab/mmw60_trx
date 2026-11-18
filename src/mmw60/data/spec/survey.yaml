@@ -397,6 +397,13 @@ entries:
     cite: "本库 config.surveyed_frontend；从上面的条目里各取一个数"
     note: "'surveyed' 一档取哪几个数是本库的选择：接收 NF / IIP3 / 高增益档增益与发 / 收天线增益都取同一颗通信收发机（rx60.comm_asada2011，读过原文），不取雷达芯片；收发隔离取不加 EBG 的下端 40 − 20 = 20 dB（保守，泄漏最大）。第一版取的天线是 6 dBi（antenna60.okada2013_dbi，至今没有读到原文），读到 Asada 原文后换成它自己的 2 dBi，6 dBi 留作灵敏度档。预设不用这一档，现有数字不动；示例 08 每张表都是灵敏度行。"
 
+  assumed.preset_rx_front:
+    value: {from: "assumed.frontend_faces_pick", fields: [rx_nf_db, rx_iip3_dbm, rx_gain_db], antennas: "not in the presets (0 dBi)", tx_rx_isolation: "not in the presets (unset)", k1_row_at_6ghz: "wifi7_ladder"}
+    unit: procedure
+    source: assumed
+    cite: "本库 config.surveyed_rx_front / zero_if_60ghz / wifi7_chain_k1 / wifi7_rx_ladder；用户 2026-11-18 定（ROADMAP C9）"
+    note: "60 GHz 预设（zero_if_60ghz，以及建在它上面的 if_extender_60ghz、ay_60ghz）的接收前端取哪几个数：只取 assumed.frontend_faces_pick 里接收机的三个（NF 6.1 dB、IIP3 −20 dBm、高增益档变频增益 27 dB，同一颗 60 GHz 通信收发机 rx60.comm_asada2011，读过原文），梯子其余七档是形状假设（assumed.rx60_ladder_shape）。三个面里另外两个不进预设：天线增益仍是 0 dBi（“未指定”，阵列表另有单元方向图），收发隔离仍留空（时分双工链路不消费它）；要这两个用 config.surveyed_frontend。同台表的 K = 1 行（wifi7_chain_k1，6 GHz 上原样的 WiFi 7 芯片）不换：那一行的梯子就是芯片自己的 sub-7 梯子，60 GHz 的接收前端不在 6 GHz 芯片前面；所以那一行与 60 GHz 各行的接收前端不是同一个对象，同台表里标出来。拓扑 A 的预设因此在芯片前串上这一级（assumed.ifext_rx_front60），级联 NF 6.10 dB。2026-11-18 之前预设用 wifitrx 的 WiFi 7 梯子（最高增益档 37 dB / NF 3.5 dB / IIP3 −20 dBm；2026-11-14 用户定过不换，2026-11-18 改），那一档现在是 config.wifi7_rx_ladder，作灵敏度行。换过去动的是灵敏度（dB 对 dB，2.6 dB）与全部距离；SNR 轴上的链路 EVM 不动。"
+
   # ------------------------------------------------------------ 60 GHz PA：本库的取舍与工作点（2026-11-12 / 13）
   # 读过原文的测量值（pa60.*）与平滑度的 derived 在 vendored spec_sources 的 data/pa60.yaml。
   assumed.pa60_operating_rule:
@@ -515,11 +522,11 @@ entries:
     note: "拓扑 A 的芯片 PA 旁路一档（ifext.chip_pa_bypass，预设不开）：IF 从芯片的混频器输出取，芯片 PA 断电、不计功耗。wifitrx 的交付序列在这条链上真跑：校准耦合器跟着移到 PA 前，衰减减去实测的 PA 大信号增益（11be 80 MHz 上 25.6 dB），使芯片接收机看到交付序列调好的电平；DPD 步不跑（芯片上没有要线性化的 PA）；tx_power 步只建表（没有输出可设）。另一种做法——带着 PA 按交付方式校准、链路上再旁路——没有建。原文没有这样的芯片模式，是本库的取舍。"
 
   assumed.ifext_rx_front60:
-    value: {block: "rx_front_max_gain_state", applies_when: "rx_front_sourced", agc: "chip_ladder", observation_loopback: "past_the_lna"}
+    value: {block: "rx_front_max_gain_state", applies_when: "rx_front_sourced and chip is wifitrx", agc: "chip_ladder", observation_loopback: "past_the_lna"}
     unit: procedure
     source: assumed
     cite: "本库 ifext.py::MmwRxStage（lna_gain_db / lna_nf_db / lna_iip3_dbm）；sim/link.py::LinkSim._rx_nf_db（Friis 级联）"
-    note: "拓扑 A 芯片前的 60 GHz LNA / 下混频：取共享前端 rx_front 的最高增益档（增益、NF、IIP3）当一级固定增益，芯片自己的梯子在后面做 AGC；灵敏度用 Friis 级联 NF。只在 rx_front 是 60 GHz 前端（sourced，如 config.surveyed_frontend）时加：预设的 WiFi 7 梯子就是芯片自己那颗 sub-7 梯子的替身，不重复计，所以预设的数不动。60 GHz 观测回环从混频器进，不过 LNA。60 GHz 段的增益台阶没有建（真实接收机可能有）。"
+    note: "拓扑 A 芯片前的 60 GHz LNA / 下混频：取共享前端 rx_front 的最高增益档（增益、NF、IIP3）当一级固定增益，芯片自己的梯子在后面做 AGC；灵敏度用 Friis 级联 NF。只在 rx_front 是 60 GHz 前端（sourced，如 config.surveyed_frontend）时加：预设的 WiFi 7 梯子就是芯片自己那颗 sub-7 梯子的替身，不重复计，所以预设的数不动。60 GHz 观测回环从混频器进，不过 LNA。60 GHz 段的增益台阶没有建（真实接收机可能有）。（2026-11-18，ROADMAP C9：预设的 rx_front 现在就是 60 GHz 的，所以拓扑 A 的预设带这一级。另加一条：ifext.chip 是 frontend 时不加——那时芯片的接收链就是共享前端自己的链，60 GHz 的接收面已经是它的梯子，再串一级等于同一个前端算两遍；理想行（Mmw60Config.ideal()）走的就是这一支，改之前这一支在 60 GHz 前端下读 −39.4 dB 对 K = 1 链的 −43.0 dB，被铁律 2 的测试抓到。）"
 
   assumed.ifext_chip_oversampling:
     value: 4
