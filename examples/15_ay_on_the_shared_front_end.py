@@ -586,6 +586,32 @@ def main(argv=None) -> int:
                 top = max(ok, key=lambda m: edmg.mcs_entry(wf, m).rate_bps()) if ok else None
                 cells.append("—" if top is None else f"{edmg.mcs_entry(wf, top).rate_bps() / 1e9:.3f} (MCS{top})")
         print(f"{d:5.1f} " + " ".join(f"{c:>16}" for c in cells))
+    # the two multipath columns are not on the same footing: say so, and show what the other footing gives
+    margin = float(spec.value("assumed.ay_ofdm_multipath_margin_db"))
+    print("\nthe multipath columns are not like for like — SC's cost is measured per MCS, OFDM's is one assumed "
+          f"number ({margin:g} dB) for every MCS.  At the same modulation and code rate (dB over flat; metres at "
+          "each MCS's best back-off):")
+    print(f"{'modulation':<10} {'rate':>5}  {'SC cost':>7} {'SC mp m':>8}  {'OFDM cost':>9} {'OFDM mp m':>9}  "
+          f"{'OFDM m at SC cost':>17}")
+    sim_o = rx_sim["ay_ofdm"]
+    for sm, om in [(7, 6), (9, 8), (11, 10)] + pairs:
+        es = edmg.mcs_entry("ay_sc", sm)
+        ts, tm = table["ay_sc"][0][sm]["threshold_db"], table_mp["ay_sc"][0].get(sm, {}).get("threshold_db")
+        cost = None if tm is None else tm - ts
+        alt = None
+        if cost is not None:
+            ds = []
+            for r in table["ay_ofdm"]:
+                req = al.required_snr_db(r[om]["threshold_db"] + cost, r[om]["floor_db"]) if r[om]["conforms"] else None
+                if req is not None:
+                    pl = r[om]["pout_dbm"] + g_tx + g_rx - float(sim_o.rx_input_dbm_for_snr(req))
+                    ds.append(al.range_m(pl, sim_o.cfg.carrier_hz))
+            alt = max(ds) if ds else None
+        print(f"{edmg.mcs_entry('ay_ofdm', om).modulation.replace('DCM ', ''):<10} {str(es.code_rate):>5}  "
+              f"{fmt(cost, '{:7.2f}')} {fmt(best_mp.get(('ay_sc', sm)), '{:8.2f}', '       —')}  {margin:9.2f} "
+              f"{fmt(best_mp.get(('ay_ofdm', om)), '{:9.2f}', '        —')}  {fmt(alt, '{:17.2f}', '                —')}")
+    print("(OFDM m at SC cost = OFDM's distance if its threshold moved by what SC's measured one does at that "
+          "modulation and code rate: a sensitivity reading, not an OFDM measurement)")
     caps = {"ay_sc": 14, "ay_ofdm": 13}
     print("\nsensitivity rows, at the preset back-off, for the comparison table's calibrated caps "
           "(SC MCS14, OFDM MCS13; metres):")
