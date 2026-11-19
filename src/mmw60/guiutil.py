@@ -177,24 +177,31 @@ PARTS = {p.id: p for p in (
          _S - {"phy.packet_bytes"}, ("thresholds.be", "thresholds.ay"), "ay"),
 )}
 
+#: ``seconds``: measured durations of the job itself (``run_job``), shortest first; the note says how each was
+#: taken.  The examples named in ``command`` print the same numbers but some do more than the job (example 03's
+#: 809 s is its whole script, not these six columns: that figure stood here until 2026-11-19 and was wrong).
 JOBS = {
-    "calibration_be": {"parts": ("calibration.be",), "command": "python examples/03_calibration_at_k.py",
-                       "report": "calibration", "seconds": [809],
-                       "seconds_note": "809 s with three examples side by side on a 4-core container; "
-                                       "12 steps per column"},
-    "table": {"parts": ("table.analytic", "table.td", "table.ay"), "command": "python examples/04_comparison_table.py",
-              "report": "table", "seconds": [58, 126, 174],
-              "seconds_note": "58 s alone on a 4-core container; 126 / 174 s with three examples side by side"},
-    "array": {"parts": ("array",), "command": "python examples/10_array_link_and_training.py", "report": "array",
-              "seconds": [560, 1650],
-              "seconds_note": "560 s alone on a 4-core container; 1650 s with three examples side by side"},
-    "ay": {"parts": ("ay",), "command": "python examples/15_ay_on_the_shared_front_end.py", "report": "ay",
-           "seconds": [224, 563],
-           "seconds_note": "224 s alone on a 4-core container; 563 s with three examples side by side"},
-    "table_analytic": {"parts": ("table.analytic",),
-                       "command": "python tools/budget_report.py --base 11ac:20e6 --base 11be:80e6 --no-time-domain",
-                       "report": "table", "seconds": None,
-                       "seconds_note": "about 20 s (topology A's rows build the chip and run its calibration)"},
+    "calibration_be": {"parts": ("calibration.be",), "command": "python tools/gui_report.py calibration",
+                       "example": "python examples/03_calibration_at_k.py", "report": "calibration", "seconds": [42],
+                       "seconds_note": "42 s with three other jobs side by side on a 4-core container; "
+                                       "12 steps per column, six columns"},
+    "table": {"parts": ("table.analytic", "table.td", "table.ay"), "command": "python tools/gui_report.py table",
+              "example": "python examples/04_comparison_table.py", "report": "table", "seconds": [106],
+              "seconds_note": "106 s with three other jobs side by side on a 4-core container"},
+    "array": {"parts": ("array",), "command": "python tools/gui_report.py array",
+              "example": "python examples/10_array_link_and_training.py", "report": "array",
+              "seconds": [560, 893, 1650],
+              "seconds_note": "560 s alone on a 4-core container (example 10, the same computation); 893 s with "
+                              "three other jobs side by side; 1650 s with three examples side by side"},
+    "ay": {"parts": ("ay",), "command": "python tools/gui_report.py ay",
+           "example": "python examples/15_ay_on_the_shared_front_end.py", "report": "ay", "seconds": [224, 428, 563],
+           "seconds_note": "224 s alone on a 4-core container (example 15, the same computation); 428 s with three "
+                           "other jobs side by side; 563 s with three examples side by side"},
+    "table_analytic": {"parts": ("table.analytic",), "command": "python tools/gui_report.py table --no-time-domain",
+                       "example": "python tools/budget_report.py --base 11ac:20e6 --base 11be:80e6 --no-time-domain",
+                       "report": "table", "seconds": [24],
+                       "seconds_note": "24 s on a 4-core container with a page being tested alongside (topology A's "
+                                       "rows build the chip and run its calibration)"},
 }
 #: stored measurements a study can make stale but this layer does not recompute (hours of PER curves)
 STORED = {

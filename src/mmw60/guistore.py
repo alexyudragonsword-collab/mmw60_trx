@@ -57,7 +57,9 @@ def result_key(result: dict) -> str:
 
 
 def dumps(result: dict) -> str:
-    return json.dumps(result, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":"))
+    """Compact, keys in the order the report was built: that order is the order of the sections and
+    of a row's columns, which the examples' printers and a page rely on."""
+    return json.dumps(result, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
 
 
 def load_baseline(directory: Path | None = None) -> dict[str, dict]:

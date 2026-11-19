@@ -183,7 +183,10 @@ def test_the_baseline_calibration_is_the_accepted_example_03():
     assert len(heads) == len(rep["columns"]) == 6
     n = 0
     for col, start in enumerate(heads):
-        lines = {ln.split()[1]: ln.split() for ln in text[start + 1:start + 30] if re.match(r"  K=\d+ +\w+ ", ln)}
+        end = next(i for i in range(start + 1, len(text)) if text[i].startswith("== "))
+        # the column's own lines; where the sequence ran more than once to land on the back-off, the last pass
+        lines = {ln.split()[1]: ln.split() for ln in text[start + 1:end] if re.match(r"  K=\d+ +\w+ ", ln)}
+        assert rep["columns"][col]["passes"] == sum(1 for ln in text[start + 1:end] if " tx_lpf_corner " in ln)
         for step in rep["steps"]:
             cell = step["cells"][col]
             if cell is None:
