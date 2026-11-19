@@ -301,3 +301,29 @@ def test_language_toggle_switches_the_words_not_the_numbers(host, browser):
     assert json.dumps(page.text_content("#nav-table")) != json.dumps("")
     assert not errors, errors
     page.close()
+
+
+def test_with_nothing_stored_the_page_says_missing_and_offers_the_jobs(browser):
+    """No baseline, no results: no part reads fresh on the strength of numbers the page cannot show."""
+    state = State(backend="thread", store=guistore.Store(None, {}), runner=_canned_runner)
+    srv = make_server(0, state=state)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"http://127.0.0.1:{srv.server_address[1]}/")
+        page.wait_for_selector('#screen-table [data-empty="table"]', timeout=30000)
+        for part in ("table.analytic", "calibration.be", "array", "ay"):
+            assert page.evaluate(f"!!document.querySelector('[data-part=\"{part}\"][data-state=\"missing\"]')"), part
+        assert page.evaluate("!!document.querySelector('[data-part=\"thresholds.be\"][data-state=\"fresh\"]')")
+        assert page.evaluate("document.querySelectorAll('#screen-table [data-label]').length") == 0
+        # the job it offers fills the screen
+        page.click('#screen-table [data-job="table"]')
+        page.wait_for_selector(f'#screen-table [data-label="{B32}"]', timeout=30000)
+        assert page.evaluate("!!document.querySelector('[data-part=\"table.td\"][data-state=\"fresh\"]')")
+        assert not errors, errors
+        page.close()
+    finally:
+        srv.shutdown()
+        srv.server_close()

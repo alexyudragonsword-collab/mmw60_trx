@@ -4,6 +4,18 @@
 
 ## 未发布
 
+### 图形界面：结果浏览器 `mmw60-gui`（2026-11-19，用户定“继续”）—— 数字不动，指纹逐位相同
+- **为什么**：计算层有了，但没有东西保管算出来的结果、排重算的队、把它们画出来。这一轮把这三样做齐：一打开就是算好的同台表，改表单只标过期，重算走后台。
+- **结果仓库与随包基线**（`src/mmw60/guistore.py`、`src/mmw60/data/gui/baseline/`、`tools/gui_baseline.py`）：四个任务在预设上按完整规模跑出来的结果随包发，页面不用现算；用户重算的落在 `MMW60_HOME`。页面画哪一份只有一条规则（`Store.pick`）。
+  基线是代码生成的数据，守卫把它和已验收输出绑在一起：阵列与 SC 对 OFDM 两份把示例 10 / 15 的打印函数在基线上重放、要求与 `examples/expected` 逐行相同；同台表逐行对示例 04；校准逐列逐步对示例 03（6 × 12 格）。规范表或 pin 变了、缺文件、不是预设，都红。
+- **宿主与队列**（`src/mmw60/webhost.py`、`appbridge.py`，命令 `mmw60-gui`）：照 array_tx——与传输无关的 `Api`、进程 / 线程两种后端的 `JobQueue`、标准库 HTTP 服务、应用窗口。`report` 从不计算；`run` 只排四个完整任务，同台表出队时才找本 study 的校准。
+- **页面**（`src/mmw60/webui/www/`，十个文件 248 kB）：照效果图合并稿，由子代理对着真实接口样例做；系统框图、同台表、行细节、校准、阵列、SC 对 OFDM、运行台、出处、表单抽屉，中英双语，明暗两套，手机宽度。只画不算，页面里不写任何结果数字（测试守着）。
+- **计算层改了的（都是做页面查出来的）**：`run_job`（一个任务算什么的唯一定义，命令行与队列共用）；结果照实记录建在哪份上游上（`built_on`；之前改了回退、没重做校准就算的同台表会在校准重做后被判成新鲜）；
+  `freshness(accepted=False)` 给出 `missing`；表头的接收前端三个数原来是空的（要了 `faces()` 没有的键），现在是 27 dB / 6.1 dB / −20 dBm；表单里载频的预设值不再跟着 study 变；报告带上 `absent_below_db` 与校准读数的 `unit`，页面不再自己定。
+- **一个写错的数**：`JOBS` 里“校准六列 809 s”是示例 03 整个脚本的时间；任务本身实测 42 s（四个任务并排，4 核）。现在记的是任务自己的：校准 42 s、同台表 106 s、SC 对 OFDM 224 / 428 / 563 s、阵列 560 / 893 / 1650 s。
+- 测试：`tests/test_guistore.py`（11）、`tests/test_webhost.py`（15：两种后端的队列、取消、失败、真实的校准与同台表任务、API、HTTP、手机桥）、`tests/test_webui.py`（11：4 条文本规则 + 7 条真 Chromium）、`tests/test_guiutil.py` +4。CI 多一个 `test-gui` 作业（没有浏览器算失败）。
+- **没做的**：手机的应用外壳；门限仍不能在界面里重算；合并稿里没有数据支撑的几块（ROADMAP F、`cairn/gui.md` §5）。
+
 ### 图形界面的计算层 `guiutil`（2026-11-19，用户定“开始吧”）—— 数字不动，指纹逐位相同
 - **为什么**：界面定成“结果浏览 + 后台重算”（一次校准几分钟）。要浏览算好的结果，就得说得清一个存下来的数依赖什么、表单改了之后哪些还能信；效果图阶段这些是手整理的数据，其中依赖表有一处写反、校准判定有一处写错。
 - **做了什么**：`src/mmw60/guiutil.py`，只返回可 JSON 的字典。表单 = study（共享旋钮里与预设不同的取值，对同台表每一行和共用的前端同时生效；4 个行旋钮只选行）；结果按 part 拆开，各自声明读哪些旋钮、建在哪些 part 上；`signature` / `envelope` / `job_result` / `freshness` / `field_states` 判新鲜度，能落到同台表的字段组；`provenance`（版本、提交、vendored 的版本与 pin、规范表摘要）与配置哈希；出处标签在取值被表单改掉之后变 assumed。报告：`table_report`（就是 `compare.build`，行保持原字段名，加口径、哈希、交叉核对、每个字段的显示位数）、`calibration_report`（真跑 wifitrx 的序列，两种判定分成 `status_wifitrx` / `status_summary`）、`row_detail`、`system_report`（系统框图的事实，由 `data/gui/system.yaml` 的描述解析，描述里不写数）、`form`、`sources`。命令行 `tools/gui_report.py`。
