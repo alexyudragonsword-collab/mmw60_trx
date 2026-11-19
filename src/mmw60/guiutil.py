@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Any
 
 from . import ENGINE_BANNER, __version__, arrayreport, calcheck, compare, guispec, spec
+from .ay import report as ayreport
 from .config import AY_WAVEFORMS, Mmw60Config, zero_if_60ghz
 from .frontend import Frontend60
 from .frontend.array60 import Array60
@@ -170,6 +171,9 @@ PARTS = {p.id: p for p in (
          "array page (faces, EIRP limit, range, power, beam training)",
          _S - {"rx.ce_smooth_auto", "rx.ce_smooth_tones", "channel.model", "channel.rms_delay_ns"},
          ("thresholds.be", "thresholds.ay"), "array"),
+    Part("ay", "SC 对 OFDM 页（PAPR、分项、底板、回退、校准、速率对距离、多径）",
+         "SC against OFDM page (PAPR, impairments, floors, back-off, calibration, rate against range, multipath)",
+         _S - {"phy.packet_bytes"}, ("thresholds.be", "thresholds.ay"), "ay"),
 )}
 
 JOBS = {
@@ -183,6 +187,9 @@ JOBS = {
     "array": {"parts": ("array",), "command": "python examples/10_array_link_and_training.py", "report": "array",
               "seconds": [560, 1650],
               "seconds_note": "560 s alone on a 4-core container; 1650 s with three examples side by side"},
+    "ay": {"parts": ("ay",), "command": "python examples/15_ay_on_the_shared_front_end.py", "report": "ay",
+           "seconds": [224, 563],
+           "seconds_note": "224 s alone on a 4-core container; 563 s with three examples side by side"},
     "table_analytic": {"parts": ("table.analytic",),
                        "command": "python tools/budget_report.py --base 11ac:20e6 --base 11be:80e6 --no-time-domain",
                        "report": "table", "seconds": None,
@@ -693,6 +700,56 @@ def single_antenna_ranges(array: dict) -> dict:
     return out
 
 
+# ------------------------------------------------------------------ report: SC against OFDM
+def ay_inputs(st: dict | None = None) -> dict:
+    """What the SC-against-OFDM report runs on: example 15's two presets with the study applied and
+    the one front end both waveforms share, built from them as the example builds it."""
+    st = study(st)
+    cfgs = {wf: apply_study(c, st) for wf, c in ayreport.default_cfgs().items()}
+    return {"cfgs": cfgs, "fe": ayreport.default_frontend(cfgs)}
+
+
+def ay_report(st: dict | None = None, *, quick: bool = False, progress=None, **kw) -> dict:
+    """The SC-against-OFDM page of a study: ``ay.report.build`` (every number of example 15) on the
+    study's two waveform configs and their shared front end.  ``quick`` is the example's smoke size."""
+    stv = study(st)
+    inp = ay_inputs(stv)
+    rep = ayreport.build(inp["fe"], inp["cfgs"], quick=quick, progress=progress, **kw)
+    rep.update(kind="sc_vs_ofdm", study=stv)
+    return _json(rep)
+
+
+def sc_vs_ofdm_headline(array: dict, n: int | None = None, point: str = "preset") -> dict:
+    """Who wins, by how much, computed from an array report's 802.11ay rows — not quoted from a
+    document.  At array size ``n`` (default the largest the report has) and operating point
+    ``point``: rate x range of the two waveforms at the same modulation and code rate (16-QAM 3/4:
+    ``arrayreport.AY_COMMON_MCS``) and at each waveform's own decoder cap; ``sc_advantage_pct`` is
+    the single carrier's product over OFDM's, minus one."""
+    rows = [r for r in array.get("ay", []) if r["point"] == point]
+    if not rows:
+        raise ValueError("this array report has no 802.11ay rows")
+    n = max(r["n"] for r in rows) if n is None else n
+    by = {r["waveform"]: r for r in rows if r["n"] == n}
+    rate = {(m["waveform"], m["mcs"]): m["rate_bps"] for m in ayreport.numbers()["mcs"]}
+    common = arrayreport.AY_COMMON_MCS
+
+    def pair(rate_of, range_key):
+        out = {}
+        for wf in ("ay_sc", "ay_ofdm"):
+            r = by[wf]
+            bps, d = rate_of(wf, r), r[range_key]
+            out[wf] = {"rate_bps": bps, "range_m": d, "product": None if bps is None or d is None else bps * d}
+        a, b = out["ay_sc"]["product"], out["ay_ofdm"]["product"]
+        out["sc_advantage_pct"] = None if not a or not b else 100.0 * (a / b - 1.0)
+        return out
+    same = pair(lambda wf, r: rate[(wf, common[wf])], "range_common_m")
+    same["mcs"] = dict(common)
+    cap = pair(lambda wf, r: None if r["cap_mcs"] is None else rate[(wf, r["cap_mcs"])], "range_cap_m")
+    cap["mcs"] = {wf: by[wf]["cap_mcs"] for wf in by}
+    return _json({"n": n, "point": point, "eirp_dbm": by["ay_sc"]["eirp_dbm"], "same_modulation_16qam_3_4": same,
+                  "own_decoder_cap": cap, "from": "array report, 802.11ay rows"})
+
+
 # ------------------------------------------------------------------ a row's detail and its reproducibility card
 def repro(label: str, cfg: Mmw60Config, st: dict | None = None, commands=()) -> dict:
     """What it takes to compute a row again: the config (hash, seed), the study, the code and the
@@ -857,6 +914,7 @@ __all__ = [
     "envelope", "job_result", "envelopes_of", "freshness", "field_states", "freshness_matrix", "source",
     "sources", "source_counts", "knob_tag", "form", "front_end_report", "table_report",
     "calibration_from_runs", "calibration_report", "array_inputs",
-    "eirp_limit_report", "array_report", "single_antenna_ranges", "repro", "calibration_column_for", "row_detail",
+    "eirp_limit_report", "array_report", "single_antenna_ranges",
+    "ay_inputs", "ay_report", "sc_vs_ofdm_headline", "repro", "calibration_column_for", "row_detail",
     "system_report",
 ]

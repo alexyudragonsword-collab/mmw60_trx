@@ -59,6 +59,8 @@ authoring_mode: ai_generated
 | `table.analytic` | 除包长、平滑跨度自动选、固定跨度、CPE 窗口之外的全部 | `calibration.be`、`thresholds.be` | `table` / `table_analytic` |
 | `table.td` | 全部 | — | `table` |
 | `table.ay` | 除包长、两个平滑旋钮之外的全部 | — | `table` |
+| `array` | 除两个平滑旋钮、两个信道旋钮之外的全部 | `thresholds.be`、`thresholds.ay` | `array` |
+| `ay` | 除包长之外的全部（多径一节读信道） | `thresholds.be`、`thresholds.ay` | `ay` |
 | `thresholds.be` | 接收机 4 个、包长 | — | 不在这里重算（`tools/measure_thresholds.py`，几小时） |
 | `thresholds.ay` | 包长、信道 2 个 | — | 同上（`tools/measure_ay_thresholds.py`） |
 
@@ -92,6 +94,11 @@ authoring_mode: ai_generated
 - `calibration_report(study, plan=)`：按示例 03 的做法真跑 wifitrx 的序列（铁律 4）。**两种判定分开**：`status_wifitrx` 是 wifitrx 自己的；`status_summary` 是示例 03 汇总表的——
   `calcheck.compare_runs` 把比第一列差 3 dB 以上的 ok 也记成 degraded，那是本库的规则。`irr_after_cal_db` 取 tx_iq / rx_iq 两步的较小值（`calcheck.irr_after_cal`），K = 1 / 4 两列算出来 53.6 / 53.8 dB，就是已验收的表。
 - `row_detail(table, label, calibration)`：一行的数、在它自己的链上跑过的校准列（零中频 be 行才可能有）、IRR 查的是哪一列、可复现卡。
+- `array_report(study)`：就是 `arrayreport.build`（示例 10 的每一个数；2026-11-19 起示例只负责印），跑在 study 的前端和方案上；另给每个方案对应同台表的哪一行（`table_row_of`）
+  和 EIRP 上限从多少个单元起作用（`eirp_limit`：预设回退下 36，按真实阵列增益搜出来的，和示例一样）。阵列链路是视距、平坦信道，表单的信道旋钮不进来（`array_inputs`），多径只经存着的 ay 门限。
+  `single_antenna_ranges(array)` 把 N = 1 的行并到同台表的行上——同台表的“距离”一列只有阵列报告带的那几行有。
+- `ay_report(study)`：就是 `ay.report.build`（示例 15 的每一个数）。`sc_vs_ofdm_headline(array)`：**谁赢、赢多少由阵列报告的 ay 行算出来，不抄文档**——
+  同调制同码率（16-QAM 3/4）与各取解码器上限两组的速率 × 距离，以及 SC 对 OFDM 的乘积优势；用已验收的 N = 64 行算出来是 8 % 与 9 %，就是 `cairn/ay.md` 开头的两个数。前提和被推翻的预期是文字，留给页面。
 - `system_report(study)`：系统框图的事实。结构和文字在 `src/mmw60/data/gui/system.yaml`（跟着 vendored wifitrx 的 `TxChain` / `RxChain` 顺序和 `ifext` / `frontend` / `arraylink`），
   **那个文件里不写数**：每个参数只写它从哪来（`spec:` 规范表条目，`v:` 由 study 的前端 / 配置读出的量，`text:` 文字），由 `guiutil` 解析；测试守着“不写数”。
   拓扑 A 升频的四行、越界的一行、同一个带宽的三种做法都从矩阵里筛出来，不是手写的名单。
@@ -100,6 +107,15 @@ authoring_mode: ai_generated
 ### 2e. 没做的（见 ROADMAP）
 
 宿主与队列、结果存在哪、要不要随包带一份预设的基线结果、页面本身。
+
+### 2f. 示例 10、15 改成“先出数据、再印”（2026-11-19）
+
+两个示例原来边算边印。`src/mmw60/arrayreport.py::build` 与 `src/mmw60/ay/report.py::build` 现在返回示例印的每一个数（全精度、可 JSON），示例只做格式化；
+`build` 收前端和配置作参数（默认值就是示例原来建的），所以界面能把 study 套上去再跑。两份都由子代理在独立工作树里改，验收是输出逐字节不变：
+快跑前后对比只差计时那一行；完整重跑与 `examples/expected` 一致（示例 10 560 s、示例 15 443 s；并入本分支后示例 10 又独立重跑一遍，567 s，一致）。指纹逐位相同。
+
+过程中看到、没有动的（动了要改已验收的文本）：**示例 15 §3 的标题写“payload π/2-64-QAM for SC”，实际 SC 的预设是 MCS16，π/2-16-QAM**（`ay.report.PRESET_MCS`；
+同一个 PA 单独读数 −28.4 dB 在示例 10 §3d 里标的就是“16-QAM payload”）。数没有错，标题错了；记在 ROADMAP 里程碑 3。
 
 ## 3. 效果图阶段留下的教训
 

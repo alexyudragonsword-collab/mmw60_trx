@@ -3,6 +3,18 @@
 本文件按倒序记录实质性进展 —— 最新条目在本行正下方。每条保持简短（摘要 + 指针），
 结论沉淀进 `cairn/<topic>.md`。
 
+## 2026-11-19 · 图形界面的计算层 `guiutil`（feat/gui-compute，叠在 feat/gui-mockups 上）
+
+- 用户看过合并稿说“开始吧”。这一轮只做计算层：`src/mmw60/guiutil.py`（只返回可 JSON 的字典）、`tools/gui_report.py`、`src/mmw60/data/gui/system.yaml`、`cairn/gui.md`。宿主、队列、页面没有做（ROADMAP F）。`guispec.py` 没动。
+- 设计：表单 = study（18 个共享旋钮里与预设不同的取值，对同台表每一行和共用的前端同时生效；4 个行旋钮只选行）。结果按 part 拆（校准、同台表的解析列 / 时域列 / ay 两行、阵列、SC 对 OFDM、两份门限），各自声明读哪些旋钮、建在哪些 part 上；签名 + 信封 + `freshness` 判过期，`field_states` 落到同台表的字段组。
+- **依赖表改成量出来的**：`tests/config_trace.py` 记录一次计算实际读了配置的哪些字段，测试要求“追踪到的 ⊆ 声明的”。**推翻我在效果图阶段手写的一处：同台表的解析列读信道**（ISI 项用 rms 时延），也读 CFO 估计方式和晶振；当时写“不读信道”。追踪的三个坑（`replace` / `to_dict` 会全读、条件读追踪不到、整表当一个任务追踪时全读）在 `cairn/gui.md` §2b。
+- 例：改 CPE 窗口 17 → 33，过期的是时域列、ay 两行、阵列、be 门限，解析列里只有解码器上限那一组；校准不动。改 PA 回退，校准过期，同台表“校准后”各列跟着过期；门限不动。改信道，校准和阵列自己不动（阵列是视距、平坦信道，只经 ay 门限）。
+- 报告都是库自己的字典：`table_report` = `compare.build`（加口径、配置哈希、交叉核对、显示位数）；`calibration_report` 真跑序列，两种判定分成 `status_wifitrx` / `status_summary`，K = 1 / 4 两列读出的 IRR 是 53.62 / 53.81 dB（已验收的表 53.6 / 53.8）；`system_report` 由描述文件解析，描述里不写数（测试守着），拓扑 A 升频的四行、越界的一行、同一带宽三种做法从矩阵里筛；`array_report` / `ay_report` 见下；`sc_vs_ofdm_headline` 由阵列结果算“谁赢、赢多少”，用已验收的 N = 64 行算出 8 % 与 9 %，就是 `cairn/ay.md` 开头的两个数。EIRP 上限从 36 个单元起作用，是按真实阵列增益搜出来的。
+- **示例 10、15 改成“先出数据、再印”**（`arrayreport.build`、`ay.report.build`），由两个子代理在独立工作树里做，验收是输出逐字节不变：快跑前后只差计时行；完整重跑与 `examples/expected` 一致（560 s、443 s）；并入后我在本分支上各独立重跑一遍。示例 03、04 的列计划与方案表搬进库（`calcheck.DEFAULT_PLAN`、`compare.default_matrix`），重跑一致。指纹与 main 逐位相同（122 个值），vendored 117 个文件全 verbatim。
+- **看到、没有动的**：示例 15 §3 的标题印“payload π/2-64-QAM for SC”，实际 SC 的预设是 MCS16（π/2-16-QAM）；数没错，文字错了，改它要重新验收 `examples/expected/15`，记在 ROADMAP 里程碑 3。
+- 子代理报告的两件事：示例里仍各留一处预设调用（`test_law1_examples_build_their_links_from_the_presets_only` 要求每个示例按名字调预设）；示例 15 第一次完整跑以退出码 144 无输出结束，原因没查到，重跑正常。
+- 下一步：等用户审 PR。之后是宿主、队列与页面；开工前要定的几件在 ROADMAP F（结果存哪、要不要随包带基线、表单缺基准 PHY 的旋钮、门限不能在界面里重算）。
+
 ## 2026-11-19 · 图形界面：用户选方案 A 的风格，出合并稿（feat/gui-mockups）
 
 - 用户审过两份效果图：**更喜欢方案 A 的风格**，要求开工前把方案 B 的可取之处并进来，并补一张详细的系统框图用于展示。合并稿（仍是效果图，不是界面代码）：https://claude.ai/artifact/JoCP4R5XGhNdYHMobjQRf4 ；方案 A / B 两页保留不动。

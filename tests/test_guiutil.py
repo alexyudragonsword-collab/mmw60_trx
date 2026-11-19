@@ -179,7 +179,7 @@ def test_freshness_against_the_accepted_presets():
     # through the thresholds
     f = g.freshness({"rx.cpe_window_symbols": 33})
     stale = {k for k, v in f.items() if v["state"] == "stale"}
-    assert stale == {"table.td", "table.ay", "thresholds.be", "table.analytic", "array"}
+    assert stale == {"table.td", "table.ay", "thresholds.be", "table.analytic", "array", "ay"}
     assert f["table.analytic"]["changed"] == [] and f["table.analytic"]["upstream"] == ["thresholds.be"]
     assert f["thresholds.be"]["recompute"] is None
     assert f["thresholds.be"]["stored"]["command"].endswith("measure_thresholds.py")
@@ -197,6 +197,7 @@ def test_freshness_against_the_accepted_presets():
     f = g.freshness({"channel.rms_delay_ns": 20})
     assert f["calibration.be"]["state"] == "fresh" and f["table.analytic"]["state"] == "stale"
     assert f["array"]["changed"] == [] and f["array"]["upstream"] == ["thresholds.ay"]
+    assert f["ay"]["changed"] == ["channel.rms_delay_ns"]                              # its multipath section
 
 
 def test_freshness_with_envelopes():
@@ -391,6 +392,50 @@ def test_array_report_is_example_10s_numbers_on_the_studys_inputs_and_declares_i
                                    "A 11be 80M (IF extender)": "be 11be 80M IF extender @60.48 GHz"}
     one = g.single_antenna_ranges(rep)["be_upclocked 11be 80M K=4 @60.48 GHz"]
     assert f"{one['range_mcs0_m']:.0f}" == "21" and one["cap_mcs"] == 5              # example 10 section 2-3, N = 1
+    json.dumps(rep, allow_nan=False)
+
+
+# ------------------------------------------------------------------ SC against OFDM
+def test_ay_inputs_are_example_15s_presets_with_the_study_applied():
+    from mmw60.ay import report as ayreport
+    base = g.ay_inputs()
+    assert base["cfgs"] == ayreport.default_cfgs() and set(base["cfgs"]) == {"ay_sc", "ay_ofdm"}
+    moved = g.ay_inputs({"frontend.pa.obo_db": 9.5})
+    assert moved["fe"].obo_db == 9.5 and all(c.frontend.pa.obo_db == 9.5 for c in moved["cfgs"].values())
+
+
+def test_sc_vs_ofdm_headline_is_computed_from_the_array_rows():
+    """The conclusion's two headline products from the accepted example 10 rows (N = 64, preset back-off):
+    16-QAM 3/4 SC 322 m / OFDM 316 m, decoder caps MCS21 153 m / MCS20 148 m — SC ahead by 8 % and 9 %."""
+    def row(wf, n, common, cap_mcs, cap):
+        return {"waveform": wf, "point": "preset", "n": n, "eirp_dbm": 40.0, "cap_mcs": cap_mcs,
+                "range_common_m": common, "range_cap_m": cap}
+    array = {"ay": [row("ay_sc", 64, 322.0, 21, 153.0), row("ay_ofdm", 64, 316.0, 20, 148.0),
+                    row("ay_sc", 16, 108.0, 21, 39.0), row("ay_ofdm", 16, 101.0, 18, 46.0)]}
+    h = g.sc_vs_ofdm_headline(array)
+    same, cap = h["same_modulation_16qam_3_4"], h["own_decoder_cap"]
+    assert h["n"] == 64 and same["mcs"] == {"ay_sc": 14, "ay_ofdm": 13} and cap["mcs"] == {"ay_sc": 21, "ay_ofdm": 20}
+    assert (same["ay_sc"]["rate_bps"], same["ay_ofdm"]["rate_bps"]) == (4.62e9, 4.37684e9)
+    assert (cap["ay_sc"]["rate_bps"], cap["ay_ofdm"]["rate_bps"]) == (8.085e9, 7.65947e9)
+    assert round(same["sc_advantage_pct"]) == 8 and round(cap["sc_advantage_pct"]) == 9
+    assert g.sc_vs_ofdm_headline(array, n=16)["own_decoder_cap"]["mcs"]["ay_ofdm"] == 18
+    with pytest.raises(ValueError):
+        g.sc_vs_ofdm_headline({"ay": []})
+    json.dumps(h, allow_nan=False)
+
+
+@pytest.mark.slow
+def test_ay_report_is_example_15s_numbers_on_the_studys_inputs_and_declares_its_reads():
+    from mmw60.ay import report as ayreport
+    inp = g.ay_inputs()
+    cfgs = inp["cfgs"]
+
+    def fn():
+        ayreport.build(ayreport.default_frontend(cfgs), cfgs, quick=True)
+    assert _knobs(traced(fn)) <= g.PARTS["ay"].reads
+    rep = g.ay_report(quick=True)
+    assert rep["kind"] == "sc_vs_ofdm" and rep["header"]["engine"] == ENGINE_BANNER
+    assert {"impairments_alone", "calibration", "rate_vs_range", "same_modulation"} <= set(rep)
     json.dumps(rep, allow_nan=False)
 
 
