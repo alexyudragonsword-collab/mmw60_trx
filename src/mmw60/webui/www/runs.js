@@ -36,7 +36,7 @@ function renderRuns() {
       <tbody>${PT.parts.map(p => `<tr><td class="rt-h" title="${esc(p.id)}">${esc(pn(p.id))}</td>${PT.knobs.map(k => { const y = p.reads.includes(k.id), hit = y && (fp[p.id].changed || []).includes(k.id); return `<td class="${hit ? "hit" : y ? "y" : "n0"}" title="${esc(p.id)} × ${esc(k.id)}">${y ? "●" : "·"}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`;
   const ledger = tbl([
     { h: T("部分", "Part"), f: p => `${esc(pn(p.id))}<div class="xs mut n">${esc(p.id)}</div>` },
-    { h: T("状态", "State"), f: p => `<span class="pchip" data-part="${esc(p.id)}" data-state="${pstate(p.id)}">${pstate(p.id) === "stale" ? "◷ " + T("过期", "stale") : "● " + T("新鲜", "fresh")}</span>` },
+    { h: T("状态", "State"), f: p => `<span class="pchip" data-part="${esc(p.id)}" data-state="${pstate(p.id)}">${stateSign(pstate(p.id))} ${stateWord(pstate(p.id))}</span>` },
     { h: T("是哪个旋钮动了它", "Knobs that moved it"), f: p => (fp[p.id].changed || []).map(id => changeText(id, p.id)).join("<br>") || `<span class="mut">—</span>` },
     { h: T("上游", "Upstream"), f: p => (fp[p.id].upstream || []).map(u => `<span class="dg">${esc(pn(u))}${pstate(u) === "stale" ? "" : " · " + T("不是建在现在这份上", "not built on the one now stored")}</span>`).join("<br>") || (p.upstream.length ? `<span class="mut">${p.upstream.map(u => esc(pn(u))).join(P_.d)}</span>` : `<span class="mut">—</span>`) },
     { h: T("按什么判", "Judged against"), f: p => { const m = metaOfPart(p.id), c = fp[p.id].computed_at; return `${esc(tr(fp[p.id].basis))}${m ? ` <code>${esc(m.id)}</code>` : ""}${c ? `<div class="xs mut n">${esc(c.version || "")} @ ${short(c.commit)}</div>` : ""}`; } },

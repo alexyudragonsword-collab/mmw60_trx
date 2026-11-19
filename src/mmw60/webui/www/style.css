@@ -456,6 +456,8 @@ td.cur2{background:var(--sunk)}
 .pstrip{display:inline-flex;gap:2px;align-items:center}
 .pstrip i{width:7px;height:12px;border-radius:2px;background:var(--ok);display:block}
 .pstrip i[data-state="stale"]{background:repeating-linear-gradient(135deg,var(--amber-line) 0 2px,var(--amber-bg) 2px 4px);outline:1px solid var(--amber-line)}
+.pstrip i[data-state="missing"]{background:transparent;outline:1px dashed var(--rule2)}
+.pchip[data-state="missing"]{color:var(--ink3)}
 /* small pieces of the screens */
 .sw.dbl{background:var(--panel);border:1.5px solid var(--ink);outline:1px solid var(--ink);outline-offset:1px}
 .sw.hitsw{background:var(--amber-bg);border:1px solid var(--amber-line)}

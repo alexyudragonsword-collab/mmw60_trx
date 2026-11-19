@@ -12,7 +12,7 @@ function powerPoints(r) {
 const BUDGET_KEY = { pa: "pa_nonlinearity", converters: "quantization" };
 /* a step's two verdicts, side by side */
 const verdicts = x => `<span class="vv" title="wifitrx · ${T("汇总表", "summary")}">wifitrx ${st(x.status_wifitrx)} · ${T("汇总", "summary")} ${st(x.status_summary)}</span>`;
-const stepVal = (x, d = 1) => (nil(x.value) ? `<small>${T("无指标", "no metric")}</small>` : `${fx(x.value, d)} ${metricUnit(x.metric)} <small>${esc(x.metric || "")}</small>`);
+const stepVal = (x, d = 1) => (nil(x.value) ? `<small>${T("无指标", "no metric")}</small>` : `${fx(x.value, d)} ${metricUnit(x)} <small>${esc(x.metric || "")}</small>`);
 function statusRule(C) {
   const sr = C.status_rule;
   return `<b>wifitrx</b>${P_.c}${esc(tr(sr.status_wifitrx))}<br><b>${T("汇总表", "summary table")}</b>${P_.c}${S.lang === "zh" ? `wifitrx 的判定；另外，ok 的一步若 dB 指标比第一列差 ${plain(sr.degrade_db)} dB 以上，也记为 degraded（本库的规则）` : esc(sr.status_summary)}`;
@@ -155,7 +155,7 @@ function renderRow() {
     const cc = A ? A.calibration : null;
     const cal = cc ? `<section class="blk"><header><h3>${T("校准步骤 · 在 ay 这条链上真跑的", "Calibration steps · actually run on the ay chain")} ${cc.steps.length} ${T("步", "steps")}</h3><span class="mut sm">${hz(A.header.chain_fs_hz)} · ${T("回退", "back-off")} ${fx(cc.backoff_db, 1)} dB</span></header>
       <dl class="kv"><dt>${T("评分波形", "Scoring waveform")}</dt><dd>${esc(cc.probe)} ${tag("assumed.ay_cal_probe")}</dd></dl>
-      <div class="steps">${cc.steps.map((x, i) => `<div class="step"><span class="no">${i + 1}</span><span class="nm">${esc(x.step)}</span><span>${st(x.status)}</span><span class="val">${sv(ast, nil(x.value) ? `<small>${T("无指标", "no metric")}</small>` : `${fx(x.value, 1)} ${metricUnit(x.metric)} <small>${esc(x.metric || "")}</small>`, "ay")}</span><span class="mech xs mut">${esc(x.detail || "")}</span></div>`).join("")}</div>
+      <div class="steps">${cc.steps.map((x, i) => `<div class="step"><span class="no">${i + 1}</span><span class="nm">${esc(x.step)}</span><span>${st(x.status)}</span><span class="val">${sv(ast, nil(x.value) ? `<small>${T("无指标", "no metric")}</small>` : `${fx(x.value, 1)} ${metricUnit(x)} <small>${esc(x.metric || "")}</small>`, "ay")}</span><span class="mech xs mut">${esc(x.detail || "")}</span></div>`).join("")}</div>
       <dl class="kv"><dt>${T("最终核对", "Final check")}</dt><dd class="n">isolation ${fx(cc.final.isolation_evm_db, 1)} dB · modem ${fx(cc.final.modem_evm_db, 1)} dB · TX ${fx(cc.final.tx_modem_evm_db, 1)} dB · RX ${fx(cc.final.rx_modem_evm_db, 1)} dB · Pout ${fx(cc.final.pout_dbm, 1)} dBm</dd></dl>
       <p class="note">${T("这份序列只有 wifitrx 自己的判定（没有汇总表）。", "This sequence carries wifitrx’s own verdict only (there is no summary table for it).")}</p></section>` : "";
     const pts = powerPoints(r).filter(p => p.p), first = pts[0];
@@ -195,7 +195,7 @@ function renderCalibration() {
       <div><section class="blk"><header><h3>${T("每一步在每一列上的读数与两种判定", "Every step on every column: the reading and both verdicts")}</h3></header>
         <p class="sm" style="color:var(--ink2)">${statusRule(C)}</p>
         ${tbl([{ h: T("步", "Step"), f: (sp, i) => `<span class="n">${i + 1}. ${esc(sp.step)}</span><div class="xs mut" lang="zh">${esc(tr(sp.mechanism_zh))}</div>` },
-      ...cols.map((c, j) => ({ h: esc(c.label), r: 1, f: sp => { const x = sp.cells[j]; if (!x) return `<span class="mut">·</span>`; return `<div class="cell2" title="${esc(x.detail || "")}"><span>${m(nil(x.value) ? "—" : fx(x.value, 1) + " " + metricUnit(x.metric))}</span><span class="xs" data-v-wifitrx="${esc(x.status_wifitrx)}" data-v-summary="${esc(x.status_summary)}">w ${st(x.status_wifitrx)}</span><span class="xs">${T("汇", "s")} ${st(x.status_summary)}</span></div>`; } }))], C.steps, { cls: "mx" })}
+      ...cols.map((c, j) => ({ h: esc(c.label), r: 1, f: sp => { const x = sp.cells[j]; if (!x) return `<span class="mut">·</span>`; return `<div class="cell2" title="${esc(x.detail || "")}"><span>${m(nil(x.value) ? "—" : fx(x.value, 1) + " " + metricUnit(x))}</span><span class="xs" data-v-wifitrx="${esc(x.status_wifitrx)}" data-v-summary="${esc(x.status_summary)}">w ${st(x.status_wifitrx)}</span><span class="xs">${T("汇", "s")} ${st(x.status_summary)}</span></div>`; } }))], C.steps, { cls: "mx" })}
         <p class="xs mut">w = wifitrx · ${T("汇 = 汇总表（本库的规则）", "s = the summary table (this library’s rule)")} · ${T("每格第一行是这一步的指标读数", "the first line of a cell is the step’s metric reading")}</p></section></div>
       <div><section class="blk">${calMatrix(C, "")}</section>
         <section class="blk"><header><h3>${T("校准后的 IRR，按带宽", "IRR after calibration, by bandwidth")}</h3><span class="mut sm">${T("这次运行量到的", "as measured by these runs")}</span></header>

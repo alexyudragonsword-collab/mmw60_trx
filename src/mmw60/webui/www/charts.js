@@ -17,8 +17,10 @@ function ticks(d0, d1, n = 5) { const raw = (d1 - d0) / n, p = Math.pow(10, Math
 function logSpan(vals) { const f = fin(vals).filter(v => v > 0); if (!f.length) return [1, 10]; const a = Math.pow(10, Math.floor(Math.log10(Math.min(...f)))), b = Math.pow(10, Math.ceil(Math.log10(Math.max(...f)))); return a === b ? [a, a * 10] : [a, b]; }
 function decades(d0, d1) { const out = []; for (let t = d0; t <= d1 * 1.0001; t *= 10) out.push(Number(t.toPrecision(6))); return out; }
 /* the reports write an absent EVM term as a very large negative number: it is drawn as absent, not as a point */
-const ABSENT_DB = -200;
-const absent = v => nil(v) || v <= ABSENT_DB;
+/* below this a dB term is absent (zero to double precision); the threshold is the table report's
+ * (absent_below_db), set when a table report or a row detail arrives -- not a number of the page */
+let ABSENT_DB = null;
+const absent = v => nil(v) || (ABSENT_DB !== null && v < ABSENT_DB);
 const TINT = [1, .68, .44, .28, .16, .56, .36, .8, .22];
 
 /* dB ladder: one row per term, position only (a dB axis has no zero to grow a bar from) */
@@ -111,7 +113,7 @@ const CHARTS = {
       o += `<text x="0" y="${y + 3.5}" class="m">${esc(sp.step)}</text>` + ln(L, y + rh / 2, w, y + rh / 2, "grid");
       sp.cells.forEach((x, j) => {
         if (!x) return;
-        const cx = L + j * cw + cw / 2, tip = `${sp.step} · ${cols[j].label}\nwifitrx: ${x.status_wifitrx} · ${T("汇总表", "summary")}: ${x.status_summary}${nil(x.value) ? "" : "\n" + fx(x.value, 1) + " " + metricUnit(x.metric)}`;
+        const cx = L + j * cw + cw / 2, tip = `${sp.step} · ${cols[j].label}\nwifitrx: ${x.status_wifitrx} · ${T("汇总表", "summary")}: ${x.status_summary}${nil(x.value) ? "" : "\n" + fx(x.value, 1) + " " + metricUnit(x)}`;
         const tri = `M${P(cx)} ${y - 5}L${P(cx + 5.5)} ${y + 4.5}L${P(cx - 5.5)} ${y + 4.5}Z`;
         if (x.status_wifitrx !== "ok") o += `<path d="${tri}" fill="var(--amber-line)" stroke="var(--amber-line)" stroke-width="1.2" stroke-linejoin="round" data-tip="${esc(tip)}"/>`;
         else if (x.status_summary !== "ok") o += `<path d="${tri}" fill="var(--panel)" stroke="var(--amber-line)" stroke-width="1.4" stroke-linejoin="round" data-tip="${esc(tip)}"/>`;

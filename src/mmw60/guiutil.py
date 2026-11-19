@@ -356,23 +356,31 @@ def envelopes_of(result: dict) -> dict[str, dict]:
     return out
 
 
-def freshness(st: dict | None, envelopes: dict[str, dict] | None = None) -> dict:
+def freshness(st: dict | None, envelopes: dict[str, dict] | None = None, accepted: bool = True) -> dict:
     """Per part, against the form as it is now: ``fresh``, ``stale`` (with the knobs that moved it
     and the upstream parts that are stale) or ``missing``.
 
     A part with no envelope is judged against the accepted results, which are the presets'
     (study ``{}``): it is fresh while the study leaves the knobs it reads at their presets.  That
-    is how the stored measurements (the decoder thresholds) are judged always."""
+    is how the stored measurements (the decoder thresholds) are judged always.  A host that draws
+    only what its store holds passes ``accepted=False``: a part a job computes then reads
+    ``missing`` when no result of it is stored, instead of fresh on the strength of numbers the
+    page cannot show.  A missing upstream does not by itself make a part stale: the part's own
+    record of what it was built on decides."""
     st = study(st)
     envelopes = envelopes or {}
     out: dict[str, dict] = {}
     for pid in sorted(PARTS, key=lambda p: len(closure(p))):
         part, env = PARTS[pid], envelopes.get(pid)
+        if env is None and not accepted and part.job is not None:
+            out[pid] = {"state": "missing", "changed": [], "upstream": [], "basis": "nothing stored",
+                        "recompute": part.job, "stored": None, "computed_at": None}
+            continue
         have = (env or {}).get("study", {}) if env and env.get("schema") == SCHEMA else {}
         changed = sorted(k for k in part.reads if st.get(k, None) != have.get(k, None))
         if env is not None and env.get("schema") != SCHEMA:
             changed = sorted(part.reads)
-        up = [u for u in part.upstream if out[u]["state"] != "fresh"]
+        up = [u for u in part.upstream if out[u]["state"] == "stale"]
         if env is not None:
             # an envelope computed on stale upstream results stays stale until it is rebuilt on fresh ones
             up += [u for u in part.upstream if u not in up and env.get("upstream", {}).get(u) != signature(u, st)]
@@ -391,8 +399,8 @@ def field_states(fresh: dict) -> dict:
     out = {}
     for group in list(BE_FIELDS) + ["table.ay"]:
         own, _, up = group.partition("+")
-        stale = bool(fresh[own]["changed"]) or (bool(up) and fresh[up]["state"] != "fresh")
-        out[group] = "stale" if stale else "fresh"
+        stale = bool(fresh[own]["changed"]) or (bool(up) and up in fresh[own]["upstream"])
+        out[group] = "missing" if fresh[own]["state"] == "missing" else "stale" if stale else "fresh"
     return out
 
 
@@ -444,7 +452,7 @@ def form(st: dict | None = None, row: Mmw60Config | None = None) -> dict:
     """The form for a page: every knob of ``guispec`` with its group, whether it is a row knob,
     its preset and current value, its source tag and the parts that read it."""
     stv = study(st)
-    ref = apply_study(row if row is not None else reference_config(stv.get("carrier_hz", PRESET_CARRIER_HZ)), {})
+    ref = row if row is not None else reference_config()      # the presets: ``preset`` never follows the study
     items = []
     for k in guispec.KNOBS:
         d = _json(k.as_dict())
@@ -517,7 +525,7 @@ def front_end_report(fe: Frontend60, st: dict | None = None) -> dict:
         "pa_isolated_evm_db": pa_evm,
         "lo_profile": d["lo_profile"], "lo_ipn_dbc": d["lo_ipn_dbc"], "tx_lo_leak_dbc": d["tx_leak_dbc"],
         "rx_dc_dbc": d["rx_dc_dbc"],
-        "rx_front": {"gain_db": f.get("gain_db"), "nf_db": f.get("nf_db"), "iip3_dbm": f.get("iip3_dbm")},
+        "rx_front": {"gain_db": f["rx_gain_db"], "nf_db": f["rx_nf_db"], "iip3_dbm": f["rx_iip3_dbm"]},
         "antenna_gain_tx_dbi": f["antenna_gain_tx_dbi"], "antenna_gain_rx_dbi": f["antenna_gain_rx_dbi"],
         "shared_antenna": f["shared_antenna"], "tx_rx_isolation_db": f["tx_rx_isolation_db"],
         "eirp_dbm": d.get("eirp_avg_dbm"), "eirp_margin_db": d.get("margin_avg_db"),
@@ -590,12 +598,24 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
         "irr_table": {"from": "calibration result" if irr_table is not None else "derived.irr_after_cal_measured_db",
                       "db_by_bandwidth_hz": (table if table is not None
                                              else spec.value("derived.irr_after_cal_measured_db"))},
+        # a term below this is absent (zero to double precision), as example 04 prints it: a dash, not a number
+        "absent_below_db": compare.ABSENT_DB,
         "margins": {"mcs_evm_margin_db": spec.value("assumed.mcs_evm_margin_db"),
                     "decoder_cap_margin_db": spec.value("assumed.decoder_cap_margin_db")},
     })
 
 
 # ------------------------------------------------------------------ report: the calibration runs
+#: wifitrx names a reading after its unit; the suffix is read here, once, not by a page
+_METRIC_UNITS = (("_dbfs", "dBFS"), ("_dbc", "dBc"), ("_dbm", "dBm"), ("_db", "dB"), ("_pct", "%"), ("_ns", "ns"),
+                 ("_ps", "ps"), ("_hz", "Hz"))
+
+
+def metric_unit(metric: str | None) -> str | None:
+    """The unit of a wifitrx metric from its name's suffix (``irr_min_db`` -> dB); None when it says none."""
+    return next((u for suffix, u in _METRIC_UNITS if metric and metric.endswith(suffix)), None)
+
+
 def calibration_from_runs(runs: list, fe: Frontend60, st: dict | None = None) -> dict:
     """The calibration report from finished runs (``calcheck.run_cal_at``): per step and column the
     reading and **two verdicts kept apart** — wifitrx's own, and the summary's, which additionally
@@ -611,7 +631,8 @@ def calibration_from_runs(runs: list, fe: Frontend60, st: dict | None = None) ->
                 continue
             status, metric, value, detail = st_
             cells.append({"status_summary": status, "status_wifitrx": row["wifitrx_by_k"][lab],
-                          "metric": metric or None, "value": value, "detail": detail or None})
+                          "metric": metric or None, "unit": metric_unit(metric), "value": value,
+                          "detail": detail or None})
         steps.append({"step": row["step"], "mechanism_zh": row["mechanism"], "cells": cells})
     cols = []
     for run in runs:
@@ -751,6 +772,8 @@ def ay_report(st: dict | None = None, *, quick: bool = False, progress=None, **k
     stv = study(st)
     inp = ay_inputs(stv)
     rep = ayreport.build(inp["fe"], inp["cfgs"], quick=quick, progress=progress, **kw)
+    for step in (rep.get("calibration") or {}).get("steps", []):
+        step["unit"] = metric_unit(step.get("metric"))
     rep.update(kind="sc_vs_ofdm", study=stv)
     return _json(rep)
 
@@ -823,6 +846,7 @@ def row_detail(table: dict, label: str, calibration: dict | None = None) -> dict
     if row.get("footing") == "be_zero_if":
         cmds.append(JOBS["calibration_be"]["command"])
     return _json({"kind": "row_detail", "row": row, "footing": table["footing"][row["footing"]],
+                  "absent_below_db": compare.ABSENT_DB,
                   "calibration_column": own, "irr_looked_up_from_column": looked_up,
                   "repro": repro(label, cfg, table["study"], cmds)})
 
@@ -852,7 +876,7 @@ def _system_values(st: dict) -> dict:
         "tx_lo_leak_dbc": d["tx_leak_dbc"], "rx_dc_dbc": d["rx_dc_dbc"],
         "enob_ref": fe.converters.enob_ref, "enob_fs_ref_hz": fe.converters.fs_ref_hz,
         "enob_per_octave": -fe.converters.bits_per_octave,
-        "rx_gain_db": faces.get("gain_db"), "rx_nf_db": faces.get("nf_db"), "rx_iip3_dbm": faces.get("iip3_dbm"),
+        "rx_gain_db": faces["rx_gain_db"], "rx_nf_db": faces["rx_nf_db"], "rx_iip3_dbm": faces["rx_iip3_dbm"],
         "antenna_tx_dbi": faces["antenna_gain_tx_dbi"], "antenna_rx_dbi": faces["antenna_gain_rx_dbi"],
         "eirp_dbm": d.get("eirp_avg_dbm"),
         "chip_widest_channel_hz": max(float(k) for k in spec.value("ieee80211be.n_sd")),

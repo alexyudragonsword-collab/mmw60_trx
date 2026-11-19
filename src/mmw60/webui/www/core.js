@@ -139,6 +139,9 @@ const partInfo = id => (S.parts ? S.parts.parts.find(p => p.id === id) : null);
 const pn = id => { const p = partInfo(id); return p ? T(p.zh, p.en) : id; };
 const fresh = () => (S.state ? S.state.freshness : { parts: {}, fields: {} });
 const pstate = id => (fresh().parts[id] ? fresh().parts[id].state : "fresh");
+/* fresh | stale | missing (nothing stored for the part: the host draws only what its store holds) */
+const stateWord = s => (s === "stale" ? T("过期", "stale") : s === "missing" ? T("没有存着的结果", "nothing stored") : T("新鲜", "fresh"));
+const stateSign = s => (s === "stale" ? "◷" : s === "missing" ? "○" : "●");
 /* the stored result that carries a part for the study on screen (or null: judged against the accepted presets) */
 function metaOfPart(id) { const sh = S.state ? S.state.shown : {}; for (const r in sh) if (sh[r] && sh[r].parts.includes(id)) return sh[r]; return null; }
 /* the group of fields a comparison-table field belongs to (a stale one first, when it is in two)
@@ -183,7 +186,7 @@ function freshBanner(parts, reports, opts = {}) {
   const upS = ups.filter(u => pstate(u) === "stale"), upO = ups.filter(u => pstate(u) !== "stale");
   const jobs = [...new Set([...stale.map(p => fp[p].recompute).filter(Boolean), ...missing.flatMap(r => (S.parts ? Object.keys(S.parts.jobs).filter(j => S.parts.jobs[j].report === r && j !== "table_analytic") : []))])];
   const stored = [...new Set([...stale, ...ups])].filter(p => fp[p] && fp[p].stored && fp[p].state === "stale");
-  const chip = p => `<span class="pchip" data-part="${esc(p)}" data-state="${pstate(p)}">${pstate(p) === "stale" ? "◷" : "●"} ${esc(pn(p))}</span>`;
+  const chip = p => `<span class="pchip" data-part="${esc(p)}" data-state="${pstate(p)}">${stateSign(pstate(p))} ${esc(pn(p))}</span>`;
   const runBtn = j => `<button type="button" class="btn" data-act="run" data-job="${esc(j)}">${T("重算", "Recompute")}${P_.c}${jn(j)} · ${expected(j)}</button>`;
   const prov = reports.map(r => provLine(shown[r])).filter(Boolean).join("");
   const any = stale.length || missing.length;
@@ -234,7 +237,8 @@ const TERM = {
 };
 const term = k => (TERM[k] ? T(...TERM[k]) : esc(k));
 /* the unit a calibration metric's name ends in (the payload names the metric, not its unit) */
-function metricUnit(m) { const u = /_(dbc|dbfs|db|pct|ns|ps)$/.exec(m || ""); return u ? { dbc: "dBc", dbfs: "dBFS", db: "dB", pct: "%", ns: "ns", ps: "ps" }[u[1]] : ""; }
+/* the unit of a calibration reading is the cell's own field (guiutil.metric_unit) */
+function metricUnit(x) { return (x && x.unit) || ""; }
 const badge = topo => { const A = topo === "if_extender"; return `<span class="tb ${A ? "A" : "B"}" title="${A ? T("拓扑 A：IF 延伸", "Topology A: IF extender") : T("拓扑 B：升频零中频", "Topology B: upclocked zero-IF")}"><i>${A ? "A" : "B"}</i></span>`; };
 const wfsw = wf => `<span class="sw" style="background:var(--${wf === "ay_sc" ? "sc" : "ofdm"})"></span>`;
 const wfn = wf => (wf === "ay_sc" ? "SC" : wf === "ay_ofdm" ? "OFDM" : esc(wf));

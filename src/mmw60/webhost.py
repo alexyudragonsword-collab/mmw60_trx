@@ -58,6 +58,10 @@ POST_HEADER = "X-MMW60"
 GET_ROUTES = ("version", "sources", "parts", "jobs", "results")
 POST_ROUTES = ("state", "report", "row", "system", "run")
 REPORTS = tuple(guistore.REPORT_JOBS)
+#: the jobs a host queues: the full ones.  An analytic-only table is a command-line tool
+#: (tools/gui_report.py table --no-time-domain): stored beside a full table it would be picked for
+#: its fresh part and the time-domain column and the 802.11ay rows would vanish from the page.
+RUNNABLE = guistore.BASELINE_JOBS
 
 
 # ------------------------------------------------------------------ jobs
@@ -98,16 +102,19 @@ class JobQueue:
     terminate.  ``backend="thread"`` (Android, where Chaquopy has no multiprocessing; tests): each
     job on a worker thread, a cancel is cooperative between progress steps.  ``on_done(job,
     result)`` is called with every finished job's result and returns the id it was stored under.
-    ``runner`` is ``execute`` unless a test passes its own (a module-level function, so the
-    process backend can pickle it)."""
+    ``on_start(job) -> dict`` is called when a job leaves the queue and its return value is merged
+    into the job's params: what a job builds on is decided when it starts, not when it was queued
+    (a table queued behind a calibration builds on that calibration).  ``runner`` is ``execute``
+    unless a test passes its own (a module-level function, so the process backend can pickle it)."""
 
-    def __init__(self, workers: int = 1, backend: str = "process", on_done=None, runner=execute):
+    def __init__(self, workers: int = 1, backend: str = "process", on_done=None, runner=execute, on_start=None):
         if backend not in ("process", "thread"):
             raise ValueError(f"backend must be process or thread, got {backend!r}")
         self.backend = backend
         self.workers = max(1, int(workers))
         self.jobs: dict[str, dict[str, Any]] = {}
         self._on_done = on_done
+        self._on_start = on_start
         self._runner = runner
         self._ids = itertools.count(1)
         self._lock = threading.Lock()
@@ -173,7 +180,15 @@ class JobQueue:
 
     def _loop(self) -> None:
         while True:
-            self._run(self._next())
+            job = self._next()
+            try:
+                if self._on_start is not None:
+                    job["_params"] = {**job["_params"], **(self._on_start(self.public(job)) or {})}
+            except Exception:                           # noqa: BLE001
+                with self._lock:
+                    job.update(status="error", error=traceback.format_exc(), finished=time.time())
+                continue
+            self._run(job)
 
     def _take(self, job: dict, msg: str, payload) -> None:
         """One message of a running job into its entry.  A result is stored before the job reads
@@ -259,8 +274,20 @@ class State:
     def __init__(self, workers: int = 1, backend: str = "process", home: str | Path | None = None,
                  store: guistore.Store | None = None, runner=execute):
         self.store = store if store is not None else guistore.Store(home)
-        self.jobs = JobQueue(workers, backend, on_done=lambda job, result: self.store.add(result), runner=runner)
+        self.jobs = JobQueue(workers, backend, on_done=lambda job, result: self.store.add(result), runner=runner,
+                             on_start=self.builds_on)
         self.study: dict = {}
+
+    def builds_on(self, job: dict) -> dict:
+        """What a job builds on, looked up as it starts: a table takes the calibration stored for
+        its study, if there is one (else ``run_job`` looks its IRR up in the accepted table)."""
+        if guiutil.JOBS[job["job"]]["report"] != "table":
+            return {}
+        cal = self.store.pick("calibration", job["study"])
+        if cal is not None and (guiutil.signature("calibration.be", cal["result"]["study"])
+                                == guiutil.signature("calibration.be", job["study"])):
+            return {"calibration": cal["result"]}
+        return {}
 
     def shown(self, st: dict) -> dict:
         """Per report, the stored result a page draws for this study (without the report)."""
@@ -300,7 +327,9 @@ class Api:
         elif route == "sources":
             return 200, {"ok": True, "sources": guiutil.sources(), "counts": guiutil.source_counts()}
         elif route == "parts":
-            return 200, {"ok": True, **guiutil.freshness_matrix(), "stored": guiutil.STORED}
+            m = guiutil.freshness_matrix()
+            m["jobs"] = {j: m["jobs"][j] for j in RUNNABLE}
+            return 200, {"ok": True, **m, "stored": guiutil.STORED}
         elif route == "jobs":
             return 200, {"ok": True, "jobs": st.jobs.listing()}
         elif route == "results":
@@ -315,7 +344,7 @@ class Api:
         return guiutil.study(req.get("study") or {})
 
     def _fresh(self, study: dict) -> dict:
-        fresh = guiutil.freshness(study, self.state.store.envelopes(study))
+        fresh = guiutil.freshness(study, self.state.store.envelopes(study), accepted=False)
         return {"parts": fresh, "fields": guiutil.field_states(fresh)}
 
     def post(self, route: str, req: dict) -> tuple[int, dict]:
@@ -332,11 +361,12 @@ class Api:
                 raise ValueError(f"report must be one of {REPORTS}, got {name!r}")
             study = self._study(req)
             entry = st.store.pick(name, study)
+            jobs = [j for j in guistore.REPORT_JOBS[name] if j in RUNNABLE]
             if entry is None:
                 return 200, {"ok": True, "report": None, "result": None, "freshness": self._fresh(study),
-                             "jobs": list(guistore.REPORT_JOBS[name])}
+                             "jobs": jobs}
             out = {"ok": True, "report": entry["result"]["report"], "result": _meta(entry),
-                   "freshness": self._fresh(study), "jobs": list(guistore.REPORT_JOBS[name])}
+                   "freshness": self._fresh(study), "jobs": jobs}
             if name == "table":
                 # the range column: the one-element link of the array result shown for this study
                 arr = st.store.pick("array", study)
@@ -368,17 +398,9 @@ class Api:
             return 200, {"ok": True, **guiutil.system_report(self._study(req))}
         elif route == "run":
             job = str(req.get("job"))
-            if job not in guiutil.JOBS:
-                raise ValueError(f"job must be one of {sorted(guiutil.JOBS)}, got {job!r}")
-            study = self._study(req)
-            params = {}
-            if guiutil.JOBS[job]["report"] == "table":
-                # build on the calibration computed for this study, if there is one (else the accepted table)
-                cal = st.store.pick("calibration", study)
-                if cal is not None and (guiutil.signature("calibration.be", cal["result"]["study"])
-                                        == guiutil.signature("calibration.be", study)):
-                    params["calibration"] = cal["result"]
-            return 200, {"ok": True, "job": st.jobs.submit(job, study, params)}
+            if job not in RUNNABLE:
+                raise ValueError(f"job must be one of {list(RUNNABLE)}, got {job!r}")
+            return 200, {"ok": True, "job": st.jobs.submit(job, self._study(req))}
         elif route.startswith("jobs/") and route.endswith("/cancel"):
             ok = st.jobs.cancel(route[5:-7])
             return 200, {"ok": ok, **({} if ok else {"error": "not cancellable"})}

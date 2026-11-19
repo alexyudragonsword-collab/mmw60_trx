@@ -544,3 +544,56 @@ def test_sources_report_every_entry_with_its_label():
     oxy = some["assumed.oxygen_absorption"]
     assert oxy["value"] == 15.0 and oxy["source"] == "assumed"
     json.dumps(all_, allow_nan=False)
+
+
+# ------------------------------------------------------------------ what the page work turned up (2026-11-19)
+def test_a_knobs_preset_is_the_preset_whatever_the_study_says():
+    f = g.form({"carrier_hz": 62.64e9, "frontend.pa.obo_db": 9.5})
+    by = {k["id"]: k for k in f["knobs"]}
+    assert by["carrier_hz"]["preset"] == g.PRESET_CARRIER_HZ and by["carrier_hz"]["value"] == 62.64e9
+    assert by["frontend.pa.obo_db"]["preset"] == 7.5 and by["frontend.pa.obo_db"]["value"] == 9.5
+    assert all(k["preset"] == p["preset"] for k, p in zip(f["knobs"], g.form({})["knobs"]))
+
+
+def test_the_front_end_report_carries_the_receive_fronts_numbers():
+    """They read None for a round: the report asked ``faces()`` for keys it does not have."""
+    fe = g.frontend({})
+    rx = g.front_end_report(fe)["rx_front"]
+    top = fe.rx_front.states[0]
+    assert rx == {"gain_db": top.gain_db, "nf_db": top.nf_db, "iip3_dbm": top.iip3_dbm}
+    assert rx["nf_db"] == spec.value("rx60.comm_asada2011")["nf_db"]
+    lna = next(b for b in _walk(g.system_report({})["topology_b_chain"]) if b.get("id") == "lna60")
+    assert [p["value"] for p in lna["params"][:3]] == [top.gain_db, top.nf_db, top.iip3_dbm]
+
+
+def _walk(node):
+    if isinstance(node, dict):
+        yield node
+        for v in node.values():
+            yield from _walk(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _walk(v)
+
+
+def test_freshness_reads_missing_for_a_part_nothing_is_stored_for_when_the_host_asks():
+    f = g.freshness({}, {}, accepted=False)
+    assert {p for p, v in f.items() if v["state"] == "missing"} == {p for p, part in g.PARTS.items() if part.job}
+    assert f["thresholds.be"]["state"] == "fresh" and f["array"]["recompute"] == "array"
+    assert g.field_states(f)["table.analytic"] == "missing"
+    # a stored table on a missing calibration is judged by what it says it was built on
+    tab = g.envelopes_of(g.job_result("table", {}, {}))
+    f = g.freshness({}, tab, accepted=False)
+    assert f["calibration.be"]["state"] == "missing" and f["table.analytic"]["state"] == "fresh"
+    f = g.freshness({"frontend.pa.obo_db": 9.5}, g.envelopes_of(g.job_result("table", {"frontend.pa.obo_db": 9.5}, {})),
+                    accepted=False)
+    assert f["table.analytic"]["state"] == "stale" and f["table.analytic"]["upstream"] == ["calibration.be"]
+    assert g.freshness({}, {}) == g.freshness({}, {}, accepted=True)             # the default is unchanged
+
+
+def test_a_calibration_reading_carries_its_unit_and_the_table_its_absent_threshold():
+    assert [g.metric_unit(m) for m in ("irr_min_db", "lo_leak_dbc", "worst_dc_dbfs", "fc_err_pct", "delay_ns",
+                                       "error_ps", "evm", None)] == ["dB", "dBc", "dBFS", "%", "ns", "ps", None, None]
+    rep = g.table_report(labels=[B32], time_domain=False)
+    assert rep["absent_below_db"] == compare.ABSENT_DB == -150.0
+    assert g.row_detail(rep, B32)["absent_below_db"] == compare.ABSENT_DB

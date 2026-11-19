@@ -25,6 +25,7 @@ async function loadReport(name) {
   const key = repKey(name);
   if (S.rep[name] && S.repStudy[name] === key) return false;
   const rep = await api("report", { report: name, study: S.study });
+  if (rep.report && !nil(rep.report.absent_below_db)) ABSENT_DB = rep.report.absent_below_db;
   S.rep[name] = rep; S.repStudy[name] = key; return true;
 }
 /* fetch what the screen on show needs; true when something new arrived */
@@ -43,7 +44,7 @@ async function ensure(screen) {
     const key = rowKey();
     if (!S.row || S.rowKey !== key) {
       S.rowErr = null;
-      try { S.row = await api("row", { label: S.sel, study: S.study }); S.rowKey = key; } catch (e) { S.row = null; S.rowErr = e.message; }
+      try { S.row = await api("row", { label: S.sel, study: S.study }); S.rowKey = key; if (!nil(S.row.absent_below_db)) ABSENT_DB = S.row.absent_below_db; } catch (e) { S.row = null; S.rowErr = e.message; }
       got = true;
     }
     if (S.row && isAy(S.row.row)) await rep("ay");
@@ -55,9 +56,11 @@ async function ensure(screen) {
 function chrome() {
   if (S.version) $("engine-line").textContent = S.version.engine;
   const fp = fresh().parts, ids = S.parts ? S.parts.parts.map(p => p.id) : Object.keys(fp), stale = ids.filter(p => pstate(p) === "stale");
-  $("fresh-parts").innerHTML = ids.map(p => `<i data-part="${esc(p)}" data-state="${pstate(p)}" title="${esc(pn(p))}${P_.c}${pstate(p) === "stale" ? T("过期", "stale") : T("新鲜", "fresh")}"></i>`).join("");
+  $("fresh-parts").innerHTML = ids.map(p => `<i data-part="${esc(p)}" data-state="${pstate(p)}" title="${esc(pn(p))}${P_.c}${stateWord(pstate(p))}"></i>`).join("");
+  const gone = ids.filter(p => pstate(p) === "missing").length;
   $("pill-fresh").classList.toggle("warn", stale.length > 0);
-  $("pill-fresh-t").textContent = stale.length ? T(`${stale.length} 个部分过期`, `${stale.length} parts stale`) : T("结果全部新鲜", "All results fresh");
+  $("pill-fresh-t").textContent = stale.length ? T(`${stale.length} 个部分过期`, `${stale.length} parts stale`)
+    : gone ? T(`${gone} 个部分没有存着的结果`, `${gone} parts have nothing stored`) : T("结果全部新鲜", "All results fresh");
   const act = (S.jobs || []).filter(jobActive), run = act.filter(j => j.status === "running").length;
   $("pill-jobs-t").innerHTML = act.length ? `<span class="spin" style="display:inline-block;vertical-align:-1px"></span> ${T(`任务 ${run} 运行 · ${act.length - run} 排队`, `Jobs: ${run} running · ${act.length - run} queued`)}` : T("无任务", "No jobs");
   const bd = $("nav-badge"); bd.hidden = !act.length; bd.textContent = String(act.length);

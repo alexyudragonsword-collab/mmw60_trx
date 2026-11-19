@@ -120,7 +120,10 @@ def test_state_is_the_form_the_freshness_and_what_is_shown():
     code, s = api.call("state", {"study": {}})
     assert code == 200 and s["ok"] and s["study"] == {}
     assert len(s["form"]["knobs"]) == len(g.ROW_KNOBS) + len(g.SHARED_KNOBS)
-    assert {p: v["state"] for p, v in s["freshness"]["parts"].items()} == dict.fromkeys(g.PARTS, "fresh")
+    # the host draws what its store holds: a part nothing is stored for reads missing, not fresh
+    states = {p: v["state"] for p, v in s["freshness"]["parts"].items()}
+    assert states == {**dict.fromkeys(g.PARTS, "fresh"), "array": "missing", "ay": "missing"}
+    assert s["freshness"]["parts"]["array"]["recompute"] == "array"
     assert s["shown"]["table"]["id"] == "baseline-table" and s["shown"]["array"] is None
     assert s["shown"]["table"]["provenance"]["engine"] and "report" not in s["shown"]["table"]
     # the form moves: nothing is cleared, the parts that read the knob go stale and say which knob
@@ -141,7 +144,7 @@ def test_report_serves_the_stored_result_with_its_freshness_and_never_computes()
     code, r = api.call("report", {"report": "table", "study": OBO})
     assert code == 200 and r["report"]["kind"] == "table" and r["result"]["id"] == "baseline-table"
     assert r["freshness"]["parts"]["table.td"]["state"] == "stale" and r["ranges"] is None
-    assert r["jobs"] == ["table", "table_analytic"]
+    assert r["jobs"] == ["table"]                                   # the jobs a host queues: the full ones
     code, r = api.call("report", {"report": "array", "study": {}})
     assert code == 200 and r["report"] is None and r["result"] is None and r["jobs"] == ["array"]
     assert api.call("report", {"report": "everything"})[0] == 400
@@ -152,18 +155,22 @@ def test_run_queues_a_job_and_a_table_is_built_on_this_studys_calibration_when_t
     st = state()
     api = Api(st)
     code, r = api.call("run", {"job": "table", "study": OBO})
-    assert code == 200 and r["job"]["job"] == "table" and st.jobs.jobs[r["job"]["id"]]["_params"] == {}
-    cal = canned("calibration_be", OBO)
-    st.store.add(cal)
+    assert code == 200 and r["job"]["job"] == "table"
+    wait(lambda: not st.jobs.busy())
+    assert st.jobs.jobs[r["job"]["id"]]["_params"] == {}        # no calibration for this study: the accepted IRR
+    # what a job builds on is decided when it starts: a table queued right behind the calibration builds on it
+    api.call("run", {"job": "calibration_be", "study": OBO})
     code, r = api.call("run", {"job": "table", "study": OBO})
+    wait(lambda: not st.jobs.busy())
     assert st.jobs.jobs[r["job"]["id"]]["_params"]["calibration"]["study"] == OBO
     # a calibration computed for another back-off is not this study's
     code, r = api.call("run", {"job": "table", "study": {"frontend.pa.obo_db": 10.0}})
+    wait(lambda: not st.jobs.busy())
     assert st.jobs.jobs[r["job"]["id"]]["_params"] == {}
     assert api.call("run", {"job": "thresholds", "study": {}})[0] == 400
-    wait(lambda: not st.jobs.busy())
+    assert api.call("run", {"job": "table_analytic", "study": {}})[0] == 400     # a command-line job, not a host's
     code, jobs = api.call("jobs")
-    assert [j["status"] for j in jobs["jobs"]] == ["done"] * 3
+    assert [j["status"] for j in jobs["jobs"]] == ["done"] * 4
     code, one = api.call("jobs/1")
     assert one["job"]["result_id"] and api.call("jobs/77")[0] == 404
     code, res = api.call("results")
@@ -177,7 +184,8 @@ def test_the_cheap_routes_answer_and_unknown_routes_are_404():
     code, v = api.call("version")
     assert v["backend"] == "thread" and v["provenance"]["spec_digest"] == g.spec_digest() and v["results_dir"] is None
     code, p = api.call("parts")
-    assert {x["id"] for x in p["parts"]} == set(g.PARTS) and set(p["jobs"]) == set(g.JOBS) and p["stored"]
+    assert {x["id"] for x in p["parts"]} == set(g.PARTS) and p["stored"]
+    assert set(p["jobs"]) == set(guistore.BASELINE_JOBS) == set(g.JOBS) - {"table_analytic"}
     code, s = api.call("sources")
     assert sum(s["counts"].values()) == len(s["sources"])
     code, y = api.call("system", {"study": OBO})
@@ -267,7 +275,7 @@ def test_a_real_calibration_runs_through_the_queue_and_a_table_then_builds_on_it
     assert st.store.pick("calibration", OBO) is None
     full = dict(res, quick=False)
     st.store.add(full)
-    tab = st.jobs.submit("table_analytic", OBO, {"quick": True, "calibration": full})
+    tab = st.jobs.submit("table_analytic", OBO, {"quick": True})    # the queue itself hands it the calibration
     done = wait(lambda: (j := st.jobs.get(tab["id"]))["status"] in ("done", "error") and j, timeout=180)
     assert done["status"] == "done", done["error"]
     out = st.store.get(done["result_id"])["result"]
