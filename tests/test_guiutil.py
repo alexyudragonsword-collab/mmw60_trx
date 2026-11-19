@@ -209,11 +209,16 @@ def test_freshness_with_envelopes():
     f = g.freshness(st, {"calibration.be": cal})
     assert f["calibration.be"]["state"] == "fresh" and f["calibration.be"]["basis"] == "envelope"
     assert f["table.analytic"]["state"] == "stale" and f["table.analytic"]["upstream"] == []      # its own knob moved
-    tab = g.envelope("table.analytic", st, {})
+    # a table built on that calibration says so (``built_on``); one that does not name it was built on the presets'
+    tab = g.envelope("table.analytic", st, {}, built_on={"calibration.be": st})
     assert tab["upstream"] == {"calibration.be": g.signature("calibration.be", st),
                                "thresholds.be": g.signature("thresholds.be", st)}
     f = g.freshness(st, {"calibration.be": cal, "table.analytic": tab})
     assert f["table.analytic"]["state"] == "fresh"
+    on_presets = g.envelope("table.analytic", st, {})
+    assert on_presets["upstream"]["calibration.be"] == g.signature("calibration.be", {})
+    f = g.freshness(st, {"calibration.be": cal, "table.analytic": on_presets})
+    assert f["table.analytic"]["state"] == "stale" and f["table.analytic"]["upstream"] == ["calibration.be"]
     # the form moves on: both are stale again, with the knob named
     f = g.freshness({"frontend.pa.obo_db": 10.0}, {"calibration.be": cal, "table.analytic": tab})
     assert f["calibration.be"]["changed"] == f["table.analytic"]["changed"] == ["frontend.pa.obo_db"]

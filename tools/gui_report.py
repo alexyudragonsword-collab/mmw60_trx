@@ -47,7 +47,7 @@ def main(argv=None) -> int:
     ap.add_argument("--no-time-domain", action="store_true", help="table: analytic columns only")
     ap.add_argument("--quick", action="store_true", help="table / calibration / array / ay: the smoke-size run")
     ap.add_argument("--row", action="append", help="table: only this row (repeatable)")
-    ap.add_argument("--irr-from", type=Path, help="table: a calibration job result whose IRR table to use")
+    ap.add_argument("--irr-from", type=Path, help="table: a calibration job result to build on (if it is this study's)")
     ap.add_argument("--results", type=Path, nargs="*", default=[], help="freshness: stored job results")
     a = ap.parse_args(argv)
     st = parse_study(a.set)
@@ -66,22 +66,16 @@ def main(argv=None) -> int:
             env.update(guiutil.envelopes_of(json.loads(path.read_text(encoding="utf-8"))))
         fresh = guiutil.freshness(st, env)
         out = {"study": st, "parts": fresh, "fields": guiutil.field_states(fresh)}
-    elif a.what == "table":
-        irr = None
-        if a.irr_from:
-            irr = json.loads(a.irr_from.read_text(encoding="utf-8"))["report"]["irr_after_cal_db"]
-        rep = guiutil.table_report(st, time_domain=not a.no_time_domain, quick=a.quick, irr_table=irr, labels=a.row)
-        parts = ["table.analytic"] if a.no_time_domain else None
-        out = guiutil.job_result("table_analytic" if a.no_time_domain else "table", st, rep, time.time() - t0, parts)
-    elif a.what == "array":
-        rep = guiutil.array_report(st, quick=a.quick)
-        rep["headline"] = guiutil.sc_vs_ofdm_headline(rep) if rep.get("ay") else None
-        out = guiutil.job_result("array", st, rep, time.time() - t0)
-    elif a.what == "ay":
-        out = guiutil.job_result("ay", st, guiutil.ay_report(st, quick=a.quick), time.time() - t0)
+    elif a.what == "table" and a.row:
+        rep = guiutil.table_report(st, time_domain=not a.no_time_domain, quick=a.quick, labels=a.row)
+        out = guiutil.job_result("table_analytic" if a.no_time_domain else "table", st, rep, time.time() - t0,
+                                 ["table.analytic"] if a.no_time_domain else None)
     else:
-        rep = guiutil.calibration_report(st, quick=a.quick, log=lambda s: print(s, file=sys.stderr, flush=True))
-        out = guiutil.job_result("calibration_be", st, rep, time.time() - t0)
+        job = {"table": "table_analytic" if a.no_time_domain else "table", "calibration": "calibration_be"}.get(
+            a.what, a.what)
+        cal = json.loads(a.irr_from.read_text(encoding="utf-8")) if a.irr_from else None
+        out = guiutil.run_job(job, st, quick=a.quick, calibration=cal,
+                              log=lambda s: print(s, file=sys.stderr, flush=True))
     text = json.dumps(out, ensure_ascii=False, indent=1, allow_nan=False)
     if a.json:
         a.json.write_text(text + "\n", encoding="utf-8")

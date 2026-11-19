@@ -104,9 +104,15 @@ authoring_mode: ai_generated
   拓扑 A 升频的四行、越界的一行、同一个带宽的三种做法都从矩阵里筛出来，不是手写的名单。
 - `form(study)`、`sources()`、`freshness_matrix()`：表单、规范表条目、part × 旋钮的点阵。
 
-### 2e. 没做的（见 ROADMAP）
+### 2e. 一个任务产出什么：`run_job`（2026-11-19 页面那一轮）
 
-宿主与队列、结果存在哪、要不要随包带一份预设的基线结果、页面本身。
+`run_job(job, study, quick=, progress=, calibration=)` 是“一个任务算什么”的唯一定义，命令行（`tools/gui_report.py`）和宿主的队列都只调它，返回 `job_result`。
+进度统一成 `progress(done, total, text)`：同台表按行、校准按步（一列的步数是 wifitrx 的，第一列跑完才知道 total）、阵列与 SC 对 OFDM 按节。
+
+**一份结果建在哪份上游上，要照实记**（这一轮改的；上一轮写错了）：`job_result(..., built_on={上游 part: 那份上游结果的 study})`，没写的上游就是预设的那份已验收结果
+（门限永远是；没给校准结果的同台表查的是已验收的 IRR 表）。上一轮 `envelope` 把上游一律记成“本 study 的签名”——改了回退、没重做校准就算的同台表，
+等校准重做之后会被判成新鲜，而它的 IRR 其实还是预设那份。现在它记的是预设的签名，校准重做之后仍然过期，直到在新校准上重算（`tests/test_guistore.py::test_a_result_records_*`）。
+`run_job` 只在给它的校准结果与本 study 的校准签名相同、且不是试算规模时才用它，并写进 `built_on`。
 
 ### 2f. 示例 10、15 改成“先出数据、再印”（2026-11-19）
 
@@ -117,7 +123,42 @@ authoring_mode: ai_generated
 过程中看到、没有动的（动了要改已验收的文本）：**示例 15 §3 的标题写“payload π/2-64-QAM for SC”，实际 SC 的预设是 MCS16，π/2-16-QAM**（`ay.report.PRESET_MCS`；
 同一个 PA 单独读数 −28.4 dB 在示例 10 §3d 里标的就是“16-QAM payload”）。数没有错，标题错了；记在 ROADMAP 里程碑 3。
 
-## 3. 效果图阶段留下的教训
+## 3. 结果放哪：`src/mmw60/guistore.py`（2026-11-19）
+
+`guiutil` 不落盘，宿主只排队，`guistore.Store` 保管算出来的 `job_result`。两处：
+
+- **随包的基线**（`src/mmw60/data/gui/baseline/<job>.json`，四份：`table` / `calibration_be` / `array` / `ay`）：四个任务在预设上按完整规模跑出来的结果，
+  所以页面一打开就有同台表，不用现算。它是**代码生成的数据**（`python tools/gui_baseline.py build`，或 `import DIR` 收 `gui_report.py --json` 写的文件），不手改。
+- **用户的结果**（`<home>/results/<job>-<key>.json`；`home` = `MMW60_HOME`，否则用户缓存目录下的 `mmw60/`）：队列为别的 study 算出来的。键是任务、study、`built_on` 和是否试算的哈希——同一个任务对同一个 study 再跑一遍就是替换自己。
+  `home=None` 的仓库只放内存（测试、只读安装）。
+
+**页面画哪一份**只有一条规则（`Store.pick(report, study)`）：自己读的旋钮仍与 study 一致的 part 最多的那份，其次新鲜的 part 多的，其次完整运行先于只算一部分的，其次新的先于旧的。
+所以表单往前走了，页面继续显示最近算的那份（由 `freshness` 标过期），不会空掉；回到预设，基线又是新鲜的。试算规模（`quick`）的结果存着但永远不被选中。
+
+**基线不许和代码漂开**，两层守卫（`tests/test_guistore.py`）：
+
+- `gui_baseline.check`：缺文件、规范表摘要变了、vendored pin 变了、不是预设、是试算——都红。修法是重建，时机就是示例的期望输出重新验收的那一刻。
+- 与已验收输出逐项对：阵列与 SC 对 OFDM 两份直接**把示例 10 / 15 的打印函数在基线报告上重放一遍，要求与 `examples/expected` 逐行相同**（这两个示例本来就只负责印 `build` 返回的东西，
+  所以这一条守住了两页上的每一个数）；同台表逐行对示例 04 的底板、时域 EVM、两个上限、速率、pJ/bit；校准逐列逐步对示例 03 的 wifitrx 判定和读数（6 × 12 格）。
+
+## 4. 宿主与队列：`src/mmw60/webhost.py`、`src/mmw60/appbridge.py`（2026-11-19）
+
+照 array_tx：`Api.get / post / call(route, req) -> (code, payload)` 与传输无关，HTTP 处理器和手机桥都只是传输；`JobQueue` 两种后端——
+`process`（桌面：每个任务一个 spawn 出来的子进程，取消 = terminate）与 `thread`（手机上 Chaquopy 没有多进程；取消在两个进度步之间生效，正在跑的一步要跑完）。
+启动：`mmw60-gui`（或 `python -m mmw60.webhost`），标准库的 HTTP 服务挂在 127.0.0.1，桌面开 Chromium 系浏览器的 `--app` 窗口，关窗即停。
+
+路由（POST 要带 `X-MMW60: 1`，别的来源的页面加不上这个头）：`version`、`sources`、`parts`、`jobs`、`jobs/<id>`、`results`（GET）；
+`state {study?}`、`report {report, study}`、`row {label, study}`、`system {study}`、`run {job, study}`、`jobs/<id>/cancel`、`results/<id>/delete`（POST）。
+
+- **study 归页面拿着**，每个请求带上；宿主只记住最后一次收到的（重新加载的页面能找回表单）。`state` 一次给全：表单、每个 part 的新鲜度、字段组的状态、每种报告显示的是哪份结果。
+- **`report` 从不计算**：只把 `Store.pick` 选中的那份报告连同它的出处和新鲜度交出去；没有就给 `null` 和能算它的任务名。同台表的“距离”一列由阵列结果的 N = 1 行现取（`single_antenna_ranges`），
+  SC 对 OFDM 页的“谁赢”由阵列结果的 ay 行现算（`sc_vs_ofdm_headline`）——两处都带上它们取自哪份结果，那份过期了页面要能标出来。
+- **`run`**：同台表任务会带上为本 study 算过的校准结果（没有就查已验收的 IRR 表），结果的 `built_on` 照实记（§2e）。任务读“完成”之前结果已经进了仓库。
+- 一个坑（测试抓到的）：任务的状态先变成“完成”、结束时间后填，页面会读到“完成但没有结束时间”。现在两者在同一把锁里一起写。
+
+手机的应用外壳（`android/`：Gradle、Activity）这一轮没有建，见 ROADMAP F；`appbridge.call(route, args_json) -> json` 和线程队列是它将来要调的全部。
+
+## 6. 效果图阶段留下的教训
 
 - **数据说明也是会错的**：我写“校准表的 ok / degraded 是 wifitrx 自己的判定”，对逐列清单成立，对汇总表不成立；两份效果图各有一处照着写错。现在两种判定是两个字段。
 - **依赖表不能靠读代码**：见 §2b，解析列读信道那一处当时写反了。

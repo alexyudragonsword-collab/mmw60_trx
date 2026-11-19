@@ -32,6 +32,7 @@ import json
 import math
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -305,19 +306,34 @@ def _json(v: Any):
 
 
 # ------------------------------------------------------------------ envelopes and freshness
-def envelope(part: str, st: dict | None, payload: dict, seconds: float | None = None) -> dict:
-    """A computed part with what it read and where it was computed."""
+def _upstream(part: str, built_on: dict | None) -> dict:
+    """The signature of each upstream part as the result was really built on it: ``built_on`` maps
+    an upstream part to the study its result was computed for; one it does not name was the accepted
+    result of the presets (the stored thresholds always are; a table computed without a calibration
+    result looks its IRR up in the accepted table)."""
+    built_on = built_on or {}
+    return {u: signature(u, built_on.get(u) or {}) for u in closure(part)[:-1]}
+
+
+def envelope(part: str, st: dict | None, payload: dict, seconds: float | None = None,
+             built_on: dict | None = None) -> dict:
+    """A computed part with what it read, what it was built on (``_upstream``) and where it was
+    computed."""
     st = study(st)
     return {"part": part, "schema": SCHEMA, "study": {k: v for k, v in st.items() if k in PARTS[part].reads},
-            "signature": signature(part, st), "upstream": {u: signature(u, st) for u in closure(part)[:-1]},
+            "signature": signature(part, st), "upstream": _upstream(part, built_on),
             "provenance": provenance(), "seconds": seconds, "payload": _json(payload)}
 
 
-def job_result(job: str, st: dict | None, report: dict, seconds: float | None = None, parts=None) -> dict:
-    """What a host stores after a job: the report with the study it was computed for and where.
-    ``parts`` narrows the parts the run produced (an analytic-only table has no time-domain column)."""
+def job_result(job: str, st: dict | None, report: dict, seconds: float | None = None, parts=None,
+               built_on: dict | None = None) -> dict:
+    """What a host stores after a job: the report with the study it was computed for, the upstream
+    results it was built on (``built_on``: upstream part -> that result's study; presets when not
+    named) and where.  ``parts`` narrows the parts the run produced (an analytic-only table has no
+    time-domain column)."""
     st = study(st)
     return {"job": job, "schema": SCHEMA, "study": st, "parts": list(JOBS[job]["parts"] if parts is None else parts),
+            "built_on": {u: study(v) for u, v in (built_on or {}).items()},
             "provenance": provenance(), "seconds": seconds, "report": _json(report)}
 
 
@@ -328,7 +344,7 @@ def envelopes_of(result: dict) -> dict[str, dict]:
         st = result["study"]
         out[pid] = {"part": pid, "schema": result["schema"],
                     "study": {k: v for k, v in st.items() if k in PARTS[pid].reads},
-                    "signature": signature(pid, st), "upstream": {u: signature(u, st) for u in closure(pid)[:-1]},
+                    "signature": signature(pid, st), "upstream": _upstream(pid, result.get("built_on")),
                     "provenance": result["provenance"], "seconds": result["seconds"], "payload": None}
     return out
 
@@ -616,17 +632,29 @@ def calibration_from_runs(runs: list, fe: Frontend60, st: dict | None = None) ->
     })
 
 
-def calibration_report(st: dict | None = None, *, plan=None, quick: bool = False, log=None) -> dict:
+def calibration_report(st: dict | None = None, *, plan=None, quick: bool = False, log=None, progress=None) -> dict:
     """wifitrx's calibration sequence really run on the study's front end, one column per (K, base
     bandwidth) of ``plan`` (``calcheck.DEFAULT_PLAN``: example 03's six columns), exactly as
-    example 03 runs it — at the front end's back-off, with the DPD step."""
+    example 03 runs it — at the front end's back-off, with the DPD step.  ``log`` gets wifitrx's
+    line per step; ``progress(done, total, text)`` is called after each step (total = columns x the
+    steps of the sequence, known once the first column is through)."""
     st = study(st)
     fe = frontend(st)
     plan = (calcheck.QUICK_PLAN if quick else calcheck.DEFAULT_PLAN) if plan is None else plan
+    done, per_column = [0], [None]
+
+    def step(line: str) -> None:
+        done[0] += 1
+        if log:
+            log(line)
+        if progress:
+            total = None if per_column[0] is None else max(done[0], len(plan) * per_column[0])
+            progress(done[0], total, " ".join(line.split()[:2]))
     runs = []
     for k, base in plan:
-        runs.append(calcheck.run_cal_at(fe, k, base, with_dpd=not quick, log=log,
+        runs.append(calcheck.run_cal_at(fe, k, base, with_dpd=not quick, log=step,
                                         standard="11be" if base == 80e6 else "11ac", obo_db=fe.obo_db))
+        per_column[0] = len(runs[-1].rows)              # the sequence's length is wifitrx's, read off the first run
     return calibration_from_runs(runs, fe, st)
 
 
@@ -919,3 +947,57 @@ __all__ = [
     "ay_inputs", "ay_report", "sc_vs_ofdm_headline", "repro", "calibration_column_for", "row_detail",
     "system_report",
 ]
+
+
+# ------------------------------------------------------------------ a job, run (command line and hosts alike)
+def run_job(job: str, st: dict | None = None, *, quick: bool = False, progress=None,
+            calibration: dict | None = None, log=None) -> dict:
+    """Compute one job of ``JOBS`` for a study and return its ``job_result`` (the thing a host
+    stores and ``tools/gui_report.py`` writes).
+
+    ``progress(done, total, text)`` is called as the run advances; ``total`` is None where the
+    number of steps is not known beforehand.  It may raise to stop the run (a thread host's
+    cancel).  ``calibration`` is a stored ``calibration_be`` result: a table job looks its IRR up
+    there instead of in the accepted table when that result was computed for this study's
+    calibration signature, and records it in ``built_on``.  ``quick`` is the smoke size (tests):
+    its numbers are not the study's."""
+    if job not in JOBS:
+        raise KeyError(f"no such job {job!r} (have {sorted(JOBS)})")
+    st = study(st)
+    t0 = time.time()
+    count = [0]
+
+    def tick(total, text):
+        count[0] += 1
+        if progress:
+            progress(count[0] if total is None else min(count[0], total), total, text)
+    built_on: dict = {}
+    parts = None
+    if job in ("table", "table_analytic"):
+        irr = None
+        if calibration is not None and (signature("calibration.be", calibration["study"])
+                                        == signature("calibration.be", st)) and not quick:
+            irr = calibration["report"]["irr_after_cal_db"]
+            built_on["calibration.be"] = calibration["study"]
+        full = job == "table"
+        n = len([s for s in schemes(st, quick=quick) if s.status == "built" and s.waveform not in AY_WAVEFORMS])
+        rep = table_report(st, time_domain=full, quick=quick, irr_table=irr,
+                           progress=lambda row: tick(n + (1 if full else 0), row.label))
+        if full:
+            tick(n + 1, "802.11ay")
+        else:
+            parts = ["table.analytic"]
+    elif job == "calibration_be":
+        rep = calibration_report(st, quick=quick, log=log, progress=progress)
+    elif job == "array":
+        sec = arrayreport.SECTIONS
+        rep = array_report(st, quick=quick, progress=lambda s, row: (
+            progress(sec.index(s) + 1 if s in sec else len(sec), len(sec), s) if progress and row is None else None))
+        rep["headline"] = sc_vs_ofdm_headline(rep) if rep.get("ay") else None
+    else:
+        sec = ayreport.SECTIONS
+        rep = ay_report(st, quick=quick, progress=lambda s, row: (
+            progress(sec.index(s) + 1 if s in sec else len(sec), len(sec), s) if progress and row is None else None))
+    out = job_result(job, st, rep, time.time() - t0, parts, built_on)
+    out["quick"] = bool(quick)
+    return out
