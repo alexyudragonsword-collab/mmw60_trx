@@ -35,7 +35,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, compare, spec                        # noqa: E402
-from mmw60.config import AY_WAVEFORMS, LoConfig, PhaseNoiseConfig, zero_if_60ghz   # noqa: E402
+from mmw60.config import LoConfig, PhaseNoiseConfig, zero_if_60ghz                 # noqa: E402
 from mmw60.frontend import Frontend60                                              # noqa: E402
 from mmw60.frontend.grid import analytic_floors, format_cap, max_mcs_for_floor, pa_isolated_evm_db  # noqa: E402
 from mmw60.impairments.phase_noise import load_clock_profile                        # noqa: E402
@@ -78,21 +78,7 @@ def main(argv=None) -> int:
     quick = a.quick or os.environ.get("MMW60_SMOKE") == "1"
     t0 = time.time()
     OUT.mkdir(exist_ok=True)
-    ks = (1, 8) if quick else (1, 4, 8, 16, 32)
-    schemes = compare.scheme_matrix(ks=ks, standard="11ac", bandwidth_hz=20e6)
-    if not quick:
-        # the 802.11ay rows do not depend on the WiFi base: they come once, with the first matrix
-        schemes += [s for s in compare.scheme_matrix(ks=(4, 8, 16, 32), standard="11be", bandwidth_hz=80e6)
-                    if s.status == "built" and s.waveform not in AY_WAVEFORMS]
-        # topology A on the widest channel the chip has: the same 320 MHz at 60 GHz as 80 MHz × 4
-        a320 = [s for s in compare.scheme_matrix(ks=(), standard="11be", bandwidth_hz=320e6)
-                if s.key == ("if_extender", "be")]
-        schemes += a320
-        # the same row with the chip's PA bypassed: the IF taken at its mixer output, the PA
-        # powered down (assumed.ifext_chip_pa_bypass; the chip's calibration runs on that chain)
-        schemes += [compare.Scheme(s.label.replace("IF extender", "IF ext. PA bypass"), s.topology, s.waveform,
-                                   dc.replace(s.cfg, ifext=dc.replace(s.cfg.ifext, chip_pa_bypass=True)))
-                    for s in a320]
+    schemes = compare.default_matrix(quick=quick)
     fe = Frontend60.from_config(zero_if_60ghz(k=8))
     d = fe.describe()
     print(f"mmw60 {__version__}; {'QUICK' if quick else 'full'}; one Frontend60 for every row: PA {d['pa']} Psat "

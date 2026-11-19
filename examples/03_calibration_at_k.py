@@ -45,7 +45,7 @@ sys.path.insert(0, str(HERE.parent / "src"))
 import dataclasses as dc                                           # noqa: E402
 
 from mmw60 import ENGINE_BANNER, __version__                       # noqa: E402
-from mmw60.calcheck import compare_runs, loopback_views, run_cal_at  # noqa: E402
+from mmw60.calcheck import DEFAULT_PLAN, QUICK_PLAN, compare_runs, loopback_views, run_cal_at  # noqa: E402
 from mmw60.compare import measured_irr_after_cal_db                # noqa: E402
 from mmw60.config import ChannelConfig, zero_if_60ghz              # noqa: E402
 from mmw60.frontend import Frontend60                              # noqa: E402
@@ -91,7 +91,7 @@ def main(argv=None) -> int:
           f"Pout {fe.target_pout_dbm():g} dBm, TX leak {fe.lo.tx_leak_dbc:g} dBc, IQ {fe.tx_iq.gd_mismatch_ps:g} ps, "
           f"LO IPN {fe.lo.ipn_dbc():.1f} dBc; calibrated at back-off {fe.obo_db:g} dB from {fe.obo_reference} "
           f"(Psat {fe.psat_dbm:g} dBm)")
-    plan = [(1, 20e6), (8, 20e6)] if quick else [(1, 20e6), (4, 20e6), (8, 20e6), (16, 20e6), (32, 20e6), (32, 80e6)]
+    plan = QUICK_PLAN if quick else DEFAULT_PLAN
     runs = []
     for k, base in plan:
         print(f"\n== K = {k}, base {base / 1e6:g} MHz -> {base * k / 1e6:g} MHz at {2 * base * k / 1e9:.2f} GS/s ==")

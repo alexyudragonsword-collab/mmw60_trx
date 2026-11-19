@@ -1,0 +1,346 @@
+# The system block diagram as a description (the interface's compute layer resolves it:
+# mmw60.guiutil.system_report).  Structure follows the code — vendored wifitrx TxChain / RxChain order,
+# mmw60 ifext, frontend, arraylink — and cairn/topology-a.md, topology-b.md.  No number is typed
+# here: a parameter names where its value comes from,
+#   spec: "<key>" or "<key>#<field>"   an entry of the spec table (its source label travels with it)
+#   v: "<name>"                         a value guiutil reads from the study's front end / configs
+#   text: "<words>"                     words, not a number
+# and `knob:` names the form field that sets it (changed on the form, its label reads "assumed").
+# zh / en strings may hold {name} placeholders of the same `v` values.
+
+what_is_shared:
+  zh: "每一行共用同一个 60 GHz 前端实例（Frontend60）：60 GHz PA、本振相噪剖面、转换器规律、接收前端、天线 / 阵列、EIRP 限值是同一批对象（铁律 2）。晶振、信道、接收机算法两条拓扑也相同。"
+  en: "Every row runs on one 60 GHz front-end instance (Frontend60): the 60 GHz PA, the LO phase-noise profile, the converter law, the receive front end, the antenna / array and the EIRP limit are the same objects (iron rule 2). Crystals, channel and receiver algorithms are the same for both topologies."
+
+insertion_points:
+  topology_a:
+    zh: "拓扑 A：60 GHz 级加在 wifitrx 芯片的射频输出之后（接收侧之前）；级关掉时逐位等于 wifitrx 链。"
+    en: "Topology A: the 60 GHz stage sits after the wifitrx chip's RF output (before it on receive); with the stage off the chain is bit-identical to wifitrx's."
+  topology_b:
+    zh: "拓扑 B：60 GHz 零中频前端替换 wifitrx 的射频，整条链跑在 fs_eff = fs_base × K；K = 1 行就是未改动的 wifitrx 链。"
+    en: "Topology B: the 60 GHz zero-IF front end replaces wifitrx's RF and the whole chain runs at fs_eff = fs_base × K; the K = 1 row is the unmodified wifitrx chain."
+
+digital_baseband:
+  be_tx:
+    zh: "WiFi 7 基带（PHY 不动）"
+    en: "WiFi 7 baseband (PHY untouched)"
+    clock_x_k: true
+    blocks:
+      - {zh: "扰码", en: "scrambler"}
+      - {zh: "FEC：11ac BCC / 11be LDPC", en: "FEC: 11ac BCC / 11be LDPC"}
+      - {zh: "交织 / 音映射", en: "interleaver / tone mapper"}
+      - {zh: "QAM 映射", en: "QAM mapper"}
+      - {zh: "IFFT + GI", en: "IFFT + GI"}
+      - {zh: "前导 L-STF / L-LTF", en: "preamble L-STF / L-LTF"}
+    clock:
+      zh: "时钟 × K：fs_eff = 基准带宽 × 过采样 × K；子载波间隔、带宽 × K，符号时长 ÷ K"
+      en: "clock × K: fs_eff = base bandwidth × oversampling × K; subcarrier spacing and bandwidth × K, symbol time ÷ K"
+      params:
+        - {zh: "过采样", en: "oversampling", v: oversampling}
+  be_rx:
+    zh: "接收机（数字）"
+    en: "receiver (digital)"
+    clock_x_k: true
+    blocks:
+      - {zh: "定时", en: "timing", params: [{zh: "方式", en: "mode", v: rx_timing, key: assumed.rx_timing}]}
+      - {zh: "去直流", en: "DC removal", params: [{zh: "开", en: "on", v: rx_dc_removal}]}
+      - zh: "CFO 估计：L-STF 粗 + L-LTF 细，范围随 K 变宽"
+        en: "CFO estimation: L-STF coarse + L-LTF fine, the range widens with K"
+        params:
+          - {zh: "方式", en: "mode", v: rx_cfo_estimation, knob: rx.cfo_estimation}
+          - {zh: "L-STF 范围（每 K）", en: "L-STF range (per K)", spec: liu2025.stf_capture_hz, unit: Hz}
+          - {zh: "L-LTF 范围（每 K）", en: "L-LTF range (per K)", spec: liu2025.ltf_capture_hz, unit: Hz}
+      - zh: "信道估计 + 平滑"
+        en: "channel estimate + smoothing"
+        params:
+          - {zh: "跨度自动选", en: "automatic span", v: rx_ce_smooth_auto, knob: rx.ce_smooth_auto}
+          - {zh: "最多", en: "at most", v: rx_ce_smooth_max_tones, unit: tones, key: assumed.ce_smooth_max_tones}
+          - {zh: "固定跨度", en: "fixed span", v: rx_ce_smooth_tones, unit: tones, key: assumed.ce_smooth_tones, knob: rx.ce_smooth_tones}
+      - zh: "导频 CPE，跨符号 MMSE 合并"
+        en: "pilot CPE, MMSE-combined across symbols"
+        params:
+          - {zh: "窗口", en: "window", v: rx_cpe_window_symbols, unit: symbols, key: assumed.cpe_window_symbols, knob: rx.cpe_window_symbols}
+      - zh: "LLR → 解交织 → Viterbi / LDPC → 解扰"
+        en: "LLR → deinterleave → Viterbi / LDPC → descramble"
+        params:
+          - {zh: "LDPC 最多迭代", en: "LDPC iterations at most", v: rx_ldpc_max_iterations, key: assumed.ldpc_max_iterations}
+  ay:
+    zh: "802.11ay 两种波形（拓扑 B 的硬件，单信道）；自己的 STF，不用 MLO"
+    en: "the two 802.11ay waveforms (topology B's hardware, one channel); their own STF, no MLO"
+    sc:
+      zh: "单载波：π/2 旋转，根升余弦成形；接收：频域均衡，用保护间隔跟相位"
+      en: "single carrier: π/2 rotation, root-raised-cosine shaping; receive: frequency-domain equaliser, phase tracked on the guard intervals"
+      params:
+        - {zh: "数字学", en: "numerology", spec: edmg.sc_params}
+        - {zh: "成形", en: "pulse", spec: assumed.ay_sc_pulse}
+        - {zh: "每码片样本", en: "samples per chip", spec: "assumed.ay_chain_rate#sc_samples_per_chip"}
+    ofdm:
+      zh: "OFDM；接收：逐音均衡，导频跟相位"
+      en: "OFDM; receive: per-tone equaliser, phase tracked on the pilots"
+      params:
+        - {zh: "数字学", en: "numerology", spec: edmg.ofdm_params}
+        - {zh: "过采样", en: "oversampling", spec: "assumed.ay_chain_rate#ofdm_oversampling"}
+    preamble:
+      zh: "前导"
+      en: "preamble"
+      params:
+        - {zh: "STF", en: "STF", spec: assumed.ay_preamble}
+        - {zh: "接收机规则", en: "receiver rule", spec: assumed.ay_receiver}
+
+topology_b_chain:
+  zh: "拓扑 B：60 GHz 零中频收发链（wifitrx 的 TxChain / RxChain 跑在 fs_eff）"
+  en: "Topology B: 60 GHz zero-IF chain (wifitrx TxChain / RxChain at fs_eff)"
+  tx:
+    - id: dig_fe
+      zh: "数字前端：DPD（同台表的底板按不带预失真的 PA 算）→ IQ 预校正 → dc_pre（泄漏置零）→ 增益码"
+      en: "digital front end: DPD (the comparison table's floor takes the PA without predistortion) → IQ pre-correction → dc_pre (leak null) → gain code"
+      clock_x_k: true
+      calibrated_by: [tx_iq, tx_lo_leak_loopback, tx_power, dpd]
+    - id: dac
+      zh: "DAC ×2（I / Q）"
+      en: "DAC ×2 (I / Q)"
+      evm_term: converters
+      clock_x_k: true
+      params:
+        - {zh: "ENOB", en: "ENOB", v: enob_ref, unit: "bit", key: assumed.converter_enob_ref}
+        - {zh: "参考采样率", en: "at the sample rate", v: enob_fs_ref_hz, unit: Hz, key: assumed.converter_enob_ref}
+        - {zh: "每倍采样率", en: "per octave of sample rate", v: enob_per_octave, unit: bit, key: assumed.converter_bits_per_octave}
+        - {zh: "回退", en: "back-off", spec: assumed.converter_backoff_db, unit: dB}
+    - id: tx_lpf
+      zh: "基带 LPF（角频随 BW × K）"
+      en: "baseband LPF (corner follows BW × K)"
+      clock_x_k: true
+      calibrated_by: [tx_lpf_corner, group_delay]
+    - id: iq_mod
+      zh: "IQ 调制器"
+      en: "IQ modulator"
+      evm_term: iq_image
+      calibrated_by: [tx_iq, tx_lo_leak_loopback]
+      params:
+        - {zh: "增益失配", en: "gain mismatch", spec: "assumed.iq_mismatch#gain_db", unit: dB}
+        - {zh: "相位失配", en: "phase mismatch", spec: "assumed.iq_mismatch#phase_deg", unit: "°"}
+        - {zh: "群时延失配", en: "group-delay mismatch", spec: "assumed.iq_mismatch#gd_mismatch_ps", unit: ps}
+        - {zh: "TX 本振泄漏", en: "TX LO leakage", v: tx_lo_leak_dbc, unit: dBc, key: assumed.lo_leak_dbc}
+    - id: lo60
+      zh: "本振（收发各一份相噪）"
+      en: "LO (phase noise on both sides)"
+      evm_term: phase_noise
+      params:
+        - {zh: "频率", en: "frequency", v: carrier_hz, unit: Hz, knob: carrier_hz}
+        - {zh: "模型", en: "model", v: pn_model, knob: lo.phase_noise.model}
+        - {zh: "PSD0", en: "PSD0", v: pn_psd0_dbchz, unit: dBc/Hz, key: liu2025.pn_psd0_dbchz, knob: lo.phase_noise.psd0_dbchz}
+        - {zh: "极点", en: "pole", v: pn_f_pole_hz, unit: Hz, key: liu2025.pn_f_pole_hz, knob: lo.phase_noise.f_pole_hz}
+        - {zh: "零点", en: "zero", v: pn_f_zero_hz, unit: Hz, key: liu2025.pn_f_zero_hz, knob: lo.phase_noise.f_zero_hz}
+        - {zh: "加在", en: "applied at", v: pn_apply, key: assumed.pn_apply_sides, knob: lo.phase_noise.apply}
+        - {zh: "积分相噪", en: "integrated phase noise", v: lo_ipn_dbc, unit: dBc}
+    - id: pa60
+      zh: "60 GHz PA"
+      en: "60 GHz PA"
+      evm_term: pa
+      shared: true
+      params:
+        - {zh: "模型", en: "model", v: pa_model, knob: frontend.pa.model}
+        - {zh: "Psat", en: "Psat", v: psat_dbm, unit: dBm, key: pa60.asada_eumc2011}
+        - {zh: "增益", en: "gain", v: pa_gain_db, unit: dB, key: pa60.asada_eumc2011}
+        - {zh: "P1dB", en: "P1dB", spec: "pa60.asada_eumc2011#p1db_dbm", unit: dBm}
+        - {zh: "峰值 PAE", en: "peak PAE", spec: "pa60.asada_eumc2011#pae_peak"}
+        - {zh: "回退", en: "back-off", v: obo_db, unit: dB, key: derived.pa60_obo_at_evm_limit_db, knob: frontend.pa.obo_db}
+        - {zh: "回退参考", en: "back-off reference", v: obo_reference, key: assumed.pa_obo_reference, knob: frontend.pa.obo_reference}
+        - {zh: "Pout", en: "Pout", v: pout_dbm, unit: dBm}
+        - {zh: "PA 单独 EVM", en: "PA alone EVM", v: pa_isolated_evm_db, unit: dB}
+    - id: ant_tx
+      zh: "天线 / 阵列单元"
+      en: "antenna / array element"
+      shared: true
+      params:
+        - {zh: "单元增益", en: "element gain", v: antenna_tx_dbi, unit: dBi, key: assumed.preset_antenna}
+        - {zh: "单天线 EIRP", en: "single-antenna EIRP", v: eirp_dbm, unit: dBm}
+        - {zh: "EIRP 平均上限", en: "EIRP limit (average)", spec: fcc15255.eirp_avg_dbm, unit: dBm}
+        - {zh: "EIRP 峰值上限", en: "EIRP limit (peak)", spec: fcc15255.eirp_peak_dbm, unit: dBm}
+  rx:
+    - id: ant_rx
+      zh: "天线（收发同一副，TDD）"
+      en: "antenna (the same one, TDD)"
+      shared: true
+      params:
+        - {zh: "单元增益", en: "element gain", v: antenna_rx_dbi, unit: dBi, key: assumed.preset_antenna}
+    - id: lna60
+      zh: "60 GHz 接收前端（LNA + 混频，八档增益梯子）"
+      en: "60 GHz receive front end (LNA + mixer, eight-state gain ladder)"
+      shared: true
+      calibrated_by: [agc_sweep]
+      params:
+        - {zh: "增益（最高档）", en: "gain (top state)", v: rx_gain_db, unit: dB, key: rx60.comm_asada2011}
+        - {zh: "NF", en: "NF", v: rx_nf_db, unit: dB, key: rx60.comm_asada2011}
+        - {zh: "IIP3", en: "IIP3", v: rx_iip3_dbm, unit: dBm, key: rx60.comm_asada2011}
+        - {zh: "其余七档的形状", en: "shape of the other seven states", spec: assumed.rx60_ladder_shape}
+    - id: iq_demod
+      zh: "IQ 解调器（同一个本振剖面，带 CFO）"
+      en: "IQ demodulator (same LO profile, with the CFO)"
+      evm_term: iq_image
+      calibrated_by: [rx_iq, rx_dc_offset]
+      params:
+        - {zh: "RX 自混频直流", en: "RX self-mixing DC", v: rx_dc_dbc, unit: dBc, key: assumed.rx_dc_dbc}
+    - id: rx_lpf
+      zh: "基带 LPF + VGA"
+      en: "baseband LPF + VGA"
+      clock_x_k: true
+      calibrated_by: [rx_lpf_corner]
+    - id: adc
+      zh: "ADC ×2（I / Q）"
+      en: "ADC ×2 (I / Q)"
+      evm_term: converters
+      clock_x_k: true
+      params:
+        - {zh: "规律", en: "law", text: "ENOB(fs_eff), as the DAC"}
+  calibration_loop:
+    zh: "校准回环：PA 后的耦合器 → 接收链（共用本振，相噪相消）；wifitrx 的序列在每个 K 上真跑"
+    en: "calibration loop: coupler after the PA → receive chain (shared LO, phase noise cancels); wifitrx's sequence really runs at every K"
+    part: calibration.be
+
+topology_a_chain:
+  zh: "拓扑 A：WiFi 7 芯片原样 + 固定本振的 60 GHz 变频级"
+  en: "Topology A: the WiFi 7 chip as is + a fixed-LO 60 GHz conversion stage"
+  tx:
+    - id: chip
+      zh: "WiFi 7 芯片（wifitrx 收发机：模拟按原生信道，自带 PA、频综、DPD，自己校准过；数字基带可选时钟 × K）"
+      en: "WiFi 7 chip (wifitrx transceiver: analog at the native channel, own PA, synthesizer and DPD, calibrated by its own sequence; digital baseband optionally at clock × K)"
+      evm_term: chip
+      evm_term_2: chip_lo
+      params:
+        - {zh: "射频输出 = 中频", en: "RF output = the IF", spec: assumed.ifext_if_hz, unit: Hz}
+        - {zh: "最宽信道", en: "widest channel", v: chip_widest_channel_hz, unit: Hz, key: ieee80211be.n_sd}
+        - {zh: "DPD 迭代", en: "DPD iterations", spec: assumed.ifext_dpd_max_iterations}
+      option:
+        zh: "可选：芯片 PA 旁路（中频取自混频器输出，PA 断电）"
+        en: "option: chip PA bypass (IF taken at the mixer output, PA powered down)"
+        key: assumed.ifext_chip_pa_bypass
+      sub_blocks:
+        - id: chip_digital
+          clock_x_k: true
+          zh: "芯片数字基带：基准 PHY，时钟 × K（K = 1 即原生）"
+          en: "chip digital baseband: base PHY at clock × K (K = 1 is native)"
+        - id: chip_analog
+          clock_x_k: false
+          zh: "芯片模拟：DAC / ADC、模拟低通、6 GHz 射频、PA、频综——原生信道 K × 基准带宽，不改；芯片自己的校准在它上面跑"
+          en: "chip analog: DAC / ADC, analog filters, 6 GHz RF, PA, synthesizer — the native channel K × base bandwidth, unchanged; the chip's own calibration runs on it"
+    - id: if_bpf
+      zh: "中频带通"
+      en: "IF band-pass filter"
+      params:
+        - {zh: "阶数（Chebyshev-I）", en: "order (Chebyshev-I)", spec: "assumed.ifext_filter#order"}
+        - {zh: "纹波", en: "ripple", spec: "assumed.ifext_filter#ripple_db", unit: dB}
+        - {zh: "通带", en: "passband", spec: "assumed.ifext_filter#bandwidth_hz", unit: Hz}
+        - {zh: "中心", en: "centre", spec: "assumed.ifext_filter#center_hz", unit: Hz}
+    - id: mixer
+      zh: "上变频混频器"
+      en: "up-conversion mixer"
+      params:
+        - {zh: "镜像边带", en: "image sideband", v: image_hz, unit: Hz}
+        - {zh: "接收侧镜像抑制", en: "receive image rejection", spec: assumed.ifext_image_rejection_db, unit: dB}
+    - id: fixed_lo
+      zh: "固定本振（f_LO = f_c − f_IF）"
+      en: "fixed LO (f_LO = f_c − f_IF)"
+      evm_term: phase_noise
+      params:
+        - {zh: "f_LO", en: "f_LO", v: f_lo_hz, unit: Hz}
+        - {zh: "方案", en: "scheme", spec: assumed.ifext_lo_scheme}
+        - {zh: "相噪剖面", en: "phase-noise profile", text: "the same profile as topology B's LO"}
+    - id: pa60
+      zh: "60 GHz PA（与拓扑 B 同一个对象）"
+      en: "60 GHz PA (the same object as topology B)"
+      evm_term: pa
+      shared: true
+    - id: ant_tx
+      zh: "天线 / 阵列单元（同一个）"
+      en: "antenna / array element (the same)"
+      shared: true
+  rx:
+    - id: lna60
+      zh: "60 GHz LNA / 混频（共享接收前端的最高增益档，固定增益）"
+      en: "60 GHz LNA / mixer (the shared receive front end's top-gain state, fixed gain)"
+      shared: true
+      params:
+        - {zh: "怎么串", en: "how it is cascaded", spec: assumed.ifext_rx_front60}
+    - id: down_mixer
+      zh: "下变频（同一个固定本振）→ 中频带通"
+      en: "down-conversion (same fixed LO) → IF band-pass"
+    - id: chip_rx
+      zh: "芯片接收链（模拟按原生信道，自己的增益梯子做 AGC；数字基带同一个 × K 时钟）"
+      en: "chip receive chain (analog at the native channel, its own ladder does the AGC; digital baseband on the same × K clock)"
+  mlo:
+    zh: "MLO：sub-7 链路用 L-STF + L-LTF 估出自己的 CFO，乘 f_c / f_sub7 预补偿 60 GHz 链路，残差交给芯片自己的估计器"
+    en: "MLO: the sub-7 link estimates its own CFO on L-STF + L-LTF, scales it by f_c / f_sub7 to pre-compensate the 60 GHz link, and leaves the residual to the chip's estimator"
+    params:
+      - {zh: "sub-7 载频", en: "sub-7 carrier", spec: "assumed.mlo_sub7#carrier_hz", unit: Hz}
+      - {zh: "sub-7 SNR", en: "sub-7 SNR", spec: "assumed.mlo_sub7#snr_db", unit: dB}
+      - {zh: "f_c / f_sub7", en: "f_c / f_sub7", v: fc_over_sub7}
+  calibration_loop:
+    zh: "校准：芯片自己的序列在建链时真跑（芯片耦合器观测）；另有 60 GHz 观测回环（第二级 PA 后的耦合器，经同一个固定本振回芯片接收）作对照"
+    en: "calibration: the chip's own sequence really runs when the chain is built (observed at the chip's coupler); a 60 GHz observation loop (coupler after the second PA, back through the same fixed LO) exists as a comparison"
+
+between:
+  cfo:
+    zh: "晶振误差（发 + 收）× 载频 = CFO"
+    en: "crystal error (TX + RX) × carrier = CFO"
+    params:
+      - {zh: "TX 晶振", en: "TX crystal", v: xo_ppm_tx, unit: ppm, key: liu2025.xo_ppm_tx, knob: xo_ppm_tx}
+      - {zh: "RX 晶振", en: "RX crystal", v: xo_ppm_rx, unit: ppm, key: liu2025.xo_ppm_rx, knob: xo_ppm_rx}
+      - {zh: "CFO", en: "CFO", v: cfo_hz, unit: Hz}
+  channel:
+    zh: "信道：flat，或 CR 替身（指数 PDP）；距离 = 自由空间 + 氧吸收，视距"
+    en: "channel: flat, or the CR stand-in (exponential PDP); range = free space + oxygen absorption, line of sight"
+    evm_term: isi
+    params:
+      - {zh: "模型", en: "model", v: channel_model, knob: channel.model}
+      - {zh: "rms 时延", en: "rms delay", v: channel_rms_delay_ns, unit: ns, key: assumed.cr_rms_delay_ns, knob: channel.rms_delay_ns}
+      - {zh: "莱斯 K", en: "Rician K", v: channel_los_k_db, unit: dB, key: assumed.cr_los_k_db}
+      - {zh: "氧吸收", en: "oxygen absorption", spec: assumed.oxygen_absorption, unit: dB/km}
+  array:
+    zh: "阵列（两端各 N × 1）；每个单元都是同一个前端"
+    en: "array (N × 1 at both ends); every element is the same front end"
+    params:
+      - {zh: "间距", en: "spacing", spec: "assumed.array_geometry#spacing_lambda", unit: "λ"}
+      - {zh: "单元方向图", en: "element pattern", spec: "assumed.array_geometry#element_pattern"}
+      - {zh: "移相器", en: "phase shifters", spec: assumed.array_phase_bits, unit: bit}
+      - {zh: "增益误差 rms", en: "gain error rms", spec: "assumed.array_element_errors#gain_db_rms", unit: dB}
+      - {zh: "相位误差 rms", en: "phase error rms", spec: "assumed.array_element_errors#phase_deg_rms", unit: "°"}
+      - {zh: "每个移相器", en: "per phase shifter", spec: assumed.array_phase_shifter_power_mw, unit: mW}
+
+evm_term_to_block:
+  phase_noise: {blocks: [lo60, fixed_lo], zh: "相噪 ICI：发、收两侧的本振", en: "phase-noise ICI: the LO on the transmit and receive side"}
+  iq_image: {blocks: [iq_mod, iq_demod], zh: "IQ 镜像：未校准的基带 IQ 失配（只在拓扑 B 的行）", en: "IQ image: the uncalibrated baseband IQ mismatch (topology B rows only)"}
+  converters: {blocks: [dac, adc], zh: "转换器：ENOB(fs_eff) 的 DAC + ADC（只在拓扑 B 的行）", en: "converters: DAC + ADC at ENOB(fs_eff) (topology B rows only)"}
+  pa: {blocks: [pa60], zh: "PA：60 GHz PA 在所设回退上的单独 EVM", en: "PA: the 60 GHz PA alone at the set back-off"}
+  isi: {blocks: [channel], zh: "ISI：超出保护间隔的时延（GI 随 K 变短）", en: "ISI: delay beyond the guard interval (the GI shrinks with K)"}
+  chip: {blocks: [chip], zh: "芯片残差：芯片自己校准之后实测（只在拓扑 A 的行）", en: "chip residual: measured after the chip's own calibration (topology A rows only)"}
+  chip_lo: {blocks: [chip], zh: "芯片本振：芯片 sub-7 频综的 ICI（只在拓扑 A 的行）", en: "chip LO: the ICI of the chip's sub-7 synthesizer (topology A rows only)"}
+
+upclock_scope:
+  topology_b:
+    zh: "拓扑 B：时钟 × K 一直走到模拟——数字基带、DAC / ADC、基带低通都跑在 fs_eff = fs_base × K。所以转换器 ENOB 随采样率下降、IQ 失配在更宽的带上更差，带宽可以超过芯片最宽的信道。"
+    en: "Topology B: the × K clock reaches the analog — digital baseband, DAC / ADC and baseband filters all run at fs_eff = fs_base × K. Hence the converter ENOB falls with the sample rate, the IQ mismatch is worse over the wider band, and the bandwidth can exceed the chip's widest channel."
+    clock_domain_blocks: [be_tx, dig_fe, dac, tx_lpf, rx_lpf, adc, be_rx]
+  topology_a:
+    zh: "拓扑 A：时钟 × K 只到数字基带——数字跑基准 PHY、时钟 × K；芯片的 DAC / ADC、模拟低通、6 GHz 射频和它自己的校准都是原生信道 K × 基准带宽的那一套（同一颗芯片、同一份校准）。K × 基准带宽必须是芯片有的信道，更宽的不做（要改模拟，那是另一条拓扑）。"
+    en: "Topology A: the × K clock stops at the digital baseband — the digital runs the base PHY at × K; the chip's DAC / ADC, analog filters, 6 GHz RF and its own calibration are those of the native channel K × base bandwidth (the same chip, the same calibration). K × base bandwidth must be one of the chip's channels; nothing wider (that would change the analog, which is the other topology)."
+    key: assumed.ifext_upclock
+    clock_domain_blocks: [chip_digital]
+    cfo:
+      zh: "前导也跟着升频：L-STF 范围随 K 变宽；MLO 预补偿仍是预设"
+      en: "the preamble is upclocked too: the L-STF range widens with K; MLO pre-compensation stays the preset"
+  same_bandwidth_three_ways:
+    zh: "同一个带宽（芯片最宽的信道）、同一个前端，三种做法（同台表里的行；数在同台表里）"
+    en: "the same bandwidth (the chip's widest channel) on the same front end, three ways (rows of the comparison table; the numbers are there)"
+
+only_in:
+  topology_a:
+    zh: "只有拓扑 A 有：芯片校准后的残差（实测）、芯片自己的本振、中频滤波器、镜像带噪声、MLO 预补偿"
+    en: "only in topology A: the chip's residual after calibration (measured), the chip's own LO, the IF filter, image-band noise, MLO pre-compensation"
+  topology_b:
+    zh: "只有拓扑 B 有：未校准的基带 IQ 镜像、ENOB(fs_eff) 的转换器、本振泄漏与 RX 直流"
+    en: "only in topology B: the uncalibrated baseband IQ image, converters at ENOB(fs_eff), LO leakage and RX DC"
+
+engine_caveat:
+  zh: "线性化的时域基带引擎：框图上的带外、杂散、互调位置只是位置，电平不背书（铁律 6）。"
+  en: "A linearised time-domain baseband engine: out-of-band, spur and intermodulation positions on the diagram are positions only; levels are not endorsed (iron rule 6)."

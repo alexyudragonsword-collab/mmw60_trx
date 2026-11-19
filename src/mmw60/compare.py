@@ -188,11 +188,15 @@ def evaluate_ay(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None = No
     return out
 
 
-def measured_irr_after_cal_db(bw_eff_hz: float) -> tuple[float, float]:
+def measured_irr_after_cal_db(bw_eff_hz: float, table: dict | None = None) -> tuple[float, float]:
     """Example 03's calibrated IRR at the largest measured bandwidth not
     above ``bw_eff_hz`` (the residual only gets worse with bandwidth);
-    returns (irr_db, bandwidth it was measured at)."""
-    table = {float(k): float(v) for k, v in spec.value("derived.irr_after_cal_measured_db").items()}
+    returns (irr_db, bandwidth it was measured at).  ``table`` is another
+    calibration's result in the same form (bandwidth in Hz -> IRR in dB:
+    ``calcheck.irr_after_cal``); the default is the accepted one,
+    ``derived.irr_after_cal_measured_db``."""
+    table = {float(k): float(v) for k, v in
+             (spec.value("derived.irr_after_cal_measured_db") if table is None else table).items()}
     below = [b for b in table if b <= bw_eff_hz * (1 + 1e-9)]
     b = max(below) if below else min(table)
     return table[b], b
@@ -310,7 +314,8 @@ def evm_budget_reconciliation(cfg: Mmw60Config, fe: Frontend60, a: dict, pa_evm_
 
 def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None = None,
                     pa_evm_db: float | None = None, time_domain: bool = True,
-                    irr_cal_db: float | None = None, dec_margin_db: float | None = None) -> Row:
+                    irr_cal_db: float | None = None, dec_margin_db: float | None = None,
+                    irr_table: dict | None = None) -> Row:
     from .sim.link import evm_at
     cfg = s.cfg
     assert cfg is not None
@@ -320,7 +325,7 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
     a = analytic_floors(cfg, fe, pa_evm_db)
     mcs = max_mcs_for_floor(a["floor_db"], cfg.phy.standard)
     if irr_cal_db is None:
-        irr_cal_db, meas_at = measured_irr_after_cal_db(phy.bandwidth_eff)
+        irr_cal_db, meas_at = measured_irr_after_cal_db(phy.bandwidth_eff, irr_table)
     else:
         meas_at = float("nan")
     a_cal = analytic_floors(cfg, fe, pa_evm_db, irr_cal_db)
@@ -384,8 +389,32 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
 
 
 # ------------------------------------------------------------------ the report
+def default_matrix(quick: bool = False, carrier_hz: float = 60.48e9) -> list[Scheme]:
+    """The comparison table's own list of schemes (example 04 and the
+    interface's compute layer read the same one): the 11ac 20 MHz base at
+    K = 1 ... 32 on both topologies with the two 802.11ay rows, the 11be
+    80 MHz base at K = 4 ... 32, topology A on the chip's widest channel,
+    and that row again with the chip's PA bypassed."""
+    ks = (1, 8) if quick else (1, 4, 8, 16, 32)
+    schemes = scheme_matrix(ks=ks, standard="11ac", bandwidth_hz=20e6, carrier_hz=carrier_hz)
+    if not quick:
+        # the 802.11ay rows do not depend on the WiFi base: they come once, with the first matrix
+        schemes += [s for s in scheme_matrix(ks=(4, 8, 16, 32), standard="11be", bandwidth_hz=80e6, carrier_hz=carrier_hz)
+                    if s.status == "built" and s.waveform not in AY_WAVEFORMS]
+        # topology A on the widest channel the chip has: the same 320 MHz at 60 GHz as 80 MHz × 4
+        a320 = [s for s in scheme_matrix(ks=(), standard="11be", bandwidth_hz=320e6, carrier_hz=carrier_hz)
+                if s.key == ("if_extender", "be")]
+        schemes += a320
+        # the same row with the chip's PA bypassed: the IF taken at its mixer output, the PA
+        # powered down (assumed.ifext_chip_pa_bypass; the chip's calibration runs on that chain)
+        schemes += [Scheme(s.label.replace("IF extender", "IF ext. PA bypass"), s.topology, s.waveform,
+                           dc.replace(s.cfg, ifext=dc.replace(s.cfg.ifext, chip_pa_bypass=True)))
+                    for s in a320]
+    return schemes
+
+
 def build(schemes: list[Scheme], fe: Frontend60 | None = None, coeffs: PowerCoefficients | None = None,
-          time_domain: bool = True, progress=None) -> dict:
+          time_domain: bool = True, progress=None, irr_table: dict | None = None) -> dict:
     built = [s for s in schemes if s.status == "built" and s.waveform not in AY_WAVEFORMS]
     ay_built = [s for s in schemes if s.status == "built" and s.waveform in AY_WAVEFORMS]
     labels = [s.label for s in built + ay_built]
@@ -397,7 +426,7 @@ def build(schemes: list[Scheme], fe: Frontend60 | None = None, coeffs: PowerCoef
     pa_evm = pa_isolated_evm_db(fe.pa_model, fe.obo_db, fe.obo_reference) if fe.pa_enabled else None
     rows = []
     for s in built:
-        rows.append(evaluate_scheme(s, fe, coeffs, pa_evm, time_domain))
+        rows.append(evaluate_scheme(s, fe, coeffs, pa_evm, time_domain, irr_table=irr_table))
         if progress:
             progress(rows[-1])
     ay_rows = []
@@ -419,7 +448,10 @@ def build(schemes: list[Scheme], fe: Frontend60 | None = None, coeffs: PowerCoef
 
 
 def row_dict(r: Row) -> dict:
-    d = {k: v for k, v in dc.asdict(r).items() if k != "scheme"}
+    # the scheme's config stays out of the copy: asdict would walk every field of it, and the
+    # interface's read tracing (tests/config_trace.py) would then see every knob as read
+    bare = dc.replace(r, scheme=Scheme(r.scheme.label, r.scheme.topology, r.scheme.waveform))
+    d = {k: v for k, v in dc.asdict(bare).items() if k != "scheme"}
     d.update(label=r.label, topology=r.scheme.topology, waveform=r.scheme.waveform)
     return d
 
@@ -650,5 +682,5 @@ def report_json(rep: dict) -> dict:
 
 
 __all__ = ["Scheme", "Row", "PENDING", "NOT_A_SCHEME", "NOT_A_CHIP_CHANNEL", "scheme_matrix", "measured_irr_after_cal_db",
-           "evaluate_scheme", "build", "to_markdown", "cross_checks", "sensitivity", "sensitivity_knobs",
+           "evaluate_scheme", "build", "default_matrix", "to_markdown", "cross_checks", "sensitivity", "sensitivity_knobs",
            "sensitivity_markdown", "report_json", "PowerReport", "evaluate_ay", "knob_value_text"]

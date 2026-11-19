@@ -135,6 +135,22 @@ python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 5 分钟（4 核�
 python examples/10_array_link_and_training.py    # 全量约 10 分钟（多半是 §4b / §4c 的重复次数搜索；§3d、§4d 是 802.11ay 两种波形的阵列预算与扇区扫描）；--quick 冒烟
 ```
 
+## 图形界面的计算层（`mmw60.guiutil`、`tools/gui_report.py`）
+
+界面还没有（下一步是宿主、队列和页面，见 `ROADMAP.md` F）；它要读的数据接口已经在了，命令行能直接用：
+
+```bash
+python tools/gui_report.py table --no-time-domain --json table.json   # 同台表的解析列（约 15 s）
+python tools/gui_report.py table --row "be_upclocked 11ac 20M K=32 @60.48 GHz" --no-time-domain
+python tools/gui_report.py calibration --json cal.json                # 校准序列真跑六列（十几分钟）
+python tools/gui_report.py system                                     # 系统框图的事实
+python tools/gui_report.py form --set frontend.pa.obo_db=9.5          # 22 个旋钮、出处标签、谁读谁
+python tools/gui_report.py freshness --set rx.cpe_window_symbols=33   # 这样改之后哪些结果过期
+```
+
+`--set 旋钮=值` 是表单：共享旋钮里与预设不同的取值，对同台表的每一行同时生效。每类结果声明自己读哪些旋钮，表单一改就知道哪些存下来的数还能信；
+这张依赖表由测试用运行时追踪守着。改过的数出处标签变 assumed。阵列页与 SC 对 OFDM 页的数据是 `guiutil.array_report` / `ay_report`（就是示例 10 / 15 的数）。细节在 `cairn/gui.md`。
+
 ## 读什么
 
 - `AGENTS.md`：规则与七条铁律（每条有测试守着）。
@@ -142,6 +158,7 @@ python examples/10_array_link_and_training.py    # 全量约 10 分钟（多半�
 - `cairn/LOG.md`：每轮的数字原值与被推翻的判断。
 - `cairn/upclocking.md`：K 的建模方式与 5.88 MHz / 4.7 门槛的推导。
 - `cairn/topology-a.md`、`cairn/topology-b.md`、`cairn/comparison-table.md`：两条拓扑各自的结论与同台表。
+- `cairn/gui.md`：图形界面的形态、计算层的数据接口、依赖表怎么守。
 - `src/mmw60/vendor/spec_sources/data/*.yaml`：每一个规范 / 文献数字的出处与标签（共享库 spec_sources，按完整 SHA vendor）；`src/mmw60/data/spec/survey.yaml`：本库自己的假设与产出。
 
 ## CI
