@@ -4,6 +4,13 @@
 
 ## 未发布
 
+### 图形界面的计算层 `guiutil`（2026-11-19，用户定“开始吧”）—— 数字不动，指纹逐位相同
+- **为什么**：界面定成“结果浏览 + 后台重算”（一次校准几分钟）。要浏览算好的结果，就得说得清一个存下来的数依赖什么、表单改了之后哪些还能信；效果图阶段这些是手整理的数据，其中依赖表有一处写反、校准判定有一处写错。
+- **做了什么**：`src/mmw60/guiutil.py`，只返回可 JSON 的字典。表单 = study（共享旋钮里与预设不同的取值，对同台表每一行和共用的前端同时生效；4 个行旋钮只选行）；结果按 part 拆开，各自声明读哪些旋钮、建在哪些 part 上；`signature` / `envelope` / `job_result` / `freshness` / `field_states` 判新鲜度，能落到同台表的字段组；`provenance`（版本、提交、vendored 的版本与 pin、规范表摘要）与配置哈希；出处标签在取值被表单改掉之后变 assumed。报告：`table_report`（就是 `compare.build`，行保持原字段名，加口径、哈希、交叉核对、每个字段的显示位数）、`calibration_report`（真跑 wifitrx 的序列，两种判定分成 `status_wifitrx` / `status_summary`）、`row_detail`、`system_report`（系统框图的事实，由 `data/gui/system.yaml` 的描述解析，描述里不写数）、`form`、`sources`。命令行 `tools/gui_report.py`。
+- **依赖表是量出来的**：`tests/config_trace.py` 记录一次计算实际读了配置的哪些字段，测试要求“追踪到的 ⊆ 声明的”。它推翻了效果图阶段的一处：同台表的解析列读信道（ISI 项）、CFO 估计方式和晶振，不是只读前端。
+- **顺带的库内改动（数字不变）**：`compare.default_matrix`（示例 04 的方案表搬进库，示例与界面读同一份）、`compare.build(irr_table=)` / `measured_irr_after_cal_db(table=)`（接一份校准结果的 IRR）、`compare.row_dict` 不再把 scheme 的配置整个转一遍；`calcheck.DEFAULT_PLAN` / `QUICK_PLAN`（示例 03 的列）、`calcheck.irr_after_cal`（已验收的 IRR 表就是这么读出来的：K = 1 / 4 两列 53.6 / 53.8 dB）、`compare_runs` 多给 `wifitrx_by_k`。示例 03、04 重跑，输出与 `examples/expected` 逐字节相同。
+- **没做的**：宿主、队列、页面、结果存放与基线（ROADMAP F）。`guispec.py` 没动。
+
 ### 预设带上那颗收发机的天线：2 dBi（2026-11-18，ROADMAP C9，用户定“要进”）—— 示例与文档里的数变化，指纹不动
 - **为什么**：上一条只换了接收前端，天线仍是 0 dBi“未指定”，留在 ROADMAP C9 第一条等用户定；用户定进。
 - **做了什么**：`zero_if_60ghz`（以及 `if_extender_60ghz`、`ay_60ghz`）的天线增益取 `config.surveyed_antenna_gain_dbi()`——与接收前端同一颗 60 GHz 通信收发机的封装内天线，2 dBi（`rx60.comm_asada2011`，读过原文），收发同一副（时分双工）。新 assumed `preset_antenna` 记取舍（合并表 216 → 217）：阵列上它是每个单元的增益，叠在单元方向图之上——这是代码里原有的并法（`frontend/array60.py`），原文没给它在阵列里当单元时的增益，标成假设；6 GHz 的 K = 1 行单独仿真时仍 0 dBi。新 `config.unspecified_antenna(cfg)` 把 0 dBi 放回去，作灵敏度行（示例 15）。收发隔离仍不进预设。

@@ -3,7 +3,9 @@
 **这份文件只写还没做的事。** 做完即删，并在 `CHANGELOG.md` 记一笔、`cairn/LOG.md` 记数字。每条带证据（复现方式与数字）。
 
 ## 当前优先级
-没有排定的下一步：C9（60 GHz 自己的接收前端进预设）2026-11-18 做完，过程中发现的在下面 C9 一节；下一步等用户定。
+**图形界面**（用户 2026-11-18 定开始；效果图 2026-11-19 定为方案 A 的风格并入方案 B 的九处，见 `cairn/gui.md` §1）：计算层 `guiutil` 2026-11-19 落地，下一轮是宿主、队列与页面——没做的在下面 F 一节。
+
+C9（60 GHz 自己的接收前端进预设）2026-11-18 做完，过程中发现的在下面 C9 一节。
 
 里程碑 3（802.11ay）2026-11-18 收尾为 0.2.0：结论在 `cairn/ay.md` 开头，剩下的在下面里程碑 3 一节分成“外部阻塞”与“按需”两组。
 
@@ -122,6 +124,16 @@ Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、
 
 ### C11. 规范表迁到 spec_sources 时留下的（见 `cairn/LOG.md` 2026-11-13 两条、`cairn/spec-sources.md` §制度，mmw60_trx#21 / #23）
 - **留在本地的 4 条 survey 不是文献**：`survey.clock_profile_wu19`、`survey.clock_profile_wu19_x10`、`survey.clock_profile_wu19_x9`（2026-11-14 加，拓扑 A 的 54.0 GHz LO）的值是本仓库 `data/clock_profiles/` 里的文件名（pll_simulator 的模型输出），`survey.dsp_ip_dpd_poly_p4` 是姊妹库 dsp_ip 的综合估计。标的是 survey，但“未核实的文献数字”这个意思对它们不成立；spec_sources 不收（`tests/test_extraction.py::MMW60_STAYS`），标签由本库定。改标签就得改键名（`survey.` 前缀），示例 04 / 06 打印这些键名，期望输出会动，所以搬家（#21）和 0.2.0 的改名（#23）都没有动它们；共享库改名用的别名机制只在它自己的表里，本地表要改名得自己留旧名的读法。复现：`python -c "from mmw60 import spec; print(sorted(spec.load_table()))"` 里的四条 `survey.`。
+
+## F. 图形界面（计算层已落地：`src/mmw60/guiutil.py`、`tools/gui_report.py`、`src/mmw60/data/gui/system.yaml`、`cairn/gui.md`；下面是没做的）
+- **宿主与队列没有建**（照 array_tx 的 `webhost.Api` / `JobQueue`：桌面用子进程、取消即终止，Android 用线程、取消在步与步之间；`appbridge`）。任务有多慢（4 核容器，`guiutil.JOBS`）：同台表整表 58 s（三个示例并行时 126–174 s），校准六列 809 s，阵列 1650 s，SC 对 OFDM 563 s；校准一列 12 步，进度可以按“第几列第几步”报，每步各自的耗时没有量过。
+- **页面没有建**：合并稿（`cairn/LOG.md` 2026-11-19）是静态效果图。页面只画 `guiutil` 给的字典；数字的小数位用报告里的 `display`，从全精度值舍入一次。
+- **算好的结果放哪、要不要随包带一份预设的基线**没有定。首页要一打开就有同台表，而现在只能现算（`python tools/gui_report.py table`：只算解析列约 15 s，其中拓扑 A 的行建链就跑芯片校准）。两条路：把预设的 `job_result` 作为数据随包发（要一条守卫保证它与 `examples/expected` 不漂）；或首次启动时后台算、算完落在用户目录。信封的格式（`job_result` / `envelopes_of` / `freshness`）两条路都能用。
+- **表单指不全同台表的行**：`guispec` 的 22 个旋钮里没有基准 PHY（标准、基准带宽），所以拓扑、波形、K 三个行旋钮定不了“11be 80 MHz × 4”还是“11ac 20 MHz × 16”；计算层按行的名字取行（`table_report(labels=)`、`row_detail(label)`）。要不要给 `guispec` 加这两个旋钮、要不要支持矩阵之外的自定义行，等页面那一轮定。
+- **两份解码门限在界面里不能重算**（`thresholds.be` / `thresholds.ay`，几小时的 PER 曲线）：改了接收机的旋钮，`freshness` 会把解码器上限那几列标过期并给出重量的命令，但没有后台任务能把它变回新鲜。
+- **依赖表守住的是“读了没声明”，条件读要靠保守声明**：`rx.ce_smooth_tones` 只在“自动选跨度”关掉时才读，预设下追踪不到，所以时域列声明读全部。把每个 choice / bool 旋钮各拨一档再追踪一遍可以系统地抓这类，没有做（拓扑 A 与 ay 的行每档要几秒到几十秒）。
+- **`display` 的小数位是手写的一张表**，与示例里的格式串是两处；测试只拿 K = 32 那一行的五个字段对过示例 04 的文本（`test_table_report_matches_the_accepted_example_04`）。
+- 装成 wheel 之后 `provenance()["commit"]` 是空的（没有 git 检出）；发版时要不要把提交写进包里没有定。
 
 ## D. 报回上游
 本库不动这三个库；需求各开一个 issue 交给对方，对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。

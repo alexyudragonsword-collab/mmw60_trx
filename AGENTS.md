@@ -16,7 +16,7 @@
 1. 先读本文件（AGENTS.md）。
 2. 读根目录 `ROADMAP.md`：只记没做的，每条附证据（复现方式与数字）。
 3. 读 `cairn/LOG.md` 最新几条（新条目在顶部）：每轮的数字原值与被推翻的判断。
-4. 按任务需要读 `cairn/` 专题文档（`upclocking.md`、`external-validation.md`、`topology-a.md`、`topology-b.md`、`array-layer.md`、`ay.md`、`spec-sources.md`、`architecture-invariants.md`、`engineering-pitfalls.md`）。
+4. 按任务需要读 `cairn/` 专题文档（`upclocking.md`、`external-validation.md`、`topology-a.md`、`topology-b.md`、`array-layer.md`、`ay.md`、`spec-sources.md`、`gui.md`、`architecture-invariants.md`、`engineering-pitfalls.md`）。
 
 ## 文档职责
 
@@ -47,6 +47,7 @@
 - **`src/mmw60/vendor/` 是可校验的改编副本，不是 fork**：wifitrx 整包、spec_sources（读取器与 7 张表）、arraytx 的 `geometry` / `beam` 两个文件各按完整 SHA pin，`tools/vendor_check.py --strict` 必须全 verbatim（YAML 一起核）；外部的数要改回 spec_sources 提；需要上游改的（倍频器模型、PA 带宽项、两 DUT 级联）报回各自 ROADMAP，合并后重新 pin。PA_DPD 经 wifitrx / polar_tx 的 vendor 副本拿，不要第二份 pin。
 - **numba 是性能层不是正确性层**：`MMW60_NO_JIT=1` 必须逐位相同（`tests/test_phy.py`）。
 - **假设要可见**：原文没说的每个选择（基准带宽、SNR 口径、相噪加在哪一侧、CR 信道、OBO 参考点、信道估计平滑）都是 `source: assumed` 条目，示例里有对应的灵敏度行；对不上文献时查到原因写进 LOG，不调参数凑。
+- **界面分层**：`guispec` 描述、`guiutil` 计算（只返回可 JSON 的字典）、页面只画不算；每个结果按 part 声明它读的旋钮，`tests/config_trace.py` 追踪实际读取，“追踪到的 ⊆ 声明的”由测试守着（`cairn/gui.md`）。
 - 开发在指定分支上提交；不开 PR 除非用户要求。
 - **issue 由发起方关**：别的库发到本库的 issue 只回复、不关，等对方读过确认；本库发到别的库的 issue 由本库验收后关。合并前重读一遍相关 issue。
 
