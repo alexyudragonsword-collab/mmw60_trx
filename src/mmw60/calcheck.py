@@ -389,15 +389,39 @@ def loopback_views(run: CalRun, seed: int = 0) -> dict | None:
             "phase_ramp_rad": float(np.ptp(ramp)), "cpe_coherence": float(np.abs(np.mean(np.exp(1j * ph))))}
 
 
+#: the columns of example 03's main table, (K, base bandwidth): the 11ac 20 MHz base up to 640 MHz
+#: and the 11be 80 MHz base at 2.56 GHz.  The comparison table's calibrated column reads the IRR
+#: these runs measure (``irr_after_cal``; accepted as ``derived.irr_after_cal_measured_db``)
+DEFAULT_PLAN = ((1, 20e6), (4, 20e6), (8, 20e6), (16, 20e6), (32, 20e6), (32, 80e6))
+QUICK_PLAN = ((1, 20e6), (8, 20e6))
+
+
+def irr_after_cal(runs: list[CalRun]) -> dict[float, float]:
+    """The calibrated image rejection per side each run measured, by its
+    effective bandwidth in Hz: the smaller ``irr_min_db`` of the ``tx_iq``
+    and ``rx_iq`` steps (how ``derived.irr_after_cal_measured_db`` is read
+    off example 03).  Runs where neither step produced a value are left out."""
+    out = {}
+    for run in runs:
+        v = [r.value for r in run.rows if r.step in ("tx_iq", "rx_iq") and r.metric == "irr_min_db" and r.value is not None]
+        if v:
+            out[float(run.bw_eff_hz)] = float(min(v))
+    return out
+
+
 def compare_runs(runs: list[CalRun], degrade_db: float = 3.0) -> list[dict]:
     """Per step, the metric of each run (keyed by its label: K and effective
     bandwidth) next to the first run's reading; a passed step whose dB metric
-    is worse than the reference by more than ``degrade_db`` is marked degraded."""
+    is worse than the reference by more than ``degrade_db`` is marked degraded.
+
+    That makes two verdicts per cell, and they are kept apart: ``by_k`` has
+    this summary's status (wifitrx's, or *degraded* by the rule above — this
+    library's rule), ``wifitrx_by_k`` the status wifitrx's own step gave."""
     ref = {r.step: r for r in runs[0].rows} if runs else {}
     out = []
     steps = [r.step for r in runs[0].rows] if runs else []
     for step in steps:
-        row = {"step": step, "mechanism": MECHANISM.get(step, ""), "by_k": {}}
+        row = {"step": step, "mechanism": MECHANISM.get(step, ""), "by_k": {}, "wifitrx_by_k": {}}
         for run in runs:
             r = next((x for x in run.rows if x.step == step), None)
             if r is None:
@@ -409,5 +433,6 @@ def compare_runs(runs: list[CalRun], degrade_db: float = 3.0) -> list[dict]:
                 if sense * (r.value - ref[step].value) > degrade_db:
                     status = "degraded"
             row["by_k"][run.label] = (status, r.metric, r.value, r.detail)
+            row["wifitrx_by_k"][run.label] = r.status
         out.append(row)
     return out

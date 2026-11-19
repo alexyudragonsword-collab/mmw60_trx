@@ -28,7 +28,7 @@ where = ["src"]
 namespaces = true        # vendor/arraytx and vendor/wifitrx/report carry no __init__.py (PEP 420); the default, stated
 
 [tool.setuptools.package-data]
-mmw60 = ["data/spec/*.yaml", "data/clock_profiles/*.yaml", "vendor/spec_sources/data/*.yaml"]
+mmw60 = ["data/spec/*.yaml", "data/clock_profiles/*.yaml", "data/gui/*.yaml", "vendor/spec_sources/data/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
