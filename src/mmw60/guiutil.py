@@ -197,8 +197,9 @@ JOBS = {
 }
 #: stored measurements a study can make stale but this layer does not recompute (hours of PER curves)
 STORED = {
-    "thresholds.be": {"command": "python tools/measure_thresholds.py",
-                      "file": "src/mmw60/data/spec/per_thresholds.yaml"},
+    "thresholds.be": {"command": "python tools/measure_thresholds.py --jobs 4 --cache DIR",
+                      "file": "src/mmw60/data/spec/per_thresholds.yaml",
+                      "seconds_note": "about 2.3 hours on 4 cores (README, the decoder-cap section)"},
     "thresholds.ay": {"command": "python tools/measure_ay_thresholds.py",
                       "file": "src/mmw60/data/spec/ay_per_thresholds.yaml"},
 }

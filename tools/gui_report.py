@@ -6,10 +6,12 @@
     python tools/gui_report.py table --no-time-domain --json table.json # the comparison table, analytic columns
     python tools/gui_report.py table --row "be_upclocked 11ac 20M K=32 @60.48 GHz" --no-time-domain
     python tools/gui_report.py calibration --json cal.json              # wifitrx's sequence, six columns (minutes)
+    python tools/gui_report.py array --json array.json                  # example 10's numbers (about ten minutes)
+    python tools/gui_report.py ay --json ay.json                        # example 15's numbers (about four minutes)
     python tools/gui_report.py sources
 
 ``--set knob=value`` (repeatable) is the study: shared form knobs that differ from the presets.  A
-table or calibration run is written as a job result (the report with its study and provenance), the
+table, calibration, array or ay run is written as a job result (the report with its study and provenance), the
 form a host would store; ``freshness --results a.json b.json`` judges stored results against a study.
 """
 from __future__ import annotations
@@ -38,11 +40,12 @@ def parse_study(pairs) -> dict:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("what", choices=("system", "form", "freshness", "table", "calibration", "sources", "parts"))
+    ap.add_argument("what", choices=("system", "form", "freshness", "table", "calibration", "array", "ay", "sources",
+                                     "parts"))
     ap.add_argument("--set", action="append", metavar="KNOB=VALUE", help="a shared form knob (repeatable)")
     ap.add_argument("--json", type=Path, help="write the JSON here (default: stdout)")
     ap.add_argument("--no-time-domain", action="store_true", help="table: analytic columns only")
-    ap.add_argument("--quick", action="store_true", help="table / calibration: the smoke-size run")
+    ap.add_argument("--quick", action="store_true", help="table / calibration / array / ay: the smoke-size run")
     ap.add_argument("--row", action="append", help="table: only this row (repeatable)")
     ap.add_argument("--irr-from", type=Path, help="table: a calibration job result whose IRR table to use")
     ap.add_argument("--results", type=Path, nargs="*", default=[], help="freshness: stored job results")
@@ -70,6 +73,12 @@ def main(argv=None) -> int:
         rep = guiutil.table_report(st, time_domain=not a.no_time_domain, quick=a.quick, irr_table=irr, labels=a.row)
         parts = ["table.analytic"] if a.no_time_domain else None
         out = guiutil.job_result("table_analytic" if a.no_time_domain else "table", st, rep, time.time() - t0, parts)
+    elif a.what == "array":
+        rep = guiutil.array_report(st, quick=a.quick)
+        rep["headline"] = guiutil.sc_vs_ofdm_headline(rep) if rep.get("ay") else None
+        out = guiutil.job_result("array", st, rep, time.time() - t0)
+    elif a.what == "ay":
+        out = guiutil.job_result("ay", st, guiutil.ay_report(st, quick=a.quick), time.time() - t0)
     else:
         rep = guiutil.calibration_report(st, quick=a.quick, log=lambda s: print(s, file=sys.stderr, flush=True))
         out = guiutil.job_result("calibration_be", st, rep, time.time() - t0)

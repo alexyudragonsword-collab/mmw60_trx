@@ -182,7 +182,7 @@ def test_freshness_against_the_accepted_presets():
     assert stale == {"table.td", "table.ay", "thresholds.be", "table.analytic", "array", "ay"}
     assert f["table.analytic"]["changed"] == [] and f["table.analytic"]["upstream"] == ["thresholds.be"]
     assert f["thresholds.be"]["recompute"] is None
-    assert f["thresholds.be"]["stored"]["command"].endswith("measure_thresholds.py")
+    assert "measure_thresholds.py" in f["thresholds.be"]["stored"]["command"]
     states = g.field_states(f)
     assert states["table.analytic"] == "fresh" and states["table.analytic+thresholds.be"] == "stale"
     assert states["table.analytic+calibration.be"] == "fresh" and states["table.td"] == "stale"

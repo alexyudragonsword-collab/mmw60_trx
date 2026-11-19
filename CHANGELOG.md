@@ -9,6 +9,8 @@
 - **做了什么**：`src/mmw60/guiutil.py`，只返回可 JSON 的字典。表单 = study（共享旋钮里与预设不同的取值，对同台表每一行和共用的前端同时生效；4 个行旋钮只选行）；结果按 part 拆开，各自声明读哪些旋钮、建在哪些 part 上；`signature` / `envelope` / `job_result` / `freshness` / `field_states` 判新鲜度，能落到同台表的字段组；`provenance`（版本、提交、vendored 的版本与 pin、规范表摘要）与配置哈希；出处标签在取值被表单改掉之后变 assumed。报告：`table_report`（就是 `compare.build`，行保持原字段名，加口径、哈希、交叉核对、每个字段的显示位数）、`calibration_report`（真跑 wifitrx 的序列，两种判定分成 `status_wifitrx` / `status_summary`）、`row_detail`、`system_report`（系统框图的事实，由 `data/gui/system.yaml` 的描述解析，描述里不写数）、`form`、`sources`。命令行 `tools/gui_report.py`。
 - **依赖表是量出来的**：`tests/config_trace.py` 记录一次计算实际读了配置的哪些字段，测试要求“追踪到的 ⊆ 声明的”。它推翻了效果图阶段的一处：同台表的解析列读信道（ISI 项）、CFO 估计方式和晶振，不是只读前端。
 - **顺带的库内改动（数字不变）**：`compare.default_matrix`（示例 04 的方案表搬进库，示例与界面读同一份）、`compare.build(irr_table=)` / `measured_irr_after_cal_db(table=)`（接一份校准结果的 IRR）、`compare.row_dict` 不再把 scheme 的配置整个转一遍；`calcheck.DEFAULT_PLAN` / `QUICK_PLAN`（示例 03 的列）、`calcheck.irr_after_cal`（已验收的 IRR 表就是这么读出来的：K = 1 / 4 两列 53.6 / 53.8 dB）、`compare_runs` 多给 `wifitrx_by_k`。示例 03、04 重跑，输出与 `examples/expected` 逐字节相同。
+- **示例 10、15 改成“先出数据、再印”**：`src/mmw60/arrayreport.py::build` 与 `src/mmw60/ay/report.py::build` 返回示例印的每一个数（全精度、可 JSON），示例只做格式化；`guiutil.array_report` / `ay_report` 把 study 套上去跑同一个函数，另给每个阵列方案对应同台表的哪一行、EIRP 上限从多少个单元起作用（预设回退下 36）。`sc_vs_ofdm_headline` 由阵列结果算“谁赢、赢多少”：已验收的 N = 64 行算出 +8 %（16-QAM 3/4）与 +9 %（各取解码器上限），不再抄文档。验收：两个示例完整重跑与 `examples/expected` 逐字节一致（示例 10 560 / 567 s，示例 15 443 s）。
+- **看到、没有动的**：示例 15 §3 的标题把 SC 的负载印成 π/2-64-QAM，实际是 MCS16 的 π/2-16-QAM；数没有错（ROADMAP 里程碑 3）。
 - **没做的**：宿主、队列、页面、结果存放与基线（ROADMAP F）。`guispec.py` 没动。
 
 ### 预设带上那颗收发机的天线：2 dBi（2026-11-18，ROADMAP C9，用户定“要进”）—— 示例与文档里的数变化，指纹不动
