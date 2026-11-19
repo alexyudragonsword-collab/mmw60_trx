@@ -10,7 +10,7 @@ import pytest
 import yaml
 from config_trace import traced
 
-from mmw60 import ENGINE_BANNER, calcheck, compare, guispec, spec
+from mmw60 import ENGINE_BANNER, arrayreport, calcheck, compare, guispec, spec
 from mmw60 import guiutil as g
 from mmw60.config import AY_WAVEFORMS
 from mmw60.frontend import Frontend60
@@ -179,7 +179,7 @@ def test_freshness_against_the_accepted_presets():
     # through the thresholds
     f = g.freshness({"rx.cpe_window_symbols": 33})
     stale = {k for k, v in f.items() if v["state"] == "stale"}
-    assert stale == {"table.td", "table.ay", "thresholds.be", "table.analytic"}
+    assert stale == {"table.td", "table.ay", "thresholds.be", "table.analytic", "array"}
     assert f["table.analytic"]["changed"] == [] and f["table.analytic"]["upstream"] == ["thresholds.be"]
     assert f["thresholds.be"]["recompute"] is None
     assert f["thresholds.be"]["stored"]["command"].endswith("measure_thresholds.py")
@@ -192,9 +192,11 @@ def test_freshness_against_the_accepted_presets():
     assert f["thresholds.be"]["state"] == f["thresholds.ay"]["state"] == "fresh"
     assert f["table.analytic"]["upstream"] == ["calibration.be"]
     assert f["table.analytic"]["changed"] == ["frontend.pa.obo_db"]
-    # the channel alone: the calibration does not read it
+    # the channel alone: the calibration does not read it; the array link is line of sight on a flat channel
+    # and meets multipath only through the stored ay thresholds
     f = g.freshness({"channel.rms_delay_ns": 20})
     assert f["calibration.be"]["state"] == "fresh" and f["table.analytic"]["state"] == "stale"
+    assert f["array"]["changed"] == [] and f["array"]["upstream"] == ["thresholds.ay"]
 
 
 def test_freshness_with_envelopes():
@@ -337,6 +339,59 @@ def test_row_detail_points_a_row_at_the_calibration_that_ran_on_its_chain():
     with pytest.raises(KeyError):
         g.row_detail(tab, "no such row")
     json.dumps(d, allow_nan=False)
+
+
+# ------------------------------------------------------------------ the array page
+def test_array_inputs_follow_the_study_except_the_channel():
+    base = g.array_inputs()
+    assert [lab for lab, _ in base["schemes"]] == [lab for lab, _ in arrayreport.default_schemes()]
+    assert all(cfg == ref for (_, cfg), (_, ref) in zip(base["schemes"], arrayreport.default_schemes()))
+    assert base["ay_cfgs"] == arrayreport.default_ay_cfgs() and g.array_inputs(ay=False)["ay_cfgs"] == {}
+    moved = g.array_inputs({"frontend.pa.obo_db": 9.5, "channel.model": "flat", "channel.rms_delay_ns": 20})
+    assert moved["fe"].obo_db == 9.5 and all(c.frontend.pa.obo_db == 9.5 for _, c in moved["schemes"])
+    # line of sight on a flat channel, whatever the form's channel says
+    assert moved["schemes"] == g.array_inputs({"frontend.pa.obo_db": 9.5})["schemes"]
+    assert all(c.channel.model == "flat" for _, c in moved["schemes"])
+    assert not {"channel.model", "channel.rms_delay_ns"} & g.PARTS["array"].reads
+
+
+def test_eirp_limit_binds_from_the_smallest_array_that_reaches_it():
+    inp = g.array_inputs()
+    lim = g.eirp_limit_report(inp["fe"], inp["schemes"][0][1])
+    assert lim["limit_avg_dbm"] == spec.value("fcc15255.eirp_avg_dbm") == 40.0
+    assert abs(lim["single_element_eirp_dbm"] - 9.1) < 1e-9 and lim["binds_from_n"] == 36      # 9.1 + 20 log10 N >= 40
+    deeper = g.array_inputs({"frontend.pa.obo_db": 12.5})
+    assert g.eirp_limit_report(deeper["fe"], deeper["schemes"][0][1])["binds_from_n"] > 36
+
+
+def test_single_antenna_ranges_join_the_array_rows_to_the_table():
+    array = {"table_row_of": {"B x": "row b", "ay_sc": "row sc", "C y": None},
+             "link": [{"scheme": "B x", "n": 1, "range_mcs0_m": 21.0}, {"scheme": "B x", "n": 4, "range_mcs0_m": 134.0},
+                      {"scheme": "C y", "n": 1, "range_mcs0_m": 5.0}],
+             "ay": [{"waveform": "ay_sc", "point": "preset", "n": 1, "range_mcs1_m": 9.0},
+                    {"waveform": "ay_sc", "point": "own", "n": 1, "range_mcs1_m": 14.0}]}
+    assert g.single_antenna_ranges(array) == {"row b": {"range_mcs0_m": 21.0}, "row sc": {"range_mcs1_m": 9.0}}
+
+
+@pytest.mark.slow
+def test_array_report_is_example_10s_numbers_on_the_studys_inputs_and_declares_its_reads():
+    small = dict(sizes=(1, 4), trials=50, users=3, squint_sizes=(4,), two_stage_m=(2,), sensitivity_n=None)
+    ref = g.reference_config()
+    inp = g.array_inputs()
+
+    def fn():
+        arrayreport.build(Frontend60.from_config(ref), inp["schemes"], inp["ay_cfgs"],
+                          squint_schemes=inp["squint_schemes"], **small)
+    # the flat channel object is read; the form's channel knobs never reach it (the test above)
+    assert _knobs(traced(fn)) - {"channel.model", "channel.rms_delay_ns"} <= g.PARTS["array"].reads
+    rep = g.array_report(ay=False, **small)
+    assert rep["kind"] == "array" and rep["eirp_limit"]["binds_from_n"] == 36
+    assert rep["table_row_of"] == {"B 11be 80M x4 (320 MHz)": "be_upclocked 11be 80M K=4 @60.48 GHz",
+                                   "B 11ac 20M x8 (160 MHz)": "be_upclocked 11ac 20M K=8 @60.48 GHz",
+                                   "A 11be 80M (IF extender)": "be 11be 80M IF extender @60.48 GHz"}
+    one = g.single_antenna_ranges(rep)["be_upclocked 11be 80M K=4 @60.48 GHz"]
+    assert f"{one['range_mcs0_m']:.0f}" == "21" and one["cap_mcs"] == 5              # example 10 section 2-3, N = 1
+    json.dumps(rep, allow_nan=False)
 
 
 # ------------------------------------------------------------------ the system block diagram

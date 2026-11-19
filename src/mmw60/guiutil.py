@@ -35,9 +35,10 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from . import ENGINE_BANNER, __version__, calcheck, compare, guispec, spec
+from . import ENGINE_BANNER, __version__, arrayreport, calcheck, compare, guispec, spec
 from .config import AY_WAVEFORMS, Mmw60Config, zero_if_60ghz
 from .frontend import Frontend60
+from .frontend.array60 import Array60
 from .frontend.grid import pa_isolated_evm_db
 
 #: bump when the shape of a report changes: an envelope of another schema is never fresh
@@ -164,6 +165,11 @@ PARTS = {p.id: p for p in (
     Part("table.td", "同台表 · 时域核对列", "comparison table, time-domain cross-check column", _S, (), "table"),
     Part("table.ay", "同台表 · 802.11ay 两行", "comparison table, the two 802.11ay rows",
          _S - {"phy.packet_bytes", "rx.ce_smooth_auto", "rx.ce_smooth_tones"}, (), "table"),
+    # the array link is line of sight on a flat channel whatever the form's channel says (``array_inputs``)
+    Part("array", "阵列页（阵面、EIRP 上限、距离、功耗、波束训练）",
+         "array page (faces, EIRP limit, range, power, beam training)",
+         _S - {"rx.ce_smooth_auto", "rx.ce_smooth_tones", "channel.model", "channel.rms_delay_ns"},
+         ("thresholds.be", "thresholds.ay"), "array"),
 )}
 
 JOBS = {
@@ -174,6 +180,9 @@ JOBS = {
     "table": {"parts": ("table.analytic", "table.td", "table.ay"), "command": "python examples/04_comparison_table.py",
               "report": "table", "seconds": [58, 126, 174],
               "seconds_note": "58 s alone on a 4-core container; 126 / 174 s with three examples side by side"},
+    "array": {"parts": ("array",), "command": "python examples/10_array_link_and_training.py", "report": "array",
+              "seconds": [560, 1650],
+              "seconds_note": "560 s alone on a 4-core container; 1650 s with three examples side by side"},
     "table_analytic": {"parts": ("table.analytic",),
                        "command": "python tools/budget_report.py --base 11ac:20e6 --base 11be:80e6 --no-time-domain",
                        "report": "table", "seconds": None,
@@ -613,6 +622,77 @@ def calibration_report(st: dict | None = None, *, plan=None, quick: bool = False
     return calibration_from_runs(runs, fe, st)
 
 
+# ------------------------------------------------------------------ report: the array page
+_CHANNEL_KNOBS = ("channel.model", "channel.rms_delay_ns")
+
+
+def array_inputs(st: dict | None = None, ay: bool = True) -> dict:
+    """What the array report runs on: the study's front end and example 10's schemes with the study
+    applied.  The link is line of sight on a flat channel, so the form's channel knobs do not reach
+    it (multipath enters only through the stored thresholds)."""
+    st = {k: v for k, v in study(st).items() if k not in _CHANNEL_KNOBS}
+    return {"fe": frontend(st),
+            "schemes": tuple((lab, apply_study(c, st)) for lab, c in arrayreport.default_schemes()),
+            "ay_cfgs": {wf: apply_study(c, st) for wf, c in arrayreport.default_ay_cfgs().items()} if ay else {},
+            "squint_schemes": tuple((lab, apply_study(c, st)) for lab, c in arrayreport.default_squint_schemes())}
+
+
+def _table_label(cfg: Mmw60Config, sch: list) -> str | None:
+    """The comparison-table row that is the same scheme as an array scheme (same topology, waveform,
+    base PHY, K and carrier; the array link only swaps the channel for a flat one)."""
+    def ident(c):
+        return (c.topology, c.waveform, c.phy.standard, c.phy.bandwidth_hz, c.upclock_k, c.carrier_hz,
+                c.ifext.chip_pa_bypass)
+    return next((s.label for s in sch if s.cfg is not None and ident(s.cfg) == ident(cfg)), None)
+
+
+def eirp_limit_report(fe: Frontend60, base: Mmw60Config, n_max: int = 256) -> dict:
+    """Where the EIRP limit starts to bind at the front end's own back-off: the smallest N whose
+    broadside EIRP reaches the limit (example 10's search, on the real array gain)."""
+    from .config import array_frontend
+    p = float(fe.target_pout_dbm())
+    limit = fe.eirp.avg_dbm
+    n_min = next((n for n in range(1, n_max + 1)
+                  if p + Array60.from_config(array_frontend(base, n), fe).tx_gain_db(0.0, 0.0)[0] >= limit), None)
+    return {"limit_avg_dbm": limit, "element_pout_dbm": p, "element_gain_dbi": fe.antenna_gain_tx_dbi,
+            "single_element_eirp_dbm": p + fe.antenna_gain_tx_dbi, "binds_from_n": n_min,
+            "law": "EIRP = element EIRP + 20 log10 N (TX gain = 20 log10 N + element gain)",
+            "source_key": "fcc15255.eirp_avg_dbm"}
+
+
+def array_report(st: dict | None = None, *, quick: bool = False, ay: bool = True, progress=None, **kw) -> dict:
+    """The array page of a study: ``arrayreport.build`` (every number of example 10) on the study's
+    front end and schemes, plus which comparison-table row each scheme is and where the EIRP limit
+    starts to bind.  ``quick`` is the example's smoke size; ``ay=False`` leaves the two 802.11ay
+    waveforms out (they are most of the run time); other keywords go to ``arrayreport.build``."""
+    stv = study(st)
+    inp = array_inputs(stv, ay=ay)
+    args = dict(arrayreport.quick_kwargs() if quick else {}, **kw)
+    rep = arrayreport.build(inp["fe"], inp["schemes"], inp["ay_cfgs"], progress=progress,
+                            squint_schemes=inp["squint_schemes"], **args)
+    sch = schemes(stv)
+    rows = {lab: _table_label(cfg, sch) for lab, cfg in inp["schemes"]}
+    rows.update({wf: _table_label(cfg, sch) for wf, cfg in inp["ay_cfgs"].items()})
+    rep.update(kind="array", study=stv, table_row_of=rows,
+               eirp_limit=eirp_limit_report(inp["fe"], inp["schemes"][0][1]))
+    return _json(rep)
+
+
+def single_antenna_ranges(array: dict) -> dict:
+    """Per comparison-table row, the one-element link of an array report (its N = 1 rows): the
+    distances the table's range column shows.  Only the schemes the array report carries have one."""
+    out = {}
+    for r in array.get("link", []):
+        lab = array["table_row_of"].get(r["scheme"])
+        if r["n"] == 1 and lab:
+            out[lab] = {k: v for k, v in r.items() if k not in ("scheme", "n")}
+    for r in array.get("ay", []):
+        lab = array["table_row_of"].get(r["waveform"])
+        if r["n"] == 1 and r["point"] == "preset" and lab:
+            out[lab] = {k: v for k, v in r.items() if k not in ("waveform", "n", "point")}
+    return out
+
+
 # ------------------------------------------------------------------ a row's detail and its reproducibility card
 def repro(label: str, cfg: Mmw60Config, st: dict | None = None, commands=()) -> dict:
     """What it takes to compute a row again: the config (hash, seed), the study, the code and the
@@ -776,6 +856,7 @@ __all__ = [
     "closure", "signature", "pins", "vendored", "spec_digest", "commit", "provenance", "config_sha",
     "envelope", "job_result", "envelopes_of", "freshness", "field_states", "freshness_matrix", "source",
     "sources", "source_counts", "knob_tag", "form", "front_end_report", "table_report",
-    "calibration_from_runs", "calibration_report", "repro", "calibration_column_for", "row_detail",
+    "calibration_from_runs", "calibration_report", "array_inputs",
+    "eirp_limit_report", "array_report", "single_antenna_ranges", "repro", "calibration_column_for", "row_detail",
     "system_report",
 ]
