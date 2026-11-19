@@ -3,7 +3,7 @@
 **这份文件只写还没做的事。** 做完即删，并在 `CHANGELOG.md` 记一笔、`cairn/LOG.md` 记数字。每条带证据（复现方式与数字）。
 
 ## 当前优先级
-**图形界面**（用户 2026-11-18 定开始；效果图 2026-11-19 定为方案 A 的风格并入方案 B 的九处，见 `cairn/gui.md` §1）：计算层 `guiutil` 2026-11-19 落地，下一轮是宿主、队列与页面——没做的在下面 F 一节。
+**图形界面**（用户 2026-11-18 定开始；效果图 2026-11-19 定为方案 A 的风格并入方案 B 的九处，见 `cairn/gui.md` §1）：计算层、结果仓库与随包基线、宿主与队列、页面 2026-11-19 落地（`mmw60-gui`）；剩下的在下面 F 一节，最大的一块是手机的应用外壳。
 
 C9（60 GHz 自己的接收前端进预设）2026-11-18 做完，过程中发现的在下面 C9 一节。
 
@@ -126,15 +126,21 @@ Liu 2025 的 Rapp 参数（TGad 原文 2026-11-13 已读：回退从 Psat 算、
 ### C11. 规范表迁到 spec_sources 时留下的（见 `cairn/LOG.md` 2026-11-13 两条、`cairn/spec-sources.md` §制度，mmw60_trx#21 / #23）
 - **留在本地的 4 条 survey 不是文献**：`survey.clock_profile_wu19`、`survey.clock_profile_wu19_x10`、`survey.clock_profile_wu19_x9`（2026-11-14 加，拓扑 A 的 54.0 GHz LO）的值是本仓库 `data/clock_profiles/` 里的文件名（pll_simulator 的模型输出），`survey.dsp_ip_dpd_poly_p4` 是姊妹库 dsp_ip 的综合估计。标的是 survey，但“未核实的文献数字”这个意思对它们不成立；spec_sources 不收（`tests/test_extraction.py::MMW60_STAYS`），标签由本库定。改标签就得改键名（`survey.` 前缀），示例 04 / 06 打印这些键名，期望输出会动，所以搬家（#21）和 0.2.0 的改名（#23）都没有动它们；共享库改名用的别名机制只在它自己的表里，本地表要改名得自己留旧名的读法。复现：`python -c "from mmw60 import spec; print(sorted(spec.load_table()))"` 里的四条 `survey.`。
 
-## F. 图形界面（计算层已落地：`src/mmw60/guiutil.py`、`tools/gui_report.py`、`src/mmw60/data/gui/system.yaml`、`cairn/gui.md`；下面是没做的）
-- **宿主与队列没有建**（照 array_tx 的 `webhost.Api` / `JobQueue`：桌面用子进程、取消即终止，Android 用线程、取消在步与步之间；`appbridge`）。任务有多慢（4 核容器，`guiutil.JOBS`）：同台表整表 58 s（三个示例并行时 126–174 s），校准六列 809 s，阵列 1650 s，SC 对 OFDM 563 s；校准一列 12 步，进度可以按“第几列第几步”报，每步各自的耗时没有量过。
-- **页面没有建**：合并稿（`cairn/LOG.md` 2026-11-19）是静态效果图。页面只画 `guiutil` 给的字典；数字的小数位用报告里的 `display`，从全精度值舍入一次。
-- **算好的结果放哪、要不要随包带一份预设的基线**没有定。首页要一打开就有同台表，而现在只能现算（`python tools/gui_report.py table`：只算解析列约 15 s，其中拓扑 A 的行建链就跑芯片校准）。两条路：把预设的 `job_result` 作为数据随包发（要一条守卫保证它与 `examples/expected` 不漂）；或首次启动时后台算、算完落在用户目录。信封的格式（`job_result` / `envelopes_of` / `freshness`）两条路都能用。
-- **表单指不全同台表的行**：`guispec` 的 22 个旋钮里没有基准 PHY（标准、基准带宽），所以拓扑、波形、K 三个行旋钮定不了“11be 80 MHz × 4”还是“11ac 20 MHz × 16”；计算层按行的名字取行（`table_report(labels=)`、`row_detail(label)`）。要不要给 `guispec` 加这两个旋钮、要不要支持矩阵之外的自定义行，等页面那一轮定。
-- **两份解码门限在界面里不能重算**（`thresholds.be` / `thresholds.ay`，几小时的 PER 曲线）：改了接收机的旋钮，`freshness` 会把解码器上限那几列标过期并给出重量的命令，但没有后台任务能把它变回新鲜。
+## F. 图形界面（已落地：计算层 `guiutil`、结果仓库 `guistore` 与随包基线、宿主与队列 `webhost` / `appbridge`、页面 `webui/www`、`tools/gui_report.py` / `gui_baseline.py`、`cairn/gui.md`；下面是没做的）
+- **手机的应用外壳没有建**（`android/`：Gradle、Activity、APK 工作流；照 array_tx 约 80 行 Kotlin + Chaquopy）。它要调的东西在了并测过：`appbridge.call(route, json)` 与线程队列（`tests/test_webhost.py::test_appbridge_*`、`test_a_real_calibration_*[thread]`）。没量过的：手机上没有 numba，校准与时域列会慢多少；随包基线 245 kB 进 APK。
+- **表单指不全同台表的行**：`guispec` 的 22 个旋钮里没有基准 PHY（标准、基准带宽），所以拓扑、波形、K 三个行旋钮定不了“11be 80 MHz × 4”还是“11ac 20 MHz × 16”；页面按行的名字选行，四个行旋钮只读。要不要给 `guispec` 加这两个旋钮、要不要支持矩阵之外的自定义行，没有定（2026-11-19 这一轮按“不加、不支持”做）。
+- **两份解码门限在界面里不能重算**（`thresholds.be` / `thresholds.ay`，几小时的 PER 曲线）：改了接收机的旋钮，`freshness` 把解码器上限那几列标过期并给出重量的命令，但没有后台任务能把它变回新鲜——建在它们上面的 part（解析列的解码器上限、阵列、SC 对 OFDM）在那个 study 下永远读“上游过期”。
+- **用户目录里的结果换了代码不会自动让位**：换了规范表或 vendored pin 之后，随包基线有守卫（红了就重建）；用户自己算的那些仍会被 `Store.pick` 选中，宿主只是把原因带给页面（`out_of_step`：规范表变了 / pin 变了），页面标出来。要不要让它们在 `pick` 里排到后面，没有做。
+- **基线要跟着数字一起重建**：凡是动数字的改动（示例期望输出重新验收的那一刻）都要 `python tools/gui_baseline.py build --jobs 4`，四个任务并排实测 893 s（最长的阵列）；忘了的话 `tests/test_guistore.py` 的五条守卫会红，不会悄悄带着旧数发出去。
+- **合并稿里有、页面上没有的几块**（没有载荷支撑，或要页面自己算；`cairn/gui.md` §5）：同台表的“哪些猜测改变排名”（`compare.sensitivity` 有这份数，没有接进 `guiutil`）与三种本振模型并排；行细节里分项的功率占比（要 dB → 线性，得在计算层出）；SC 对 OFDM 页逐项的胜负表与“没成立的预期”（现在只在 `cairn/ay.md` 里，是带数的文字）；ay 行在框图上点亮哪些块（`evm_term_to_block` 只有 be 的分项）。
+- **宿主里没有“秒级预览”**：只算解析列的同台表 24 s（完整的 106 s），但它存在完整结果旁边会被 `Store.pick` 因“有一个 part 新鲜”选中，时域列和 ay 两行就从页面上消失（做页面时实测到）。宿主因此只排四个完整任务。要预览得先按 part 选结果、按字段组拼表，没有做。
+- **同台表缺的数**：be 行没有“校准后的解码器上限”上的 pJ/bit（页面那一格是横线）；ay 行的解码器上限、速率、pJ/bit 不在同台表报告里，页面从阵列结果的 N = 1 行取（阵列过期时跟着标过期）。`be_upclocked 11ac 20M K=1 @60.48 GHz` 这一行未校准的链接不住 CFO（时域 EVM +6.0 dB），但上限、速率、pJ/bit 照给、照常参加排序，只靠一个“未校准链不能：CFO 捕获”的标签提示。
+- **有些文字只有一种语言**（原样显示）：行的 `verdict` / `reason`、校准的 `mechanism_zh` 只有中文；`footing`、`pending[].reason`、功耗的 `note`、`seconds_note`、`out_of_step`、`eirp_limit.law`、校准的 `detail` 只有英文。`system.yaml` 是成对的，别处不是。
+- **页面没验证的**：`window.host` 那条传输（没有外壳能跑）；Chromium 之外的浏览器（CSS 用了 container query 与 `color-mix`）；在页面上取消一个正在跑的任务、失败任务的报错卡、删除一份用户结果的按钮（接口各有测试，页面上的这三处没有）。已知粗糙：400 px 上速率 × 距离矩形的标注互相压住；速率对距离那张图按速率连线会来回折。
+- **队列默认一次一个任务**（`--workers 1`）：四个任务都是单进程，4 核上并排跑实测校准 42 s、同台表 106 s、SC 对 OFDM 428 s、阵列 893 s；各自单独跑的时间只有阵列（560 s）和 SC 对 OFDM（224 s）是量过的（示例 10 / 15，同一份计算）。校准每一步各自的耗时没有量过，进度按“第几步 / 共几步”报。
 - **依赖表守住的是“读了没声明”，条件读要靠保守声明**：`rx.ce_smooth_tones` 只在“自动选跨度”关掉时才读，预设下追踪不到，所以时域列声明读全部。把每个 choice / bool 旋钮各拨一档再追踪一遍可以系统地抓这类，没有做（拓扑 A 与 ay 的行每档要几秒到几十秒）。
-- **`display` 的小数位是手写的一张表**，与示例里的格式串是两处；测试只拿 K = 32 那一行的五个字段对过示例 04 的文本（`test_table_report_matches_the_accepted_example_04`）。
-- 装成 wheel 之后 `provenance()["commit"]` 是空的（没有 git 检出）；发版时要不要把提交写进包里没有定。
+- **`display` 的小数位是手写的一张表**，与示例里的格式串是两处；基线守卫拿全部 19 + 2 行的五个字段对过示例 04 的文本（`test_the_baseline_table_is_the_accepted_example_04`），别的字段（分项、功耗分块）没有对。
+- 装成 wheel 之后 `provenance()["commit"]` 是空的（没有 git 检出）；发版时要不要把提交写进包里没有定。随包基线里记的提交是算它那一刻的（`60797dd`），不是发版的提交。
 
 ## D. 报回上游
 本库不动这三个库；需求各开一个 issue 交给对方，对方合并后本库重新 pin 并删掉对应条目。三个库的需求登记处各不相同（wifi_trx_cal 是 `docs/backlog_zh.md`、pll_simulator 的 roadmap 是生成的不手改、PA_DPD 是 `docs/03_roadmap.md`），所以统一走 issue，不替对方改文件。

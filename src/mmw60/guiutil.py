@@ -32,6 +32,7 @@ import json
 import math
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -176,24 +177,31 @@ PARTS = {p.id: p for p in (
          _S - {"phy.packet_bytes"}, ("thresholds.be", "thresholds.ay"), "ay"),
 )}
 
+#: ``seconds``: measured durations of the job itself (``run_job``), shortest first; the note says how each was
+#: taken.  The examples named in ``command`` print the same numbers but some do more than the job (example 03's
+#: 809 s is its whole script, not these six columns: that figure stood here until 2026-11-19 and was wrong).
 JOBS = {
-    "calibration_be": {"parts": ("calibration.be",), "command": "python examples/03_calibration_at_k.py",
-                       "report": "calibration", "seconds": [809],
-                       "seconds_note": "809 s with three examples side by side on a 4-core container; "
-                                       "12 steps per column"},
-    "table": {"parts": ("table.analytic", "table.td", "table.ay"), "command": "python examples/04_comparison_table.py",
-              "report": "table", "seconds": [58, 126, 174],
-              "seconds_note": "58 s alone on a 4-core container; 126 / 174 s with three examples side by side"},
-    "array": {"parts": ("array",), "command": "python examples/10_array_link_and_training.py", "report": "array",
-              "seconds": [560, 1650],
-              "seconds_note": "560 s alone on a 4-core container; 1650 s with three examples side by side"},
-    "ay": {"parts": ("ay",), "command": "python examples/15_ay_on_the_shared_front_end.py", "report": "ay",
-           "seconds": [224, 563],
-           "seconds_note": "224 s alone on a 4-core container; 563 s with three examples side by side"},
-    "table_analytic": {"parts": ("table.analytic",),
-                       "command": "python tools/budget_report.py --base 11ac:20e6 --base 11be:80e6 --no-time-domain",
-                       "report": "table", "seconds": None,
-                       "seconds_note": "about 20 s (topology A's rows build the chip and run its calibration)"},
+    "calibration_be": {"parts": ("calibration.be",), "command": "python tools/gui_report.py calibration",
+                       "example": "python examples/03_calibration_at_k.py", "report": "calibration", "seconds": [42],
+                       "seconds_note": "42 s with three other jobs side by side on a 4-core container; "
+                                       "12 steps per column, six columns"},
+    "table": {"parts": ("table.analytic", "table.td", "table.ay"), "command": "python tools/gui_report.py table",
+              "example": "python examples/04_comparison_table.py", "report": "table", "seconds": [106],
+              "seconds_note": "106 s with three other jobs side by side on a 4-core container"},
+    "array": {"parts": ("array",), "command": "python tools/gui_report.py array",
+              "example": "python examples/10_array_link_and_training.py", "report": "array",
+              "seconds": [560, 893, 1650],
+              "seconds_note": "560 s alone on a 4-core container (example 10, the same computation); 893 s with "
+                              "three other jobs side by side; 1650 s with three examples side by side"},
+    "ay": {"parts": ("ay",), "command": "python tools/gui_report.py ay",
+           "example": "python examples/15_ay_on_the_shared_front_end.py", "report": "ay", "seconds": [224, 428, 563],
+           "seconds_note": "224 s alone on a 4-core container (example 15, the same computation); 428 s with three "
+                           "other jobs side by side; 563 s with three examples side by side"},
+    "table_analytic": {"parts": ("table.analytic",), "command": "python tools/gui_report.py table --no-time-domain",
+                       "example": "python tools/budget_report.py --base 11ac:20e6 --base 11be:80e6 --no-time-domain",
+                       "report": "table", "seconds": [24],
+                       "seconds_note": "24 s on a 4-core container with a page being tested alongside (topology A's "
+                                       "rows build the chip and run its calibration)"},
 }
 #: stored measurements a study can make stale but this layer does not recompute (hours of PER curves)
 STORED = {
@@ -305,19 +313,34 @@ def _json(v: Any):
 
 
 # ------------------------------------------------------------------ envelopes and freshness
-def envelope(part: str, st: dict | None, payload: dict, seconds: float | None = None) -> dict:
-    """A computed part with what it read and where it was computed."""
+def _upstream(part: str, built_on: dict | None) -> dict:
+    """The signature of each upstream part as the result was really built on it: ``built_on`` maps
+    an upstream part to the study its result was computed for; one it does not name was the accepted
+    result of the presets (the stored thresholds always are; a table computed without a calibration
+    result looks its IRR up in the accepted table)."""
+    built_on = built_on or {}
+    return {u: signature(u, built_on.get(u) or {}) for u in closure(part)[:-1]}
+
+
+def envelope(part: str, st: dict | None, payload: dict, seconds: float | None = None,
+             built_on: dict | None = None) -> dict:
+    """A computed part with what it read, what it was built on (``_upstream``) and where it was
+    computed."""
     st = study(st)
     return {"part": part, "schema": SCHEMA, "study": {k: v for k, v in st.items() if k in PARTS[part].reads},
-            "signature": signature(part, st), "upstream": {u: signature(u, st) for u in closure(part)[:-1]},
+            "signature": signature(part, st), "upstream": _upstream(part, built_on),
             "provenance": provenance(), "seconds": seconds, "payload": _json(payload)}
 
 
-def job_result(job: str, st: dict | None, report: dict, seconds: float | None = None, parts=None) -> dict:
-    """What a host stores after a job: the report with the study it was computed for and where.
-    ``parts`` narrows the parts the run produced (an analytic-only table has no time-domain column)."""
+def job_result(job: str, st: dict | None, report: dict, seconds: float | None = None, parts=None,
+               built_on: dict | None = None) -> dict:
+    """What a host stores after a job: the report with the study it was computed for, the upstream
+    results it was built on (``built_on``: upstream part -> that result's study; presets when not
+    named) and where.  ``parts`` narrows the parts the run produced (an analytic-only table has no
+    time-domain column)."""
     st = study(st)
     return {"job": job, "schema": SCHEMA, "study": st, "parts": list(JOBS[job]["parts"] if parts is None else parts),
+            "built_on": {u: study(v) for u, v in (built_on or {}).items()},
             "provenance": provenance(), "seconds": seconds, "report": _json(report)}
 
 
@@ -328,28 +351,36 @@ def envelopes_of(result: dict) -> dict[str, dict]:
         st = result["study"]
         out[pid] = {"part": pid, "schema": result["schema"],
                     "study": {k: v for k, v in st.items() if k in PARTS[pid].reads},
-                    "signature": signature(pid, st), "upstream": {u: signature(u, st) for u in closure(pid)[:-1]},
+                    "signature": signature(pid, st), "upstream": _upstream(pid, result.get("built_on")),
                     "provenance": result["provenance"], "seconds": result["seconds"], "payload": None}
     return out
 
 
-def freshness(st: dict | None, envelopes: dict[str, dict] | None = None) -> dict:
+def freshness(st: dict | None, envelopes: dict[str, dict] | None = None, accepted: bool = True) -> dict:
     """Per part, against the form as it is now: ``fresh``, ``stale`` (with the knobs that moved it
     and the upstream parts that are stale) or ``missing``.
 
     A part with no envelope is judged against the accepted results, which are the presets'
     (study ``{}``): it is fresh while the study leaves the knobs it reads at their presets.  That
-    is how the stored measurements (the decoder thresholds) are judged always."""
+    is how the stored measurements (the decoder thresholds) are judged always.  A host that draws
+    only what its store holds passes ``accepted=False``: a part a job computes then reads
+    ``missing`` when no result of it is stored, instead of fresh on the strength of numbers the
+    page cannot show.  A missing upstream does not by itself make a part stale: the part's own
+    record of what it was built on decides."""
     st = study(st)
     envelopes = envelopes or {}
     out: dict[str, dict] = {}
     for pid in sorted(PARTS, key=lambda p: len(closure(p))):
         part, env = PARTS[pid], envelopes.get(pid)
+        if env is None and not accepted and part.job is not None:
+            out[pid] = {"state": "missing", "changed": [], "upstream": [], "basis": "nothing stored",
+                        "recompute": part.job, "stored": None, "computed_at": None}
+            continue
         have = (env or {}).get("study", {}) if env and env.get("schema") == SCHEMA else {}
         changed = sorted(k for k in part.reads if st.get(k, None) != have.get(k, None))
         if env is not None and env.get("schema") != SCHEMA:
             changed = sorted(part.reads)
-        up = [u for u in part.upstream if out[u]["state"] != "fresh"]
+        up = [u for u in part.upstream if out[u]["state"] == "stale"]
         if env is not None:
             # an envelope computed on stale upstream results stays stale until it is rebuilt on fresh ones
             up += [u for u in part.upstream if u not in up and env.get("upstream", {}).get(u) != signature(u, st)]
@@ -368,8 +399,8 @@ def field_states(fresh: dict) -> dict:
     out = {}
     for group in list(BE_FIELDS) + ["table.ay"]:
         own, _, up = group.partition("+")
-        stale = bool(fresh[own]["changed"]) or (bool(up) and fresh[up]["state"] != "fresh")
-        out[group] = "stale" if stale else "fresh"
+        stale = bool(fresh[own]["changed"]) or (bool(up) and up in fresh[own]["upstream"])
+        out[group] = "missing" if fresh[own]["state"] == "missing" else "stale" if stale else "fresh"
     return out
 
 
@@ -421,7 +452,7 @@ def form(st: dict | None = None, row: Mmw60Config | None = None) -> dict:
     """The form for a page: every knob of ``guispec`` with its group, whether it is a row knob,
     its preset and current value, its source tag and the parts that read it."""
     stv = study(st)
-    ref = apply_study(row if row is not None else reference_config(stv.get("carrier_hz", PRESET_CARRIER_HZ)), {})
+    ref = row if row is not None else reference_config()      # the presets: ``preset`` never follows the study
     items = []
     for k in guispec.KNOBS:
         d = _json(k.as_dict())
@@ -494,7 +525,7 @@ def front_end_report(fe: Frontend60, st: dict | None = None) -> dict:
         "pa_isolated_evm_db": pa_evm,
         "lo_profile": d["lo_profile"], "lo_ipn_dbc": d["lo_ipn_dbc"], "tx_lo_leak_dbc": d["tx_leak_dbc"],
         "rx_dc_dbc": d["rx_dc_dbc"],
-        "rx_front": {"gain_db": f.get("gain_db"), "nf_db": f.get("nf_db"), "iip3_dbm": f.get("iip3_dbm")},
+        "rx_front": {"gain_db": f["rx_gain_db"], "nf_db": f["rx_nf_db"], "iip3_dbm": f["rx_iip3_dbm"]},
         "antenna_gain_tx_dbi": f["antenna_gain_tx_dbi"], "antenna_gain_rx_dbi": f["antenna_gain_rx_dbi"],
         "shared_antenna": f["shared_antenna"], "tx_rx_isolation_db": f["tx_rx_isolation_db"],
         "eirp_dbm": d.get("eirp_avg_dbm"), "eirp_margin_db": d.get("margin_avg_db"),
@@ -567,12 +598,24 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
         "irr_table": {"from": "calibration result" if irr_table is not None else "derived.irr_after_cal_measured_db",
                       "db_by_bandwidth_hz": (table if table is not None
                                              else spec.value("derived.irr_after_cal_measured_db"))},
+        # a term below this is absent (zero to double precision), as example 04 prints it: a dash, not a number
+        "absent_below_db": compare.ABSENT_DB,
         "margins": {"mcs_evm_margin_db": spec.value("assumed.mcs_evm_margin_db"),
                     "decoder_cap_margin_db": spec.value("assumed.decoder_cap_margin_db")},
     })
 
 
 # ------------------------------------------------------------------ report: the calibration runs
+#: wifitrx names a reading after its unit; the suffix is read here, once, not by a page
+_METRIC_UNITS = (("_dbfs", "dBFS"), ("_dbc", "dBc"), ("_dbm", "dBm"), ("_db", "dB"), ("_pct", "%"), ("_ns", "ns"),
+                 ("_ps", "ps"), ("_hz", "Hz"))
+
+
+def metric_unit(metric: str | None) -> str | None:
+    """The unit of a wifitrx metric from its name's suffix (``irr_min_db`` -> dB); None when it says none."""
+    return next((u for suffix, u in _METRIC_UNITS if metric and metric.endswith(suffix)), None)
+
+
 def calibration_from_runs(runs: list, fe: Frontend60, st: dict | None = None) -> dict:
     """The calibration report from finished runs (``calcheck.run_cal_at``): per step and column the
     reading and **two verdicts kept apart** — wifitrx's own, and the summary's, which additionally
@@ -588,7 +631,8 @@ def calibration_from_runs(runs: list, fe: Frontend60, st: dict | None = None) ->
                 continue
             status, metric, value, detail = st_
             cells.append({"status_summary": status, "status_wifitrx": row["wifitrx_by_k"][lab],
-                          "metric": metric or None, "value": value, "detail": detail or None})
+                          "metric": metric or None, "unit": metric_unit(metric), "value": value,
+                          "detail": detail or None})
         steps.append({"step": row["step"], "mechanism_zh": row["mechanism"], "cells": cells})
     cols = []
     for run in runs:
@@ -616,17 +660,29 @@ def calibration_from_runs(runs: list, fe: Frontend60, st: dict | None = None) ->
     })
 
 
-def calibration_report(st: dict | None = None, *, plan=None, quick: bool = False, log=None) -> dict:
+def calibration_report(st: dict | None = None, *, plan=None, quick: bool = False, log=None, progress=None) -> dict:
     """wifitrx's calibration sequence really run on the study's front end, one column per (K, base
     bandwidth) of ``plan`` (``calcheck.DEFAULT_PLAN``: example 03's six columns), exactly as
-    example 03 runs it — at the front end's back-off, with the DPD step."""
+    example 03 runs it — at the front end's back-off, with the DPD step.  ``log`` gets wifitrx's
+    line per step; ``progress(done, total, text)`` is called after each step (total = columns x the
+    steps of the sequence, known once the first column is through)."""
     st = study(st)
     fe = frontend(st)
     plan = (calcheck.QUICK_PLAN if quick else calcheck.DEFAULT_PLAN) if plan is None else plan
+    done, per_column = [0], [None]
+
+    def step(line: str) -> None:
+        done[0] += 1
+        if log:
+            log(line)
+        if progress:
+            total = None if per_column[0] is None else max(done[0], len(plan) * per_column[0])
+            progress(done[0], total, " ".join(line.split()[:2]))
     runs = []
     for k, base in plan:
-        runs.append(calcheck.run_cal_at(fe, k, base, with_dpd=not quick, log=log,
+        runs.append(calcheck.run_cal_at(fe, k, base, with_dpd=not quick, log=step,
                                         standard="11be" if base == 80e6 else "11ac", obo_db=fe.obo_db))
+        per_column[0] = len(runs[-1].rows)              # the sequence's length is wifitrx's, read off the first run
     return calibration_from_runs(runs, fe, st)
 
 
@@ -716,6 +772,8 @@ def ay_report(st: dict | None = None, *, quick: bool = False, progress=None, **k
     stv = study(st)
     inp = ay_inputs(stv)
     rep = ayreport.build(inp["fe"], inp["cfgs"], quick=quick, progress=progress, **kw)
+    for step in (rep.get("calibration") or {}).get("steps", []):
+        step["unit"] = metric_unit(step.get("metric"))
     rep.update(kind="sc_vs_ofdm", study=stv)
     return _json(rep)
 
@@ -788,6 +846,7 @@ def row_detail(table: dict, label: str, calibration: dict | None = None) -> dict
     if row.get("footing") == "be_zero_if":
         cmds.append(JOBS["calibration_be"]["command"])
     return _json({"kind": "row_detail", "row": row, "footing": table["footing"][row["footing"]],
+                  "absent_below_db": compare.ABSENT_DB,
                   "calibration_column": own, "irr_looked_up_from_column": looked_up,
                   "repro": repro(label, cfg, table["study"], cmds)})
 
@@ -817,7 +876,7 @@ def _system_values(st: dict) -> dict:
         "tx_lo_leak_dbc": d["tx_leak_dbc"], "rx_dc_dbc": d["rx_dc_dbc"],
         "enob_ref": fe.converters.enob_ref, "enob_fs_ref_hz": fe.converters.fs_ref_hz,
         "enob_per_octave": -fe.converters.bits_per_octave,
-        "rx_gain_db": faces.get("gain_db"), "rx_nf_db": faces.get("nf_db"), "rx_iip3_dbm": faces.get("iip3_dbm"),
+        "rx_gain_db": faces["rx_gain_db"], "rx_nf_db": faces["rx_nf_db"], "rx_iip3_dbm": faces["rx_iip3_dbm"],
         "antenna_tx_dbi": faces["antenna_gain_tx_dbi"], "antenna_rx_dbi": faces["antenna_gain_rx_dbi"],
         "eirp_dbm": d.get("eirp_avg_dbm"),
         "chip_widest_channel_hz": max(float(k) for k in spec.value("ieee80211be.n_sd")),
@@ -919,3 +978,57 @@ __all__ = [
     "ay_inputs", "ay_report", "sc_vs_ofdm_headline", "repro", "calibration_column_for", "row_detail",
     "system_report",
 ]
+
+
+# ------------------------------------------------------------------ a job, run (command line and hosts alike)
+def run_job(job: str, st: dict | None = None, *, quick: bool = False, progress=None,
+            calibration: dict | None = None, log=None) -> dict:
+    """Compute one job of ``JOBS`` for a study and return its ``job_result`` (the thing a host
+    stores and ``tools/gui_report.py`` writes).
+
+    ``progress(done, total, text)`` is called as the run advances; ``total`` is None where the
+    number of steps is not known beforehand.  It may raise to stop the run (a thread host's
+    cancel).  ``calibration`` is a stored ``calibration_be`` result: a table job looks its IRR up
+    there instead of in the accepted table when that result was computed for this study's
+    calibration signature, and records it in ``built_on``.  ``quick`` is the smoke size (tests):
+    its numbers are not the study's."""
+    if job not in JOBS:
+        raise KeyError(f"no such job {job!r} (have {sorted(JOBS)})")
+    st = study(st)
+    t0 = time.time()
+    count = [0]
+
+    def tick(total, text):
+        count[0] += 1
+        if progress:
+            progress(count[0] if total is None else min(count[0], total), total, text)
+    built_on: dict = {}
+    parts = None
+    if job in ("table", "table_analytic"):
+        irr = None
+        if calibration is not None and (signature("calibration.be", calibration["study"])
+                                        == signature("calibration.be", st)) and not quick:
+            irr = calibration["report"]["irr_after_cal_db"]
+            built_on["calibration.be"] = calibration["study"]
+        full = job == "table"
+        n = len([s for s in schemes(st, quick=quick) if s.status == "built" and s.waveform not in AY_WAVEFORMS])
+        rep = table_report(st, time_domain=full, quick=quick, irr_table=irr,
+                           progress=lambda row: tick(n + (1 if full else 0), row.label))
+        if full:
+            tick(n + 1, "802.11ay")
+        else:
+            parts = ["table.analytic"]
+    elif job == "calibration_be":
+        rep = calibration_report(st, quick=quick, log=log, progress=progress)
+    elif job == "array":
+        sec = arrayreport.SECTIONS
+        rep = array_report(st, quick=quick, progress=lambda s, row: (
+            progress(sec.index(s) + 1 if s in sec else len(sec), len(sec), s) if progress and row is None else None))
+        rep["headline"] = sc_vs_ofdm_headline(rep) if rep.get("ay") else None
+    else:
+        sec = ayreport.SECTIONS
+        rep = ay_report(st, quick=quick, progress=lambda s, row: (
+            progress(sec.index(s) + 1 if s in sec else len(sec), len(sec), s) if progress and row is None else None))
+    out = job_result(job, st, rep, time.time() - t0, parts, built_on)
+    out["quick"] = bool(quick)
+    return out

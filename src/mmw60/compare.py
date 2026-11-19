@@ -480,9 +480,13 @@ _HDR = ("| scheme | K | BW_eff | SCS | T_sym | CFO | STF catches | floor | TD EV
         "IQcal (meas.) | rate @cap | b/s/Hz | Pout / EIRP margin | pJ/bit | verdict |")
 
 
+#: a dB term below this is absent: −300 dB is how a term that is zero to double precision reads
+ABSENT_DB = -150.0
+
+
 def _f(v, fmt="{:.1f}", none="—"):
-    if v is None or (isinstance(v, float) and (not math.isfinite(v) or v < -150)):
-        return none            # −300 dB is a term that is zero to double precision
+    if v is None or (isinstance(v, float) and (not math.isfinite(v) or v < ABSENT_DB)):
+        return none
     return fmt.format(v)
 
 

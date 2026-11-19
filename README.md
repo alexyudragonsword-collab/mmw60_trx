@@ -135,17 +135,30 @@ python examples/05_11be_ldpc_per.py --jobs 4      # 全量约 5 分钟（4 核�
 python examples/10_array_link_and_training.py    # 全量约 10 分钟（多半是 §4b / §4c 的重复次数搜索；§3d、§4d 是 802.11ay 两种波形的阵列预算与扇区扫描）；--quick 冒烟
 ```
 
-## 图形界面的计算层（`mmw60.guiutil`、`tools/gui_report.py`）
-
-界面还没有（下一步是宿主、队列和页面，见 `ROADMAP.md` F）；它要读的数据接口已经在了，命令行能直接用：
+## 图形界面：结果浏览器（`mmw60-gui`）
 
 ```bash
-python tools/gui_report.py table --no-time-domain --json table.json   # 同台表的解析列（约 15 s）
+pip install -e .
+mmw60-gui            # 本机 127.0.0.1 上起一个页面：有 Chromium 系浏览器就开应用窗口（关窗即停），否则开标签页
+mmw60-gui --no-window --port 8765     # 只起服务，自己用浏览器开
+```
+
+它是**算好的结果的浏览器**，不是实时工作台：一打开就是同台表（随包带着预设那套完整规模的结果，不用现算），点一行看 EVM 分项、校准每一步、功耗分块和可复现卡；
+另有系统框图、校准、阵列、SC 对 OFDM、运行台、出处几屏。改表单（共享的 18 个旋钮）**不清数**，只把读了那个旋钮的结果标过期——细到同台表的列；
+重算是后台任务（校准约 40 s、同台表 1–2 分钟、SC 对 OFDM 4–9 分钟、阵列 10–27 分钟，4 核），算完的结果落在 `MMW60_HOME`（默认用户缓存目录下的 `mmw60/`）。
+页面只画不算：每个数都来自 `mmw60.guiutil`，页面里不写任何结果数字。两份解码门限（几小时的 PER 曲线）不能在界面里重算，过期时页面给出重量的命令。
+手机的应用外壳还没有（`ROADMAP.md` F）。
+
+同一批数据命令行也能直接取（页面读的就是这些字典）：
+
+```bash
+python tools/gui_report.py table --no-time-domain --json table.json   # 同台表的解析列（约 24 s）
 python tools/gui_report.py table --row "be_upclocked 11ac 20M K=32 @60.48 GHz" --no-time-domain
-python tools/gui_report.py calibration --json cal.json                # 校准序列真跑六列（十几分钟）
+python tools/gui_report.py calibration --json cal.json                # 校准序列真跑六列（约 40 s）
 python tools/gui_report.py system                                     # 系统框图的事实
 python tools/gui_report.py form --set frontend.pa.obo_db=9.5          # 22 个旋钮、出处标签、谁读谁
 python tools/gui_report.py freshness --set rx.cpe_window_symbols=33   # 这样改之后哪些结果过期
+python tools/gui_baseline.py check                                    # 随包的那套结果还和代码对得上吗
 ```
 
 `--set 旋钮=值` 是表单：共享旋钮里与预设不同的取值，对同台表的每一行同时生效。每类结果声明自己读哪些旋钮，表单一改就知道哪些存下来的数还能信；
@@ -158,11 +171,11 @@ python tools/gui_report.py freshness --set rx.cpe_window_symbols=33   # 这样�
 - `cairn/LOG.md`：每轮的数字原值与被推翻的判断。
 - `cairn/upclocking.md`：K 的建模方式与 5.88 MHz / 4.7 门槛的推导。
 - `cairn/topology-a.md`、`cairn/topology-b.md`、`cairn/comparison-table.md`：两条拓扑各自的结论与同台表。
-- `cairn/gui.md`：图形界面的形态、计算层的数据接口、依赖表怎么守。
+- `cairn/gui.md`：图形界面的形态、计算层的数据接口、依赖表怎么守、结果放哪、宿主与队列、页面的规矩。
 - `src/mmw60/vendor/spec_sources/data/*.yaml`：每一个规范 / 文献数字的出处与标签（共享库 spec_sources，按完整 SHA vendor）；`src/mmw60/data/spec/survey.yaml`：本库自己的假设与产出。
 
 ## CI
 
-lint、测试（jit / no-jit）、示例冒烟、vendor 漂移（wifitrx 与 spec_sources 两个 pin；spec_sources 是公开库，wifi_trx_cal 是 private，需要 `SIBLING_READ_TOKEN` secret，否则该作业按设计是红的）、数值指纹（base vs head，`(numbers-move)` 标记是逃生口）。
+lint、测试（jit / no-jit）、页面测试（真 Chromium 对真宿主；没有浏览器在这里算失败，不算跳过）、示例冒烟、vendor 漂移（wifitrx 与 spec_sources 两个 pin；spec_sources 是公开库，wifi_trx_cal 是 private，需要 `SIBLING_READ_TOKEN` secret，否则该作业按设计是红的）、数值指纹（base vs head，`(numbers-move)` 标记是逃生口）。
 
 MIT License。

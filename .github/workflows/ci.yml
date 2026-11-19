@@ -76,6 +76,29 @@ jobs:
       - name: Run every example (smoke size)
         run: python tools/run_examples.py --smoke --jobs 2
 
+  # The page in a real Chromium against the real host (tests/test_webui.py).
+  # Without Playwright those tests skip (the matrix above runs them that way);
+  # here the skip is a failure (MMW60_REQUIRE_BROWSER=1), so a green run that
+  # tested nothing cannot pass for one that did (array_tx's method).
+  test-gui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install with the page-test extra and a Chromium
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[gui-test,jit]"
+          python -m playwright install --with-deps chromium
+      - name: Page, host and store tests (real browser, real host)
+        env:
+          MMW60_REQUIRE_BROWSER: "1"
+        run: pytest -q tests/test_webui.py tests/test_webhost.py tests/test_guistore.py
+
   # Vendor drift: src/mmw60/vendor/wifitrx must still match the pinned
   # wifi_trx_cal commit.  wifi_trx_cal is a private repository: the checkout
   # needs a SIBLING_READ_TOKEN secret with read access to it (polar_tx's

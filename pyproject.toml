@@ -22,13 +22,21 @@ dev = ["ruff>=0.6"]
 # numba is a performance layer, not a correctness layer: MMW60_NO_JIT=1 must
 # give bit-identical results (Halo_Serdes iron rule 4, tests/test_phy.py)
 jit = ["numba>=0.59"]
+# the page in a real Chromium (tests/test_webui.py); the page itself needs no extra: it is static
+# files on the standard library's HTTP server
+gui-test = ["pytest>=7", "playwright"]
+
+[project.scripts]
+# the results browser: one local page (webui/www), jobs in the background (mmw60.webhost)
+mmw60-gui = "mmw60.webhost:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = true        # vendor/arraytx and vendor/wifitrx/report carry no __init__.py (PEP 420); the default, stated
 
 [tool.setuptools.package-data]
-mmw60 = ["data/spec/*.yaml", "data/clock_profiles/*.yaml", "data/gui/*.yaml", "vendor/spec_sources/data/*.yaml"]
+mmw60 = ["data/spec/*.yaml", "data/clock_profiles/*.yaml", "data/gui/*.yaml", "data/gui/baseline/*.json",
+         "webui/www/*", "vendor/spec_sources/data/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
