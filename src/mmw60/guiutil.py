@@ -487,21 +487,55 @@ FOOTING = {
 }
 #: which part a field of a be row belongs to (and the upstream part it additionally rests on)
 BE_FIELDS = {
-    "table.analytic": ["floor_db", "terms_db", "dominant", "max_mcs", "rate_mbps", "power", "verdict", "reason",
-                       "evm_budget", "eirp", "cfo_captured", "plan_ok"],
+    "table.analytic": ["floor_db", "terms_db", "terms_share", "dominant", "max_mcs", "rate_mbps", "power", "verdict",
+                       "reason", "usable", "evm_budget", "eirp", "cfo_captured", "plan_ok"],
     "table.analytic+calibration.be": ["floor_cal_db", "irr_cal_db", "irr_cal_measured_at_hz", "max_mcs_cal",
                                       "rate_cal_mbps", "power_cal", "dec_mcs_cal", "dec_rate_cal_mbps",
-                                      "dec_mcs_cal_range", "dec_cal_next_margin_db"],
+                                      "power_dec_cal", "dec_mcs_cal_range", "dec_cal_next_margin_db"],
     "table.analytic+thresholds.be": ["dec_mcs", "dec_mcs_range", "dec_next_margin_db", "dec_required_snr_db",
                                      "dec_penalty_db", "dec_rate_mbps", "power_dec", "dec_mcs_cal", "dec_rate_cal_mbps",
-                                     "dec_mcs_cal_range", "dec_cal_next_margin_db"],
+                                     "power_dec_cal", "dec_mcs_cal_range", "dec_cal_next_margin_db"],
     "table.td": ["td_evm_db", "td_delta_db", "td_ok", "dec_floor_db"],
 }
 #: decimals the accepted outputs print each field with (one rounding, from the full value)
 DISPLAY = {"floor_db": 1, "floor_cal_db": 1, "td_evm_db": 1, "td_delta_db": 1, "terms_db": 1, "rate_mbps": 0,
            "rate_cal_mbps": 0, "dec_rate_mbps": 0, "dec_rate_cal_mbps": 0, "pj_per_bit": 0, "irr_cal_db": 1,
            "dec_next_margin_db": 2, "dec_cal_next_margin_db": 2, "dec_required_snr_db": 2, "dec_penalty_db": 2,
-           "eirp_margin_db": 0, "ay_floor_db": 2, "cfo_subcarriers": 2}
+           "eirp_margin_db": 0, "ay_floor_db": 2, "cfo_subcarriers": 2, "terms_share_pct": 1, "pj_ratio": 2}
+
+
+def terms_share(terms_db: dict) -> dict:
+    """Each EVM term's share of the floor's power (the terms add in power: the floor is their sum).
+    A term that is absent (below ``compare.ABSENT_DB``) has no share.  Fractions summing to 1."""
+    lin = {k: 10.0 ** (v / 10.0) for k, v in terms_db.items() if v is not None and v >= compare.ABSENT_DB}
+    total = sum(lin.values())
+    return {k: (lin[k] / total if k in lin and total > 0 else None) for k in terms_db}
+
+
+def sensitivity_report(sch: list, fe: Frontend60, progress=None) -> dict:
+    """Which guesses decide the verdict: ``compare.sensitivity`` (example 04's section) as a page
+    reads it — per knob end, the rows whose MCS cap or decoder cap moved, whether the pJ/bit
+    ranking changed and how far any row's pJ/bit moved (a ratio to the base)."""
+    sens = compare.sensitivity(sch, fe, progress=progress)
+    knobs = []
+    for k in sens["knobs"]:
+        knobs.append({"knob": k["knob"], "value": k["value"], "value_text": compare.knob_value_text(k["value"]),
+                      "source_key": k["source"],
+                      "mcs_moved": [{"label": lab, "from": a, "to": b} for lab, (a, b) in k["mcs_moved"].items()],
+                      "dec_mcs_moved": [{"label": lab, "from": a, "to": b}
+                                        for lab, (a, b) in k["dec_mcs_moved"].items()],
+                      "ranking": k["ranking"], "ranking_changed": k["ranking_changed"],
+                      "pj_ratio_min": k["pj_ratio_min"], "pj_ratio_max": k["pj_ratio_max"]})
+    return {"base_ranking": sens["base"]["ranking"], "knobs": knobs,
+            # example 04 prints this caveat with the section: it is part of how the numbers read
+            "decoder_basis": {
+                "zh": "这里的解码器上限只从解析底板出发（每个旋钮端不再跑时域）："
+                      "同台表里上限取自时域底板的行，在这一节里起点高一档",
+                "en": "the decoder caps here start from the analytic floor alone (no time-domain run per knob end): "
+                      "a row whose cap in the table came from the time-domain floor starts one MCS higher in this "
+                      "section"},
+            "decides": sorted({k["knob"] for k in knobs if k["ranking_changed"] or k["mcs_moved"]
+                               or k["dec_mcs_moved"]})}
 
 
 def _cap_display(mcs, rng) -> str | None:
@@ -544,7 +578,8 @@ def front_end_report(fe: Frontend60, st: dict | None = None) -> dict:
 
 
 def table_report(st: dict | None = None, *, time_domain: bool = True, quick: bool = False,
-                 irr_table: dict | None = None, ay: bool = True, labels=None, progress=None) -> dict:
+                 irr_table: dict | None = None, ay: bool = True, labels=None, progress=None,
+                 sensitivity: bool = False) -> dict:
     """The comparison table of a study: ``compare.build`` on its schemes and its front end, each row
     as ``compare`` reports it plus its footing, its config hash and the cross-check merged in.
 
@@ -553,7 +588,9 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
     which belongs to the presets — ``freshness`` says when a study has moved away from it.
     ``time_domain=False`` computes the analytic columns only (and leaves the 802.11ay rows out, whose
     floors are time-domain readings); ``ay=False`` leaves them out of a full run; ``labels`` keeps
-    only those rows (one row recomputed, a test's subset)."""
+    only those rows (one row recomputed, a test's subset).  ``sensitivity=True`` adds which guesses
+    decide the verdict (``sensitivity_report``: the analytic side rerun at every knob end, about
+    20 s on the full matrix); a job always asks for it."""
     st = study(st)
     sch = schemes(st, quick=quick)
     if labels is not None:
@@ -573,6 +610,7 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
         c = checks[r["label"]]
         r = dict(r)
         r.update(footing="be_if_extender" if r["topology"] == "if_extender" else "be_zero_if",
+                 terms_share=terms_share(r["terms_db"]),
                  td_delta_db=c.get("td_delta_db"), td_ok=c.get("td_ok"), budget_delta_db=c.get("budget_delta_db"),
                  dec_cap_display=_cap_display(r["dec_mcs"], r["dec_mcs_range"]),
                  dec_cap_cal_display=_cap_display(r["dec_mcs_cal"], r["dec_mcs_cal_range"]),
@@ -595,6 +633,7 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
         "front_end": front_end_report(fe, st), "footing": FOOTING, "fields": BE_FIELDS, "display": DISPLAY,
         "rows": rows, "ay_rows": ay_rows, "pending": rep["pending"], "matrix": rep["matrix"],
         "be_best_at_calibrated_cap": best, "coefficients": rep["coefficients"],
+        "sensitivity": sensitivity_report(sch, fe) if sensitivity else None,
         "irr_table": {"from": "calibration result" if irr_table is not None else "derived.irr_after_cal_measured_db",
                       "db_by_bandwidth_hz": (table if table is not None
                                              else spec.value("derived.irr_after_cal_measured_db"))},
@@ -809,6 +848,105 @@ def sc_vs_ofdm_headline(array: dict, n: int | None = None, point: str = "preset"
                   "own_decoder_cap": cap, "from": "array report, 802.11ay rows"})
 
 
+def sc_vs_ofdm_items(table: dict | None, array: dict | None, ay: dict | None) -> list[dict]:
+    """SC against OFDM item by item — rate, range, pJ/bit on each footing the reports carry — computed
+    from the three reports, not quoted from a document (``cairn/ay.md`` opens with this table).
+
+    Each item: the two values with the MCS / array size they are read at, the unit, which direction
+    is better, ``sc_over_ofdm_pct`` (100 x (SC / OFDM - 1)) and ``winner`` by its sign (no "tie"
+    threshold is invented here: the percentage says how close it is).  ``part`` names the part the
+    numbers come from, so a page marks the item stale with it.  An item whose report is missing, or
+    whose numbers a report does not have, is left out."""
+    items: list[dict] = []
+    common = arrayreport.AY_COMMON_MCS
+    mcs_of = {(m["waveform"], m["mcs"]): m for m in ayreport.numbers()["mcs"]}
+    mod = mcs_of[("ay_sc", common["ay_sc"])]
+    mod_txt = f"{mod['modulation'].replace('π/2-', '')} {mod['code_rate']}"
+
+    def add(iid, metric, part, zh, en, sc, ofdm, unit, **ctx):
+        if sc is None or ofdm is None or sc.get("value") is None or ofdm.get("value") is None:
+            return
+        better = "lower" if metric == "pj_per_bit" else "higher"
+        pct = 100.0 * (sc["value"] / ofdm["value"] - 1.0)
+        ahead = pct > 0 if better == "higher" else pct < 0
+        items.append({"id": iid, "metric": metric, "better": better, "part": part, "zh": zh, "en": en, "unit": unit,
+                      "sc": sc, "ofdm": ofdm, "sc_over_ofdm_pct": pct,
+                      "winner": None if pct == 0 else ("ay_sc" if ahead else "ay_ofdm"), **ctx})
+
+    def val(v, **kw):
+        return {"value": v, **kw}
+    tab = {r["waveform"]: r for r in (table or {}).get("ay_rows", [])}
+    arr = {(r["waveform"], r["n"]): r for r in (array or {}).get("ay", []) if r["point"] == "preset"}
+    sizes = sorted({n for _, n in arr})
+    binds = ((array or {}).get("eirp_limit") or {}).get("binds_from_n")
+    n_top = sizes[-1] if sizes else None
+    below = [n for n in sizes if binds is None or n < binds]          # arrays still at the preset back-off
+    n_free = below[-1] if below else None
+
+    def a(wf, n, key, **kw):
+        r = arr.get((wf, n))
+        return None if r is None else val(r.get(key), n=n, mcs=r.get("cap_mcs") if kw.pop("cap", False) else None, **kw)
+    limited_zh, limited_en = "EIRP 上限卡住", "held at the EIRP limit"
+    preset_zh, preset_en = "预设回退", "preset back-off"
+    # ---- rate
+    if n_top is not None:
+        add("rate_dec_cap_top", "rate", "array", f"速率：解码器上限，N = {n_top}（{limited_zh}）",
+            f"rate: decoder cap, N = {n_top} ({limited_en})",
+            a("ay_sc", n_top, "rate_mbps", cap=True), a("ay_ofdm", n_top, "rate_mbps", cap=True), "Mb/s", n=n_top)
+    if n_free is not None and n_free != n_top:
+        add("rate_dec_cap_free", "rate", "array", f"速率：解码器上限，N ≤ {n_free}（{preset_zh}）",
+            f"rate: decoder cap, N ≤ {n_free} ({preset_en})",
+            a("ay_sc", n_free, "rate_mbps", cap=True), a("ay_ofdm", n_free, "rate_mbps", cap=True), "Mb/s", n=n_free)
+    if tab:
+        margin = tab["ay_sc"].get("cap_margin_db")
+        add("rate_conformance_at_limit", "rate", "table.ay", "速率：TX EVM 合规上限，不留余量",
+            "rate: TX EVM conformance cap, no margin",
+            val(tab["ay_sc"]["rate_cal_at_limit_mbps"], mcs=tab["ay_sc"]["cap_cal_at_limit"]),
+            val(tab["ay_ofdm"]["rate_cal_at_limit_mbps"], mcs=tab["ay_ofdm"]["cap_cal_at_limit"]), "Mb/s")
+        add("rate_conformance_margin", "rate", "table.ay", f"速率：TX EVM 合规上限，留 {margin:g} dB（同台表）",
+            f"rate: TX EVM conformance cap with a {margin:g} dB margin (the comparison table)",
+            val(tab["ay_sc"]["rate_cal_mbps"], mcs=tab["ay_sc"]["cap_cal"]),
+            val(tab["ay_ofdm"]["rate_cal_mbps"], mcs=tab["ay_ofdm"]["cap_cal"]), "Mb/s", margin_db=margin)
+    # ---- range
+    if n_top is not None:
+        for iid, key, zh, en in (
+                ("range_common_top", "range_common_m", mod_txt, mod_txt),
+                ("range_slowest_top", "range_mcs1_m", "最慢一档", "the slowest MCS"),
+                ("range_common_multipath_top", "range_common_multipath_m", f"{mod_txt}，多径一列",
+                 f"{mod_txt}, the multipath column")):
+            add(iid, "range", "array", f"距离：N = {n_top}，{zh}", f"range: N = {n_top}, {en}",
+                a("ay_sc", n_top, key), a("ay_ofdm", n_top, key), "m", n=n_top)
+    rvr = {(r["waveform"], r["mcs"]): r for r in (ay or {}).get("rate_vs_range", [])}
+    if rvr:
+        slow = {wf: min(m for w, m in rvr if w == wf) for wf in ("ay_sc", "ay_ofdm")}
+        for iid, pick, zh, en in (("range_common_single", common, mod_txt, mod_txt),
+                                  ("range_slowest_single", slow, "最慢一档", "the slowest MCS")):
+            sc, of = rvr.get(("ay_sc", pick["ay_sc"])), rvr.get(("ay_ofdm", pick["ay_ofdm"]))
+            add(iid, "range", "ay", f"距离：单天线，{zh}，各取最佳回退",
+                f"range: one antenna, {en}, each at its best back-off",
+                sc and val(sc["best_range_m"], mcs=sc["mcs"], backoff_db=sc["best_backoff_db"]),
+                of and val(of["best_range_m"], mcs=of["mcs"], backoff_db=of["best_backoff_db"]), "m", n=1)
+    # ---- pJ/bit
+    for n, tag_zh, tag_en in [(n_top, limited_zh, limited_en)] + [(n, preset_zh, preset_en) for n in below]:
+        if n is not None:
+            add(f"pj_dec_cap_n{n}", "pj_per_bit", "array", f"pJ/bit：解码器上限，N = {n}（{tag_zh}）",
+                f"pJ/bit: decoder cap, N = {n} ({tag_en})",
+                a("ay_sc", n, "pj_per_bit", cap=True), a("ay_ofdm", n, "pj_per_bit", cap=True), "pJ/bit", n=n)
+    if tab and tab["ay_sc"].get("power_cal") and tab["ay_ofdm"].get("power_cal"):
+        add("pj_conformance_margin", "pj_per_bit", "table.ay", "pJ/bit：同台表的合规上限",
+            "pJ/bit: the comparison table's conformance cap",
+            val(tab["ay_sc"]["power_cal"]["pj_per_bit"], mcs=tab["ay_sc"]["cap_cal"]),
+            val(tab["ay_ofdm"]["power_cal"]["pj_per_bit"], mcs=tab["ay_ofdm"]["cap_cal"]), "pJ/bit")
+    small = {r["waveform"]: r for r in (array or {}).get("ay_smallest", []) if r["point"] == "own"}
+    if len(small) == 2:
+        add("pj_smallest_array", "pj_per_bit", "array", f"pJ/bit：顶到 EIRP 上限的最小阵列，{mod_txt}，各自的工作点",
+            f"pJ/bit: the smallest array that reaches the EIRP limit, {mod_txt}, each at its own operating point",
+            val(small["ay_sc"]["pj_per_bit"], n=small["ay_sc"]["n"], backoff_db=small["ay_sc"]["operating_obo_db"]),
+            val(small["ay_ofdm"]["pj_per_bit"], n=small["ay_ofdm"]["n"],
+                backoff_db=small["ay_ofdm"]["operating_obo_db"]), "pJ/bit")
+    return _json(items)
+
+
 # ------------------------------------------------------------------ a row's detail and its reproducibility card
 def repro(label: str, cfg: Mmw60Config, st: dict | None = None, commands=()) -> dict:
     """What it takes to compute a row again: the config (hash, seed), the study, the code and the
@@ -1012,7 +1150,7 @@ def run_job(job: str, st: dict | None = None, *, quick: bool = False, progress=N
             built_on["calibration.be"] = calibration["study"]
         full = job == "table"
         n = len([s for s in schemes(st, quick=quick) if s.status == "built" and s.waveform not in AY_WAVEFORMS])
-        rep = table_report(st, time_domain=full, quick=quick, irr_table=irr,
+        rep = table_report(st, time_domain=full, quick=quick, irr_table=irr, sensitivity=not quick,
                            progress=lambda row: tick(n + (1 if full else 0), row.label))
         if full:
             tick(n + 1, "802.11ay")

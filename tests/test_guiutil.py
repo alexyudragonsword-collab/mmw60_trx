@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses as dc
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -597,3 +598,49 @@ def test_a_calibration_reading_carries_its_unit_and_the_table_its_absent_thresho
     rep = g.table_report(labels=[B32], time_domain=False)
     assert rep["absent_below_db"] == compare.ABSENT_DB == -150.0
     assert g.row_detail(rep, B32)["absent_below_db"] == compare.ABSENT_DB
+
+
+# ------------------------------------------------------------------ the data the page lacked (2026-11-20)
+def test_a_rows_terms_add_up_to_its_floor_so_their_shares_are_well_defined():
+    rep = g.table_report(labels=[B32, B8, A80, K1], time_domain=False)
+    for r in rep["rows"]:
+        present = {k: v for k, v in r["terms_db"].items() if v >= compare.ABSENT_DB}
+        total_db = 10 * math.log10(sum(10 ** (v / 10) for v in present.values()))
+        assert total_db == pytest.approx(r["floor_db"], abs=1e-9), r["label"]
+        share = r["terms_share"]
+        assert set(share) == set(r["terms_db"])
+        assert sum(v for v in share.values() if v is not None) == pytest.approx(1.0)
+        assert {k for k, v in share.items() if v is None} == set(r["terms_db"]) - set(present)
+        assert max(present, key=present.get) == r["dominant"] == max((k for k in present), key=lambda k: share[k])
+    assert "terms_share" in rep["fields"]["table.analytic"]
+
+
+def test_a_row_says_whether_its_chain_is_usable_and_carries_the_power_at_its_calibrated_decoder_cap():
+    stuck = "be_upclocked 11ac 20M K=1 @60.48 GHz"                 # 60 GHz CFO against a 312.5 kHz spacing
+    rep = g.table_report(labels=[B32, stuck], time_domain=False)
+    by = {r["label"]: r for r in rep["rows"]}
+    assert by[B32]["usable"] is True and by[B32]["verdict"] == "能"
+    assert by[stuck]["usable"] is False and by[stuck]["cfo_captured"] is False and by[stuck]["verdict"] == "不能"
+    r = by[B32]
+    assert r["dec_mcs_cal"] > r["dec_mcs"] and r["power_dec_cal"]["bit_rate_bps"] == r["dec_rate_cal_mbps"] * 1e6
+    assert r["power_dec_cal"]["pj_per_bit"] < r["power_dec"]["pj_per_bit"]          # a faster MCS on the same blocks
+    for group in ("table.analytic+calibration.be", "table.analytic+thresholds.be"):
+        assert "power_dec_cal" in rep["fields"][group]                             # stale with either upstream
+    assert "usable" in rep["fields"]["table.analytic"] and rep["sensitivity"] is None
+
+
+def test_sensitivity_report_says_which_guesses_move_a_cap_or_the_ranking():
+    sch = [s for s in g.schemes({}) if s.label in (B32, B8)]
+    sens = g.sensitivity_report(sch, g.frontend({}))
+    assert sens["base_ranking"] and set(sens["base_ranking"]) == {B32, B8}
+    names = [k["knob"] for k in sens["knobs"]]
+    assert names == [k["name"] for k in compare.sensitivity_knobs() for _ in k["values"]]
+    for k in sens["knobs"]:
+        assert spec.all_entries().get(k["source_key"].split(" ")[0]) is not None, k["source_key"]
+        assert k["value_text"] == compare.knob_value_text(k["value"])
+        for moved in k["mcs_moved"] + k["dec_mcs_moved"]:
+            assert moved["label"] in (B32, B8) and moved["from"] != moved["to"]
+    backoff = [k for k in sens["knobs"] if k["knob"] == "PA back-off"]
+    assert any(k["mcs_moved"] or k["dec_mcs_moved"] for k in backoff) and "PA back-off" in sens["decides"]
+    assert set(sens["decoder_basis"]) == {"zh", "en"}
+    json.dumps(sens, allow_nan=False)

@@ -232,6 +232,10 @@ class Row:
     plan_ok: bool | None            # None = sub-7 carrier, the 57–71 GHz plan does not apply
     verdict: str
     reason: str
+    #: the verdict as a flag: the uncalibrated chain carries data (the CFO is caught, the frequency
+    #: plan holds and the floor reaches an MCS).  A row that is not usable still carries the numbers
+    #: its analytic side gives; a page ranks it after the usable ones
+    usable: bool = True
     td_evm_db: float | None = None
     evm_budget: dict = field(default_factory=dict)
     eirp: dict | None = None
@@ -249,6 +253,7 @@ class Row:
     dec_rate_mbps: float | None = None
     dec_rate_cal_mbps: float | None = None
     power_dec: dict | None = None
+    power_dec_cal: dict | None = None       # the power blocks at the calibrated decoder cap (``dec_mcs_cal``)
     dec_floor_db: float | None = None       # analytic floor, or the time-domain EVM when that reads worse
     #: the decoder caps at the two ends of the threshold intervals and the margin to the
     #: next MCS line (``decoder_cap``'s ``mcs_range`` / ``next_margin_db``; ROADMAP C6)
@@ -357,7 +362,7 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
               rate_mbps=None if rate is None else rate / 1e6,
               rate_cal_mbps=None if rate_cal is None else rate_cal / 1e6,
               bits_per_s_per_hz=None if rate is None else rate / phy.bandwidth_eff,
-              plan_ok=plan_ok, verdict="能" if ok else "不能", reason=reason)
+              plan_ok=plan_ok, verdict="能" if ok else "不能", reason=reason, usable=bool(ok))
     row.evm_budget = evm_budget_reconciliation(cfg, fe, a, pa_evm_db, phy)
     if fe.pa_enabled and cfg.frontend.pa.enabled:
         row.pout_dbm = fe.target_pout_dbm()
@@ -383,8 +388,9 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
             row.dec_rate_mbps = r_dec / 1e6
             row.power_dec = power_report(cfg, fe, r_dec, coeffs, phy, mcs_index=d["mcs"]).as_dict()
         if d_cal["mcs"] is not None:
-            row.dec_rate_cal_mbps = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d_cal["mcs"],
-                                                  phy.t_symbol_eff) / 1e6
+            r_dec_cal = data_rate_bps(cfg.phy.standard, cfg.phy.bandwidth_hz, d_cal["mcs"], phy.t_symbol_eff)
+            row.dec_rate_cal_mbps = r_dec_cal / 1e6
+            row.power_dec_cal = power_report(cfg, fe, r_dec_cal, coeffs, phy, mcs_index=d_cal["mcs"]).as_dict()
     return row
 
 
