@@ -141,14 +141,17 @@ const fresh = () => (S.state ? S.state.freshness : { parts: {}, fields: {} });
 const pstate = id => (fresh().parts[id] ? fresh().parts[id].state : "fresh");
 /* the stored result that carries a part for the study on screen (or null: judged against the accepted presets) */
 function metaOfPart(id) { const sh = S.state ? S.state.shown : {}; for (const r in sh) if (sh[r] && sh[r].parts.includes(id)) return sh[r]; return null; }
-/* the state of one field of a comparison-table row: stale when any group of fields it belongs to is */
-function fieldState(rep, field, ay) {
-  const f = fresh().fields; if (ay) return f["table.ay"] || "fresh";
-  const groups = Object.keys(rep.fields).filter(g => rep.fields[g].includes(field));
-  return (groups.length ? groups : ["table.analytic"]).some(g => f[g] === "stale") ? "stale" : "fresh";
+/* the group of fields a comparison-table field belongs to (a stale one first, when it is in two)
+ * and its state: stale when any group it belongs to is */
+function fieldGroup(rep, field, ay) {
+  if (ay) return "table.ay";
+  const f = fresh().fields, own = Object.keys(rep.fields || {}).filter(g => rep.fields[g].includes(field)), gs = own.length ? own : ["table.analytic"];
+  return gs.find(g => f[g] === "stale") || gs[0];
 }
+const fieldState = (rep, field, ay) => fresh().fields[fieldGroup(rep, field, ay)] || "fresh";
 /* a stale mark around a number: the number stays, hatched */
 const sv = (state, html, part) => (state === "stale" ? `<span class="sv" data-state="stale" data-part="${esc(part || "")}" title="${T("过期：它来自的结果读了改过的旋钮", "stale: the result it comes from reads an edited knob")}">${html}</span>` : html);
+const svField = (rep, field, ay, html) => sv(fieldState(rep, field, ay), html, fieldGroup(rep, field, ay));
 function expected(job) {
   const j = S.parts && S.parts.jobs[job]; if (!j) return "";
   return j.seconds && j.seconds.length ? j.seconds.map(dur).join(" / ") : T("没有记录", "not recorded");
@@ -172,10 +175,12 @@ function provLine(meta) {
  * draws, `reports` the stored reports it needs (a missing one says so and offers its job). */
 function freshBanner(parts, reports, opts = {}) {
   const fp = fresh().parts, shown = S.state ? S.state.shown : {};
-  const stale = parts.filter(p => pstate(p) === "stale"), valid = parts.filter(p => pstate(p) !== "stale");
-  const missing = reports.filter(r => !shown[r]);
+  const missing = reports.filter(r => !shown[r]), repOf = p => { const pi = partInfo(p), j = pi && pi.job && S.parts.jobs[pi.job]; return j ? j.report : null; };
+  /* a part whose report is not stored has nothing on screen to call valid, whatever its state reads */
+  const stale = parts.filter(p => pstate(p) === "stale"), valid = parts.filter(p => pstate(p) !== "stale" && (!repOf(p) || shown[repOf(p)]));
   const why = [...new Set(stale.flatMap(p => (fp[p].changed || []).map(id => changeText(id, p))))];
   const ups = [...new Set(stale.flatMap(p => fp[p].upstream || []))];
+  const upS = ups.filter(u => pstate(u) === "stale"), upO = ups.filter(u => pstate(u) !== "stale");
   const jobs = [...new Set([...stale.map(p => fp[p].recompute).filter(Boolean), ...missing.flatMap(r => (S.parts ? Object.keys(S.parts.jobs).filter(j => S.parts.jobs[j].report === r && j !== "table_analytic") : []))])];
   const stored = [...new Set([...stale, ...ups])].filter(p => fp[p] && fp[p].stored && fp[p].state === "stale");
   const chip = p => `<span class="pchip" data-part="${esc(p)}" data-state="${pstate(p)}">${pstate(p) === "stale" ? "◷" : "●"} ${esc(pn(p))}</span>`;
@@ -184,7 +189,7 @@ function freshBanner(parts, reports, opts = {}) {
   const any = stale.length || missing.length;
   return `<div class="fresh ${any ? "stale" : ""}" role="status" data-state="${any ? "stale" : "fresh"}">
     <span class="st">${any ? (missing.length && !stale.length ? "○ " + T("没有存着的结果", "No stored result") : "◷ " + T("过期", "Stale")) : `<span class="dot"></span>${T("与当前表单一致", "Matches the current form")}`}</span>
-    <span class="grow">${why.length ? T("表单改了：", "Changed on the form: ") + "<b>" + why.join(P_.s) + "</b> " + tagEdited() + " " : ""}${ups.length ? `${T("上游结果过期：", "upstream results are stale: ")}${ups.map(u => esc(pn(u))).join(P_.d)}${P_.p}` : ""}
+    <span class="grow">${why.length ? T("表单改了：", "Changed on the form: ") + "<b>" + why.join(P_.s) + "</b> " + tagEdited() + " " : ""}${upS.length ? `${T("上游结果过期：", "upstream results are stale: ")}${upS.map(u => esc(pn(u))).join(P_.d)}${P_.p}` : ""}${upO.length ? `${T("不是建在现在这份上游结果上：", "not built on the upstream result now stored: ")}${upO.map(u => esc(pn(u))).join(P_.d)}${T("（在它上面重算才对得上）。", " (a recompute on it brings them in step). ")}` : ""}
       ${missing.length ? `${T("这份表单没有存着的", "nothing is stored for this form: ")}${missing.map(r => T(...REPNAME[r])).join(P_.d)}${T("；在运行台排一个任务。", "; queue a job.")}` : ""}
       ${stale.length ? `<span class="hide-s">${T("下面仍是旧表单上算的数字，没有清空。", "The numbers below are still the ones computed for the old form; nothing is blanked.")}</span>` : ""}${opts.note || ""}</span>
     ${any && !opts.noJobs ? jobs.map(runBtn).join("") : ""}
