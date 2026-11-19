@@ -108,6 +108,11 @@ def test_stale_reasons_name_what_moved_under_a_stored_result():
     assert "pin" in guistore.stale_reasons(moved)[0]
     assert guistore.stale_reasons(dict(ok, schema=0)) and guistore.stale_reasons(result("table", OBO))
     assert guistore.stale_reasons(result("table", {}, quick=True)) == ["a smoke-size run"]
+    # one of the user's results is allowed its study; a spec table that moved under it is still named
+    assert guistore.stale_reasons(result("table", OBO), baseline=False) == []
+    store = guistore.Store(None, {})
+    store.add(dict(result("table", OBO), provenance=dict(ok["provenance"], spec_digest="0")))
+    assert "spec tables" in store.listing(OBO)[0]["out_of_step"][0]
 
 
 # ------------------------------------------------------------------ the shipped baseline

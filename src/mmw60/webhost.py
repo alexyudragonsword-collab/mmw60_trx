@@ -275,7 +275,9 @@ def _meta(entry: dict) -> dict:
     res = entry["result"]
     return {"id": entry["id"], "origin": entry["origin"], "at": entry["at"], "job": res["job"], "study": res["study"],
             "parts": res["parts"], "built_on": res.get("built_on") or {}, "seconds": res.get("seconds"),
-            "provenance": res["provenance"]}
+            "provenance": res["provenance"],
+            # computed on other spec tables / pins than this tree's: the study still matches, the code does not
+            "out_of_step": guistore.stale_reasons(res, baseline=entry["origin"] == "baseline")}
 
 
 # ------------------------------------------------------------------- api

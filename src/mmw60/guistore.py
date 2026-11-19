@@ -73,10 +73,10 @@ def load_baseline(directory: Path | None = None) -> dict[str, dict]:
     return out
 
 
-def stale_reasons(result: dict) -> list[str]:
+def stale_reasons(result: dict, baseline: bool = True) -> list[str]:
     """Why a stored result is not what this code would compute, as far as that can be told without
-    computing it: another schema, another spec table, another vendored pin, a smoke-size run, a
-    study that is not the presets.  Empty for a baseline that is in step with the tree."""
+    computing it: another schema, another spec table, another vendored pin, a smoke-size run and —
+    for the baseline — a study that is not the presets.  Empty for a result in step with the tree."""
     now = guiutil.provenance()
     was = result.get("provenance", {})
     why = []
@@ -89,7 +89,7 @@ def stale_reasons(result: dict) -> list[str]:
         why.append("a vendored library's pin changed since it was computed")
     if result.get("quick"):
         why.append("a smoke-size run")
-    if result.get("study"):
+    if baseline and result.get("study"):
         why.append(f"not the presets: {result['study']}")
     return why
 
@@ -191,5 +191,5 @@ class Store:
                          "built_on": res.get("built_on") or {}, "seconds": res.get("seconds"),
                          "quick": bool(res.get("quick")), "shown": entry["id"] in shown,
                          "version": res["provenance"].get("version"), "commit": res["provenance"].get("commit"),
-                         "out_of_step": stale_reasons(res) if entry["origin"] == "baseline" else []})
+                         "out_of_step": stale_reasons(res, baseline=entry["origin"] == "baseline")})
         return rows
