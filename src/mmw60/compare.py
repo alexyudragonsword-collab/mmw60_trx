@@ -165,6 +165,19 @@ def evaluate_ay(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None = No
     c_raw, c_cal, c_lim = cap(raw), cap(cald), cap(cald, 0.0)
     sim = LinkSim(cfg, frontend=fe)
     phy = sim.phy
+    dec_margin = float(spec.value("assumed.decoder_cap_margin_db"))
+
+    def dec_cap(fl):
+        """The decoder's cap, the be rows' rule (``decoder_cap``) and the array layer's
+        (``arraylink.ay_array_budget``): the fastest MCS whose floor sits the margin under the noise
+        its measured threshold tolerates.  No conformance condition."""
+        ok = []
+        for e in table:
+            t, _ = edmg.threshold_db(wf, e.mcs, phy.occupied_bw_hz)
+            if t is not None and -fl[e.tone_order] >= t + dec_margin:
+                ok.append(e)
+        return max(ok, key=lambda e: (e.rate_bps(cfg.ay.gi), e.mcs)) if ok else None
+    d_raw, d_cal = dec_cap(raw), dec_cap(cald)
     unit_s = (phy.num.symbol_samples / phy.num.fs_hz if wf == "ay_ofdm" else phy.num.block / phy.num.fs_hz)
     stf_range = phy.native_fs / (2 * sim.stf_period)
     out = {"label": s.label, "topology": s.topology, "waveform": wf, "channel": phy.channel, "gi": cfg.ay.gi,
@@ -179,10 +192,16 @@ def evaluate_ay(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None = No
            "rate_cal_at_limit_mbps": None if c_lim is None else c_lim.rate_bps(cfg.ay.gi) / 1e6,
            "cal_irr_db": min(r.value for r in run.rows if r.step in ("tx_iq", "rx_iq") and r.value is not None),
            "cal_lo_leak_dbc": next((r.value for r in run.rows if r.step == "tx_lo_leak_loopback"), None),
-           "pout_dbm": sim.pout_dbm, "eirp": None, "power_raw": None, "power_cal": None, "frontend_id": id(sim.frontend)}
+           "pout_dbm": sim.pout_dbm, "eirp": None, "power_raw": None, "power_cal": None, "frontend_id": id(sim.frontend),
+           # the decoder's cap (uncalibrated chain, calibrated chain), its rate, and the power blocks there
+           "dec_margin_db": dec_margin,
+           "dec_mcs": None if d_raw is None else d_raw.mcs, "dec_mcs_cal": None if d_cal is None else d_cal.mcs,
+           "dec_rate_mbps": None if d_raw is None else d_raw.rate_bps(cfg.ay.gi) / 1e6,
+           "dec_rate_cal_mbps": None if d_cal is None else d_cal.rate_bps(cfg.ay.gi) / 1e6,
+           "power_dec": None, "power_dec_cal": None}
     if fe.eirp is not None and fe.pa_enabled:
         out["eirp"] = fe.eirp.check(fe.target_pout_dbm(), fe.antenna_gain_dbi)
-    for key, c in (("power_raw", c_raw), ("power_cal", c_cal)):
+    for key, c in (("power_raw", c_raw), ("power_cal", c_cal), ("power_dec", d_raw), ("power_dec_cal", d_cal)):
         if c is not None:
             out[key] = power_report(cfg, fe, c.rate_bps(cfg.ay.gi), coeffs, phy).as_dict()
     return out
@@ -578,6 +597,59 @@ def to_markdown(rep: dict) -> str:
     if rep.get("sensitivity"):
         lines += sensitivity_markdown(rep["sensitivity"]).splitlines()
     return "\n".join(lines) + "\n"
+
+
+# ------------------------------------------------------------------ the LO models side by side
+def lo_models() -> list[dict]:
+    """The LO phase-noise models example 04 puts side by side: the presets' pole-zero shape, the
+    WiFi 7 synthesizer's, and pllsim's wu19 profile through its x10 block at the assumed multiplier
+    floor and at the floors of its sensitivity files.  Each with the spec keys behind it."""
+    from .config import PhaseNoiseConfig
+    from .impairments.phase_noise import load_clock_profile
+    x10 = spec.value("survey.clock_profile_wu19_x10")
+    assumed_floor = spec.value("assumed.lo_multiplier_floor_dbchz")
+    out = [{"name": "pole_zero (11ad EM shape, Liu numbers)", "pn": PhaseNoiseConfig(), "kind": "pole_zero",
+            "floor_dbchz": None, "sources": ("liu2025.pn_psd0_dbchz", "liu2025.pn_f_pole_hz", "liu2025.pn_f_zero_hz")},
+           {"name": "wifitrx_wifi7 (the WiFi 7 synthesizer)", "pn": PhaseNoiseConfig(model="wifitrx_wifi7"),
+            "kind": "wifitrx_wifi7", "floor_dbchz": None, "sources": ()}]
+    for path in (x10["file"], *x10["sensitivity_files"]):
+        floor = load_clock_profile(path)["floor_dbchz"]
+        tag = " (assumed)" if floor == assumed_floor else ""
+        out.append({"name": f"pllsim wu19 x{x10['multiply_by']}, floor {floor:.0f} dBc/Hz{tag}",
+                    "pn": PhaseNoiseConfig(model="profile", profile_path=path), "kind": "pllsim_profile",
+                    "floor_dbchz": floor,
+                    "sources": ("survey.clock_profile_wu19_x10", "assumed.lo_multiplier_floor_dbchz")})
+    return out
+
+
+def lo_comparison(pa_evm_db: float | None, ks=(1, 8, 32), time_domain: bool = True, base=None, models=None,
+                  progress=None) -> list[dict]:
+    """One row per (LO model, K): the model on its own ``Frontend60`` (the LO is the one block the
+    schemes do not share here), its integrated phase noise, the phase-noise ICI term, the analytic
+    floor, the conformance cap and — ``time_domain`` — the time-domain EVM on a flat channel.
+    ``base(k)`` is the config the LO is swapped into (default: the zero-IF preset at that K)."""
+    from .config import LoConfig
+    from .sim.link import evm_at
+    base = zero_if_60ghz if base is None else base
+    rows = []
+    for m in (lo_models() if models is None else models):
+        for k in ks:
+            cfg = base(k=k)
+            cfg = dc.replace(cfg, lo=LoConfig(phase_noise=m["pn"]))
+            fe_k = Frontend60.from_config(cfg)
+            fl = analytic_floors(cfg, fe_k, pa_evm_db)
+            td = None
+            if time_domain:
+                flat = dc.replace(cfg, channel=dc.replace(cfg.channel, model="flat"))
+                td = float(evm_at(flat, None, n_packets=1, frontend=fe_k)["evm_db"])
+            rows.append({"model": m["name"], "kind": m["kind"], "floor_dbchz": m["floor_dbchz"],
+                         "sources": list(m["sources"]), "k": k, "bw_eff_hz": cfg.phy.bandwidth_hz * k,
+                         "ipn_dbc": float(fe_k.lo.ipn_dbc()), "pn_ici_db": float(fl["terms_db"]["phase_noise"]),
+                         "floor_db": float(fl["floor_db"]), "td_evm_db": td,
+                         "max_mcs": max_mcs_for_floor(fl["floor_db"], cfg.phy.standard)})
+            if progress:
+                progress(rows[-1])
+    return rows
 
 
 # ------------------------------------------------------------------ sensitivity

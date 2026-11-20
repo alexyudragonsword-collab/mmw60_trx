@@ -25,7 +25,6 @@ every coefficient and assumption the columns lean on.
 from __future__ import annotations
 
 import argparse
-import dataclasses as dc
 import os
 import sys
 import time
@@ -35,26 +34,12 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
 from mmw60 import ENGINE_BANNER, __version__, compare, spec                        # noqa: E402
-from mmw60.config import LoConfig, PhaseNoiseConfig, zero_if_60ghz                 # noqa: E402
+from mmw60.config import zero_if_60ghz                 # noqa: E402
 from mmw60.frontend import Frontend60                                              # noqa: E402
-from mmw60.frontend.grid import analytic_floors, format_cap, max_mcs_for_floor, pa_isolated_evm_db  # noqa: E402
-from mmw60.impairments.phase_noise import load_clock_profile                        # noqa: E402
-from mmw60.sim.link import evm_at                                                   # noqa: E402
+from mmw60.frontend.grid import format_cap, pa_isolated_evm_db  # noqa: E402
 
 OUT = HERE / "output"
 _X10 = spec.value("survey.clock_profile_wu19_x10")
-
-
-def _x10_row(path: str) -> tuple[str, PhaseNoiseConfig]:
-    floor = load_clock_profile(path)["floor_dbchz"]
-    tag = " (assumed)" if floor == spec.value("assumed.lo_multiplier_floor_dbchz") else ""
-    return (f"pllsim wu19 x{_X10['multiply_by']}, floor {floor:.0f} dBc/Hz{tag}",
-            PhaseNoiseConfig(model="profile", profile_path=path))
-
-
-LO_MODELS = (("pole_zero (11ad EM shape, Liu numbers)", PhaseNoiseConfig()),
-             ("wifitrx_wifi7 (the WiFi 7 synthesizer)", PhaseNoiseConfig(model="wifitrx_wifi7")),
-             _x10_row(_X10["file"]), *(_x10_row(f) for f in _X10["sensitivity_files"]))
 
 
 def _row_line(r: dict) -> str:
@@ -206,15 +191,12 @@ def main(argv=None) -> int:
     print(f"(pllsim rows: the wu19 preset retuned to {_X10['f_in_hz'] / 1e9:g} GHz through pllsim's x{_X10['multiply_by']} block, "
           "survey.clock_profile_wu19_x10; the floor is the multiplier's, assumed.lo_multiplier_floor_dbchz)")
     pa_evm = pa_isolated_evm_db(fe.pa_model, fe.obo_db, fe.obo_reference)
-    for name, pn in LO_MODELS:
-        for k in ((8,) if quick else (1, 8, 32)):
-            cfg = zero_if_60ghz(k=k)
-            cfg = dc.replace(cfg, lo=LoConfig(phase_noise=pn))
-            fe_k = Frontend60.from_config(cfg)
-            fl = analytic_floors(cfg, fe_k, pa_evm)
-            td = "   —  " if quick else f"{evm_at(dc.replace(cfg, channel=dc.replace(cfg.channel, model='flat')), None, n_packets=1, frontend=fe_k)['evm_db']:6.1f}"
-            print(f"{name:<52} {k:>3} {fe_k.lo.ipn_dbc():9.1f} {fl['terms_db']['phase_noise']:7.1f} {fl['floor_db']:6.1f} {td}  "
-                  f"MCS{max_mcs_for_floor(fl['floor_db'], '11ac')}")
+    # the rows are compare.lo_comparison's (the interface reads the same ones); the presets it swaps the LO
+    # into are zero_if_60ghz(k=...), named here (iron rule 1)
+    for r in compare.lo_comparison(pa_evm, ks=(8,) if quick else (1, 8, 32), time_domain=not quick, base=zero_if_60ghz):
+        td = "   —  " if r["td_evm_db"] is None else f"{r['td_evm_db']:6.1f}"
+        print(f"{r['model']:<52} {r['k']:>3} {r['ipn_dbc']:9.1f} {r['pn_ici_db']:7.1f} {r['floor_db']:6.1f} {td}  "
+              f"MCS{r['max_mcs']}")
     if not quick:
         print("\n== 6. sensitivity: which guesses decide the verdict (analytic side at every coefficient's range ends) ==")
         rep["sensitivity"] = compare.sensitivity(schemes, fe)
