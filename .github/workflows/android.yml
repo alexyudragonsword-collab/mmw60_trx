@@ -39,14 +39,10 @@ jobs:
           java-version: "17"
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"       # must match chaquopy.version in android/app/build.gradle.kts
-      - name: Install build tools
-        run: pip install build
+          python-version: "3.10"       # must match chaquopy.version in android/app/build.gradle.kts (it compiles the .pyc)
       - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: "8.2"
-      - name: Build the mmw60 sdist the app embeds
-        run: python -m build --sdist --outdir android/app/pysrc .
       - name: Build the APK
         run: gradle -p android :app:assembleDebug
       - name: What went into the APK

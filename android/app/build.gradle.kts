@@ -49,28 +49,26 @@ chaquopy {
         // from the APK and those paths would not exist.
         extractPackages("mmw60")
         pip {
-            // --no-deps: the versions below are older than the floors
-            // pyproject.toml declares (and matplotlib, which the bridge path
-            // never imports, is left out altogether).  What makes that honest
-            // is android/phone-stack.txt: CI runs the bridge path and the
-            // self-check on exactly these versions.
-            options("--no-deps")
+            // Exact versions from android/phone-stack.txt, resolved WITH their
+            // dependencies: Chaquopy's numpy and scipy wheels depend on native
+            // runtime packages (OpenBLAS, libgfortran) that live in the same
+            // repository.  The first build of this app installed with --no-deps
+            // and built fine; the emulator then failed on
+            // `dlopen failed: library "libopenblas.so" not found`.
             file("../phone-stack.txt").readLines().map { it.trim() }
                 .filter { it.isNotEmpty() && !it.startsWith("#") }
                 .forEach { install(it) }
             install("pyyaml")
-            // mmw60 itself as an sdist (interpreted build).  An sdist, not
-            // install("../.."): a directory install makes the whole repository
-            // an input of the pip task and this Gradle project lives inside
-            // that repository, which Gradle 8's validation rejects.
-            // From the repo root: python -m build --sdist --outdir android/app/pysrc .
-            val pysrc = file("pysrc")
-            val sdists = pysrc.listFiles { f -> f.name.matches(Regex("mmw60-.*\\.tar\\.gz")) }?.toList() ?: emptyList()
-            require(sdists.size == 1) {
-                "expected exactly one mmw60 sdist in android/app/pysrc/ (found ${sdists.size}); " +
-                    "from the repo root run: python -m build --sdist --outdir android/app/pysrc ."
-            }
-            install(sdists[0].absolutePath)
+        }
+    }
+    sourceSets {
+        getByName("main") {
+            // mmw60 itself comes in as source, not through pip: its declared
+            // floors (numpy >= 1.26, scipy >= 1.11, matplotlib) are the
+            // desktop's and would fight the versions above in pip's resolve.
+            // What keeps running below those floors honest is CI's
+            // test-phone-stack job, on exactly android/phone-stack.txt.
+            srcDir("../../src")
         }
     }
 }

@@ -1,6 +1,4 @@
 .gradle/
 build/
 app/build/
-app/pysrc/*.tar.gz
-app/pysrc/*.whl
 local.properties

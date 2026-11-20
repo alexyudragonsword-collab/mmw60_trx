@@ -30,15 +30,33 @@ def main(argv: list[str]) -> int | str:
         problems.append(f"page files missing from the APK: {missing}")
 
     payload: set[str] = set()
+    requires: dict[str, list[str]] = {}
     for name in names:
         if name.startswith("assets/chaquopy/"):
             blob = apk.read(name)
             if zipfile.is_zipfile(io.BytesIO(blob)):
-                inner = zipfile.ZipFile(io.BytesIO(blob)).namelist()
-                payload.update(inner)
-                print(f"  {name}: {len(blob) / 1e6:.1f} MB, {len(inner)} files")
+                inner = zipfile.ZipFile(io.BytesIO(blob))
+                payload.update(inner.namelist())
+                print(f"  {name}: {len(blob) / 1e6:.1f} MB, {len(inner.namelist())} files")
+                for n in inner.namelist():
+                    if (m := re.fullmatch(r"([^/]+)\.dist-info/METADATA", n)):
+                        text = inner.read(n).decode("utf-8", "replace")
+                        requires[m.group(1)] = [r.strip() for r in re.findall(r"^Requires-Dist:(.*)$", text, flags=re.M)
+                                                if "extra ==" not in r]
     dists = sorted({m.group(1) for n in payload if (m := re.match(r"([^/]+)\.dist-info/", n))})
     print("python distributions:", ", ".join(dists) or "(none found)")
+
+    # a wheel's own requirements must be in the payload too: installing without them builds a
+    # fine-looking APK whose numpy cannot load its BLAS (the first build of this app did exactly that)
+    def norm(dist: str) -> str:
+        return re.split(r"[\s(<>=!~;\[]", dist.strip(), maxsplit=1)[0].lower().replace("_", "-")
+
+    have = {norm(re.sub(r"-\d[^-]*$", "", d)) for d in dists}
+    for dist, reqs in sorted(requires.items()):
+        print(f"  {dist} requires: {', '.join(reqs) or '-'}")
+        for r in reqs:
+            if norm(r) not in have:
+                problems.append(f"{dist} requires {r.strip()}, which is not in the APK")
     for line in Path(argv[3]).read_text().splitlines():
         line = line.strip()
         if line and not line.startswith("#"):
@@ -49,6 +67,8 @@ def main(argv: list[str]) -> int | str:
                    "mmw60/data/spec/", "mmw60/vendor/spec_sources/data/", "numpy/", "scipy/", "yaml/"):
         if not any(n.startswith(prefix) for n in payload):
             problems.append(f"nothing under {prefix} in the Python payload")
+    if not any(n.endswith("libopenblas.so") for n in payload):
+        problems.append("no libopenblas.so in the Python payload: numpy cannot be imported on the device")
     for unwanted in ("matplotlib/", "numba/"):
         if any(n.startswith(unwanted) for n in payload):
             problems.append(f"{unwanted} is in the payload; the app is meant to ship without it")

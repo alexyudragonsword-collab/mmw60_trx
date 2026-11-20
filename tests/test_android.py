@@ -69,13 +69,18 @@ def test_page_speaks_the_bridge_the_activity_injects():
     assert "window.onHostReply = " in js and "window.host.call(id, route, JSON.stringify(" in js
 
 
-def test_gradle_bundles_the_page_and_installs_the_named_stack_without_dependencies():
+def test_gradle_bundles_the_page_takes_the_library_as_source_and_installs_the_named_stack():
     gradle = _code(_text("android/app/build.gradle.kts"))
     assets = re.search(r'assets\.setSrcDirs\(listOf\("([^"]+)"\)\)', gradle).group(1)
     assert (ANDROID / "app" / assets).resolve() == WWW.parent.resolve()
+    src = re.search(r'srcDir\("([^"]+)"\)', gradle).group(1)
+    assert (ANDROID / "app" / src).resolve() == Path(mmw60.__file__).resolve().parents[1]     # the library, as source
     assert 'extractPackages("mmw60")' in gradle           # the spec tables and the baseline are read by path
-    assert 'options("--no-deps")' in gradle and 'file("../phone-stack.txt")' in gradle
-    assert 'install("pyyaml")' in gradle and "matplotlib" not in gradle and "numba" not in gradle
+    # the stack file is installed with its dependencies (Chaquopy's numpy needs its OpenBLAS package:
+    # --no-deps built a fine-looking APK that could not import numpy), and nothing else comes from pip
+    assert 'file("../phone-stack.txt")' in gradle and "--no-deps" not in gradle
+    assert re.findall(r'install\(("[^"]*"|\w+)\)', gradle) == ["it", '"pyyaml"']
+    assert "matplotlib" not in gradle and "numba" not in gradle
     assert f'versionName = "{mmw60.__version__}"' in gradle
     stack = [ln for ln in _code(_text("android/phone-stack.txt"), "#").split() if ln]
     assert [re.fullmatch(r"(numpy|scipy)==\d+\.\d+\.\d+", ln) is not None for ln in stack] == [True, True]
