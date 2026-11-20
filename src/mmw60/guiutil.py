@@ -166,7 +166,7 @@ PARTS = {p.id: p for p in (
          ("calibration.be", "thresholds.be"), "table"),
     Part("table.td", "同台表 · 时域核对列", "comparison table, time-domain cross-check column", _S, (), "table"),
     Part("table.ay", "同台表 · 802.11ay 两行", "comparison table, the two 802.11ay rows",
-         _S - {"phy.packet_bytes", "rx.ce_smooth_auto", "rx.ce_smooth_tones"}, (), "table"),
+         _S - {"phy.packet_bytes", "rx.ce_smooth_auto", "rx.ce_smooth_tones"}, ("thresholds.ay",), "table"),
     # the array link is line of sight on a flat channel whatever the form's channel says (``array_inputs``)
     Part("array", "阵列页（阵面、EIRP 上限、距离、功耗、波束训练）",
          "array page (faces, EIRP limit, range, power, beam training)",
@@ -186,9 +186,9 @@ JOBS = {
                        "seconds_note": "42 s with three other jobs side by side on a 4-core container; "
                                        "12 steps per column, six columns"},
     "table": {"parts": ("table.analytic", "table.td", "table.ay"), "command": "python tools/gui_report.py table",
-              "example": "python examples/04_comparison_table.py", "report": "table", "seconds": [47, 126],
-              "seconds_note": "47 s alone on a 4-core container, the sensitivity section included; 106 s with "
-                              "three other jobs side by side before that section existed (about 20 s more with it)"},
+              "example": "python examples/04_comparison_table.py", "report": "table", "seconds": [55, 126],
+              "seconds_note": "55 s alone on a 4-core container, with the sensitivity and LO-model sections; "
+                              "106 s with three other jobs side by side before those sections existed"},
     "array": {"parts": ("array",), "command": "python tools/gui_report.py array",
               "example": "python examples/10_array_link_and_training.py", "report": "array",
               "seconds": [560, 893, 1650],
@@ -398,7 +398,7 @@ def field_states(fresh: dict) -> dict:
     """The state of each group of table fields (``BE_FIELDS``): a plain part's fields are stale only
     when the knobs that part reads moved; a ``part+upstream`` group also when that upstream is."""
     out = {}
-    for group in list(BE_FIELDS) + ["table.ay"]:
+    for group in dict.fromkeys(list(BE_FIELDS) + ["table.ay"]):
         own, _, up = group.partition("+")
         stale = bool(fresh[own]["changed"]) or (bool(up) and up in fresh[own]["upstream"])
         out[group] = "missing" if fresh[own]["state"] == "missing" else "stale" if stale else "fresh"
@@ -497,12 +497,16 @@ BE_FIELDS = {
                                      "dec_penalty_db", "dec_rate_mbps", "power_dec", "dec_mcs_cal", "dec_rate_cal_mbps",
                                      "power_dec_cal", "dec_mcs_cal_range", "dec_cal_next_margin_db"],
     "table.td": ["td_evm_db", "td_delta_db", "td_ok", "dec_floor_db"],
+    # the 802.11ay rows: every field is ``table.ay``'s; these also lean on the stored ay thresholds
+    "table.ay+thresholds.ay": ["dec_mcs", "dec_mcs_cal", "dec_rate_mbps", "dec_rate_cal_mbps", "power_dec",
+                               "power_dec_cal", "dec_margin_db"],
 }
 #: decimals the accepted outputs print each field with (one rounding, from the full value)
 DISPLAY = {"floor_db": 1, "floor_cal_db": 1, "td_evm_db": 1, "td_delta_db": 1, "terms_db": 1, "rate_mbps": 0,
            "rate_cal_mbps": 0, "dec_rate_mbps": 0, "dec_rate_cal_mbps": 0, "pj_per_bit": 0, "irr_cal_db": 1,
            "dec_next_margin_db": 2, "dec_cal_next_margin_db": 2, "dec_required_snr_db": 2, "dec_penalty_db": 2,
-           "eirp_margin_db": 0, "ay_floor_db": 2, "cfo_subcarriers": 2, "terms_share_pct": 1, "pj_ratio": 2}
+           "eirp_margin_db": 0, "ay_floor_db": 2, "cfo_subcarriers": 2, "terms_share_pct": 1, "pj_ratio": 2,
+           "ipn_dbc": 1, "pn_ici_db": 1}
 
 
 def terms_share(terms_db: dict) -> dict:
@@ -543,6 +547,29 @@ def sensitivity_report(sch: list, fe: Frontend60, progress=None) -> dict:
                       "section"},
             "moves_a_cap": named(lambda k: k["mcs_moved"] or k["dec_mcs_moved"]),
             "changes_ranking": named(lambda k: k["ranking_changed"])}
+
+
+def lo_models_report(st: dict | None = None, *, time_domain: bool = True, quick: bool = False,
+                     progress=None) -> dict:
+    """The LO models side by side (example 04's section 5, ``compare.lo_comparison``): each model on
+    its own ``Frontend60`` at K = 1, 8 and 32 of the 11ac 20 MHz zero-IF preset, with the study
+    applied to everything but the LO — the form's LO knobs describe one LO, this section swaps in
+    each of the models whatever they say.  ``is_preset_model`` marks the presets' own."""
+    stv = study(st)
+    not_lo = {k: v for k, v in stv.items() if not k.startswith("lo.")}
+    fe = frontend(stv)
+    pa_evm = pa_isolated_evm_db(fe.pa_model, fe.obo_db, fe.obo_reference) if fe.pa_enabled else None
+
+    def base(k):
+        return apply_study(zero_if_60ghz(k=k, carrier_hz=stv.get("carrier_hz", PRESET_CARRIER_HZ)), not_lo)
+    preset_kind = zero_if_60ghz().lo.phase_noise.model
+    rows = compare.lo_comparison(pa_evm, ks=(8,) if quick else (1, 8, 32), time_domain=time_domain, base=base,
+                                 progress=progress)
+    for r in rows:
+        r["is_preset_model"] = r["kind"] == preset_kind
+    return _json({"rows": rows, "ks": sorted({r["k"] for r in rows}), "base": "11ac 20 MHz zero-IF preset",
+                  "form_lo_knobs_ignored": sorted(k for k in SHARED_KNOBS if k.startswith("lo.")),
+                  "edited_lo_knobs": sorted(k for k in stv if k.startswith("lo."))})
 
 
 def _cap_display(mcs, rng) -> str | None:
@@ -586,7 +613,7 @@ def front_end_report(fe: Frontend60, st: dict | None = None) -> dict:
 
 def table_report(st: dict | None = None, *, time_domain: bool = True, quick: bool = False,
                  irr_table: dict | None = None, ay: bool = True, labels=None, progress=None,
-                 sensitivity: bool = False) -> dict:
+                 sensitivity: bool = False, lo_models: bool = False) -> dict:
     """The comparison table of a study: ``compare.build`` on its schemes and its front end, each row
     as ``compare`` reports it plus its footing, its config hash and the cross-check merged in.
 
@@ -597,7 +624,8 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
     floors are time-domain readings); ``ay=False`` leaves them out of a full run; ``labels`` keeps
     only those rows (one row recomputed, a test's subset).  ``sensitivity=True`` adds which guesses
     decide the verdict (``sensitivity_report``: the analytic side rerun at every knob end, about
-    20 s on the full matrix); a job always asks for it."""
+    20 s on the full matrix); a job always asks for it.  ``lo_models=True`` adds the LO models side
+    by side (``lo_models_report``; time-domain runs, so a full job only)."""
     st = study(st)
     sch = schemes(st, quick=quick)
     if labels is not None:
@@ -641,6 +669,7 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
         "rows": rows, "ay_rows": ay_rows, "pending": rep["pending"], "matrix": rep["matrix"],
         "be_best_at_calibrated_cap": best, "coefficients": rep["coefficients"],
         "sensitivity": sensitivity_report(sch, fe) if sensitivity else None,
+        "lo_models": lo_models_report(st, time_domain=time_domain, quick=quick) if lo_models else None,
         "irr_table": {"from": "calibration result" if irr_table is not None else "derived.irr_after_cal_measured_db",
                       "db_by_bandwidth_hz": (table if table is not None
                                              else spec.value("derived.irr_after_cal_measured_db"))},
@@ -649,6 +678,87 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
         "margins": {"mcs_evm_margin_db": spec.value("assumed.mcs_evm_margin_db"),
                     "decoder_cap_margin_db": spec.value("assumed.decoder_cap_margin_db")},
     })
+
+
+def analytic_agreement(report: dict, reference: dict) -> dict:
+    """How far the analytic columns of one table report sit from another's: every number of the
+    ``BE_FIELDS["table.analytic"]`` fields, row by row (rows matched by label), as the largest
+    difference scaled by ``max(|a|, |b|, 1)``; anything that is not a number must be equal.
+
+    This is what tells a recomputation on another machine or another numpy / scipy from the shipped
+    baseline (``appbridge.self_check``).  The time-domain column and the decoder caps are left out
+    on purpose: an analytic-only run has no time-domain EVM, and its decoder caps start from the
+    analytic floor alone (``assemble_table``), so they legitimately differ from a full run's."""
+    ref = {r["label"]: r for r in reference["rows"]}
+    out = {"rows": 0, "numbers": 0, "identical": 0, "worst_scaled": 0.0, "worst": None, "mismatches": []}
+
+    def walk(a, b, where):
+        if isinstance(a, dict) and isinstance(b, dict) and set(a) == set(b):
+            for k in a:
+                walk(a[k], b[k], f"{where}.{k}")
+        elif isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+            for i, (x, y) in enumerate(zip(a, b)):
+                walk(x, y, f"{where}[{i}]")
+        elif (isinstance(a, (int, float)) and isinstance(b, (int, float))
+              and not isinstance(a, bool) and not isinstance(b, bool)):
+            out["numbers"] += 1
+            d = abs(a - b) / max(abs(a), abs(b), 1.0)
+            out["identical"] += d == 0.0
+            if d > out["worst_scaled"]:
+                out["worst_scaled"], out["worst"] = d, {"where": where, "value": a, "reference": b}
+        elif a != b:
+            out["mismatches"].append({"where": where, "value": _json(a), "reference": _json(b)})
+
+    for row in report["rows"]:
+        if row["label"] not in ref:
+            out["mismatches"].append({"where": row["label"], "value": "a row", "reference": None})
+            continue
+        out["rows"] += 1
+        for key in BE_FIELDS["table.analytic"]:
+            walk(row.get(key), ref[row["label"]].get(key), f"{row['label']}: {key}")
+    for label in sorted(set(ref) - {r["label"] for r in report["rows"]}):
+        out["mismatches"].append({"where": label, "value": None, "reference": "a row"})
+    return out
+
+
+def assemble_table(by_part: dict) -> dict | None:
+    """The comparison table a page draws, put together from the table report each part is drawn from
+    (``by_part``: ``table.analytic`` / ``table.td`` / ``table.ay`` -> a table report or None).
+
+    One report for all three is returned as it is.  Otherwise the analytic part's report is the
+    base (its rows, its header, its sensitivity section); each row's time-domain fields
+    (``BE_FIELDS["table.td"]``) and the LO-model section come from the time-domain part's report,
+    the 802.11ay rows from theirs.  So an analytic-only run for the form on screen shows new
+    analytic columns next to the last full run's time-domain column and 802.11ay rows — which
+    ``freshness`` marks stale per part.  Nothing is recomputed and nothing is mixed inside a
+    field group.
+
+    One caveat travels with an analytic-only base (``assembled["decoder_caps_from_analytic_floor"]``):
+    its decoder caps start from the analytic floor alone, while a full run takes the worse of that
+    and the time-domain EVM — a row whose time-domain floor is the worse one reads one MCS higher."""
+    ana, td, ay = (by_part.get(k) for k in ("table.analytic", "table.td", "table.ay"))
+    base = ana or td or ay
+    if base is None:
+        return None
+    if all(x is base for x in (ana, td, ay)):
+        return base
+    out = dict(base)
+    td_rows = {r["label"]: r for r in (td or {}).get("rows", [])}
+    rows = []
+    for r in base["rows"]:
+        src = td_rows.get(r["label"])
+        r = dict(r)
+        if src is not r:
+            for f in BE_FIELDS["table.td"]:
+                r[f] = None if src is None else src.get(f)
+        rows.append(r)
+    preview = ana is not None and not ana.get("time_domain")
+    out.update(rows=rows, ay_rows=list((ay or {}).get("ay_rows", [])), lo_models=(td or {}).get("lo_models"),
+               time_domain=bool(td and td.get("time_domain")),
+               assembled={"parts": {k: v is not None for k, v in (("table.analytic", ana), ("table.td", td),
+                                                                  ("table.ay", ay))},
+                          "analytic_only_base": preview, "decoder_caps_from_analytic_floor": preview})
+    return out
 
 
 # ------------------------------------------------------------------ report: the calibration runs
@@ -1125,7 +1235,8 @@ __all__ = [
     "closure", "signature", "pins", "vendored", "spec_digest", "commit", "provenance", "config_sha",
     "envelope", "job_result", "envelopes_of", "freshness", "field_states", "freshness_matrix", "source",
     "sources", "source_counts", "knob_tag", "form", "front_end_report", "table_report",
-    "calibration_from_runs", "calibration_report", "array_inputs",
+    "calibration_from_runs", "assemble_table", "lo_models_report", "sensitivity_report", "terms_share",
+    "sc_vs_ofdm_items", "run_job", "metric_unit", "calibration_report", "array_inputs",
     "eirp_limit_report", "array_report", "single_antenna_ranges",
     "ay_inputs", "ay_report", "sc_vs_ofdm_headline", "repro", "calibration_column_for", "row_detail",
     "system_report",
@@ -1165,6 +1276,7 @@ def run_job(job: str, st: dict | None = None, *, quick: bool = False, progress=N
         full = job == "table"
         n = len([s for s in schemes(st, quick=quick) if s.status == "built" and s.waveform not in AY_WAVEFORMS])
         rep = table_report(st, time_domain=full, quick=quick, irr_table=irr, sensitivity=not quick,
+                           lo_models=full and not quick,
                            progress=lambda row: tick(n + (1 if full else 0), row.label))
         if full:
             tick(n + 1, "802.11ay")

@@ -141,7 +141,12 @@ def _canned_runner(job, st, params, emit, cancelled=None):
             emit("cancelled", None)
             return
     cal = params.get("calibration")
-    out = g.job_result(job, st, base["report"], seconds=0.9,
+    report = base["report"]
+    if job == "table_analytic":                 # what an analytic-only run returns: no time-domain column, no ay rows
+        td = g.BE_FIELDS["table.td"]
+        report = dict(report, time_domain=False, ay_rows=[], lo_models=None,
+                      rows=[{k: (None if k in td else v) for k, v in r.items()} for r in report["rows"]])
+    out = g.job_result(job, st, report, seconds=0.9,
                        built_on={"calibration.be": cal["study"]} if cal else None)
     out["quick"] = False
     emit("done", out)
@@ -376,5 +381,59 @@ def test_the_data_the_page_lacked_is_drawn_from_the_payloads(host, browser):
         row = page.locator(f'#items [data-item="{it["id"]}"]')
         assert row.get_attribute("data-winner") == it["winner"], it["id"]
         assert f"{abs(it['sc_over_ofdm_pct']):.1f}" in row.text_content(), it["id"]
+    assert not errors, errors
+    page.close()
+
+
+def test_the_lo_models_the_ay_caps_and_the_preview_that_hides_nothing(host, browser):
+    url, state = host
+    page, errors = _open(browser, url)
+    table = guistore.load_baseline()["table"]["report"]
+    d = table["display"]
+    # 1. the LO models side by side: one cell group per (model, K), with that row's numbers
+    lo = table["lo_models"]["rows"]
+    page.wait_for_selector("#lo-models [data-lo-model]", state="attached", timeout=15000)
+    assert page.evaluate("document.querySelectorAll('#lo-models [data-lo-model][data-k]').length") == len(lo) == 18
+    for r in (lo[2], lo[5], lo[-1]):
+        text = page.text_content(f'#lo-models [data-lo-model="{r["model"]}"][data-k="{r["k"]}"]')
+        for key in ("ipn_dbc", "pn_ici_db", "floor_db", "td_evm_db"):
+            assert f"{abs(r[key]):.{d[key]}f}" in text, (r["model"], r["k"], key)
+        assert f"MCS{r['max_mcs']}" in text.replace("MCS ", "MCS")
+    # 2. an 802.11ay row opens to its own decoder cap
+    ay = next(r for r in table["ay_rows"] if r["waveform"] == "ay_sc")
+    page.click(f'#screen-table [data-label="{ay["label"]}"]')
+    page.wait_for_function(f"document.getElementById('screen-row').textContent.includes('{ay['cfg_sha'][:12]}')")
+    detail = page.text_content("#screen-row").replace("MCS ", "MCS")
+    assert f"MCS{ay['dec_mcs_cal']}" in detail and f"{ay['power_dec_cal']['pj_per_bit']:.0f}" in detail
+    # 3. the preview: an analytic-only run for an edited form sits beside the full table
+    page.click("#nav-form") if not page.locator('[data-knob="frontend.pa.obo_db"]').first.is_visible() else None
+    knob = page.locator('[data-knob="frontend.pa.obo_db"]').first
+    knob.fill("9.5")
+    knob.press("Tab")
+    page.wait_for_function("!!document.querySelector('[data-part=\"table.analytic\"][data-state=\"stale\"]')")
+    page.click("#nav-runs")
+    page.click('#screen-runs [data-job="table_analytic"]')
+    # the analytic columns are the new run's (their field group is fresh); the part itself stays stale,
+    # because the calibration it leans on was not rerun for the edited back-off
+    page.wait_for_function("!!document.querySelector('[data-field-group=\"table.analytic\"][data-state=\"fresh\"]')",
+                           timeout=30000)
+    part = "#screen-runs [data-part=\"table.analytic\"]"
+    assert page.evaluate(f"!!document.querySelector('{part}[data-state=\"stale\"]')")
+    assert not page.evaluate(f"!!document.querySelector('{part}[data-state=\"fresh\"]')")
+    parts = state.store.table_parts(state.study)
+    assert parts["table.analytic"]["result"]["job"] == "table_analytic"
+    assert parts["table.td"]["id"] == parts["table.ay"]["id"] == "baseline-table"
+    page.click("#nav-table")
+    page.wait_for_selector('#screen-table [data-part-result="table.analytic"]', timeout=15000)
+    ids = {p: page.get_attribute(f'#screen-table [data-part-result="{p}"]', "data-result-id")
+           for p in guistore.TABLE_PARTS}
+    assert ids == {p: e["id"] for p, e in parts.items()}
+    labels = page.evaluate("[...document.querySelectorAll('#screen-table [data-label]')].map(e => e.dataset.label)")
+    assert {r["label"] for r in table["rows"] + table["ay_rows"]} <= set(labels)      # nothing vanished
+    r32 = next(r for r in table["rows"] if r["label"] == B32)
+    assert f"{r32['td_evm_db']:.{d['td_evm_db']}f}".lstrip("-") in _row(page, B32)   # the full run's column, kept
+    for part in ("table.td", "table.ay"):
+        assert page.evaluate(f"!!document.querySelector('[data-part=\"{part}\"][data-state=\"stale\"]')"), part
+    assert page.evaluate("!!document.getElementById('assembled-note')")
     assert not errors, errors
     page.close()

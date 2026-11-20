@@ -14,11 +14,13 @@ jobs; this module keeps what they returned.  Two places:
   directory; a store with ``home=None`` keeps them in memory only (tests, a
   read-only install).
 
-``Store.pick(report, study)`` is the one rule for which stored result a page
-draws: the one with the most parts still fresh for the study, a full run
-before a partial one, the newest before an older one — so a form that has
-moved on keeps showing the last numbers, marked stale by ``guiutil.freshness``,
-rather than nothing.
+``Store.pick_part(part, study)`` is the one rule for which stored result a page
+draws a part from: the result whose knobs for that part still hold, a fresh
+one before a stale one, a full run before a partial one, the newest before an
+older one — so a form that has moved on keeps showing the last numbers, marked
+stale by ``guiutil.freshness``, rather than nothing.  The comparison table is
+drawn from up to three results, one per part (``table_parts``;
+``guiutil.assemble_table`` puts them together).
 """
 from __future__ import annotations
 
@@ -37,6 +39,9 @@ BASELINE_JOBS = ("table", "calibration_be", "array", "ay")
 #: the report a page asks for -> the jobs whose results can answer it
 REPORT_JOBS = {name: tuple(j for j, v in guiutil.JOBS.items() if v["report"] == name)
                for name in sorted({v["report"] for v in guiutil.JOBS.values()})}
+#: the part a report is led by (its provenance line), and the parts the comparison table is drawn from
+REPORT_PART = {"table": "table.analytic", "calibration": "calibration.be", "array": "array", "ay": "ay"}
+TABLE_PARTS = ("table.analytic", "table.td", "table.ay")
 
 
 def default_home() -> Path:
@@ -151,38 +156,55 @@ class Store:
         with self._lock:
             return self._results.get(rid)
 
-    def pick(self, report: str, st: dict | None = None) -> dict | None:
-        """The stored result a page draws for ``report`` (``table`` / ``calibration`` / ``array`` /
-        ``ay``) under study ``st``; None when nothing is stored for it.  Smoke-size results are
-        never picked."""
+    def pick_part(self, part: str, st: dict | None = None) -> dict | None:
+        """The stored result a page draws ``part`` from under study ``st``: among the results that
+        hold the part, the one whose knobs for it still hold, then a fresh one, then a fuller run,
+        then the newest.  None when no result holds the part.  Smoke-size results are never picked.
+
+        Picking per part is what lets a quick partial run sit beside a full one: an analytic-only
+        table for the study on screen is drawn for the analytic columns while the time-domain column
+        and the 802.11ay rows stay on the last full run, marked stale — nothing vanishes."""
         st = guiutil.study(st)
         best, best_rank = None, None
         for entry in self.entries():
             res = entry["result"]
-            if res["job"] not in REPORT_JOBS[report] or res.get("quick"):
+            if part not in res["parts"] or res.get("quick"):
                 continue
-            own = guiutil.envelopes_of(res)
-            fresh = guiutil.freshness(st, own)
-            rank = (sum(1 for p in res["parts"] if not fresh[p]["changed"]),      # parts whose own knobs still hold
-                    sum(1 for p in res["parts"] if fresh[p]["state"] == "fresh"),
-                    len(res["parts"]), entry["at"])
+            fresh = guiutil.freshness(st, guiutil.envelopes_of(res))[part]
+            rank = (not fresh["changed"], fresh["state"] == "fresh", len(res["parts"]), entry["at"])
             if best_rank is None or rank > best_rank:
                 best, best_rank = entry, rank
         return best
 
+    def pick(self, report: str, st: dict | None = None) -> dict | None:
+        """The stored result of ``report`` (``table`` / ``calibration`` / ``array`` / ``ay``) for study
+        ``st``: the one its leading part is drawn from (``REPORT_PART``).  A table is drawn from up to
+        three results, one per part: ``table_parts``."""
+        return self.pick_part(REPORT_PART[report], st)
+
+    def table_parts(self, st: dict | None = None) -> dict[str, dict | None]:
+        """Per part of the comparison table, the result it is drawn from (None: no result holds it)."""
+        return {part: self.pick_part(part, st) for part in TABLE_PARTS}
+
     def envelopes(self, st: dict | None = None) -> dict[str, dict]:
-        """One envelope per part from the results a page shows for ``st`` (what ``freshness`` reads)."""
+        """One envelope per part, each from the result that part is drawn from for ``st`` (what
+        ``freshness`` reads)."""
         out: dict[str, dict] = {}
-        for report in REPORT_JOBS:
-            entry = self.pick(report, st)
+        for part, p in guiutil.PARTS.items():
+            if p.job is None:
+                continue
+            entry = self.pick_part(part, st)
             if entry is not None:
-                out.update(guiutil.envelopes_of(entry["result"]))
+                out[part] = guiutil.envelopes_of(entry["result"])[part]
         return out
+
+    def shown_ids(self, st: dict | None = None) -> set[str]:
+        return {e["id"] for e in (self.pick_part(part, st) for part, p in guiutil.PARTS.items() if p.job) if e}
 
     def listing(self, st: dict | None = None) -> list[dict]:
         """Every stored result without its report: id, job, study, where and when it was computed,
         and whether it is the one shown for ``st``."""
-        shown = {e["id"] for e in (self.pick(r, st) for r in REPORT_JOBS) if e is not None}
+        shown = self.shown_ids(st)
         rows = []
         for entry in sorted(self.entries(), key=lambda e: (e["at"], e["id"])):
             res = entry["result"]

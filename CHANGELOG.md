@@ -4,6 +4,19 @@
 
 ## 未发布
 
+### 界面余下四项：本振并排、ay 解码器上限、秒级预览、手机外壳（2026-11-20，用户定“按顺序 1-4 都做完”）—— 数字不动，指纹逐位相同
+- **本振模型并排**进了同台表报告和页面：`compare.lo_comparison`（示例 04 §5 现在从它印，完整重跑与已验收输出逐行一致）→ `guiutil.lo_models_report`。每个模型各建自己的前端，所以表单的本振旋钮到不了这一节，报告和页面都照实说。
+- **ay 两行自己带解码器上限**（上限、速率、pJ/bit、余量；`compare.evaluate_ay`），与阵列层 N = 1 的判法由测试对齐；`table.ay` 多了上游 `thresholds.ay`。页面不再从阵列结果借这几格。
+- **秒级预览回来了，而且不藏东西**：结果按 part 选（`guistore.Store.pick_part`），同台表由最多三份结果拼成（`guiutil.assemble_table`）。只算解析列约 24 s（完整约 55 s）；
+  预览只换解析列，时域列、本振一节、ay 两行留在上一份完整结果上并标过期；页面按 part 各给一行出处，并注明预览里的解码器上限只从解析底板出发、可能比完整结果高一档。
+- **手机外壳** `android/`：Chaquopy（CPython 3.10）+ WebView，一个不承载功能的 Activity，页面就是桌面那一份，不申请权限。库以源码进包；numpy / scipy 的版本写在 `android/phone-stack.txt`（1.23.3 / 1.8.1，低于桌面声明的下限）。
+  - `appbridge.self_check()` / `python -m mmw60.appbridge [--jobs]`：把同台表的解析列在本机重算一遍与随包基线逐数比（`guiutil.analytic_agreement`）。
+  - CI：`.github/workflows/android.yml` 构建 APK、读包内容（`android/tools/check_apk.py`）、在模拟器上跑两条设备测试并按精确条数核对；`ci.yml` 新增 `test-phone-stack`，在 Python 3.10 上只装手机那组版本跑桥路径、五个任务的试算档和自检。
+  - 量到的：模拟器（API 34，x86_64）上自检 777 个数里 570 个与基线逐位相同、最大偏差 3.6e-15、27 s；页面经桥画出 21 行。真机没跑过。
+  - 第一次构建用 `--no-deps`，APK 构建成功却在模拟器上 `libopenblas.so not found`；改成带依赖安装，包内容检查现在核对每个 wheel 的依赖。
+- 测试：`tests/test_android.py`（8 项，十条变异双向验过）、`tests/test_guistore.py` 与 `tests/test_webhost.py` 按 part 选与拼表、`tests/test_webui.py` +1（本振 18 列、ay 行细节、预览后的出处与过期标记）。
+- **没做的**（ROADMAP F）：真机与 arm64；手机上各任务的耗时；页面上的自检入口；ay 行在框图上点亮哪些块。
+
 ### 界面缺的几块数据补上（2026-11-20，用户定“开始下一步”）—— 数字不动，指纹逐位相同
 - **为什么**：页面只画不算，所以上一轮凡是载荷里没有的东西页面都留了空。这一轮把其中五块在计算层算出来，页面再画。
 - **做了什么**（`src/mmw60/guiutil.py`、`compare.py`）：

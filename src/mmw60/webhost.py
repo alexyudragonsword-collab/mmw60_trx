@@ -23,7 +23,7 @@ without a preflight this host does not answer):
     POST /api/report    {report, study}   a stored report: table | calibration | array | ay
     POST /api/row       {label, study}    one table row opened: detail, calibration column, repro card
     POST /api/system    {study}       the block diagram's facts
-    POST /api/run       {job, study}  queue a job (``guiutil.JOBS``)
+    POST /api/run       {job, study}  queue a job (``RUNNABLE``: the four full ones and the analytic-only table)
     POST /api/jobs/<id>/cancel
     POST /api/results/<id>/delete     forget one of the user's results
 
@@ -58,10 +58,10 @@ POST_HEADER = "X-MMW60"
 GET_ROUTES = ("version", "sources", "parts", "jobs", "results")
 POST_ROUTES = ("state", "report", "row", "system", "run")
 REPORTS = tuple(guistore.REPORT_JOBS)
-#: the jobs a host queues: the full ones.  An analytic-only table is a command-line tool
-#: (tools/gui_report.py table --no-time-domain): stored beside a full table it would be picked for
-#: its fresh part and the time-domain column and the 802.11ay rows would vanish from the page.
-RUNNABLE = guistore.BASELINE_JOBS
+#: the jobs a host queues: the four full ones and the analytic-only table, a preview in seconds.  A
+#: partial result no longer hides anything: results are picked per part (``Store.pick_part``) and the
+#: table is put together from them (``guiutil.assemble_table``).
+RUNNABLE = guistore.BASELINE_JOBS + ("table_analytic",)
 
 
 # ------------------------------------------------------------------ jobs
@@ -295,7 +295,16 @@ class State:
         for report in REPORTS:
             entry = self.store.pick(report, st)
             out[report] = None if entry is None else _meta(entry)
+        if out["table"] is not None:
+            out["table"]["part_results"] = self.table(st)[1]
         return out
+
+    def table(self, st: dict) -> tuple[dict | None, dict]:
+        """The comparison table drawn for this study — assembled from the result each of its parts
+        is drawn from — and those results' metas by part."""
+        parts = self.store.table_parts(st)
+        report = guiutil.assemble_table({k: None if e is None else e["result"]["report"] for k, e in parts.items()})
+        return report, {k: None if e is None else _meta(e) for k, e in parts.items()}
 
 
 def _meta(entry: dict) -> dict:
@@ -368,6 +377,8 @@ class Api:
             out = {"ok": True, "report": entry["result"]["report"], "result": _meta(entry),
                    "freshness": self._fresh(study), "jobs": jobs}
             if name == "table":
+                # one table from up to three results: each part from the result that holds it for this study
+                out["report"], out["part_results"] = st.table(study)
                 # the range column: the one-element link of the array result shown for this study
                 arr = st.store.pick("array", study)
                 out["ranges"] = None if arr is None else guiutil.single_antenna_ranges(arr["result"]["report"])
@@ -379,7 +390,7 @@ class Api:
                 out["headline"] = guiutil.sc_vs_ofdm_headline(arr["result"]["report"]) if has else None
                 out["headline_result"] = _meta(arr) if has else None
                 # item by item (rate, range, pJ/bit on each footing), from the three results shown
-                tab = st.store.pick("table", study)
+                tab = st.store.pick_part("table.ay", study)          # the item table reads the 802.11ay rows
                 out["items"] = guiutil.sc_vs_ofdm_items(None if tab is None else tab["result"]["report"],
                                                         arr["result"]["report"] if has else None,
                                                         entry["result"]["report"])
@@ -391,15 +402,16 @@ class Api:
             table = st.store.pick("table", study)
             if table is None:
                 raise ValueError("no table result is stored")
+            report, part_results = st.table(study)
             cal = st.store.pick("calibration", study)
             arr = st.store.pick("array", study)
-            detail = guiutil.row_detail(table["result"]["report"], str(req["label"]),
-                                        None if cal is None else cal["result"]["report"])
+            detail = guiutil.row_detail(report, str(req["label"]), None if cal is None else cal["result"]["report"])
             ranges = {} if arr is None else guiutil.single_antenna_ranges(arr["result"]["report"])
             return 200, {"ok": True, **detail, "range": ranges.get(str(req["label"])),
                          "calibration": None if cal is None else cal["result"]["report"],
                          "results": {"table": _meta(table), "calibration": None if cal is None else _meta(cal),
                                      "array": None if arr is None else _meta(arr)},
+                         "part_results": part_results, "assembled": report.get("assembled"),
                          "freshness": self._fresh(study)}
         elif route == "system":
             return 200, {"ok": True, **guiutil.system_report(self._study(req))}

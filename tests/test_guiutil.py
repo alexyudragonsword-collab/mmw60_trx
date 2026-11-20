@@ -265,7 +265,8 @@ def test_table_report_is_compare_build_with_footing_and_hashes():
     assert by[B32]["cfg_sha"] == g.config_sha(_pick(B32)[0].cfg) and by[B32]["seed"] == 0
     assert by[B8]["td_evm_db"] is None and by[B8]["td_ok"] is None                    # no time-domain run asked
     assert rep["irr_table"]["from"] == "derived.irr_after_cal_measured_db"
-    assert set().union(*map(set, rep["fields"].values())) <= set(by[B8]) | {"td_delta_db", "td_ok"}
+    be_groups = [v for k, v in rep["fields"].items() if not k.startswith("table.ay")]    # the ay rows' own: below
+    assert set().union(*map(set, be_groups)) <= set(by[B8]) | {"td_delta_db", "td_ok"}
     json.dumps(rep, allow_nan=False)
     with pytest.raises(KeyError):
         g.table_report(labels=["no such row"], time_domain=False)
@@ -659,3 +660,53 @@ def test_sensitivity_report_says_which_guesses_move_a_cap_or_the_ranking():
     assert "Walden FoM" not in sens["moves_a_cap"] and set(sens["changes_ranking"]) <= set(names)
     assert set(sens["decoder_basis"]) == {"zh", "en"} and "decides" not in sens
     json.dumps(sens, allow_nan=False)
+
+
+# ------------------------------------------------------------------ LO models side by side; the ay rows' decoder cap
+def test_lo_models_report_puts_each_model_on_its_own_front_end_and_ignores_the_forms_lo_knobs():
+    rep = g.lo_models_report(time_domain=False)
+    models = compare.lo_models()
+    assert rep["ks"] == [1, 8, 32] and len(rep["rows"]) == len(models) * 3
+    assert [m["kind"] for m in models[:2]] == ["pole_zero", "wifitrx_wifi7"]
+    assert all(key in spec.all_entries() for m in models for key in m["sources"])
+    by = {(r["model"], r["k"]): r for r in rep["rows"]}
+    preset = [r for r in rep["rows"] if r["is_preset_model"]]
+    assert {r["kind"] for r in preset} == {"pole_zero"} and len(preset) == 3
+    # the presets' model at K = 32 is the comparison table's own row: same floor, same phase-noise term
+    row = g.table_report(labels=[B32], time_domain=False)["rows"][0]
+    mine = by[(models[0]["name"], 32)]
+    assert mine["floor_db"] == row["floor_db"] and mine["pn_ici_db"] == row["terms_db"]["phase_noise"]
+    assert mine["max_mcs"] == row["max_mcs"] and mine["td_evm_db"] is None
+    # a quieter LO lowers the phase-noise term and nothing else moves it
+    wifi7 = by[(models[1]["name"], 32)]
+    assert wifi7["ipn_dbc"] < mine["ipn_dbc"] and wifi7["pn_ici_db"] < mine["pn_ici_db"]
+    # the form's LO knobs describe one LO; this section swaps in each model whatever they say
+    edited = g.lo_models_report({"lo.phase_noise.psd0_dbchz": -80.0, "frontend.pa.obo_db": 9.5}, time_domain=False)
+    assert edited["edited_lo_knobs"] == ["lo.phase_noise.psd0_dbchz"]
+    assert [r["pn_ici_db"] for r in edited["rows"]] == [r["pn_ici_db"] for r in rep["rows"]]
+    assert [r["floor_db"] for r in edited["rows"]] != [r["floor_db"] for r in rep["rows"]]       # the PA moved
+    json.dumps(rep, allow_nan=False)
+
+
+def test_the_ay_rows_lean_on_the_stored_ay_thresholds_for_their_decoder_cap():
+    assert g.PARTS["table.ay"].upstream == ("thresholds.ay",)
+    f = g.freshness({"phy.packet_bytes": 2048})
+    assert f["table.ay"]["changed"] == [] and f["table.ay"]["upstream"] == ["thresholds.ay"]
+    fields = g.field_states(f)
+    assert fields["table.ay"] == "fresh" and fields["table.ay+thresholds.ay"] == "stale"
+    assert "dec_mcs_cal" in g.BE_FIELDS["table.ay+thresholds.ay"]
+
+
+@pytest.mark.slow
+def test_the_ay_rows_decoder_cap_is_the_array_layers_at_one_element():
+    """Two code paths, one rule: the table row's cap on the calibrated chain and the array report's
+    N = 1 row at the preset back-off are the same MCS."""
+    labels = [s.label for s in g.schemes({}) if s.waveform in AY_WAVEFORMS and s.status == "built"]
+    rows = {r["waveform"]: r for r in g.table_report(labels=labels)["ay_rows"]}
+    arr = arrayreport.build(sizes=(1,), trials=50, users=5)
+    n1 = {r["waveform"]: r for r in arr["ay"] if r["n"] == 1 and r["point"] == "preset"}
+    for wf, r in rows.items():
+        assert set(g.BE_FIELDS["table.ay+thresholds.ay"]) <= set(r)                    # the group's fields exist
+        assert r["dec_mcs_cal"] == n1[wf]["cap_mcs"] and r["dec_rate_cal_mbps"] == pytest.approx(n1[wf]["rate_mbps"])
+        assert r["dec_mcs"] is not None and r["dec_mcs"] < r["dec_mcs_cal"]          # raw floor: a low cap, not none
+        assert r["power_dec_cal"]["pj_per_bit"] == pytest.approx(n1[wf]["pj_per_bit"], rel=1e-6)

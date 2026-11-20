@@ -99,6 +99,31 @@ jobs:
           MMW60_REQUIRE_BROWSER: "1"
         run: pytest -q tests/test_webui.py tests/test_webhost.py tests/test_guistore.py
 
+  # The phone app (android/) is built with the numpy and scipy Chaquopy has for
+  # Python 3.10, which are older than the floors pyproject.toml declares, and
+  # without matplotlib or numba.  A dependency floor that no job runs is a claim,
+  # not a fact (polar_tx found its own broken on a phone), so this job installs
+  # exactly android/phone-stack.txt and runs what the phone runs: the bridge
+  # path, every job at smoke size and the self-check against the shipped numbers.
+  test-phone-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"       # chaquopy.version in android/app/build.gradle.kts
+      - name: Install exactly the app's stack
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r android/phone-stack.txt pyyaml pytest
+          pip install --no-deps -e .
+          python -c "import importlib.util as u; assert not u.find_spec('matplotlib') and not u.find_spec('numba')"
+      - name: Bridge, host, store and compute-layer tests on that stack
+        run: pytest -q tests/test_webhost.py tests/test_guistore.py tests/test_guiutil.py tests/test_android.py -m "not slow"
+      - name: Self-check against the shipped baseline, and every job at smoke size
+        run: python -m mmw60.appbridge --jobs
+
   # Vendor drift: src/mmw60/vendor/wifitrx must still match the pinned
   # wifi_trx_cal commit.  wifi_trx_cal is a private repository: the checkout
   # needs a SIBLING_READ_TOKEN secret with read access to it (polar_tx's

@@ -5,7 +5,8 @@
 const calReport = () => (S.screen === "row" ? (S.row && S.row.calibration) : (S.rep.calibration && S.rep.calibration.report));
 /* the operating points a row carries a power breakdown for */
 function powerPoints(r) {
-  if (isAy(r)) return [{ name: T("合规上限 · 未校准", "Conformance cap · raw"), cap: mcs(r.cap_raw), p: r.power_raw, f: "power_raw" }, { name: T("合规上限 · 校准后", "Conformance cap · calibrated"), cap: mcs(r.cap_cal), p: r.power_cal, f: "power_cal" }];
+  if (isAy(r)) return [{ name: T("合规上限 · 未校准", "Conformance cap · raw"), cap: mcs(r.cap_raw), p: r.power_raw, f: "power_raw" }, { name: T("合规上限 · 校准后", "Conformance cap · calibrated"), cap: mcs(r.cap_cal), p: r.power_cal, f: "power_cal" },
+    { name: T("解码器上限 · 未校准", "Decoder cap · raw"), cap: mcs(r.dec_mcs), p: r.power_dec, f: "power_dec" }, { name: T("解码器上限 · 校准后", "Decoder cap · calibrated"), cap: mcs(r.dec_mcs_cal), p: r.power_dec_cal, f: "power_dec_cal" }];
   return [{ name: T("合规上限 · 未校准", "Conformance cap · raw"), cap: mcs(r.max_mcs), p: r.power, f: "power" }, { name: T("合规上限 · 校准后", "Conformance cap · calibrated"), cap: mcs(r.max_mcs_cal), p: r.power_cal, f: "power_cal" },
     { name: T("解码器上限 · 未校准", "Decoder cap · raw"), cap: r.dec_cap_display || "—", p: r.power_dec, f: "power_dec" },
     { name: T("解码器上限 · 校准后", "Decoder cap · calibrated"), cap: r.dec_cap_cal_display || "—", p: r.power_dec_cal, f: "power_dec_cal" }];
@@ -44,7 +45,7 @@ function reproCard(W) {
     <div><div class="eyebrow">${T("vendored 库", "Vendored libraries")}</div>
       <dl class="kv" style="margin-top:4px">${Object.entries(p.vendored || {}).map(([k, v]) => `<dt>${esc(k)}${v.version ? " " + esc(v.version) : ""}</dt><dd><code>${esc(v.pin)}</code></dd>`).join("")}</dl></div>
     <div style="display:grid;gap:5px"><div class="eyebrow">${T("等价的命令行", "Equivalent command line")}</div>${rp.commands.map(cmd).join("")}</div>
-    <div class="sm" style="display:grid;gap:3px;color:var(--ink2)"><div class="eyebrow">${T("这一屏画的是哪几份存着的结果", "Which stored results this screen draws")}</div>${["table", "calibration", "array"].map(k => (res[k] ? `<div>${provLine(res[k])}</div>` : `<div class="mut">${T(...REPNAME[k])}${P_.c}${T("没有存着的结果", "no stored result")}</div>`)).join("")}</div>
+    <div class="sm" style="display:grid;gap:3px;color:var(--ink2)"><div class="eyebrow">${T("这一屏画的是哪几份存着的结果", "Which stored results this screen draws")}</div>${W.part_results ? `<div class="provs">${tableProv(W.part_results)}</div>` : ""}${[...(W.part_results ? [] : ["table"]), "calibration", "array"].map(k => (res[k] ? `<div>${provLine(res[k])}</div>` : `<div class="mut">${T(...REPNAME[k])}${P_.c}${T("没有存着的结果", "no stored result")}</div>`)).join("")}</div>
   </section>`;
 }
 function powerTable(p) {
@@ -144,10 +145,10 @@ function renderRow() {
         <div class="sm mut">${T("两头都是时域读数，取最差星座", "both ends are time-domain readings, worst constellation")}</div></div>
       <div><span class="eyebrow">${T("合规上限", "Conformance cap")}</span><div class="big"><span class="from">${mcs(r.cap_raw)} →</span> ${svf("cap_cal", mcs(r.cap_cal))}</div>
         <div class="sm mut">${fx(r.rate_cal_mbps, 0)} Mb/s · ${T("留", "margin")} ${plain(r.cap_margin_db)} dB · ${T("不留余量", "no margin")} ${mcs(r.cap_cal_at_limit)} ${fx(r.rate_cal_at_limit_mbps, 0)} Mb/s</div></div>
-      <div><span class="eyebrow">${T("解码器上限", "Decoder cap")} · N = 1</span><div class="big">${rg ? sv(arr, mcs(rg.cap_mcs), "array") : "—"}</div>
-        <div class="sm mut">${rg ? sv(arr, `${fx(rg.rate_mbps, 0)} Mb/s · ${fx(rg.pj_per_bit, 0)} pJ/bit`, "array") + " · " + T("取自阵列结果", "from the array result") : T("没有存着的阵列结果", "no array result is stored")}</div></div>
+      <div><span class="eyebrow">${T("解码器上限", "Decoder cap")}</span><div class="big"><span class="from">${svf("dec_mcs", mcs(r.dec_mcs))} →</span> ${svf("dec_mcs_cal", `<span data-dec-cap-cal>${mcs(r.dec_mcs_cal)}</span>`)}</div>
+        <div class="sm mut">${svf("dec_rate_mbps", fx(r.dec_rate_mbps, 0))} → ${svf("dec_rate_cal_mbps", fx(r.dec_rate_cal_mbps, 0))} Mb/s${nil(r.dec_margin_db) ? "" : ` · ${T("留", "margin")} ${plain(r.dec_margin_db)} dB`}</div></div>
       <div><span class="eyebrow">pJ/bit · ${T("合规上限处", "at the conformance cap")}</span><div class="big">${svf("power_cal", pj(r.power_cal))}</div>
-        <div class="sm">${W.footing.decoder_counted_in_pj ? T("计解码器", "decoder counted") : `<span class="dg">${T("不计解码器", "decoder not counted")}</span>`}</div></div></div>`;
+        <div class="sm">${W.footing.decoder_counted_in_pj ? T("计解码器", "decoder counted") : `<span class="dg">${T("不计解码器", "decoder not counted")}</span>`} <span class="mut">· ${T("解码器上限处", "at the decoder cap")} ${svf("power_dec", pj(r.power_dec))} → ${svf("power_dec_cal", `<span data-pj-dec-cal>${pj(r.power_dec_cal)}</span>`)}</span></div></div></div>`;
     const wfk = r.waveform + "_evm_db", ast = pstate("ay");
     const res = A ? A.residuals.find(x => x.backoff_db === A.header.preset_backoff_db) || A.residuals[0] : null, rw = res ? res.waveforms.find(x => x.waveform === r.waveform) : null;
     const evm = `<section class="blk"><header><h3>${T("底板逐星座 · 时域 EVM", "Floor by constellation · time-domain EVM")}</h3></header>
@@ -178,7 +179,8 @@ function renderRow() {
         <dt>@${mcs(rg.cap_mcs)}</dt><dd class="n">${sv(arr, sig(rg.range_cap_m) + " m", "array")}</dd>` : `<dt>${T("距离", "Range")}</dt><dd class="mut">${T("没有存着的阵列结果", "no array result is stored")}</dd>`}</dl></section>`
       + reproCard(W);
   }
-  return `<div class="page">${head}${freshBanner(parts, fc === "be_zero_if" ? ["table", "calibration"] : ay ? ["table", "array", "ay"] : ["table"])}${stats}<div class="two"><div>${main}</div><div>${aside}</div></div></div>`;
+  const floorNote = !ay && W.assembled && W.assembled.decoder_caps_from_analytic_floor ? ` <b class="warnt" data-assembled-note>${T("解析列来自只算解析列的预览：解码器上限只从解析底板出发，可能比整表高一档。", "The analytic columns come from an analytic-only preview: the decoder cap starts from the analytic floor alone and may read one MCS higher than a full run will.")}</b>` : "";
+  return `<div class="page">${head}${freshBanner(parts, fc === "be_zero_if" ? ["table", "calibration"] : ay ? ["table", "array", "ay"] : ["table"], { note: floorNote })}${stats}<div class="two"><div>${main}</div><div>${aside}</div></div></div>`;
 }
 
 /* ------------------------------------------------------------------ the calibration screen */

@@ -144,7 +144,7 @@ def test_report_serves_the_stored_result_with_its_freshness_and_never_computes()
     code, r = api.call("report", {"report": "table", "study": OBO})
     assert code == 200 and r["report"]["kind"] == "table" and r["result"]["id"] == "baseline-table"
     assert r["freshness"]["parts"]["table.td"]["state"] == "stale" and r["ranges"] is None
-    assert r["jobs"] == ["table"]                                   # the jobs a host queues: the full ones
+    assert r["jobs"] == ["table", "table_analytic"] and r["part_results"]["table.td"]["id"] == "baseline-table"
     code, r = api.call("report", {"report": "array", "study": {}})
     assert code == 200 and r["report"] is None and r["result"] is None and r["jobs"] == ["array"]
     # the SC-against-OFDM report comes with what is computed across results: the headline and the
@@ -174,7 +174,6 @@ def test_run_queues_a_job_and_a_table_is_built_on_this_studys_calibration_when_t
     wait(lambda: not st.jobs.busy())
     assert st.jobs.jobs[r["job"]["id"]]["_params"] == {}
     assert api.call("run", {"job": "thresholds", "study": {}})[0] == 400
-    assert api.call("run", {"job": "table_analytic", "study": {}})[0] == 400     # a command-line job, not a host's
     code, jobs = api.call("jobs")
     assert [j["status"] for j in jobs["jobs"]] == ["done"] * 4
     code, one = api.call("jobs/1")
@@ -185,13 +184,58 @@ def test_run_queues_a_job_and_a_table_is_built_on_this_studys_calibration_when_t
     assert api.call(f"results/{rid}/delete", {})[1]["ok"] and not api.call(f"results/{rid}/delete", {})[1]["ok"]
 
 
+def test_an_analytic_only_run_sits_beside_the_full_table_and_hides_nothing():
+    """The preview in seconds.  Once it replaced the full table on screen (it held the one fresh part)
+    and the time-domain column and the 802.11ay rows vanished; now each part is drawn from the result
+    that holds it and the table is put together from them."""
+    full = g.job_result("table", {}, {
+        "kind": "table", "study": {}, "time_domain": True, "fields": g.BE_FIELDS,
+        "rows": [{"label": "row", "floor_db": -20.0, "td_evm_db": -19.5, "td_delta_db": 0.5, "td_ok": True,
+                  "dec_floor_db": -19.5, "dec_mcs": 4}],
+        "ay_rows": [{"label": "ay", "waveform": "ay_sc"}], "sensitivity": {"knobs": []}, "lo_models": {"rows": [1]}})
+    st = State(backend="thread", store=guistore.Store(None, {"table": full}), runner=_preview_runner)
+    api = Api(st)
+    assert api.call("report", {"report": "table", "study": OBO})[1]["report"] is full["report"]   # one result: as it is
+    code, r = api.call("run", {"job": "table_analytic", "study": OBO})
+    assert code == 200 and r["job"]["parts"] == ["table.analytic"]
+    wait(lambda: not st.jobs.busy())
+    code, r = api.call("report", {"report": "table", "study": OBO})
+    rep, parts = r["report"], r["part_results"]
+    assert parts["table.analytic"]["job"] == "table_analytic" and parts["table.analytic"]["study"] == OBO
+    assert parts["table.td"]["id"] == parts["table.ay"]["id"] == "baseline-table"
+    row = rep["rows"][0]
+    assert row["floor_db"] == -18.0 and row["dec_mcs"] == 5                    # the preview's analytic columns
+    assert (row["td_evm_db"], row["td_delta_db"], row["dec_floor_db"]) == (-19.5, 0.5, -19.5)   # the full run's
+    assert rep["ay_rows"] == full["report"]["ay_rows"] and rep["lo_models"] == {"rows": [1]}
+    assert rep["sensitivity"] == {"knobs": ["preview"]} and rep["time_domain"] is True
+    assert rep["assembled"]["analytic_only_base"] and rep["assembled"]["decoder_caps_from_analytic_floor"]
+    f = r["freshness"]["parts"]
+    assert f["table.analytic"]["changed"] == [] and f["table.td"]["state"] == f["table.ay"]["state"] == "stale"
+    assert r["result"]["id"] == parts["table.analytic"]["id"]
+    shown = api.call("state", {"study": OBO})[1]["shown"]["table"]
+    assert set(shown["part_results"]) == set(guistore.TABLE_PARTS)
+    assert {x["id"]: x["shown"] for x in api.call("results")[1]["results"]}["baseline-table"] is True
+    # back on the presets the full run is all three parts again
+    assert api.call("report", {"report": "table", "study": {}})[1]["report"] is full["report"]
+
+
+def _preview_runner(job, st, params, emit, cancelled=None):
+    rep = {"kind": "table", "study": g.study(st), "time_domain": False, "fields": g.BE_FIELDS,
+           "rows": [{"label": "row", "floor_db": -18.0, "td_evm_db": None, "td_delta_db": None, "td_ok": None,
+                     "dec_floor_db": -18.0, "dec_mcs": 5}], "ay_rows": [], "sensitivity": {"knobs": ["preview"]},
+           "lo_models": None}
+    out = g.job_result(job, st, rep, seconds=0.01, parts=["table.analytic"])
+    out["quick"] = False
+    emit("done", out)
+
+
 def test_the_cheap_routes_answer_and_unknown_routes_are_404():
     api = Api(state())
     code, v = api.call("version")
     assert v["backend"] == "thread" and v["provenance"]["spec_digest"] == g.spec_digest() and v["results_dir"] is None
     code, p = api.call("parts")
     assert {x["id"] for x in p["parts"]} == set(g.PARTS) and p["stored"]
-    assert set(p["jobs"]) == set(guistore.BASELINE_JOBS) == set(g.JOBS) - {"table_analytic"}
+    assert set(p["jobs"]) == set(guistore.BASELINE_JOBS) | {"table_analytic"} == set(g.JOBS)
     code, s = api.call("sources")
     assert sum(s["counts"].values()) == len(s["sources"])
     code, y = api.call("system", {"study": OBO})

@@ -130,7 +130,8 @@ function knobText(k, v) { const a = knobShow(k, v); return plain(a.v) + (a.u ? "
 
 /* ------------------------------------------------------------------ parts, jobs, freshness */
 const JOBNAME = {
-  calibration_be: ["校准序列", "Calibration sequence"], table: ["同台表", "Comparison table"], array: ["阵列", "Array"], ay: ["SC 对 OFDM", "SC against OFDM"],
+  calibration_be: ["校准序列", "Calibration sequence"], table: ["同台表", "Comparison table"],
+  table_analytic: ["同台表 · 只算解析列", "Comparison table, analytic columns only"], array: ["阵列", "Array"], ay: ["SC 对 OFDM", "SC against OFDM"],
 };
 const REPNAME = { table: ["同台表", "comparison table"], calibration: ["校准", "calibration"], array: ["阵列", "array"], ay: ["SC 对 OFDM", "SC against OFDM"] };
 const jn = id => (JOBNAME[id] ? T(...JOBNAME[id]) : id);
@@ -142,12 +143,17 @@ const pstate = id => (fresh().parts[id] ? fresh().parts[id].state : "fresh");
 const stateWord = s => (s === "stale" ? T("过期", "stale") : s === "missing" ? T("没有存着的结果", "nothing stored") : T("新鲜", "fresh"));
 const stateSign = s => (s === "stale" ? "◷" : s === "missing" ? "○" : "●");
 /* the stored result that carries a part for the study on screen (or null: judged against the accepted presets) */
-function metaOfPart(id) { const sh = S.state ? S.state.shown : {}; for (const r in sh) if (sh[r] && sh[r].parts.includes(id)) return sh[r]; return null; }
+function metaOfPart(id) {
+  const sh = S.state ? S.state.shown : {}, pr = sh.table && sh.table.part_results;
+  if (pr && id in pr) return pr[id];                      // the table is drawn from up to three results, one per part
+  for (const r in sh) if (sh[r] && sh[r].parts.includes(id)) return sh[r];
+  return null;
+}
 /* the group of fields a comparison-table field belongs to (a stale one first, when it is in two)
  * and its state: stale when any group it belongs to is */
 function fieldGroup(rep, field, ay) {
-  if (ay) return "table.ay";
-  const f = fresh().fields, own = Object.keys(rep.fields || {}).filter(g => rep.fields[g].includes(field)), gs = own.length ? own : ["table.analytic"];
+  /* a be row's field is looked up in the be groups, an 802.11ay row's in the ay groups (the two kinds share field names) */
+  const f = fresh().fields, own = Object.keys(rep.fields || {}).filter(g => g.startsWith("table.ay") === !!ay && rep.fields[g].includes(field)), gs = own.length ? own : [ay ? "table.ay" : "table.analytic"];
   return gs.find(g => f[g] === "stale") || gs[0];
 }
 const fieldState = (rep, field, ay) => fresh().fields[fieldGroup(rep, field, ay)] || "fresh";
@@ -172,6 +178,16 @@ function provLine(meta) {
     ${bo.map(([u, st]) => ` · ${T("建在", "built on")} ${esc(pn(u))} <code>${esc(JSON.stringify(st))}</code>`).join("")}
     ${oos.length ? ` <span class="oos" data-oos="1" title="${esc(oos.join("\n"))}">${T("与当前代码不同步", "out of step with this code")}</span> <span class="sm" style="color:var(--red)">${oos.map(esc).join(P_.s)}</span>` : ""}</span>`;
 }
+/* The comparison table's provenance: one line when its three parts come from one stored result,
+ * else one line per part (which result, its form, when); a part with no result at all says so. */
+const TABLE_PARTS = ["table.analytic", "table.td", "table.ay"];
+function tableProv(pr) {
+  if (!pr) return "";
+  const ids = TABLE_PARTS.map(p => (pr[p] ? pr[p].id + "@" + pr[p].at : null));
+  if (ids.every(i => i !== null && i === ids[0])) return `<span>${provLine(pr[TABLE_PARTS[0]])}${TABLE_PARTS.map(p => `<span data-part-result="${p}" data-result-id="${esc(pr[p].id)}"></span>`).join("")}</span>`;
+  return TABLE_PARTS.map(p => (pr[p] ? `<span data-part-result="${p}" data-result-id="${esc(pr[p].id)}"><b>${esc(pn(p))}</b>${P_.c}${provLine(pr[p])}</span>`
+    : `<span data-part-result="${p}" class="warnt"><b>${esc(pn(p))}</b>${P_.c}${T("没有存着的结果：这部分的列是空的、行不在表里", "no stored result: its columns are empty and its rows are absent")}</span>`)).join("");
+}
 /* The freshness strip of a screen: what is stale and why, what still holds, which stored
  * result is drawn, and the jobs that would recompute it.  `parts` are the parts the screen
  * draws, `reports` the stored reports it needs (a missing one says so and offers its job). */
@@ -184,10 +200,12 @@ function freshBanner(parts, reports, opts = {}) {
   const ups = [...new Set(stale.flatMap(p => fp[p].upstream || []))];
   const upS = ups.filter(u => pstate(u) === "stale"), upO = ups.filter(u => pstate(u) !== "stale");
   const jobs = [...new Set([...stale.map(p => fp[p].recompute).filter(Boolean), ...missing.flatMap(r => (S.parts ? Object.keys(S.parts.jobs).filter(j => S.parts.jobs[j].report === r) : []))])];
+  /* the analytic-only preview sits next to the full table's job whenever the analytic part needs recomputing */
+  if (jobs.includes("table") && !jobs.includes("table_analytic") && S.parts && S.parts.jobs.table_analytic && parts.some(p => p === "table.analytic" && pstate(p) !== "fresh")) jobs.splice(jobs.indexOf("table") + 1, 0, "table_analytic");
   const stored = [...new Set([...stale, ...ups])].filter(p => fp[p] && fp[p].stored && fp[p].state === "stale");
   const chip = p => `<span class="pchip" data-part="${esc(p)}" data-state="${pstate(p)}">${stateSign(pstate(p))} ${esc(pn(p))}</span>`;
   const runBtn = j => `<button type="button" class="btn" data-act="run" data-job="${esc(j)}">${T("重算", "Recompute")}${P_.c}${jn(j)} · ${expected(j)}</button>`;
-  const prov = reports.map(r => provLine(shown[r])).filter(Boolean).join("");
+  const prov = reports.map(r => (r === "table" && shown.table && shown.table.part_results ? tableProv(shown.table.part_results) : provLine(shown[r]))).filter(Boolean).join("");
   const any = stale.length || missing.length;
   return `<div class="fresh ${any ? "stale" : ""}" role="status" data-state="${any ? "stale" : "fresh"}">
     <span class="st">${any ? (missing.length && !stale.length ? "○ " + T("没有存着的结果", "No stored result") : "◷ " + T("过期", "Stale")) : `<span class="dot"></span>${T("与当前表单一致", "Matches the current form")}`}</span>

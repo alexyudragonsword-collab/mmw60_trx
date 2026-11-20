@@ -307,3 +307,28 @@ def test_every_baseline_row_carries_term_shares_the_usable_flag_and_the_power_at
     for r in rows:
         assert sum(v for v in r["terms_share"].values() if v is not None) == pytest.approx(1.0)
         assert (r["power_dec_cal"] is None) == (r["dec_mcs_cal"] is None)
+
+
+def test_the_baseline_lo_models_are_the_accepted_example_04_section():
+    """The LO models side by side: every (model, K) row as example 04 prints it."""
+    lo = BASELINE["table"]["report"]["lo_models"]
+    text = (EXPECTED / "04_comparison_table.txt").read_text(encoding="utf-8").splitlines()
+    start = next(i for i, ln in enumerate(text) if ln.startswith("== 5. the LO models side by side"))
+    end = next(i for i in range(start + 1, len(text)) if text[i].startswith("== "))
+    lines = [ln for ln in text[start + 3:end] if ln.strip()]
+    assert len(lines) == len(lo["rows"]) == 18 and lo["ks"] == [1, 8, 32]
+    for ln, r in zip(lines, lo["rows"]):
+        want = (f"{r['model']:<52} {r['k']:>3} {r['ipn_dbc']:9.1f} {r['pn_ici_db']:7.1f} {r['floor_db']:6.1f} "
+                f"{r['td_evm_db']:6.1f}  MCS{r['max_mcs']}")
+        assert ln == want
+    assert [r["k"] for r in lo["rows"] if r["is_preset_model"]] == [1, 8, 32]
+
+
+def test_the_baseline_ay_rows_carry_the_decoder_cap_the_array_result_reads_at_one_element():
+    rows = {r["waveform"]: r for r in BASELINE["table"]["report"]["ay_rows"]}
+    n1 = {r["waveform"]: r for r in BASELINE["array"]["report"]["ay"] if r["n"] == 1 and r["point"] == "preset"}
+    assert set(rows) == set(n1) == {"ay_sc", "ay_ofdm"}
+    for wf, r in rows.items():
+        assert (r["dec_mcs_cal"], r["dec_rate_cal_mbps"]) == (n1[wf]["cap_mcs"], n1[wf]["rate_mbps"])
+        assert r["power_dec_cal"]["pj_per_bit"] == pytest.approx(n1[wf]["pj_per_bit"], rel=1e-9)
+    assert (rows["ay_sc"]["dec_mcs_cal"], rows["ay_ofdm"]["dec_mcs_cal"]) == (21, 18)

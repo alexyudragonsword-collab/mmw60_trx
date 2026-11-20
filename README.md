@@ -147,7 +147,9 @@ mmw60-gui --no-window --port 8765     # 只起服务，自己用浏览器开
 另有系统框图、校准、阵列、SC 对 OFDM、运行台、出处几屏。改表单（共享的 18 个旋钮）**不清数**，只把读了那个旋钮的结果标过期——细到同台表的列；
 重算是后台任务（校准约 40 s、同台表 1–2 分钟、SC 对 OFDM 4–9 分钟、阵列 10–27 分钟，4 核），算完的结果落在 `MMW60_HOME`（默认用户缓存目录下的 `mmw60/`）。
 页面只画不算：每个数都来自 `mmw60.guiutil`，页面里不写任何结果数字。两份解码门限（几小时的 PER 曲线）不能在界面里重算，过期时页面给出重量的命令。
-手机的应用外壳还没有（`ROADMAP.md` F）。
+同台表可以先只算解析列看个大概（约 24 s）：它只换解析列，时域列和 ay 两行留在上一份完整结果上、标着过期，不会消失。
+手机上是同一个页面：`android/` 是 Chaquopy + WebView 的外壳（`android/README.md`），CI 构建 APK 并在模拟器上跑自检；真机还没跑过（`ROADMAP.md` F）。
+`python -m mmw60.appbridge` 在任何机器上回答“这台机器算出来的数与随包的那套一样吗”。
 
 同一批数据命令行也能直接取（页面读的就是这些字典）：
 
@@ -171,7 +173,7 @@ python tools/gui_baseline.py check                                    # 随包�
 - `cairn/LOG.md`：每轮的数字原值与被推翻的判断。
 - `cairn/upclocking.md`：K 的建模方式与 5.88 MHz / 4.7 门槛的推导。
 - `cairn/topology-a.md`、`cairn/topology-b.md`、`cairn/comparison-table.md`：两条拓扑各自的结论与同台表。
-- `cairn/gui.md`：图形界面的形态、计算层的数据接口、依赖表怎么守、结果放哪、宿主与队列、页面的规矩。
+- `cairn/gui.md`：图形界面的形态、计算层的数据接口、依赖表怎么守、结果放哪、宿主与队列、页面的规矩、手机外壳。
 - `src/mmw60/vendor/spec_sources/data/*.yaml`：每一个规范 / 文献数字的出处与标签（共享库 spec_sources，按完整 SHA vendor）；`src/mmw60/data/spec/survey.yaml`：本库自己的假设与产出。
 
 ## CI

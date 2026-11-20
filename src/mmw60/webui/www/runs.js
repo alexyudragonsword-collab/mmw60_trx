@@ -23,6 +23,8 @@ function runsQueue() {
   return `<header><h3>${T("后台任务", "Background jobs")}</h3><span class="mut sm">${act.length ? `${act.filter(j => j.status === "running").length} ${T("个运行", "running")} · ${act.filter(j => j.status === "queued").length} ${T("个排队", "queued")}` : T("没有在跑的任务", "nothing is running")}</span></header>
     ${jobs.length ? jobs.map(jobCard).join("") : `<p class="mut">${T("队列是空的。用下面的按钮为当前表单排一个任务。", "The queue is empty. Use the buttons below to queue a job for the current form.")}</p>`}`;
 }
+/* the jobs in the payload's order, with the analytic-only preview right after the full table */
+function runOrder(jobs) { const ks = Object.keys(jobs).filter(j => j !== "table_analytic"); if (jobs.table_analytic) ks.splice(ks.indexOf("table") + 1, 0, "table_analytic"); return ks; }
 function renderRuns() {
   if (!S.parts || !S.state) return `<div class="page"><div class="loading"><span class="spin"></span></div></div>`;
   const PT = S.parts, fp = fresh().parts, res = S.state.results || [], ed = Object.keys(S.study);
@@ -57,12 +59,14 @@ function renderRuns() {
       <div>
         <section class="blk" id="runs-queue">${runsQueue()}</section>
         <section class="blk"><header><h3>${T("为当前表单排一个任务", "Queue a job for the current form")}</h3></header>
-          <div class="runbtns">${Object.entries(PT.jobs).map(([job, j]) => runBtn(job, j)).join("")}</div>
-          <p class="note">${T("同台表的任务：这份表单若存着校准结果，就建在它上面，结果的出处一行会写明；否则用已验收的 IRR 表。", "A comparison-table job builds on the calibration stored for this form when there is one, and its result says so; otherwise it uses the accepted IRR table.")}</p></section>
+          <div class="runbtns">${runOrder(PT.jobs).map(job => runBtn(job, PT.jobs[job])).join("")}</div>
+          <p class="note">${T("同台表是由三部分拼成的（解析列、时域核对列、802.11ay 两行），各取存着的那份结果。只算解析列的预览只换掉解析列：时域核对列和 802.11ay 两行还是上一次整表的，照样标着过期。", "The comparison table is assembled from three parts (analytic columns, time-domain column, the two 802.11ay rows), each from the result stored for it. The analytic-only preview replaces the analytic columns alone: the time-domain column and the 802.11ay rows stay the last full run’s, still marked stale.")}</p></section>
       </div>
       <div>
         <section class="blk"><header><h3>${T("新鲜度：每个部分读哪些旋钮、按哪份结果判", "Freshness: which knobs each part reads, and which result it is judged against")}</h3></header>
           ${ledger}
+          <div class="fgroups"><div class="eyebrow">${T("同台表的列按字段组过期：一个部分自己的旋钮没动、只是上游过期时，过期的只有建在那个上游上的列", "The table’s columns go stale by field group: when a part’s own knobs hold and only an upstream is stale, only the columns built on that upstream are stale")}</div>
+            ${Object.entries(fresh().fields || {}).map(([g, s]) => { const [own, up] = g.split("+"); return `<span class="pchip" data-field-group="${esc(g)}" data-state="${esc(s)}">${stateSign(s)} ${esc(pn(own))}${up ? " + " + esc(pn(up)) : T("（自己读的旋钮）", " (its own knobs)")}${P_.c}${stateWord(s)}</span>`; }).join("")}</div>
           <div class="lg"><span>● ${T("读这个旋钮", "reads the knob")}</span><span>· ${T("不读", "does not read")}</span><span><span class="sw hitsw"></span>${T("读到了改过的旋钮", "reads an edited knob")}</span></div>
           ${matrix}
           <div><div class="eyebrow">${T("依赖链：上游过期，下游跟着过期", "Dependency chains: when upstream goes stale, downstream follows")}</div><div class="chartbox" data-chart="deps" style="margin-top:6px"></div></div>
