@@ -63,8 +63,6 @@ const TR_ZH = {
   "time-domain EVM on the uncalibrated chain, worst constellation (no analytic sum)": "未校准链上的时域 EVM，取最差星座（没有解析和）",
   "measured: time-domain EVM on the chain wifitrx's calibration sequence calibrated": "实测：wifitrx 校准序列校准过的链上的时域 EVM",
   "wifitrx's own verdict of the step on that run": "wifitrx 自己对这一步在这次运行上的判定",
-  "synthesizer power": "频综功耗", "PA peak PAE": "PA 峰值 PAE", "PA back-off": "PA 回退", "converter ENOB law": "转换器 ENOB 规律",
-  "calibrated IRR": "校准后的 IRR", "decoder-cap margin": "解码器上限余量",
   "calibration result": "校准结果", "accepted presets": "已验收的预设结果", "envelope": "存着的结果",
 };
 const tr = s => (s === null || s === undefined ? "" : S.lang === "zh" ? (TR_ZH[s] ?? s) : (TR[s] ?? s));
@@ -225,7 +223,7 @@ const cmd = c => `<div class="cmd"><code>${esc(c)}</code><button type="button" d
 const st = s => (s === "ok" ? `<span class="ok">✓ ok</span>` : `<span class="dg">▲ ${esc(s)}</span>`);
 const yes = (b, y, n) => (b === null || b === undefined ? `<span class="mut">n/a</span>` : b ? `<span class="ok">✓ ${y || T("是", "yes")}</span>` : `<span class="dg">✕ ${n || T("否", "no")}</span>`);
 const fg = c => `<span class="fg f-${esc(c)}" aria-hidden="true"></span>`;
-const seg = (act, cur, opts) => `<span class="seg" role="group">${opts.map(o => `<button type="button" data-act="${act}" data-v="${esc(o[0])}" aria-pressed="${String(o[0]) === String(cur)}">${o[1]}</button>`).join("")}</span>`;
+const seg = (act, cur, opts, hook) => `<span class="seg" role="group">${opts.map(o => `<button type="button" data-act="${act}" data-v="${esc(o[0])}" ${hook ? `${hook}="${esc(o[0])}"` : ""} aria-pressed="${String(o[0]) === String(cur)}">${o[1]}</button>`).join("")}</span>`;
 const FOOT = {
   ay: ["链上实测", "measured on the chain"],
   be_if_extender: ["芯片残差实测 + 解析和", "chip residual measured + analytic sum"],

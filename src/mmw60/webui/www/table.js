@@ -123,19 +123,23 @@ function sensSection(R) {
   const head = `<header><h3>${T("哪些猜测决定结论", "Which guesses decide the verdict")}</h3><span class="mut sm">${T("每个假设拨到它的两头，解析一侧重算一遍；先看这里，再去改表单", "each guess moved to its ends and the analytic side rerun; look here before turning a knob")}</span></header>`;
   if (!SN) return `<section class="blk" id="sens" data-part="table.analytic" data-state="${ps}">${head}<p class="mut">${T("正在显示的这份结果里没有这一节。排一个同台表任务就有。", "The result shown does not carry this section. A comparison-table job computes it.")}</p>
     <span><button type="button" class="btn" data-act="run" data-job="table">${T("重算", "Recompute")}${P_.c}${jn("table")} · ${expected("table")}</button></span></section>`;
-  const keys = s => String(s || "").split(" / ").map(p => { const k = /^[\w.]+/.exec(p.trim()); return k && S.sources && S.sources[k[0]] ? tag(k[0]) + esc(p.trim().slice(k[0].length)) : esc(p.trim()); }).join(" ");
+  const kn = k => esc(T(k.knob_zh || k.knob, k.knob)), nameOf = n => { const k = SN.knobs.find(x => x.knob === n); return k ? kn(k) : esc(n); };
+  /* an end as what it is: a relative step with its sign, a scale as a factor, an absolute value; the unit after it */
+  const end = k => (k.mode === "scale" ? "× " : "") + neg(esc(k.value_text)) + (k.unit ? " " + esc(k.unit) : "") + (k.mode === "relative" ? ` <span class="mut xs">${T("相对预设", "from the preset")}</span>` : "");
+  const srcs = k => (k.source_keys || []).map(key => tag(key)).join(" ") + (k.source_note ? ` <span class="xs mut">${esc(k.source_note)}</span>` : "");
   const moved = (list, kind) => `<div class="cellv"><span data-sens-moved="${kind}" class="${list.length ? "" : "mut"}">${m(`<b>${list.length}</b>`)}</span> ${T("行", "rows")}${list.length ? `<details class="mv"><summary>${T("哪几行", "which")}</summary>${list.map(x => `<div class="xs"><code>${esc(x.label)}</code> ${mcs(x.from)} → ${mcs(x.to)}</div>`).join("")}</details>` : ""}</div>`;
-  const decides = new Set(SN.decides || []);
+  const caps = SN.moves_a_cap || [], ranks = SN.changes_ranking || [], idle = k => !caps.includes(k.knob) && !ranks.includes(k.knob);
   return `<section class="blk" id="sens" data-part="table.analytic" data-state="${ps}">${head}
     <p class="note">${esc(T(SN.decoder_basis.zh, SN.decoder_basis.en))}</p>
-    ${tbl([{ h: T("假设（基线值的出处）", "Guess (source of the baseline value)"), f: k => `<span class="cellv">${esc(tr(k.knob))} ${keys(k.source_key)}</span>` },
-      { h: T("拨到", "Moved to"), r: 1, f: k => neg(esc(k.value_text)) },
+    ${tbl([{ h: T("假设（基线值的出处）", "Guess (source of the baseline value)"), f: k => `<span class="cellv">${kn(k)} ${srcs(k)}</span>` },
+      { h: T("拨到", "Moved to"), r: 1, f: k => `<span data-sens-end="${esc(k.mode || "")}">${end(k)}</span>` },
       { h: T("合规上限移动的行", "Rows whose conformance cap moves"), f: k => moved(k.mcs_moved || [], "conf") },
       { h: T("解码器上限移动的行", "Rows whose decoder cap moves"), f: k => moved(k.dec_mcs_moved || [], "dec") },
       { h: T("pJ/bit 倍数（各行最小 – 最大）", "pJ/bit ratio (min – max over rows)"), r: 1, f: k => (nil(k.pj_ratio_min) ? "—" : m(`${fx(k.pj_ratio_min, d)} – ${fx(k.pj_ratio_max, d)}`)) },
       { h: T("pJ/bit 排名变了", "pJ/bit ranking changed"), f: k => (k.ranking_changed ? m(`<span class="dg">${T("变", "yes")}</span>`) : `<span class="mut">${T("不变", "no")}</span>`) },
-    ], SN.knobs.map(k => Object.assign({}, k, { __attr: `data-sens-knob="${esc(k.knob + "|" + k.value_text)}"`, __cls: decides.has(k.knob) ? "" : "dim" })), { head: false })}
-    <p class="xs mut" data-sens-decides>${T("至少一头动了某一行的上限或 pJ/bit 排名的假设", "Guesses with an end that moves some row’s cap or the pJ/bit ranking")}${P_.c}${m([...decides].map(k => esc(tr(k))).join(P_.d) || "—")}${T("；灰色的行 = 两头都不动。", "; a grey line = neither end moves anything.")}</p>
+    ], SN.knobs.map(k => Object.assign({}, k, { __attr: `data-sens-knob="${esc(k.knob + "|" + k.value_text)}"`, __cls: idle(k) ? "dim" : "" })), { head: false })}
+    <p class="sm" data-sens-caps>${T("动了某一行 MCS 上限的假设", "Moves an MCS cap")}${P_.c}${m(caps.map(nameOf).join(P_.d) || "—")}</p>
+    <p class="sm" data-sens-ranking>${T("改变 pJ/bit 排名的假设", "Changes the pJ/bit ranking")}${P_.c}${m(ranks.map(nameOf).join(P_.d) || "—")}</p>
     <details class="fold"><summary>${T("基准的 pJ/bit 排名（最省在前）", "The base pJ/bit ranking (fewest first)")}</summary><div><ol class="plain">${(SN.base_ranking || []).map(l => `<li><code>${esc(l)}</code></li>`).join("")}</ol></div></details></section>`;
 }
 function renderTable() {
@@ -148,9 +152,10 @@ function renderTable() {
   const FILT = { all: () => true, A: r => r.topology === "if_extender", B: r => r.topology === "upclock_zero_if" && !isAy(r) && r.carrier_hz === FE.carrier_hz, ay: r => isAy(r), ref: r => !isAy(r) && r.carrier_hz !== FE.carrier_hz };
   const key = { rate: x => x.m.rate, pj: x => x.m.pj, range: x => x.m.range }[S.lens], dir = S.lens === "pj" ? 1 : -1;
   const byLens = (a, b) => { const va = key(a), vb = key(b); if (nil(va) && nil(vb)) return a.i - b.i; if (nil(va)) return 1; if (nil(vb)) return -1; return dir * (va - vb) || a.i - b.i; };
-  /* a row that cannot carry data (usable: false) keeps its numbers but comes after the usable rows
-   * whatever the sort key, takes no rank and does not set a bar's full width */
-  every.forEach(x => { x.usable = x.r.usable !== false; });
+  /* a row that cannot carry data on the column on show (usable: the raw chain; usable_cal: the
+   * calibrated one) keeps its numbers but comes after the usable rows whatever the sort key, takes
+   * no rank and does not set a bar's full width.  A row without the flag (802.11ay) is usable. */
+  every.forEach(x => { x.usable = (S.chain === "cal" ? x.r.usable_cal : x.r.usable) !== false; });
   const all = every.filter(x => FILT[S.filt](x.r)), last = (a, b) => (a.usable === b.usable ? 0 : a.usable ? -1 : 1);
   const ranked = [...all].sort((a, b) => last(a, b) || byLens(a, b)); let rk = 0; ranked.forEach(x => { x.rank = !x.usable || nil(key(x)) ? null : ++rk; });
   const shown = S.keep ? [...all].sort((a, b) => last(a, b) || a.i - b.i) : ranked, good = all.filter(x => x.usable);
@@ -176,7 +181,7 @@ function renderTable() {
     <div class="ctl">
       <span class="seglab"><span>${T("排序并突出", "Sort and highlight")}</span> ${seg("lens", S.lens, [["rate", T("速率", "Rate")], ["range", T("距离", "Range")], ["pj", "pJ/bit"]])}</span>
       <span class="seglab"><span class="hide-s">${T("上限口径", "Cap basis")}</span> ${seg("basis", S.basis, [["conf", `${T("合规：TX EVM 限值留", "Conformance: TX EVM limit less")} ${plain(mg.mcs_evm_margin_db)} dB`], ["dec", `${T("解码器：留", "Decoder: margin")} ${plain(mg.decoder_cap_margin_db)} dB`]])}</span>
-      <span class="seglab"><span class="hide-s">${T("取哪一列", "Column")}</span> ${seg("chain", S.chain, [["raw", T("未校准", "Raw")], ["cal", T("校准后", "Calibrated")]])}</span>
+      <span class="seglab"><span class="hide-s">${T("取哪一列", "Column")}</span> ${seg("chain", S.chain, [["raw", T("未校准", "Raw")], ["cal", T("校准后", "Calibrated")]], "data-col")}</span>
     </div>
     <div class="ctl">
       <span class="seglab"><span>${T("只看", "Show")}</span> ${seg("filt", S.filt, [["all", `${T("全部", "All")} ${nf("all")}`], ["A", `${T("拓扑 A", "Topology A")} ${nf("A")}`], ["B", `${T("拓扑 B", "Topology B")} ${nf("B")}`], ["ay", `802.11ay ${nf("ay")}`], ["ref", `${T("6 GHz 参考", "6 GHz reference")} ${nf("ref")}`]])}</span>
@@ -185,7 +190,7 @@ function renderTable() {
     </div>
     <div class="legend" aria-label="${T("口径图例", "Footing legend")}">
       ${["ay", "be_if_extender", "be_zero_if"].map(c => `<span title="${esc(tr(R.footing[c].cal_floor))}">${fg(c)}<b>${T(...FOOT[c])}</b> · ${cnt(c)} ${T("行", "rows")}<span class="hide-s">${P_.c}${esc(tr(R.footing[c].cal_floor))}</span></span>`).join("")}
-    ${every.some(x => !x.usable) ? `<span class="dimkey">${T("变淡的行 = 未校准链带不了数据：数照旧，排在可用的行之后，不参与排名", "dimmed row = the raw chain cannot carry data: its numbers stay, it sorts after the usable rows and takes no rank")}</span>` : ""}
+    ${every.some(x => !x.usable) ? `<span class="dimkey">${S.chain === "cal" ? T("变淡的行 = 校准后的链也带不了数据", "dimmed row = even the calibrated chain cannot carry data") : T("变淡的行 = 未校准的链带不了数据", "dimmed row = the raw chain cannot carry data")}${T("：数照旧，排在可用的行之后，不参与排名；看哪条链跟着“取哪一列”走", ": its numbers stay, it sorts after the usable rows and takes no rank; which chain is judged follows the column picked")}</span>` : ""}
     </div>
     <div class="ct" role="table" aria-label="${T("同台对比表", "Comparison table")}">
       <div class="hrow" role="row"><span></span><span>${T("方案 · 未校准链的结论", "Scheme · verdict on the raw chain")}</span><span>${T("口径", "Footing")}</span>
