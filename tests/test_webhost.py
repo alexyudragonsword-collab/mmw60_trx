@@ -147,6 +147,12 @@ def test_report_serves_the_stored_result_with_its_freshness_and_never_computes()
     assert r["jobs"] == ["table"]                                   # the jobs a host queues: the full ones
     code, r = api.call("report", {"report": "array", "study": {}})
     assert code == 200 and r["report"] is None and r["result"] is None and r["jobs"] == ["array"]
+    # the SC-against-OFDM report comes with what is computed across results: the headline and the
+    # item table, each naming the results it was computed from (none of the array's here)
+    api.state.store.add(canned("ay", {}))
+    code, r = api.call("report", {"report": "ay", "study": {}})
+    assert code == 200 and r["headline"] is None and r["items"] == []
+    assert r["items_results"]["array"] is None and r["items_results"]["table"]["id"] == "baseline-table"
     assert api.call("report", {"report": "everything"})[0] == 400
     assert api.state.jobs.listing() == []                         # asking for a report queued nothing
 

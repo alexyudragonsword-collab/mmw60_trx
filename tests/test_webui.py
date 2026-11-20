@@ -327,3 +327,47 @@ def test_with_nothing_stored_the_page_says_missing_and_offers_the_jobs(browser):
     finally:
         srv.shutdown()
         srv.server_close()
+
+
+def test_the_data_the_page_lacked_is_drawn_from_the_payloads(host, browser):
+    """Which guesses decide, each term's share of the floor, the rows that cannot carry data, and SC
+    against OFDM item by item: computed in the compute layer, drawn here, each in its own cell."""
+    url, _ = host
+    page, errors = _open(browser, url)
+    base = guistore.load_baseline()
+    table = base["table"]["report"]
+    # 1. the sensitivity section: one line per knob end, with the count of rows whose caps moved
+    sens = table["sensitivity"]
+    page.wait_for_selector("#sens [data-sens-knob]", state="attached", timeout=15000)
+    assert page.evaluate("document.querySelectorAll('#sens [data-sens-knob]').length") == len(sens["knobs"]) == 13
+    k = next(x for x in sens["knobs"] if x["knob"] == "PA back-off" and x["value_text"] == "-2")
+    line = page.text_content(f'#sens [data-sens-knob="{k["knob"]}|{k["value_text"]}"]')
+    assert str(len(k["mcs_moved"])) in line and str(len(k["dec_mcs_moved"])) in line
+    assert f"{k['pj_ratio_max']:.{table['display']['pj_ratio']}f}" in line
+    # 2. a row that cannot carry data is marked, keeps its numbers and comes after every usable row
+    order = page.evaluate("[...document.querySelectorAll('#screen-table [data-label]')]"
+                          ".map(e => [e.dataset.label, e.dataset.usable || 'true'])")
+    unusable = {r["label"] for r in table["rows"] if not r["usable"]}
+    assert {lab for lab, u in order if u == "false"} == unusable and len(unusable) == 2
+    flags = [u for _, u in order]
+    assert flags == sorted(flags, reverse=True), "an unusable row is ranked among the usable ones"
+    # 3. the row detail: each term's share of the floor
+    r = next(x for x in table["rows"] if x["label"] == B32)
+    page.click(f'#screen-table [data-label="{B32}"]')
+    page.wait_for_selector('[data-term="iq_image"] [data-share]', timeout=15000)
+    d = table["display"]["terms_share_pct"]
+    for term, share in r["terms_share"].items():
+        if share is not None:
+            assert f"{100 * share:.{d}f}" in page.text_content(f'[data-term="{term}"]'), term
+    assert f"{r['power_dec_cal']['pj_per_bit']:.0f}" in page.text_content("#screen-row")
+    # 4. SC against OFDM, item by item
+    items = g.sc_vs_ofdm_items(table, base["array"]["report"], base["ay"]["report"])
+    page.click("#nav-ay")
+    page.wait_for_selector("#items [data-item]", timeout=15000)
+    assert page.evaluate("document.querySelectorAll('#items [data-item]').length") == len(items) == 15
+    for it in items:
+        row = page.locator(f'#items [data-item="{it["id"]}"]')
+        assert row.get_attribute("data-winner") == it["winner"], it["id"]
+        assert f"{abs(it['sc_over_ofdm_pct']):.1f}" in row.text_content(), it["id"]
+    assert not errors, errors
+    page.close()
