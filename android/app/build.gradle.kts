@@ -12,8 +12,8 @@ android {
         applicationId = "com.mmw60.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.2.0"             // tracks the mmw60 version it bundles (tests/test_android.py)
+        versionCode = 300                 // major * 10000 + minor * 100 + patch of the version below
+        versionName = "0.3.0"             // the mmw60 version it bundles (tests/test_android.py holds both)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             // arm64 for phones, x86_64 for the emulator the CI job runs; each

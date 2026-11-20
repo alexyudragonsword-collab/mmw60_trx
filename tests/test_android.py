@@ -82,6 +82,8 @@ def test_gradle_bundles_the_page_takes_the_library_as_source_and_installs_the_na
     assert re.findall(r'install\(("[^"]*"|\w+)\)', gradle) == ["it", '"pyyaml"']
     assert "matplotlib" not in gradle and "numba" not in gradle
     assert f'versionName = "{mmw60.__version__}"' in gradle
+    major, minor, patch = (int(x) for x in mmw60.__version__.split("."))
+    assert f"versionCode = {major * 10000 + minor * 100 + patch}" in gradle       # an update installs over the last
     stack = [ln for ln in _code(_text("android/phone-stack.txt"), "#").split() if ln]
     assert [re.fullmatch(r"(numpy|scipy)==\d+\.\d+\.\d+", ln) is not None for ln in stack] == [True, True]
 
