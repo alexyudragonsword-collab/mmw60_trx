@@ -680,6 +680,47 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
     })
 
 
+def analytic_agreement(report: dict, reference: dict) -> dict:
+    """How far the analytic columns of one table report sit from another's: every number of the
+    ``BE_FIELDS["table.analytic"]`` fields, row by row (rows matched by label), as the largest
+    difference scaled by ``max(|a|, |b|, 1)``; anything that is not a number must be equal.
+
+    This is what tells a recomputation on another machine or another numpy / scipy from the shipped
+    baseline (``appbridge.self_check``).  The time-domain column and the decoder caps are left out
+    on purpose: an analytic-only run has no time-domain EVM, and its decoder caps start from the
+    analytic floor alone (``assemble_table``), so they legitimately differ from a full run's."""
+    ref = {r["label"]: r for r in reference["rows"]}
+    out = {"rows": 0, "numbers": 0, "identical": 0, "worst_scaled": 0.0, "worst": None, "mismatches": []}
+
+    def walk(a, b, where):
+        if isinstance(a, dict) and isinstance(b, dict) and set(a) == set(b):
+            for k in a:
+                walk(a[k], b[k], f"{where}.{k}")
+        elif isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+            for i, (x, y) in enumerate(zip(a, b)):
+                walk(x, y, f"{where}[{i}]")
+        elif (isinstance(a, (int, float)) and isinstance(b, (int, float))
+              and not isinstance(a, bool) and not isinstance(b, bool)):
+            out["numbers"] += 1
+            d = abs(a - b) / max(abs(a), abs(b), 1.0)
+            out["identical"] += d == 0.0
+            if d > out["worst_scaled"]:
+                out["worst_scaled"], out["worst"] = d, {"where": where, "value": a, "reference": b}
+        elif a != b:
+            out["mismatches"].append({"where": where, "value": _json(a), "reference": _json(b)})
+
+    for row in report["rows"]:
+        if row["label"] not in ref:
+            out["mismatches"].append({"where": row["label"], "value": "a row", "reference": None})
+            continue
+        out["rows"] += 1
+        for key in BE_FIELDS["table.analytic"]:
+            walk(row.get(key), ref[row["label"]].get(key), f"{row['label']}: {key}")
+    for label in sorted(set(ref) - {r["label"] for r in report["rows"]}):
+        out["mismatches"].append({"where": label, "value": None, "reference": "a row"})
+    return out
+
+
 def assemble_table(by_part: dict) -> dict | None:
     """The comparison table a page draws, put together from the table report each part is drawn from
     (``by_part``: ``table.analytic`` / ``table.td`` / ``table.ay`` -> a table report or None).

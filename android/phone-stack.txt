@@ -1,0 +1,9 @@
+# The numpy and scipy the app is built with: exact versions from Chaquopy's
+# Android wheel repository for Python 3.10 (android/app/build.gradle.kts
+# installs exactly these lines).  They are OLDER than the floors pyproject.toml
+# declares for the desktop (numpy >= 1.26, scipy >= 1.11), which is why the app
+# installs mmw60 with --no-deps -- and why CI's test-phone-stack job installs
+# this same file on Python 3.10 and runs the bridge path and the self-check on
+# it.  Change a line here and both the APK and that job move together.
+numpy==1.23.3
+scipy==1.8.1
