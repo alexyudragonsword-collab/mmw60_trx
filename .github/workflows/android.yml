@@ -76,4 +76,8 @@ jobs:
       # sits behind a failure neither runs nor reports
       - name: The on-device tests actually ran
         if: always()
-        run: python android/tools/check_ondevice_results.py android/app/build/outputs/androidTest-results/connected 2
+        run: |
+          python android/tools/check_ondevice_results.py android/app/build/outputs/androidTest-results/connected 2
+          # once more at the very end, where a truncated log still reaches: what the APK carries
+          python android/tools/check_apk.py android/app/build/outputs/apk/debug/app-debug.apk \
+            src/mmw60/webui/www android/phone-stack.txt

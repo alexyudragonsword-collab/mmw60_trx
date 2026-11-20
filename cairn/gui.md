@@ -217,3 +217,42 @@ authoring_mode: ai_generated
 - **依赖表不能靠读代码**：见 §2b，解析列读信道那一处当时写反了。
 - **框图的事实漏了拓扑 A 的升频**（用户指出）：第一遍“时钟 × K”只画在拓扑 B 上。现在 `upclock_scope` 明说两条拓扑各走到哪。
 - 页面上的数与数据逐个核对只证明“数在数据里”，不证明“放对了格”；位置要靠抽看。
+
+## 7. 手机外壳：`android/`（2026-11-20 第二轮）
+
+同一个页面的第三个宿主（`android/README.md` 是构建说明）：Chaquopy 把 CPython 3.10 装进 APK，一个不承载功能的 Activity 注入 `window.host`，
+页面的 `api()` 经它调 `mmw60.appbridge.call(route, json)`，回调走 `window.onHostReply`；页面文件就是 `src/mmw60/webui` 那一份（Gradle 的 assets 指过去），不申请任何权限。
+版本组照姊妹库（Chaquopy 15.0.1 / AGP 8.1.4 / Kotlin 1.9.24 / Gradle 8.2，arm64-v8a + x86_64）。
+
+**与姊妹库不同的两处，都是量出来才知道的**：
+
+- **手机上的 numpy / scipy 比桌面声明的下限旧**。Chaquopy 给 Python 3.10 的是 numpy 1.23.3 / scipy 1.8.1，`pyproject.toml` 声明 ≥ 1.26 / ≥ 1.11，还要 matplotlib。
+  先量了可行性：手机桥这条路径只导入 numpy、scipy、yaml（没有 matplotlib；numba 本来就是可选的）。于是库以**源码**进包（Chaquopy 的源目录指 `../../src`），不经过 pip，声明的下限不进 pip 的求解；
+  版本写死在 `android/phone-stack.txt`，Gradle 装的就是这几行。**让“低于声明下限运行”站得住的是 CI 的 `test-phone-stack`**：Python 3.10 上只装这份文件，没有 matplotlib / numba，
+  跑宿主 / 仓库 / 计算层测试（79 项）、五个任务的试算档、自检。
+- **库按路径读数据**（规范表、随包基线），而 Chaquopy 默认直接从 APK 里导入模块、路径不存在：`extractPackages("mmw60")`。
+
+**自检**：`appbridge.self_check()` 经页面用的同一条路由读四份随包报告，再把同台表的解析列在本机重算一遍，与随包基线逐数比（`analytic_agreement`，上限 1e-9）。
+`python -m mmw60.appbridge [--jobs]` 在任何机器上都能跑。量到的（777 个数；基线是 Python 3.13 + numpy 2.5 + scipy 1.18 算的）：
+
+| 在哪跑 | 逐位相同 | 最大偏差 | 耗时 |
+|---|---|---|---|
+| 本机，numpy 2.5 / scipy 1.18 | 777 | 0 | 20 s |
+| 本机，Python 3.10 + numpy 1.23.3 + scipy 1.8.1 | 683 | 3.6e-15 | 22 s |
+| CI `test-phone-stack`（同上版本） | 687 | 3.6e-15 | 21 s |
+| **Android 模拟器（API 34，x86_64），APK 里的 Python 3.10.13** | 570 | 3.6e-15 | 27 s |
+
+**CI 真的把它跑起来**（`.github/workflows/android.yml`，改 `android/`、`appbridge.py`、`pyproject.toml` 时与手动触发；一次约 4 分钟）：构建 APK → `android/tools/check_apk.py` 读包里到底有什么 →
+模拟器上两条设备测试：自检的结论、页面经桥画出同台表（等到 `#screen-table [data-label]` 出现；量到 21 行 = 19 + 2）。设备测试的条数按**精确值**核对，设备说的话印在日志末尾。
+
+**被推翻的判断（我自己的第一版）**：为了绕开声明的下限，第一次构建用 `--no-deps` 把 numpy、scipy、mmw60 的 sdist 一起装。**APK 构建成功，包内容检查也过了**；模拟器上两条都红——
+`dlopen failed: library "libopenblas.so" not found`：Chaquopy 的 numpy wheel 依赖它自己的 OpenBLAS 运行库包，`--no-deps` 把它丢了。
+改成上面的“源码进包 + 带依赖装”；`check_apk.py` 现在从 APK 里读每个 wheel 的 `Requires-Dist`，缺一个就红（用假 APK 两个方向验过）。构建绿不等于能跑，这一次是四分钟内由模拟器说出来的。
+
+**守卫**（`tests/test_android.py`，十条变异各让一条测试变红、还原变绿）：没有权限；环境变量在解释器启动之前设、且 Activity 与设备测试走同一个 `startPython`；
+Gradle / 两个工作流的 Python 版本相同；`phone-stack.txt` 是精确版本；设备测试的条数与工作流里核对的数相同、核对步排在会失败的那一步之后且 `if: always()`；
+在一个“导入 matplotlib / numba 就报错”的解释器里四份报告照样读得出来。
+
+**没有验证的**：真机（只有 x86_64 模拟器）；arm64 上的数值（另一套 libm / BLAS 内核，自检就是为它准备的，没跑过）；手机上各任务要多久——界面上的预计时长是桌面 4 核量的，
+手机上没有 numba、线程后端一次一个任务，只会更慢，慢多少没量；完整规模的任务在手机内存里跑不跑得下；返回键、横竖屏、刘海安全区、深色模式跟随系统（主题写死了浅色，页面自己的开关能切）。
+
