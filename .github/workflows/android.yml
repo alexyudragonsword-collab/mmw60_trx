@@ -13,6 +13,7 @@ name: android
 
 on:
   workflow_dispatch:
+  workflow_call:             # release.yml runs this very job before it tags anything
   push:
     paths:
       - "android/**"
@@ -21,7 +22,9 @@ on:
       - "pyproject.toml"
 
 concurrency:
-  group: android-${{ github.ref }}
+  # github.workflow is the caller's name when release.yml calls this, so a release
+  # and a push to the same branch do not cancel each other
+  group: android-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
