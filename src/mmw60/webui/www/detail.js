@@ -7,7 +7,8 @@ const calReport = () => (S.screen === "row" ? (S.row && S.row.calibration) : (S.
 function powerPoints(r) {
   if (isAy(r)) return [{ name: T("合规上限 · 未校准", "Conformance cap · raw"), cap: mcs(r.cap_raw), p: r.power_raw, f: "power_raw" }, { name: T("合规上限 · 校准后", "Conformance cap · calibrated"), cap: mcs(r.cap_cal), p: r.power_cal, f: "power_cal" }];
   return [{ name: T("合规上限 · 未校准", "Conformance cap · raw"), cap: mcs(r.max_mcs), p: r.power, f: "power" }, { name: T("合规上限 · 校准后", "Conformance cap · calibrated"), cap: mcs(r.max_mcs_cal), p: r.power_cal, f: "power_cal" },
-    { name: T("解码器上限 · 未校准", "Decoder cap · raw"), cap: r.dec_cap_display || "—", p: r.power_dec, f: "power_dec" }];
+    { name: T("解码器上限 · 未校准", "Decoder cap · raw"), cap: r.dec_cap_display || "—", p: r.power_dec, f: "power_dec" },
+    { name: T("解码器上限 · 校准后", "Decoder cap · calibrated"), cap: r.dec_cap_cal_display || "—", p: r.power_dec_cal, f: "power_dec_cal" }];
 }
 const BUDGET_KEY = { pa: "pa_nonlinearity", converters: "quantization" };
 /* a step's two verdicts, side by side */
@@ -75,14 +76,18 @@ function renderRow() {
       <div><span class="eyebrow">${T("解码器上限", "Decoder cap")}</span><div class="big"><span class="from">${svf("dec_mcs", esc(r.dec_cap_display || "—"))} →</span> ${svf("dec_mcs_cal", esc(r.dec_cap_cal_display || "—"))}</div>
         <div class="sm mut">${fx(r.dec_rate_mbps, d.rate_mbps)} → ${fx(r.dec_rate_cal_mbps, d.rate_mbps)} Mb/s · ${T("离上一档", "to next step")} ${fx(r.dec_next_margin_db, d.dec_next_margin_db)} / ${fx(r.dec_cal_next_margin_db, d.dec_next_margin_db)} dB</div></div>
       <div><span class="eyebrow">pJ/bit · ${T("合规上限处", "at the conformance cap")}</span><div class="big"><span class="from">${svf("power", pj(r.power))} →</span> ${svf("power_cal", pj(r.power_cal))}</div>
-        <div class="sm mut">${W.footing.decoder_counted_in_pj ? T("计解码器", "decoder counted") : T("不计解码器", "decoder not counted")} · ${T("解码器上限处", "at the decoder cap")} ${pj(r.power_dec)}</div></div></div>`;
-    const terms = Object.entries(r.terms_db), bk = t => b.components_db[BUDGET_KEY[t] || t];
+        <div class="sm mut">${W.footing.decoder_counted_in_pj ? T("计解码器", "decoder counted") : T("不计解码器", "decoder not counted")} · ${T("解码器上限处", "at the decoder cap")} ${svf("power_dec", pj(r.power_dec))} → ${svf("power_dec_cal", `<span data-pj-dec-cal>${pj(r.power_dec_cal)}</span>`)}</div></div></div>`;
+    const sh = r.terms_share || {}, bk = t => b.components_db[BUDGET_KEY[t] || t];
+    const terms = Object.entries(r.terms_db).map(t => Object.assign([...t], { __attr: `data-term="${esc(t[0])}"` }));
+    /* a term's share of the floor's power: the fraction the report gives, as a percentage and a bar */
+    const share = t => { const v = sh[t]; return nil(v) ? `<span class="mut">—</span>` : svf("terms_share", `<span class="shr" data-share><b>${fx(v * 100, d.terms_share_pct)} %</b><span class="shrt"><i style="width:${Math.max(0, Math.min(100, v * 100))}%"></i></span></span>`); };
     const evm = `<section class="blk"><header><h3>${T("EVM 预算分项 · 未校准链", "EVM budget by term · raw chain")}</h3>
         <span class="mut sm">${T("每项单独的 EVM；底板是它们的和", "each term’s EVM on its own; the floor is their sum")}</span></header>
       <div class="chartbox" data-chart="terms"></div>
       ${tbl([
       { h: T("项", "Term"), f: t => `${term(t[0])}${t[0] === r.dominant ? ` <span class="vd best">${T("主导", "dominant")}</span>` : ""}` },
       { h: T("单独 EVM dB", "EVM alone, dB"), r: 1, f: t => svf("terms_db", absent(t[1]) ? `<span class="mut" title="${fx(t[1], 1)}">—</span>` : fx(t[1], d.terms_db)) },
+      ...(r.terms_share ? [{ h: T("占底板功率的份额", "Share of the floor’s power"), r: 1, f: t => share(t[0]) }] : []),
       { h: "wifitrx EvmBudget dB", r: 1, f: t => (absent(bk(t[0])) ? `<span class="mut">—</span>` : fx(bk(t[0]), 1)) + (t[0] === "phase_noise" && !nil(b.cpe_tracked_fraction) ? ` <span class="mut sm">CPE ${T("跟掉的比例", "tracked fraction")} ${fx(b.cpe_tracked_fraction, 2)}</span>` : "") },
     ], terms)}
       <p class="note">${T("交叉核对", "Cross-check")}${P_.c}${T("解析和", "analytic sum")} <b class="n">${fx(r.floor_db, d.floor_db)} dB</b> · wifitrx EvmBudget <b class="n">${fx(b.predicted_evm_db, 1)} dB</b> (${T("差", "Δ")} ${fx(r.budget_delta_db, 2)}) · ${T("同一格的时域 EVM", "time-domain EVM of the same cell")} <b class="n">${fx(r.td_evm_db, d.td_evm_db)} dB</b> ${yes(r.td_ok, "ok")} · IPN ${fx(b.ipn_dbc_10k_100m, 1)} dBc</p>

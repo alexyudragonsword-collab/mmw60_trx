@@ -10,10 +10,11 @@ const studyKey = () => JSON.stringify(S.study);
 
 /* ------------------------------------------------------------------ what is loaded, and for which stored result */
 /* a report is the stored result picked for the study (plus, for the table's range column and the
- * SC-against-OFDM headline, the array result): it is refetched when that pick changes */
+ * SC-against-OFDM headline and item table, the array and table results): it is refetched when
+ * that pick changes */
 function repKey(name) {
   const sh = S.state ? S.state.shown : {}, k = m => (m ? m.id + "@" + m.at : "-");
-  return [name, ...(name === "table" || name === "ay" ? ["array"] : [])].map(n => k(sh[n])).join("|");
+  return [name, ...(name === "table" ? ["array"] : name === "ay" ? ["array", "table"] : [])].map(n => k(sh[n])).join("|");
 }
 function invalidate() {
   for (const name of Object.keys(S.rep)) if (S.repStudy[name] !== repKey(name)) { delete S.rep[name]; delete S.repStudy[name]; }

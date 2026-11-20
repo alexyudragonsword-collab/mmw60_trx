@@ -18,7 +18,7 @@ function rowMetrics(r, W) {
       : { capRaw: mcs(r.max_mcs), capCal: mcs(r.max_mcs_cal), rateRaw: r.rate_mbps, rateCal: r.rate_cal_mbps, pjRaw: pj(r.power), pjCal: pj(r.power_cal), sRaw: fs("max_mcs"), sCal: fs("max_mcs_cal") };
   } else {
     m = ay ? { capRaw: "—", capCal: rg ? mcs(rg.cap_mcs) : "—", rateRaw: null, rateCal: rg ? rg.rate_mbps : null, pjRaw: null, pjCal: rg ? rg.pj_per_bit : null, sRaw: "fresh", sCal: arr, fromArray: true }
-      : { capRaw: r.dec_cap_display || "—", capCal: r.dec_cap_cal_display || "—", rateRaw: r.dec_rate_mbps, rateCal: r.dec_rate_cal_mbps, pjRaw: pj(r.power_dec), pjCal: null, sRaw: fs("dec_mcs"), sCal: fs("dec_mcs_cal") };
+      : { capRaw: r.dec_cap_display || "—", capCal: r.dec_cap_cal_display || "—", rateRaw: r.dec_rate_mbps, rateCal: r.dec_rate_cal_mbps, pjRaw: pj(r.power_dec), pjCal: pj(r.power_dec_cal), sRaw: fs("dec_mcs"), sCal: fs("dec_mcs_cal") };
   }
   const cal = S.chain === "cal";
   return Object.assign(m, { ay, rg, rate: cal ? m.rateCal : m.rateRaw, pj: cal ? m.pjCal : m.pjRaw, range: rg ? (ay ? rg.range_mcs1_m : rg.range_mcs0_m) : null, sRange: arr,
@@ -37,7 +37,7 @@ function homeRow(x, ctx) {
   const { r, m } = x, R = ctx.R, d = R.display, fc = r.footing, ay = m.ay, nm = rowName(r, R), cal = S.chain === "cal", fs = f => fieldState(R, f, ay), svf = (f, html) => svField(R, f, ay, html);
   const chips = [];
   if (!ay) {
-    if (r.verdict === "不能") chips.push(`<span class="vd no">✕ ${T("未校准链不能：", "raw chain fails: ")}${esc(tr(r.reason))}</span>`);
+    if (r.usable === false) chips.push(`<span class="vd no">✕ ${T("未校准链不能：", "raw chain fails: ")}${esc(tr(r.reason))}</span>`);
     else if (r.reason) chips.push(`<span class="vd">${esc(tr(r.reason))}</span>`);
     const best = R.be_best_at_calibrated_cap || {};
     if (best.fastest === r.label) chips.push(`<span class="vd best">${T("be 行里最快（校准后合规上限）", "fastest be row (calibrated conformance cap)")}</span>`);
@@ -77,7 +77,7 @@ function homeRow(x, ctx) {
   const order = ["rate", "pj", "range"], rest = order.filter(k => k !== S.lens);
   const cls = k => (k === S.lens ? "lens" : k === rest[0] ? "m1" : "m2");
   const open = S.open[r.label] ?? (ctx.phone && ctx.first === r.label);
-  return `<div class="row ${S.sel === r.label ? "sel" : ""} ${open ? "open" : ""}" role="row" tabindex="0" data-label="${esc(r.label)}" data-act="detail" data-v="${esc(r.label)}">
+  return `<div class="row ${S.sel === r.label ? "sel" : ""} ${open ? "open" : ""}" role="row" tabindex="0" data-label="${esc(r.label)}" ${x.usable ? "" : 'data-usable="false"'} data-act="detail" data-v="${esc(r.label)}">
     <div class="rk" role="cell">${x.rank ?? "–"}</div>
     <div class="nm" role="cell"><div class="l1">${nm.l1}</div><div class="l2">${nm.l2}</div>${chips.length ? `<div class="l3">${chips.join("")}</div>` : ""}</div>
     <div class="ft" role="cell" title="${esc(T(...FOOT[fc]))}">${fg(fc)}<span class="t">${T(...FOOT[fc])}</span></div>
@@ -115,6 +115,29 @@ function feStrip(W, open) {
         ${dd(T("平均上限", "average limit"), `${fx(FE.eirp_limit_avg_dbm, 1)} dBm`, tg("eirp_limit_avg_dbm"))}${dd(T("余量", "margin"), `${fx(FE.eirp_margin_db, W.report.display.eirp_margin_db)} dB`, tg("eirp_margin_db"))}</dl></div>
     </div></details>`;
 }
+/* Which guesses decide: the analytic side rerun at each end of each knob (computed with the table
+ * job).  One line per knob end: how many rows' caps moved, how far pJ/bit moved, whether the
+ * ranking changed.  It is part of table.analytic and goes stale with it. */
+function sensSection(R) {
+  const SN = R.sensitivity, ps = pstate("table.analytic"), m = v => sv(ps, v, "table.analytic"), d = R.display.pj_ratio;
+  const head = `<header><h3>${T("哪些猜测决定结论", "Which guesses decide the verdict")}</h3><span class="mut sm">${T("每个假设拨到它的两头，解析一侧重算一遍；先看这里，再去改表单", "each guess moved to its ends and the analytic side rerun; look here before turning a knob")}</span></header>`;
+  if (!SN) return `<section class="blk" id="sens" data-part="table.analytic" data-state="${ps}">${head}<p class="mut">${T("正在显示的这份结果里没有这一节。排一个同台表任务就有。", "The result shown does not carry this section. A comparison-table job computes it.")}</p>
+    <span><button type="button" class="btn" data-act="run" data-job="table">${T("重算", "Recompute")}${P_.c}${jn("table")} · ${expected("table")}</button></span></section>`;
+  const keys = s => String(s || "").split(" / ").map(p => { const k = /^[\w.]+/.exec(p.trim()); return k && S.sources && S.sources[k[0]] ? tag(k[0]) + esc(p.trim().slice(k[0].length)) : esc(p.trim()); }).join(" ");
+  const moved = (list, kind) => `<span data-sens-moved="${kind}" class="${list.length ? "" : "mut"}">${m(`<b>${list.length}</b>`)}</span> ${T("行", "rows")}${list.length ? `<details class="mv"><summary>${T("哪几行", "which")}</summary>${list.map(x => `<div class="xs"><code>${esc(x.label)}</code> ${mcs(x.from)} → ${mcs(x.to)}</div>`).join("")}</details>` : ""}`;
+  const decides = new Set(SN.decides || []);
+  return `<section class="blk" id="sens" data-part="table.analytic" data-state="${ps}">${head}
+    <p class="note">${esc(T(SN.decoder_basis.zh, SN.decoder_basis.en))}</p>
+    ${tbl([{ h: T("假设（基线值的出处）", "Guess (source of the baseline value)"), f: k => `${esc(tr(k.knob))} ${keys(k.source_key)}` },
+      { h: T("拨到", "Moved to"), r: 1, f: k => neg(esc(k.value_text)) },
+      { h: T("合规上限移动的行", "Rows whose conformance cap moves"), f: k => moved(k.mcs_moved || [], "conf") },
+      { h: T("解码器上限移动的行", "Rows whose decoder cap moves"), f: k => moved(k.dec_mcs_moved || [], "dec") },
+      { h: T("pJ/bit 倍数（各行最小 – 最大）", "pJ/bit ratio (min – max over rows)"), r: 1, f: k => (nil(k.pj_ratio_min) ? "—" : m(`${fx(k.pj_ratio_min, d)} – ${fx(k.pj_ratio_max, d)}`)) },
+      { h: T("pJ/bit 排名变了", "pJ/bit ranking changed"), f: k => (k.ranking_changed ? m(`<span class="dg">${T("变", "yes")}</span>`) : `<span class="mut">${T("不变", "no")}</span>`) },
+    ], SN.knobs.map(k => Object.assign({}, k, { __attr: `data-sens-knob="${esc(k.knob + "|" + k.value_text)}"`, __cls: decides.has(k.knob) ? "" : "dim" })), { head: false })}
+    <p class="xs mut" data-sens-decides>${T("至少一头动了某一行的上限或 pJ/bit 排名的假设", "Guesses with an end that moves some row’s cap or the pJ/bit ranking")}${P_.c}${m([...decides].map(k => esc(tr(k))).join(P_.d) || "—")}${T("；灰色的行 = 两头都不动。", "; a grey line = neither end moves anything.")}</p>
+    <details class="fold"><summary>${T("基准的 pJ/bit 排名（最省在前）", "The base pJ/bit ranking (fewest first)")}</summary><div><ol class="plain">${(SN.base_ranking || []).map(l => `<li><code>${esc(l)}</code></li>`).join("")}</ol></div></details></section>`;
+}
 function renderTable() {
   const W = S.rep.table;
   if (!W) return `<div class="page"><div class="loading"><span class="spin"></span>${T("正在读取同台表…", "Loading the comparison table…")}</div></div>`;
@@ -125,11 +148,14 @@ function renderTable() {
   const FILT = { all: () => true, A: r => r.topology === "if_extender", B: r => r.topology === "upclock_zero_if" && !isAy(r) && r.carrier_hz === FE.carrier_hz, ay: r => isAy(r), ref: r => !isAy(r) && r.carrier_hz !== FE.carrier_hz };
   const key = { rate: x => x.m.rate, pj: x => x.m.pj, range: x => x.m.range }[S.lens], dir = S.lens === "pj" ? 1 : -1;
   const byLens = (a, b) => { const va = key(a), vb = key(b); if (nil(va) && nil(vb)) return a.i - b.i; if (nil(va)) return 1; if (nil(vb)) return -1; return dir * (va - vb) || a.i - b.i; };
-  const all = every.filter(x => FILT[S.filt](x.r));
-  const ranked = [...all].sort(byLens); let rk = 0; ranked.forEach(x => { x.rank = nil(key(x)) ? null : ++rk; });
-  const shown = S.keep ? all : ranked;
+  /* a row that cannot carry data (usable: false) keeps its numbers but comes after the usable rows
+   * whatever the sort key, takes no rank and does not set a bar's full width */
+  every.forEach(x => { x.usable = x.r.usable !== false; });
+  const all = every.filter(x => FILT[S.filt](x.r)), last = (a, b) => (a.usable === b.usable ? 0 : a.usable ? -1 : 1);
+  const ranked = [...all].sort((a, b) => last(a, b) || byLens(a, b)); let rk = 0; ranked.forEach(x => { x.rank = !x.usable || nil(key(x)) ? null : ++rk; });
+  const shown = S.keep ? [...all].sort((a, b) => last(a, b) || a.i - b.i) : ranked, good = all.filter(x => x.usable);
   const fl = every.flatMap(x => (x.m.ay ? [x.r.floor_raw_worst_db, x.r.floor_cal_worst_db] : [x.r.floor_db, x.r.floor_cal_db]));
-  const ctx = { W, R, phone, first: shown.length ? shown[0].r.label : null, mx: { rate: Math.max(...all.map(x => x.m.rate ?? 0), 1e-9), range: Math.max(...all.map(x => x.m.range ?? 0), 1e-9) },
+  const ctx = { W, R, phone, first: shown.length ? shown[0].r.label : null, mx: { rate: Math.max(...good.map(x => x.m.rate ?? 0), 1e-9), range: Math.max(...good.map(x => x.m.range ?? 0), 1e-9) },
     floorDom: span(fl, 2, 1), pjDom: logSpan(every.flatMap(x => [x.m.pjRaw, x.m.pjCal])) };
   const f = fresh().fields, anyStale = Object.values(f).some(v => v === "stale") || pstate("array") === "stale";
   const hs = on => (on ? ` <span class="hst" data-state="stale" title="${T("这一列有过期的格", "this column has stale cells")}">◷</span>` : "");
@@ -170,6 +196,7 @@ function renderTable() {
       ${shown.map(x => homeRow(x, ctx)).join("")}
       ${S.filt !== "all" ? "" : R.pending.map(n => `<div class="narow" data-pending="${esc(n.label)}"><code>${esc(n.label)}</code><span>${esc(n.status)}</span><span>${esc(n.reason)}</span></div>`).join("")}
     </div>
+    ${sensSection(R)}
     <details class="fold"><summary>${T("表背后的三张小表：IRR 查表、余量、功耗系数", "Three small tables behind this one: the IRR lookup, the margins, the power coefficients")}</summary><div class="g3">
       <div><div class="eyebrow">${T("校准后的 IRR，按带宽查", "IRR after calibration, looked up by bandwidth")} · ${T("取自", "from")} <code>${esc(irr.from || "")}</code> ${(irr.from || "").includes(".") ? tag(irr.from) : ""}</div>
         ${tbl([{ h: T("带宽", "Bandwidth"), f: e => hz(Number(e[0])) }, { h: "IRR dB", r: 1, f: e => sv(f["table.analytic+calibration.be"], fx(e[1], R.display.irr_cal_db), "table.analytic+calibration.be") }], Object.entries(irr.db_by_bandwidth_hz || {}))}</div>

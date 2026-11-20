@@ -63,6 +63,8 @@ const TR_ZH = {
   "time-domain EVM on the uncalibrated chain, worst constellation (no analytic sum)": "未校准链上的时域 EVM，取最差星座（没有解析和）",
   "measured: time-domain EVM on the chain wifitrx's calibration sequence calibrated": "实测：wifitrx 校准序列校准过的链上的时域 EVM",
   "wifitrx's own verdict of the step on that run": "wifitrx 自己对这一步在这次运行上的判定",
+  "synthesizer power": "频综功耗", "PA peak PAE": "PA 峰值 PAE", "PA back-off": "PA 回退", "converter ENOB law": "转换器 ENOB 规律",
+  "calibrated IRR": "校准后的 IRR", "decoder-cap margin": "解码器上限余量",
   "calibration result": "校准结果", "accepted presets": "已验收的预设结果", "envelope": "存着的结果",
 };
 const tr = s => (s === null || s === undefined ? "" : S.lang === "zh" ? (TR_ZH[s] ?? s) : (TR[s] ?? s));
@@ -130,8 +132,7 @@ function knobText(k, v) { const a = knobShow(k, v); return plain(a.v) + (a.u ? "
 
 /* ------------------------------------------------------------------ parts, jobs, freshness */
 const JOBNAME = {
-  calibration_be: ["校准序列", "Calibration sequence"], table: ["同台表 · 整表", "Comparison table, full"],
-  table_analytic: ["同台表 · 只算解析列", "Comparison table, analytic columns only"], array: ["阵列", "Array"], ay: ["SC 对 OFDM", "SC against OFDM"],
+  calibration_be: ["校准序列", "Calibration sequence"], table: ["同台表", "Comparison table"], array: ["阵列", "Array"], ay: ["SC 对 OFDM", "SC against OFDM"],
 };
 const REPNAME = { table: ["同台表", "comparison table"], calibration: ["校准", "calibration"], array: ["阵列", "array"], ay: ["SC 对 OFDM", "SC against OFDM"] };
 const jn = id => (JOBNAME[id] ? T(...JOBNAME[id]) : id);
@@ -184,7 +185,7 @@ function freshBanner(parts, reports, opts = {}) {
   const why = [...new Set(stale.flatMap(p => (fp[p].changed || []).map(id => changeText(id, p))))];
   const ups = [...new Set(stale.flatMap(p => fp[p].upstream || []))];
   const upS = ups.filter(u => pstate(u) === "stale"), upO = ups.filter(u => pstate(u) !== "stale");
-  const jobs = [...new Set([...stale.map(p => fp[p].recompute).filter(Boolean), ...missing.flatMap(r => (S.parts ? Object.keys(S.parts.jobs).filter(j => S.parts.jobs[j].report === r && j !== "table_analytic") : []))])];
+  const jobs = [...new Set([...stale.map(p => fp[p].recompute).filter(Boolean), ...missing.flatMap(r => (S.parts ? Object.keys(S.parts.jobs).filter(j => S.parts.jobs[j].report === r) : []))])];
   const stored = [...new Set([...stale, ...ups])].filter(p => fp[p] && fp[p].stored && fp[p].state === "stale");
   const chip = p => `<span class="pchip" data-part="${esc(p)}" data-state="${pstate(p)}">${stateSign(pstate(p))} ${esc(pn(p))}</span>`;
   const runBtn = j => `<button type="button" class="btn" data-act="run" data-job="${esc(j)}">${T("重算", "Recompute")}${P_.c}${jn(j)} · ${expected(j)}</button>`;
