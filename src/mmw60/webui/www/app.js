@@ -13,8 +13,9 @@ const studyKey = () => JSON.stringify(S.study);
  * SC-against-OFDM headline and item table, the array and table results): it is refetched when
  * that pick changes */
 function repKey(name) {
-  const sh = S.state ? S.state.shown : {}, k = m => (m ? m.id + "@" + m.at : "-");
-  return [name, ...(name === "table" ? ["array"] : name === "ay" ? ["array", "table"] : [])].map(n => k(sh[n])).join("|");
+  const sh = S.state ? S.state.shown : {}, k = m => (m ? m.id + "@" + m.at : "-"), pr = (sh.table && sh.table.part_results) || {};
+  const table = sh.table ? TABLE_PARTS.map(p => k(pr[p])).join("+") : "-";
+  return [name === "table" ? table : k(sh[name]), ...(name === "table" ? [k(sh.array)] : name === "ay" ? [k(sh.array), table] : [])].join("|");
 }
 function invalidate() {
   for (const name of Object.keys(S.rep)) if (S.repStudy[name] !== repKey(name)) { delete S.rep[name]; delete S.repStudy[name]; }

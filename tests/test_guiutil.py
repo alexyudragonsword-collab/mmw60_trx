@@ -265,7 +265,8 @@ def test_table_report_is_compare_build_with_footing_and_hashes():
     assert by[B32]["cfg_sha"] == g.config_sha(_pick(B32)[0].cfg) and by[B32]["seed"] == 0
     assert by[B8]["td_evm_db"] is None and by[B8]["td_ok"] is None                    # no time-domain run asked
     assert rep["irr_table"]["from"] == "derived.irr_after_cal_measured_db"
-    assert set().union(*map(set, rep["fields"].values())) <= set(by[B8]) | {"td_delta_db", "td_ok"}
+    be_groups = [v for k, v in rep["fields"].items() if not k.startswith("table.ay")]    # the ay rows' own: below
+    assert set().union(*map(set, be_groups)) <= set(by[B8]) | {"td_delta_db", "td_ok"}
     json.dumps(rep, allow_nan=False)
     with pytest.raises(KeyError):
         g.table_report(labels=["no such row"], time_domain=False)
@@ -705,6 +706,7 @@ def test_the_ay_rows_decoder_cap_is_the_array_layers_at_one_element():
     arr = arrayreport.build(sizes=(1,), trials=50, users=5)
     n1 = {r["waveform"]: r for r in arr["ay"] if r["n"] == 1 and r["point"] == "preset"}
     for wf, r in rows.items():
+        assert set(g.BE_FIELDS["table.ay+thresholds.ay"]) <= set(r)                    # the group's fields exist
         assert r["dec_mcs_cal"] == n1[wf]["cap_mcs"] and r["dec_rate_cal_mbps"] == pytest.approx(n1[wf]["rate_mbps"])
         assert r["dec_mcs"] is not None and r["dec_mcs"] < r["dec_mcs_cal"]          # raw floor: a low cap, not none
         assert r["power_dec_cal"]["pj_per_bit"] == pytest.approx(n1[wf]["pj_per_bit"], rel=1e-6)

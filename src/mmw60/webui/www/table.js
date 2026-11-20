@@ -17,12 +17,12 @@ function rowMetrics(r, W) {
     m = ay ? { capRaw: mcs(r.cap_raw), capCal: mcs(r.cap_cal), rateRaw: r.rate_raw_mbps, rateCal: r.rate_cal_mbps, pjRaw: pj(r.power_raw), pjCal: pj(r.power_cal), sRaw: fs("cap_raw"), sCal: fs("cap_cal") }
       : { capRaw: mcs(r.max_mcs), capCal: mcs(r.max_mcs_cal), rateRaw: r.rate_mbps, rateCal: r.rate_cal_mbps, pjRaw: pj(r.power), pjCal: pj(r.power_cal), sRaw: fs("max_mcs"), sCal: fs("max_mcs_cal") };
   } else {
-    m = ay ? { capRaw: "—", capCal: rg ? mcs(rg.cap_mcs) : "—", rateRaw: null, rateCal: rg ? rg.rate_mbps : null, pjRaw: null, pjCal: rg ? rg.pj_per_bit : null, sRaw: "fresh", sCal: arr, fromArray: true }
+    m = ay ? { capRaw: mcs(r.dec_mcs), capCal: mcs(r.dec_mcs_cal), rateRaw: r.dec_rate_mbps, rateCal: r.dec_rate_cal_mbps, pjRaw: pj(r.power_dec), pjCal: pj(r.power_dec_cal), sRaw: fs("dec_mcs"), sCal: fs("dec_mcs_cal") }
       : { capRaw: r.dec_cap_display || "—", capCal: r.dec_cap_cal_display || "—", rateRaw: r.dec_rate_mbps, rateCal: r.dec_rate_cal_mbps, pjRaw: pj(r.power_dec), pjCal: pj(r.power_dec_cal), sRaw: fs("dec_mcs"), sCal: fs("dec_mcs_cal") };
   }
   const cal = S.chain === "cal";
   return Object.assign(m, { ay, rg, rate: cal ? m.rateCal : m.rateRaw, pj: cal ? m.pjCal : m.pjRaw, range: rg ? (ay ? rg.range_mcs1_m : rg.range_mcs0_m) : null, sRange: arr,
-    partRaw: m.fromArray ? "array" : fg_(S.basis === "conf" ? "max_mcs" : "dec_mcs"), partCal: m.fromArray ? "array" : fg_(S.basis === "conf" ? "max_mcs_cal" : "dec_mcs_cal") });
+    partRaw: fg_(S.basis === "conf" ? (ay ? "cap_raw" : "max_mcs") : "dec_mcs"), partCal: fg_(S.basis === "conf" ? (ay ? "cap_cal" : "max_mcs_cal") : "dec_mcs_cal") });
 }
 function rowName(r, R) {
   const b = badge(r.topology);
@@ -59,11 +59,11 @@ function homeRow(x, ctx) {
   const pair = (va, vb, sa, sb) => (cal ? `<span>${sv(sa, va, m.partRaw)} →</span> ${sv(sb, `<b>${vb}</b>`, m.partCal)}` : `${sv(sa, `<b>${va}</b>`, m.partRaw)} <span>→ ${sv(sb, vb, m.partCal)}</span>`);
   let capS = "";
   if (ay && S.basis === "conf") capS = `${T("不留余量", "no margin")} ${mcs(r.cap_cal_at_limit)}`;
-  else if (ay) capS = m.rg ? T("取自阵列结果的单天线一行", "from the array result’s one-element row") : "";
+  else if (ay) capS = nil(r.dec_margin_db) ? "" : `${T("留", "margin")} ${plain(r.dec_margin_db)} dB`;
   else if (S.basis === "dec") capS = `${T("离上一档", "to next step")} ${fx(cal ? r.dec_cal_next_margin_db : r.dec_next_margin_db, d.dec_next_margin_db)} dB`;
   const rd = ay ? 0 : d.rate_mbps;
   let rateS = "";
-  if (nil(m.rate)) rateS = ay && S.basis === "dec" ? T("这一列没有算", "not computed for this column") : T("够不到任何一档", "reaches no MCS");
+  if (nil(m.rate)) rateS = T("够不到任何一档", "reaches no MCS");
   else if (ay && S.basis === "conf" && cal) rateS = `${T("不留余量", "no margin")} ${fx(r.rate_cal_at_limit_mbps, 0)}`;
   let pjS = nil(m.pj) ? (nil(m.rate) ? "" : T("未算", "not computed")) : (ctx.R.footing[fc].decoder_counted_in_pj === false ? `<span class="dg">${T("不计解码器", "decoder not counted")}</span>` : T("计解码器", "decoder counted"));
   const rg = m.rg, slow = ay ? "MCS1" : "MCS0";
@@ -142,6 +142,29 @@ function sensSection(R) {
     <p class="sm" data-sens-ranking>${T("改变 pJ/bit 排名的假设", "Changes the pJ/bit ranking")}${P_.c}${m(ranks.map(nameOf).join(P_.d) || "—")}</p>
     <details class="fold"><summary>${T("基准的 pJ/bit 排名（最省在前）", "The base pJ/bit ranking (fewest first)")}</summary><div><ol class="plain">${(SN.base_ranking || []).map(l => `<li><code>${esc(l)}</code></li>`).join("")}</ol></div></details></section>`;
 }
+/* The LO models side by side: each model swapped into the same base on its own front end, at each K.
+ * Computed with the table's time-domain part, so it is stale with table.td.  The form's LO knobs do
+ * not reach it: it swaps the LO whatever they say. */
+function loSection(R) {
+  const LM = R.lo_models, ps = pstate("table.td"), m = v => sv(ps, v, "table.td"), d = R.display;
+  const head = `<header><h3>${T("本振模型并排", "The LO models side by side")}</h3><span class="mut sm">${T("同一个基准链换上每一种本振，各看几个 K", "each LO swapped into the same base chain, at several K")}</span></header>`;
+  if (!LM) return `<section class="blk" id="lo-models" data-part="table.td" data-state="${ps}">${head}<p class="mut">${T("正在显示的结果里没有这一节（它跟着时域核对列一起算）。排一个同台表任务就有。", "The result shown does not carry this section (it is computed with the time-domain column). A comparison-table job computes it.")}</p>
+    <span><button type="button" class="btn" data-act="run" data-job="table">${T("重算", "Recompute")}${P_.c}${jn("table")} · ${expected("table")}</button></span></section>`;
+  const models = [...new Set(LM.rows.map(r => r.model))], kname = id => { const k = knob(id); return k ? esc(knobLabel(k)) : esc(id); };
+  const LAB = [T("带宽", "Bandwidth"), T("积分相噪 IPN dBc", "Integrated PN, dBc"), T("相噪 ICI dB", "Phase-noise ICI, dB"), T("解析底板 dB", "Analytic floor, dB"), T("时域 EVM dB", "Time-domain EVM, dB"), T("合规上限", "Conformance cap")];
+  const block = name => { const rows = LM.rows.filter(r => r.model === name), r0 = rows[0];
+    return `<div class="lom ${r0.is_preset_model ? "pre" : ""}" data-lo-kind="${esc(r0.kind)}"><div class="lomh"><b>${esc(name)}</b>${r0.is_preset_model ? ` <span class="vd best" data-lo-preset>${T("预设用的就是它", "the presets’ own")}</span>` : ""}
+        <span>${(r0.sources || []).map(k => tag(k)).join(" ") || `<span class="tag t-none">${T("vendored 的 wifitrx 模型", "vendored wifitrx model")}</span>`}</span>${nil(r0.floor_dbchz) ? "" : `<span class="xs mut">${T("倍频器底噪", "multiplier floor")} ${plain(r0.floor_dbchz)} dBc/Hz</span>`}</div>
+      <div class="lok" style="grid-template-columns:minmax(96px,1.3fr) repeat(${rows.length},minmax(56px,1fr))"><div class="lol"><span></span>${LAB.map(l => `<span>${l}</span>`).join("")}</div>
+        ${rows.map(r => `<div class="lov" data-lo-model="${esc(r.model)}" data-k="${esc(r.k)}"><b>K = ${plain(r.k)}</b><span>${hz(r.bw_eff_hz)}</span><span>${m(fx(r.ipn_dbc, d.ipn_dbc))}</span><span>${m(fx(r.pn_ici_db, d.pn_ici_db))}</span><span>${m(fx(r.floor_db, d.floor_db))}</span><span>${m(fx(r.td_evm_db, d.td_evm_db))}</span><span>${m(mcs(r.max_mcs))}</span></div>`).join("")}</div></div>`; };
+  /* LO knobs edited in the result's own study, and any the form holds now: neither reaches these rows */
+  const ed = [...new Set([...(LM.edited_lo_knobs || []), ...Object.keys(S.study).filter(k => (LM.form_lo_knobs_ignored || []).includes(k))])];
+  return `<section class="blk" id="lo-models" data-part="table.td" data-state="${ps}">${head}
+    <p class="note">${T("每个模型各建一个自己的前端，换进", "Each model sits on its own front end, swapped into")} <span class="n">${esc(LM.base)}</span>${T("；别的都跟着表单。", "; everything else follows the form. ")}<b>${T("表单里的本振旋钮到不了这一节", "The form’s LO knobs do not reach this section")}</b>${P_.c}${(LM.form_lo_knobs_ignored || []).map(kname).join(P_.d)}${P_.p}</p>
+    ${ed.length ? `<p class="note warn" data-lo-edited="${esc(ed.join(" "))}">${T("表单改过这些本振旋钮", "The form has edited these LO knobs")}${P_.c}<b>${ed.map(kname).join(P_.d)}</b> ${tagEdited()}${T("——这一节的各行不理会它们。", " — the rows of this section ignore them.")}</p>` : ""}
+    <div class="loms">${models.map(block).join("")}</div>
+    <p class="xs mut">${T("每块是一种本振，块里一列是一个 K；同一个 K 横着比各模型。", "Each block is one LO and each column in it one K; compare the models across the same K.")}</p></section>`;
+}
 function renderTable() {
   const W = S.rep.table;
   if (!W) return `<div class="page"><div class="loading"><span class="spin"></span>${T("正在读取同台表…", "Loading the comparison table…")}</div></div>`;
@@ -169,14 +192,16 @@ function renderTable() {
   const arrow = k => (S.lens === k ? (S.keep ? " ●" : k === "pj" ? " ↑" : " ↓") : "");
   const mg = R.margins || {};
   const irr = R.irr_table || { db_by_bandwidth_hz: {} };
-  /* a partial run (analytic columns only) is shown as what it is: its missing parts are named, not left as silent gaps */
-  const lacks = ["table.analytic", "table.td", "table.ay"].filter(p => W.result && !W.result.parts.includes(p));
-  const partial = lacks.length ? ` <b class="dg" data-partial="${esc(lacks.join(" "))}">${T("正在显示的这份结果没有算", "The result shown did not compute")}${P_.c}${lacks.map(p => esc(pn(p))).join(P_.d)}${T("——对应的列是空的、对应的行不在表里；排一个整表任务补上。", " — those columns are empty and those rows are absent; queue the full table to fill them.")}</b>` : "";
+  /* the table is assembled from up to three results: when its decoder caps start from the analytic floor
+   * alone (an analytic-only base), say so in the banner and next to the column */
+  const AS = R.assembled || {}, fromFloor = !!AS.decoder_caps_from_analytic_floor;
+  const floorNote = T("解码器上限只从解析底板出发（整表会在解析底板与时域 EVM 里取较差的一个），所以某一行在这里可能比整表高一档。", "The decoder caps start from the analytic floor alone (a full run takes the worse of that and the time-domain EVM), so a row may read one MCS higher here than a full run will.");
+  const bannerNote = fromFloor ? ` <b class="warnt">${T("解析列来自只算解析列的预览：", "The analytic columns come from an analytic-only preview: ")}${floorNote}</b>` : "";
   const body = `
     <div class="phead"><div><h2>${T("同台对比表", "Side-by-side comparison")}</h2>
       <p class="sub hide-s">${T(`${every.length} 行有数，${R.pending.length} 个组合没有数（原因在表尾）。同一行里“未校准 → 校准后”并排；方块标记说明校准后的数是怎么来的。点一行看细节。`,
     `${every.length} rows with numbers, ${R.pending.length} combinations without (reasons at the end of the table). Raw → calibrated sit side by side; the square marker says how the calibrated number was obtained. Click a row for its detail.`)}</p></div></div>
-    ${freshBanner(parts, ["table", "array"], { note: partial })}
+    ${freshBanner(parts, ["table", "array"], { note: bannerNote })}
     ${feStrip(W, !phone)}
     <div class="ctl">
       <span class="seglab"><span>${T("排序并突出", "Sort and highlight")}</span> ${seg("lens", S.lens, [["rate", T("速率", "Rate")], ["range", T("距离", "Range")], ["pj", "pJ/bit"]])}</span>
@@ -192,10 +217,11 @@ function renderTable() {
       ${["ay", "be_if_extender", "be_zero_if"].map(c => `<span title="${esc(tr(R.footing[c].cal_floor))}">${fg(c)}<b>${T(...FOOT[c])}</b> · ${cnt(c)} ${T("行", "rows")}<span class="hide-s">${P_.c}${esc(tr(R.footing[c].cal_floor))}</span></span>`).join("")}
     ${every.some(x => !x.usable) ? `<span class="dimkey">${S.chain === "cal" ? T("变淡的行 = 校准后的链也带不了数据", "dimmed row = even the calibrated chain cannot carry data") : T("变淡的行 = 未校准的链带不了数据", "dimmed row = the raw chain cannot carry data")}${T("：数照旧，排在可用的行之后，不参与排名；看哪条链跟着“取哪一列”走", ": its numbers stay, it sorts after the usable rows and takes no rank; which chain is judged follows the column picked")}</span>` : ""}
     </div>
+    ${fromFloor ? `<p class="note warn" id="assembled-note">※ ${T("解码器上限一列", "Decoder-cap column")}${P_.c}${floorNote}</p>` : ""}
     <div class="ct" role="table" aria-label="${T("同台对比表", "Comparison table")}">
       <div class="hrow" role="row"><span></span><span>${T("方案 · 未校准链的结论", "Scheme · verdict on the raw chain")}</span><span>${T("口径", "Footing")}</span>
         <span>${T("EVM 底板 dB　○ 未校准 →", "EVM floor dB　○ raw →")} ${fg("be_zero_if")}${fg("be_if_extender")}${fg("ay")} ${T("校准后", "calibrated")}${hs(["table.analytic", "table.analytic+calibration.be", "table.td", "table.ay"].some(g => f[g] === "stale"))}<span class="ax"><span>${plain(ctx.floorDom[0])}</span><span>${plain(ctx.floorDom[1])}</span></span></span>
-        <span>${S.basis === "conf" ? T("合规上限", "Conformance cap") : T("解码器上限", "Decoder cap")}${hs(colS)}</span>
+        <span>${S.basis === "conf" ? T("合规上限", "Conformance cap") : T("解码器上限", "Decoder cap") + (fromFloor ? ` <span class="dg" title="${esc(floorNote)}">※</span>` : "")}${hs(colS)}</span>
         <span><button type="button" data-act="lens" data-v="rate" class="${S.lens === "rate" ? "on" : ""}">${T("速率", "Rate")} Mb/s${arrow("rate")}</button>${hs(colS)}</span>
         <span><button type="button" data-act="lens" data-v="pj" class="${S.lens === "pj" ? "on" : ""}">pJ/bit${arrow("pj")}</button>${hs(colS)}<span class="ax"><span>${plain(ctx.pjDom[0])}</span><span>${plain(ctx.pjDom[1])}</span></span></span>
         <span><button type="button" data-act="lens" data-v="range" class="${S.lens === "range" ? "on" : ""}">${T("距离", "Range")} m${arrow("range")}</button>${hs(pstate("array") === "stale" && all.some(x => x.m.rg))}</span></div>
@@ -203,6 +229,7 @@ function renderTable() {
       ${S.filt !== "all" ? "" : R.pending.map(n => `<div class="narow" data-pending="${esc(n.label)}"><code>${esc(n.label)}</code><span>${esc(n.status)}</span><span>${esc(n.reason)}</span></div>`).join("")}
     </div>
     ${sensSection(R)}
+    ${loSection(R)}
     <details class="fold"><summary>${T("表背后的三张小表：IRR 查表、余量、功耗系数", "Three small tables behind this one: the IRR lookup, the margins, the power coefficients")}</summary><div class="g3">
       <div><div class="eyebrow">${T("校准后的 IRR，按带宽查", "IRR after calibration, looked up by bandwidth")} · ${T("取自", "from")} <code>${esc(irr.from || "")}</code> ${(irr.from || "").includes(".") ? tag(irr.from) : ""}</div>
         ${tbl([{ h: T("带宽", "Bandwidth"), f: e => hz(Number(e[0])) }, { h: "IRR dB", r: 1, f: e => sv(f["table.analytic+calibration.be"], fx(e[1], R.display.irr_cal_db), "table.analytic+calibration.be") }], Object.entries(irr.db_by_bandwidth_hz || {}))}</div>

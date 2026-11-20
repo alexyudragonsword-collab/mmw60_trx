@@ -487,3 +487,18 @@ details.mv>summary::-webkit-details-marker{display:none}
 ol.plain{margin:0;padding-left:22px;display:grid;gap:3px}
 .cellv{display:inline-block;min-width:0}
 .dimkey{opacity:.6}
+/* the LO models side by side: one block per model, a column per K */
+.loms{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+.lom{border:1px solid var(--rule);border-radius:8px;padding:8px 10px;display:grid;gap:6px;min-width:0;align-content:start}
+.lom.pre{border-color:var(--ink)}
+.lomh{display:flex;gap:4px 8px;flex-wrap:wrap;align-items:center;font-size:12px;min-width:0}
+.lomh b{overflow-wrap:anywhere}
+.lok{display:grid;gap:0 8px;font-size:12px}
+.lol,.lov{display:grid;grid-auto-rows:20px;align-items:center;min-width:0}
+.lol span{color:var(--ink3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lov{justify-items:end;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.lov b{font-family:var(--f-ui);font-weight:650}
+.provs{display:grid;gap:3px}
+.provs>span,.fresh .l2>span[data-part-result]{display:block}
+.fgroups{display:grid;gap:3px;font-size:11.5px}
+.warnt{color:var(--amber);font-weight:600}

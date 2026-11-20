@@ -143,8 +143,7 @@ function ayItems(W) {
   const n = w => items.filter(it => it.winner === w).length;
   return `<section class="blk" id="items"><header><h3>${T("逐项对照：SC 对 OFDM", "Item by item: SC against OFDM")}</h3>
       <span class="sm">${wfsw("ay_sc")}<b>SC ${T("领先", "ahead")} ${n("ay_sc")}</b> · ${wfsw("ay_ofdm")}OFDM ${T("领先", "ahead")} ${n("ay_ofdm")} <span class="mut">/ ${items.length} ${T("项", "items")}</span></span></header>
-    ${gone.length ? `<p class="note warn" data-items-missing="${esc(gone.join(" "))}">${T("没有存着的结果", "No stored result")}${P_.c}${gone.map(k => T(...REPNAME[k])).join(P_.d)}${T("——来自它的项不在表里。", " — the items that come from it are absent.")}</p>` : ""}
-    ${IR.table && !IR.table.parts.includes("table.ay") ? `<p class="note warn" data-items-missing="table.ay">${T("正在显示的同台表结果里没有 802.11ay 两行——来自它的项不在表里。", "The comparison-table result shown has no 802.11ay rows — the items that come from them are absent.")}</p>` : ""}
+    ${gone.length ? `<p class="note warn" data-items-missing="${esc(gone.join(" "))}">${T("没有存着的结果", "No stored result")}${P_.c}${gone.map(k => (k === "table" ? esc(pn("table.ay")) : T(...REPNAME[k]))).join(P_.d)}${T("——来自它的项不在表里。", " — the items that come from it are absent.")}</p>` : ""}
     ${items.length ? tbl([{ h: T("比什么", "What is compared"), f: it => esc(T(it.zh, it.en)) },
       { h: "SC", r: 1, f: it => side(it, it.sc) }, { h: "OFDM", r: 1, f: it => side(it, it.ofdm) },
       { h: T("SC 对 OFDM", "SC over OFDM"), r: 1, f: it => sv(pstate(it.part), `<span data-pct>${signed(it.sc_over_ofdm_pct, 1)} %</span>`, it.part) },
