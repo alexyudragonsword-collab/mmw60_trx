@@ -110,3 +110,25 @@ authoring_mode: ai_generated
 - **指纹守卫的两个盲区，同一天露出来**（contains: 指纹、numbers-move、PR 合并提交、ay 配置）：
   - 指纹只跑 `configs/*.yaml`，当时只有两个 be 配置。ay OFDM 接收机整个改完，指纹与 main 逐位相同；它同样看不见 SC 动没动，“SC 逐位不变（指纹）”这句守卫是空的。补法：ay 两种波形各加一个配置；SC 不变另用 main 的工作树直接比。教训：守卫说“不变”之前，先确认它看得见会变的那一边（变异一次：改 OFDM，指纹必须动）。
   - PR 事件下 CI 检出的是 GitHub 合成的合并提交，第一父提交就是 base；`fingerprint_walk.commits` 按 first-parent 走 base..HEAD 只得到这一个提交，它的消息没有标记，于是报“范围内没有提交带 (numbers-move)”。PR #76 是第一个动了指纹的 PR，之前这条路径没走到过（push 事件一直是对的）。补法：head 是“PR 并入 base”的合并提交时走第二父提交的历史；测试在合成仓库上验，换回旧规则变红。
+
+## 发版（0.3.0，2026-11-20；`tools/release_check.py`、`.github/workflows/release.yml`、`tests/test_release.py`）
+
+发版是在 `main` 上手动触发 `release` 工作流（Actions → release → Run workflow，填版本号）。它是**唯一有写权限的工作流，且只有最后一个作业有**；前面每一步都过了才打 tag、建 Release 页面：
+`check`（下面那张清单）→ `package`（`python -m build`，wheel 装进干净环境、在仓库之外跑自检）与 `apk`（原样调用 Android 工作流：构建、读包内容、模拟器上两条设备测试）→ `publish`（`gh release create`，附 wheel、sdist、APK）。
+改这个工作流或检查脚本的 PR 上，除了发布那一步之外全部照跑一遍当演练。
+
+**一个版本在这棵树里说了几处**（`release_check.py check <版本>` 逐条核，`tests/test_release.py` 每条各破坏一次）：
+
+- `pyproject.toml`、`mmw60.__version__`、APK 的 `versionName`；
+- `CHANGELOG.md` 的最新版本标题就是它，且“未发布”下面是空的（不然那几条会不声不响地跟着发出去）；
+- 随包基线四份文件的出处版本（页面上每份结果显示的那个）——发版前要 `tools/gui_baseline.py build` 重算；
+- **每个示例期望输出的第 2 行**（contains: 版本串、示例第 2 行）：示例把版本号印在第 2 行。只改版本号，基线守卫（示例 10 / 15 的打印函数在基线上重放、与期望输出逐行比）就红。0.2.0 和 0.3.0 都是只改这一行、不全部重跑，再抽几个完整重跑核对；
+- tag `v<版本>` 还不存在。
+
+**做 0.3.0 时踩到的**：
+
+- **重算基线要在一个停住的工作树里**（contains: 基线、提交号、worktree）：基线在每个任务结束时记当时的 HEAD。在发版分支上边算边提交，记下的就是分支上的提交，压缩合并之后那个提交不在 `main` 上。在 `git worktree add --detach <目录> <main 上的提交>` 里改版本号、重算，再把四份文件拷回来。
+- **Android 工作流按路径触发，漏掉了真正的发版提交**（contains: 路径过滤、手动触发）：改版本号的提交动了 `android/` 所以跑了，带着重算后基线的那个提交没动 `android/`、没触发，而 APK 里装的正是那份新基线。当时手动补触发了一次；现在发版工作流自己调 Android 工作流，不靠路径。
+- **这个环境的会话推不了 tag**（HTTP 403，只能推分支），手头的 GitHub 工具也没有建 tag / Release 的；0.3.0 合并后 tag 没打上，这才有了发版工作流。tag 由仓库自己的令牌在工作流里打。
+- tag 指向的是工作流运行的那个 `main` 提交，不一定是“Release x.y.z”那个合并提交：0.3.0 的 tag 落在加了发版工作流之后的提交上，两者之间只差工作流、检查脚本、测试和文档。
+

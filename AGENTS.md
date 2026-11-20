@@ -48,6 +48,7 @@
 - **numba 是性能层不是正确性层**：`MMW60_NO_JIT=1` 必须逐位相同（`tests/test_phy.py`）。
 - **假设要可见**：原文没说的每个选择（基准带宽、SNR 口径、相噪加在哪一侧、CR 信道、OBO 参考点、信道估计平滑）都是 `source: assumed` 条目，示例里有对应的灵敏度行；对不上文献时查到原因写进 LOG，不调参数凑。
 - **界面分层**：`guispec` 描述、`guiutil` 计算（只返回可 JSON 的字典）、`guistore` 存、`webhost` 排队、页面（`webui/www`）只画不算，页面里不写任何结果数字；每个结果按 part 声明它读的旋钮，`tests/config_trace.py` 追踪实际读取，“追踪到的 ⊆ 声明的”由测试守着；随包基线（`data/gui/baseline/`）是代码生成的，动数字的改动要 `tools/gui_baseline.py build` 重建（`cairn/gui.md`）。手机外壳（`android/`）不承载功能、不申请权限，它的 numpy / scipy 版本只写在 `android/phone-stack.txt`（低于桌面声明的下限，由 CI 的 `test-phone-stack` 在同一份文件上跑着）；构建绿不等于能跑，以模拟器作业（`android.yml`）的设备测试为准。
+- **发版只经 `release.yml`**（在 `main` 上手动触发；唯一有写权限的工作流，只有最后一个作业有）：版本号说了几处由 `tools/release_check.py` 核（含随包基线的版本与示例期望输出第 2 行），`CHANGELOG.md` 的“未发布”要先清空；不手打 tag（`cairn/engineering-pitfalls.md` §发版）。
 - 开发在指定分支上提交；不开 PR 除非用户要求。
 - **issue 由发起方关**：别的库发到本库的 issue 只回复、不关，等对方读过确认；本库发到别的库的 issue 由本库验收后关。合并前重读一遍相关 issue。
 

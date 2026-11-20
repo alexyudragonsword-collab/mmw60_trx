@@ -170,6 +170,7 @@ python tools/gui_baseline.py check                                    # 随包�
 
 - `AGENTS.md`：规则与七条铁律（每条有测试守着）。
 - `ROADMAP.md`：只写没做的。
+- 发版：在 `main` 上手动触发 `release` 工作流（`cairn/engineering-pitfalls.md` §发版）；`python tools/release_check.py check <版本>` 先在本地看这棵树能不能按那个版本发。
 - `cairn/LOG.md`：每轮的数字原值与被推翻的判断。
 - `cairn/upclocking.md`：K 的建模方式与 5.88 MHz / 4.7 门槛的推导。
 - `cairn/topology-a.md`、`cairn/topology-b.md`、`cairn/comparison-table.md`：两条拓扑各自的结论与同台表。

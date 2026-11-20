@@ -1,0 +1,152 @@
+name: release
+
+# Cut a release: tag v<version> on the commit this runs on, and a release page
+# carrying the wheel, the sdist and the phone app's APK.
+#
+# Run it by hand on main (Actions -> release -> Run workflow) with the version
+# the tree already states.  It tags nothing unless every step before the last
+# one passed:
+#
+#   check     tools/release_check.py: pyproject, __version__, the APK's
+#             versionName, CHANGELOG's newest heading (and nothing under
+#             unreleased), the shipped baseline's version, the version line of
+#             the accepted example outputs, and that the tag does not exist;
+#   package   python -m build, then the wheel installed into a clean
+#             environment and the self-check run outside the repository;
+#   apk       the android workflow as it is: build, what went into the APK,
+#             two tests on an emulator;
+#   publish   only when dispatched: gh release create (which makes the tag).
+#
+# On a pull request that touches this file or the check, everything but the
+# publishing step runs as a rehearsal, for the version pyproject.toml states.
+#
+# This is the only workflow with write access to the repository, and only its
+# last job has it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The version to release, as the tree states it (e.g. 0.3.0)"
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "tools/release_check.py"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Which version, and from where
+        id: version
+        env:
+          ASKED: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            # a release is cut from main: a tag on a branch commit would name
+            # a tree that a squash merge then leaves behind
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::releases are cut from main, not $GITHUB_REF"; exit 1
+            fi
+            version="$ASKED"
+          else
+            version="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "version $version on $GITHUB_REF at $GITHUB_SHA ($GITHUB_EVENT_NAME)"
+      - name: Every statement of the version agrees
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            python tools/release_check.py check "$VERSION"
+          else
+            python tools/release_check.py check "$VERSION" --dry-run
+          fi
+
+  package:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the sdist and the wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --outdir dist .
+          ls -l dist
+      - name: The wheel, installed into a clean environment, computes the shipped numbers
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          python -m venv "$RUNNER_TEMP/clean"
+          "$RUNNER_TEMP/clean/bin/pip" install --quiet "dist/mmw60-$VERSION-py3-none-any.whl"
+          cd "$RUNNER_TEMP"           # outside the checkout: the installed package, not the source tree
+          "$RUNNER_TEMP/clean/bin/python" -c "import mmw60, sys; print(mmw60.__version__, mmw60.__file__); sys.exit(mmw60.__version__ != '$VERSION')"
+          "$RUNNER_TEMP/clean/bin/python" -m mmw60.appbridge
+          "$RUNNER_TEMP/clean/bin/mmw60-gui" --help > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mmw60-dist
+          path: dist/*
+          if-no-files-found: error
+
+  apk:
+    needs: check
+    uses: ./.github/workflows/android.yml
+
+  publish:
+    needs: [check, package, apk]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write          # the tag and the release page; nothing else in this file can write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: mmw60-dist
+          path: out
+      - uses: actions/download-artifact@v4
+        with:
+          name: mmw60-debug-apk
+          path: apk
+      - name: What would be attached
+        run: |
+          mv apk/app-debug.apk "out/mmw60-$VERSION-debug.apk"
+          python tools/release_check.py notes "$VERSION" > notes.md
+          ls -l out
+          sha256sum out/*
+          echo "---- notes ----"; cat notes.md
+          test "$(ls out | wc -l)" -eq 3
+      - name: Tag v${{ needs.check.outputs.version }} and publish the release page
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "mmw60 $VERSION" --notes-file notes.md out/*
+          gh release view "v$VERSION" --json tagName,targetCommitish,assets --jq '{tagName, targetCommitish, assets: [.assets[].name]}'
