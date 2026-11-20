@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.2.0; full size; topology A changes digital baseband only: the analog is the chip's native channel K x base bandwidth; chip channels 20, 40, 80, 160, 320 MHz (ieee80211be.n_sd)
+mmw60 0.3.0; full size; topology A changes digital baseband only: the analog is the chip's native channel K x base bandwidth; chip channels 20, 40, 80, 160, 320 MHz (ieee80211be.n_sd)
 
 == 1. one analog channel, the subcarrier spacing set by the base PHY (flat channel; floor / TD in dB; caps: 802.11ad TX-EVM limit / the decoder) ==
 scheme               chan[M]   SCS[k]  pn ICI  floor     TD   cap   Mb/s   pJ/b   dec   Mb/s   pJ/b  dominant

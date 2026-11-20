@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.2.0; full; one Frontend60 for every row: PA rapp_11ad Psat 14.6 dBm OBO 7.5 dB -> Pout 7.1 dBm, PAE_max 16 %; LO pole_zero IPN -31.1 dBc; converters -0.5 bit/octave from ENOB 10 @ 1 GS/s; EIRP ceiling 40 dBm avg (FCC 15.255)
+mmw60 0.3.0; full; one Frontend60 for every row: PA rapp_11ad Psat 14.6 dBm OBO 7.5 dB -> Pout 7.1 dBm, PAE_max 16 %; LO pole_zero IPN -31.1 dBc; converters -0.5 bit/octave from ENOB 10 @ 1 GS/s; EIRP ceiling 40 dBm avg (FCC 15.255)
 matrix: 8 (topology, waveform) pairs; 21 rows with numbers (2 of them 802.11ay, section 1b), 3 without
 
 == 1. the table (floor / TD / EvmBudget in dB; CFO in subcarriers; rate at the uncalibrated cap; EIRP margin to 40 dBm avg; pJ/bit at the cap) ==
