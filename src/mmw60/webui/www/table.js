@@ -124,11 +124,11 @@ function sensSection(R) {
   if (!SN) return `<section class="blk" id="sens" data-part="table.analytic" data-state="${ps}">${head}<p class="mut">${T("正在显示的这份结果里没有这一节。排一个同台表任务就有。", "The result shown does not carry this section. A comparison-table job computes it.")}</p>
     <span><button type="button" class="btn" data-act="run" data-job="table">${T("重算", "Recompute")}${P_.c}${jn("table")} · ${expected("table")}</button></span></section>`;
   const keys = s => String(s || "").split(" / ").map(p => { const k = /^[\w.]+/.exec(p.trim()); return k && S.sources && S.sources[k[0]] ? tag(k[0]) + esc(p.trim().slice(k[0].length)) : esc(p.trim()); }).join(" ");
-  const moved = (list, kind) => `<span data-sens-moved="${kind}" class="${list.length ? "" : "mut"}">${m(`<b>${list.length}</b>`)}</span> ${T("行", "rows")}${list.length ? `<details class="mv"><summary>${T("哪几行", "which")}</summary>${list.map(x => `<div class="xs"><code>${esc(x.label)}</code> ${mcs(x.from)} → ${mcs(x.to)}</div>`).join("")}</details>` : ""}`;
+  const moved = (list, kind) => `<div class="cellv"><span data-sens-moved="${kind}" class="${list.length ? "" : "mut"}">${m(`<b>${list.length}</b>`)}</span> ${T("行", "rows")}${list.length ? `<details class="mv"><summary>${T("哪几行", "which")}</summary>${list.map(x => `<div class="xs"><code>${esc(x.label)}</code> ${mcs(x.from)} → ${mcs(x.to)}</div>`).join("")}</details>` : ""}</div>`;
   const decides = new Set(SN.decides || []);
   return `<section class="blk" id="sens" data-part="table.analytic" data-state="${ps}">${head}
     <p class="note">${esc(T(SN.decoder_basis.zh, SN.decoder_basis.en))}</p>
-    ${tbl([{ h: T("假设（基线值的出处）", "Guess (source of the baseline value)"), f: k => `${esc(tr(k.knob))} ${keys(k.source_key)}` },
+    ${tbl([{ h: T("假设（基线值的出处）", "Guess (source of the baseline value)"), f: k => `<span class="cellv">${esc(tr(k.knob))} ${keys(k.source_key)}</span>` },
       { h: T("拨到", "Moved to"), r: 1, f: k => neg(esc(k.value_text)) },
       { h: T("合规上限移动的行", "Rows whose conformance cap moves"), f: k => moved(k.mcs_moved || [], "conf") },
       { h: T("解码器上限移动的行", "Rows whose decoder cap moves"), f: k => moved(k.dec_mcs_moved || [], "dec") },
@@ -185,6 +185,7 @@ function renderTable() {
     </div>
     <div class="legend" aria-label="${T("口径图例", "Footing legend")}">
       ${["ay", "be_if_extender", "be_zero_if"].map(c => `<span title="${esc(tr(R.footing[c].cal_floor))}">${fg(c)}<b>${T(...FOOT[c])}</b> · ${cnt(c)} ${T("行", "rows")}<span class="hide-s">${P_.c}${esc(tr(R.footing[c].cal_floor))}</span></span>`).join("")}
+    ${every.some(x => !x.usable) ? `<span class="dimkey">${T("变淡的行 = 未校准链带不了数据：数照旧，排在可用的行之后，不参与排名", "dimmed row = the raw chain cannot carry data: its numbers stay, it sorts after the usable rows and takes no rank")}</span>` : ""}
     </div>
     <div class="ct" role="table" aria-label="${T("同台对比表", "Comparison table")}">
       <div class="hrow" role="row"><span></span><span>${T("方案 · 未校准链的结论", "Scheme · verdict on the raw chain")}</span><span>${T("口径", "Footing")}</span>

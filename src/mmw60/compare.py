@@ -236,6 +236,9 @@ class Row:
     #: plan holds and the floor reaches an MCS).  A row that is not usable still carries the numbers
     #: its analytic side gives; a page ranks it after the usable ones
     usable: bool = True
+    #: the same question on the calibrated chain (the CFO is caught, the plan holds and the calibrated
+    #: floor reaches an MCS): a row whose raw IQ image blocks every MCS can be the fastest once calibrated
+    usable_cal: bool = True
     td_evm_db: float | None = None
     evm_budget: dict = field(default_factory=dict)
     eirp: dict | None = None
@@ -362,7 +365,8 @@ def evaluate_scheme(s: Scheme, fe: Frontend60, coeffs: PowerCoefficients | None 
               rate_mbps=None if rate is None else rate / 1e6,
               rate_cal_mbps=None if rate_cal is None else rate_cal / 1e6,
               bits_per_s_per_hz=None if rate is None else rate / phy.bandwidth_eff,
-              plan_ok=plan_ok, verdict="能" if ok else "不能", reason=reason, usable=bool(ok))
+              plan_ok=plan_ok, verdict="能" if ok else "不能", reason=reason, usable=bool(ok),
+              usable_cal=bool(a["cfo_captured"] and plan_ok is not False and mcs_cal is not None))
     row.evm_budget = evm_budget_reconciliation(cfg, fe, a, pa_evm_db, phy)
     if fe.pa_enabled and cfg.frontend.pa.enabled:
         row.pout_dbm = fe.target_pout_dbm()
@@ -582,22 +586,37 @@ def sensitivity_knobs() -> list[dict]:
     it is moved to; ``kind`` says what is changed (coefficient, front end,
     or the calibrated-IRR source)."""
     lo, hi = (float(v) for v in spec.value("adc_survey.walden_fom_range_fj"))
+    # ``mode`` says how an end reads: an absolute value, a change relative to the preset, or a factor
+    # on it; ``sources`` are the spec keys behind the knob (``source`` is the same as one line of text)
     return [
-        {"name": "Walden FoM", "kind": "coeff", "field": "walden_fom_j", "values": (lo * 1e-15, hi * 1e-15),
-         "source": "adc_survey.walden_fom_range_fj"},
-        {"name": "digital node 45 → 7 nm", "kind": "coeff", "field": "node_scale",
-         "values": (float(spec.value("deepscale.node_scale_45_to_7nm")),), "source": "deepscale.node_scale_45_to_7nm"},
-        {"name": "synthesizer power", "kind": "coeff_scale", "field": ("pll60_w", "pll_sub7_w"), "values": (0.5, 2.0),
-         "source": "assumed.pll60_power_mw / assumed.pll_sub7_power_mw"},
-        {"name": "PA peak PAE", "kind": "frontend", "field": "pa_pae_max", "values": (0.10, 0.30),
-         "source": "assumed.pa60_pae_max"},
-        {"name": "PA back-off", "kind": "frontend", "field": "obo_db", "values": ("-2", "+2"), "source": "liu2025.pa_obo_db"},
-        {"name": "converter ENOB law", "kind": "converters", "field": "bits_per_octave", "values": (1.0,),
-         "source": "assumed.converter_bits_per_octave"},
-        {"name": "calibrated IRR", "kind": "irr", "field": "irr_after_cal_db",
-         "values": (float(spec.value("assumed.irr_after_cal_db")),), "source": "assumed.irr_after_cal_db (vs measured)"},
-        {"name": "decoder-cap margin", "kind": "dec_margin", "field": "decoder_cap_margin_db", "values": (1.0, 6.0),
-         "source": "assumed.decoder_cap_margin_db"},
+        {"name": "Walden FoM", "name_zh": "Walden FoM（转换器）", "kind": "coeff", "field": "walden_fom_j",
+         "values": (lo * 1e-15, hi * 1e-15), "unit": "J/conv.-step", "mode": "absolute",
+         "source": "adc_survey.walden_fom_range_fj", "sources": ("adc_survey.walden_fom_range_fj",)},
+        {"name": "digital node 45 → 7 nm", "name_zh": "数字工艺 45 → 7 nm", "kind": "coeff", "field": "node_scale",
+         "values": (float(spec.value("deepscale.node_scale_45_to_7nm")),), "unit": "", "mode": "scale",
+         "source": "deepscale.node_scale_45_to_7nm", "sources": ("deepscale.node_scale_45_to_7nm",)},
+        {"name": "synthesizer power", "name_zh": "频综功耗", "kind": "coeff_scale", "field": ("pll60_w", "pll_sub7_w"),
+         "values": (0.5, 2.0), "unit": "", "mode": "scale",
+         "source": "assumed.pll60_power_mw / assumed.pll_sub7_power_mw",
+         "sources": ("assumed.pll60_power_mw", "assumed.pll_sub7_power_mw")},
+        {"name": "PA peak PAE", "name_zh": "PA 峰值 PAE", "kind": "frontend", "field": "pa_pae_max",
+         "values": (0.10, 0.30), "unit": "", "mode": "absolute",
+         "source": "assumed.pa60_pae_max", "sources": ("assumed.pa60_pae_max",)},
+        # the ends are around the front end's own back-off, which the presets take from the EVM-limit rule
+        # (until 2026-11-20 this named liu2025.pa_obo_db, the back-off the presets left on 2026-11-13)
+        {"name": "PA back-off", "name_zh": "PA 回退", "kind": "frontend", "field": "obo_db", "values": ("-2", "+2"),
+         "unit": "dB", "mode": "relative", "source": "derived.pa60_obo_at_evm_limit_db",
+         "sources": ("derived.pa60_obo_at_evm_limit_db",)},
+        {"name": "converter ENOB law", "name_zh": "转换器 ENOB 规律", "kind": "converters", "field": "bits_per_octave",
+         "values": (1.0,), "unit": "bit/octave", "mode": "absolute",
+         "source": "assumed.converter_bits_per_octave", "sources": ("assumed.converter_bits_per_octave",)},
+        {"name": "calibrated IRR", "name_zh": "校准后的 IRR", "kind": "irr", "field": "irr_after_cal_db",
+         "values": (float(spec.value("assumed.irr_after_cal_db")),), "unit": "dB", "mode": "absolute",
+         "source": "assumed.irr_after_cal_db (vs measured)", "sources": ("assumed.irr_after_cal_db",),
+         "source_note": "in place of the measured table"},
+        {"name": "decoder-cap margin", "name_zh": "解码器上限的余量", "kind": "dec_margin",
+         "field": "decoder_cap_margin_db", "values": (1.0, 6.0), "unit": "dB", "mode": "absolute",
+         "source": "assumed.decoder_cap_margin_db", "sources": ("assumed.decoder_cap_margin_db",)},
     ]
 
 

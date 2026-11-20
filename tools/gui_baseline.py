@@ -2,6 +2,7 @@
 opens on before anything is computed.
 
     python tools/gui_baseline.py build [--jobs 4]     # run the four jobs at full size on the presets, write them
+    python tools/gui_baseline.py build --only table   # recompute one of them
     python tools/gui_baseline.py import DIR           # take job results written by tools/gui_report.py --json
     python tools/gui_baseline.py check                # is the shipped baseline in step with this tree?
 
@@ -71,6 +72,8 @@ def main(argv=None) -> int:
     ap.add_argument("source", nargs="?", type=Path, help="import: the directory holding the job results")
     ap.add_argument("--jobs", type=int, default=1, help="build: jobs side by side")
     ap.add_argument("--dir", type=Path, default=guistore.BASELINE_DIR, help="the baseline directory")
+    ap.add_argument("--only", action="append", choices=guistore.BASELINE_JOBS,
+                    help="build: recompute only this job (repeatable) — when a change touches one report")
     a = ap.parse_args(argv)
     print(ENGINE_BANNER)
     if a.what == "check":
@@ -85,10 +88,11 @@ def main(argv=None) -> int:
             raise SystemExit("import wants the directory")
         results = {job: json.loads((a.source / name).read_text(encoding="utf-8")) for job, name in IMPORT_NAMES.items()}
     elif a.jobs > 1:
+        jobs = tuple(a.only or guistore.BASELINE_JOBS)
         with ProcessPoolExecutor(max_workers=a.jobs) as pool:
-            results = dict(zip(guistore.BASELINE_JOBS, pool.map(_run, guistore.BASELINE_JOBS)))
+            results = dict(zip(jobs, pool.map(_run, jobs)))
     else:
-        results = {job: _run(job) for job in guistore.BASELINE_JOBS}
+        results = {job: _run(job) for job in (a.only or guistore.BASELINE_JOBS)}
     write(results, a.dir)
     print(f"[{time.time() - t0:.0f}s]")
     return 0

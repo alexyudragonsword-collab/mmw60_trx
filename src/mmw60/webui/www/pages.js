@@ -134,7 +134,7 @@ function ayItems(W) {
   const items = W.items || [], IR = W.items_results || {}, gone = ["table", "array", "ay"].filter(k => !IR[k]);
   const fmt = { rate: v => fx(v, 0), range: v => sig(v), pj_per_bit: v => fx(v, 0) };
   const side = (it, x) => { const extra = [nil(x.mcs) ? "" : mcs(x.mcs), nil(x.n) || x.n === it.n ? "" : "N = " + plain(x.n), nil(x.backoff_db) ? "" : `${T("回退", "back-off")} ${fx(x.backoff_db, 2)} dB`].filter(Boolean).join(" · ");
-    return `${sv(pstate(it.part), `<b>${(fmt[it.metric] || plain)(x.value)}</b>`, it.part)} <span class="mut">${esc(it.unit)}</span>${extra ? `<div class="xs mut">${extra}</div>` : ""}`; };
+    return `<div class="cellv">${sv(pstate(it.part), `<b>${(fmt[it.metric] || plain)(x.value)}</b>`, it.part)} <span class="mut">${esc(it.unit)}</span>${extra ? `<div class="xs mut">${extra}</div>` : ""}</div>`; };
   const rows = []; let g = null;
   for (const it of items) {
     if (it.metric !== g) { g = it.metric; const nm = ITEM_GROUP[g] ? T(...ITEM_GROUP[g]) : esc(g); rows.push({ __grp: `${nm}${it.unit === nm ? "" : " · " + esc(it.unit)} · ${it.better === "lower" ? T("低者好", "lower is better") : T("高者好", "higher is better")}` }); }

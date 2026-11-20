@@ -619,8 +619,13 @@ def test_a_row_says_whether_its_chain_is_usable_and_carries_the_power_at_its_cal
     stuck = "be_upclocked 11ac 20M K=1 @60.48 GHz"                 # 60 GHz CFO against a 312.5 kHz spacing
     rep = g.table_report(labels=[B32, stuck], time_domain=False)
     by = {r["label"]: r for r in rep["rows"]}
-    assert by[B32]["usable"] is True and by[B32]["verdict"] == "能"
+    assert by[B32]["usable"] is True and by[B32]["verdict"] == "能" and by[B32]["usable_cal"] is True
     assert by[stuck]["usable"] is False and by[stuck]["cfo_captured"] is False and by[stuck]["verdict"] == "不能"
+    assert by[stuck]["usable_cal"] is False                        # calibration does not catch a CFO
+    # a row whose raw IQ image blocks every MCS is unusable raw and usable (here: the fastest) once calibrated
+    wide = g.table_report(labels=["be_upclocked 11be 80M K=32 @60.48 GHz"], time_domain=False)["rows"][0]
+    assert (wide["usable"], wide["usable_cal"], wide["max_mcs"]) == (False, True, None) and wide["max_mcs_cal"] == 2
+    assert "usable_cal" in rep["fields"]["table.analytic+calibration.be"]
     r = by[B32]
     assert r["dec_mcs_cal"] > r["dec_mcs"] and r["power_dec_cal"]["bit_rate_bps"] == r["dec_rate_cal_mbps"] * 1e6
     assert r["power_dec_cal"]["pj_per_bit"] < r["power_dec"]["pj_per_bit"]          # a faster MCS on the same blocks
@@ -636,11 +641,21 @@ def test_sensitivity_report_says_which_guesses_move_a_cap_or_the_ranking():
     names = [k["knob"] for k in sens["knobs"]]
     assert names == [k["name"] for k in compare.sensitivity_knobs() for _ in k["values"]]
     for k in sens["knobs"]:
-        assert spec.all_entries().get(k["source_key"].split(" ")[0]) is not None, k["source_key"]
+        assert k["source_keys"] and all(key in spec.all_entries() for key in k["source_keys"]), k["knob"]
         assert k["value_text"] == compare.knob_value_text(k["value"])
+        assert k["mode"] in ("absolute", "relative", "scale") and k["knob_zh"] and isinstance(k["unit"], str)
         for moved in k["mcs_moved"] + k["dec_mcs_moved"]:
             assert moved["label"] in (B32, B8) and moved["from"] != moved["to"]
+    by = {k["knob"]: k for k in sens["knobs"]}
+    # an end says how it reads: the back-off's are +-2 dB around the front end's own, whose source is the presets'
+    assert (by["PA back-off"]["mode"], by["PA back-off"]["unit"]) == ("relative", "dB")
+    assert by["PA back-off"]["source_keys"] == [g.KNOB_SOURCE["frontend.pa.obo_db"]]
+    assert by["synthesizer power"]["mode"] == "scale" and len(by["synthesizer power"]["source_keys"]) == 2
+    assert by["calibrated IRR"]["source_note"] and by["Walden FoM"]["source_note"] is None
+    # which knobs move a cap and which change the ranking are two lists (one "decides" list said nothing:
+    # on the full matrix every knob but three changes the ranking)
     backoff = [k for k in sens["knobs"] if k["knob"] == "PA back-off"]
-    assert any(k["mcs_moved"] or k["dec_mcs_moved"] for k in backoff) and "PA back-off" in sens["decides"]
-    assert set(sens["decoder_basis"]) == {"zh", "en"}
+    assert any(k["mcs_moved"] or k["dec_mcs_moved"] for k in backoff) and "PA back-off" in sens["moves_a_cap"]
+    assert "Walden FoM" not in sens["moves_a_cap"] and set(sens["changes_ranking"]) <= set(names)
+    assert set(sens["decoder_basis"]) == {"zh", "en"} and "decides" not in sens
     json.dumps(sens, allow_nan=False)

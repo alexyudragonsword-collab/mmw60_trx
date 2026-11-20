@@ -345,12 +345,19 @@ def test_the_data_the_page_lacked_is_drawn_from_the_payloads(host, browser):
     assert str(len(k["mcs_moved"])) in line and str(len(k["dec_mcs_moved"])) in line
     assert f"{k['pj_ratio_max']:.{table['display']['pj_ratio']}f}" in line
     # 2. a row that cannot carry data is marked, keeps its numbers and comes after every usable row
-    order = page.evaluate("[...document.querySelectorAll('#screen-table [data-label]')]"
-                          ".map(e => [e.dataset.label, e.dataset.usable || 'true'])")
-    unusable = {r["label"] for r in table["rows"] if not r["usable"]}
-    assert {lab for lab, u in order if u == "false"} == unusable and len(unusable) == 2
-    flags = [u for _, u in order]
-    assert flags == sorted(flags, reverse=True), "an unusable row is ranked among the usable ones"
+    #    — on the column on show: calibrated (the default) or raw.  The 2.56 GHz row cannot carry data raw
+    #    (its IQ image blocks every MCS) and is the fastest row once calibrated
+    def marked():
+        order = page.evaluate("[...document.querySelectorAll('#screen-table [data-label]')]"
+                              ".map(e => [e.dataset.label, e.dataset.usable || 'true'])")
+        flags = [u for _, u in order]
+        assert flags == sorted(flags, reverse=True), "an unusable row is ranked among the usable ones"
+        return {lab for lab, u in order if u == "false"}
+    assert marked() == {r["label"] for r in table["rows"] if not r["usable_cal"]} and len(marked()) == 1
+    page.click('#screen-table [data-col="raw"]')
+    assert marked() == {r["label"] for r in table["rows"] if not r["usable"]} and len(marked()) == 2
+    page.click('#screen-table [data-col="cal"]')
+    assert len(marked()) == 1
     # 3. the row detail: each term's share of the floor
     r = next(x for x in table["rows"] if x["label"] == B32)
     page.click(f'#screen-table [data-label="{B32}"]')

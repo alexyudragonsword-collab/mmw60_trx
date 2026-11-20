@@ -186,8 +186,9 @@ JOBS = {
                        "seconds_note": "42 s with three other jobs side by side on a 4-core container; "
                                        "12 steps per column, six columns"},
     "table": {"parts": ("table.analytic", "table.td", "table.ay"), "command": "python tools/gui_report.py table",
-              "example": "python examples/04_comparison_table.py", "report": "table", "seconds": [106],
-              "seconds_note": "106 s with three other jobs side by side on a 4-core container"},
+              "example": "python examples/04_comparison_table.py", "report": "table", "seconds": [47, 126],
+              "seconds_note": "47 s alone on a 4-core container, the sensitivity section included; 106 s with "
+                              "three other jobs side by side before that section existed (about 20 s more with it)"},
     "array": {"parts": ("array",), "command": "python tools/gui_report.py array",
               "example": "python examples/10_array_link_and_training.py", "report": "array",
               "seconds": [560, 893, 1650],
@@ -490,7 +491,7 @@ BE_FIELDS = {
     "table.analytic": ["floor_db", "terms_db", "terms_share", "dominant", "max_mcs", "rate_mbps", "power", "verdict",
                        "reason", "usable", "evm_budget", "eirp", "cfo_captured", "plan_ok"],
     "table.analytic+calibration.be": ["floor_cal_db", "irr_cal_db", "irr_cal_measured_at_hz", "max_mcs_cal",
-                                      "rate_cal_mbps", "power_cal", "dec_mcs_cal", "dec_rate_cal_mbps",
+                                      "usable_cal", "rate_cal_mbps", "power_cal", "dec_mcs_cal", "dec_rate_cal_mbps",
                                       "power_dec_cal", "dec_mcs_cal_range", "dec_cal_next_margin_db"],
     "table.analytic+thresholds.be": ["dec_mcs", "dec_mcs_range", "dec_next_margin_db", "dec_required_snr_db",
                                      "dec_penalty_db", "dec_rate_mbps", "power_dec", "dec_mcs_cal", "dec_rate_cal_mbps",
@@ -517,15 +518,21 @@ def sensitivity_report(sch: list, fe: Frontend60, progress=None) -> dict:
     reads it — per knob end, the rows whose MCS cap or decoder cap moved, whether the pJ/bit
     ranking changed and how far any row's pJ/bit moved (a ratio to the base)."""
     sens = compare.sensitivity(sch, fe, progress=progress)
+    meta = {k["name"]: k for k in compare.sensitivity_knobs()}
     knobs = []
     for k in sens["knobs"]:
-        knobs.append({"knob": k["knob"], "value": k["value"], "value_text": compare.knob_value_text(k["value"]),
-                      "source_key": k["source"],
+        m = meta[k["knob"]]
+        knobs.append({"knob": k["knob"], "knob_zh": m["name_zh"], "value": k["value"],
+                      "value_text": compare.knob_value_text(k["value"]), "unit": m["unit"], "mode": m["mode"],
+                      "source_keys": list(m["sources"]), "source_note": m.get("source_note"),
                       "mcs_moved": [{"label": lab, "from": a, "to": b} for lab, (a, b) in k["mcs_moved"].items()],
                       "dec_mcs_moved": [{"label": lab, "from": a, "to": b}
                                         for lab, (a, b) in k["dec_mcs_moved"].items()],
                       "ranking": k["ranking"], "ranking_changed": k["ranking_changed"],
                       "pj_ratio_min": k["pj_ratio_min"], "pj_ratio_max": k["pj_ratio_max"]})
+
+    def named(pred):
+        return [n for n in meta if any(pred(k) for k in knobs if k["knob"] == n)]
     return {"base_ranking": sens["base"]["ranking"], "knobs": knobs,
             # example 04 prints this caveat with the section: it is part of how the numbers read
             "decoder_basis": {
@@ -534,8 +541,8 @@ def sensitivity_report(sch: list, fe: Frontend60, progress=None) -> dict:
                 "en": "the decoder caps here start from the analytic floor alone (no time-domain run per knob end): "
                       "a row whose cap in the table came from the time-domain floor starts one MCS higher in this "
                       "section"},
-            "decides": sorted({k["knob"] for k in knobs if k["ranking_changed"] or k["mcs_moved"]
-                               or k["dec_mcs_moved"]})}
+            "moves_a_cap": named(lambda k: k["mcs_moved"] or k["dec_mcs_moved"]),
+            "changes_ranking": named(lambda k: k["ranking_changed"])}
 
 
 def _cap_display(mcs, rng) -> str | None:
@@ -883,9 +890,14 @@ def sc_vs_ofdm_items(table: dict | None, array: dict | None, ay: dict | None) ->
     below = [n for n in sizes if binds is None or n < binds]          # arrays still at the preset back-off
     n_free = below[-1] if below else None
 
-    def a(wf, n, key, **kw):
+    def a(wf, n, key, cap=False, mcs=None):
         r = arr.get((wf, n))
-        return None if r is None else val(r.get(key), n=n, mcs=r.get("cap_mcs") if kw.pop("cap", False) else None, **kw)
+        return None if r is None else val(r.get(key), n=n, mcs=r.get("cap_mcs") if cap else mcs)
+
+    def same_below(key):
+        """Do the arrays still at the preset back-off all read the same (so "N <= n" is the truth)?"""
+        return all(len({(arr[(wf, n)].get("cap_mcs"), arr[(wf, n)].get(key)) for n in below}) == 1
+                   for wf in ("ay_sc", "ay_ofdm"))
     limited_zh, limited_en = "EIRP 上限卡住", "held at the EIRP limit"
     preset_zh, preset_en = "预设回退", "preset back-off"
     # ---- rate
@@ -894,8 +906,9 @@ def sc_vs_ofdm_items(table: dict | None, array: dict | None, ay: dict | None) ->
             f"rate: decoder cap, N = {n_top} ({limited_en})",
             a("ay_sc", n_top, "rate_mbps", cap=True), a("ay_ofdm", n_top, "rate_mbps", cap=True), "Mb/s", n=n_top)
     if n_free is not None and n_free != n_top:
-        add("rate_dec_cap_free", "rate", "array", f"速率：解码器上限，N ≤ {n_free}（{preset_zh}）",
-            f"rate: decoder cap, N ≤ {n_free} ({preset_en})",
+        rel = "≤" if same_below("rate_mbps") else "="
+        add("rate_dec_cap_free", "rate", "array", f"速率：解码器上限，N {rel} {n_free}（{preset_zh}）",
+            f"rate: decoder cap, N {rel} {n_free} ({preset_en})",
             a("ay_sc", n_free, "rate_mbps", cap=True), a("ay_ofdm", n_free, "rate_mbps", cap=True), "Mb/s", n=n_free)
     if tab:
         margin = tab["ay_sc"].get("cap_margin_db")
@@ -909,13 +922,14 @@ def sc_vs_ofdm_items(table: dict | None, array: dict | None, ay: dict | None) ->
             val(tab["ay_ofdm"]["rate_cal_mbps"], mcs=tab["ay_ofdm"]["cap_cal"]), "Mb/s", margin_db=margin)
     # ---- range
     if n_top is not None:
-        for iid, key, zh, en in (
-                ("range_common_top", "range_common_m", mod_txt, mod_txt),
-                ("range_slowest_top", "range_mcs1_m", "最慢一档", "the slowest MCS"),
-                ("range_common_multipath_top", "range_common_multipath_m", f"{mod_txt}，多径一列",
+        one = {"ay_sc": 1, "ay_ofdm": 1}                      # ``range_mcs1_m``: the slowest data MCS of each
+        for iid, key, at, zh, en in (
+                ("range_common_top", "range_common_m", common, mod_txt, mod_txt),
+                ("range_slowest_top", "range_mcs1_m", one, "最慢一档", "the slowest MCS"),
+                ("range_common_multipath_top", "range_common_multipath_m", common, f"{mod_txt}，多径一列",
                  f"{mod_txt}, the multipath column")):
             add(iid, "range", "array", f"距离：N = {n_top}，{zh}", f"range: N = {n_top}, {en}",
-                a("ay_sc", n_top, key), a("ay_ofdm", n_top, key), "m", n=n_top)
+                a("ay_sc", n_top, key, mcs=at["ay_sc"]), a("ay_ofdm", n_top, key, mcs=at["ay_ofdm"]), "m", n=n_top)
     rvr = {(r["waveform"], r["mcs"]): r for r in (ay or {}).get("rate_vs_range", [])}
     if rvr:
         slow = {wf: min(m for w, m in rvr if w == wf) for wf in ("ay_sc", "ay_ofdm")}

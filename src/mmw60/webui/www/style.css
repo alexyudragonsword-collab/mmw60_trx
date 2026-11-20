@@ -485,3 +485,5 @@ details.mv{display:inline-block;vertical-align:top;margin-left:6px}
 details.mv>summary{cursor:pointer;color:var(--ink2);font-size:11px;text-decoration:underline;list-style:none}
 details.mv>summary::-webkit-details-marker{display:none}
 ol.plain{margin:0;padding-left:22px;display:grid;gap:3px}
+.cellv{display:inline-block;min-width:0}
+.dimkey{opacity:.6}

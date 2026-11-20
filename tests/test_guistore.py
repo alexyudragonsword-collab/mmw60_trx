@@ -257,9 +257,9 @@ def test_the_baseline_sensitivity_is_the_accepted_example_04_section():
                 f"decoder cap on {len(k['dec_mcs_moved']):>2}; pJ/bit {ratio:<18} "
                 f"ranking {'CHANGED' if k['ranking_changed'] else 'same'}")
         assert ln == want
-    # every knob but none moves something here; the two that move a cap without touching power are among them
-    assert {"PA back-off", "calibrated IRR", "decoder-cap margin"} <= set(sens["decides"])
-    assert set(sens["decides"]) <= {k["knob"] for k in sens["knobs"]}
+    # three knobs move a cap; the two that touch no power block leave the ranking alone
+    assert sens["moves_a_cap"] == ["PA back-off", "calibrated IRR", "decoder-cap margin"]
+    assert set(sens["changes_ranking"]) == {k["knob"] for k in sens["knobs"]} - {"calibrated IRR", "decoder-cap margin"}
 
 
 def test_sc_against_ofdm_item_by_item_is_computed_from_the_baseline_and_reads_as_the_document_does():
@@ -286,6 +286,9 @@ def test_sc_against_ofdm_item_by_item_is_computed_from_the_baseline_and_reads_as
     small = items["pj_smallest_array"]
     assert (small["sc"]["n"], small["ofdm"]["n"]) == (24, 34) and read("pj_smallest_array")[:2] == ("900", "1023")
     assert items["rate_dec_cap_top"]["sc"]["mcs"] == 21 and items["rate_dec_cap_free"]["ofdm"]["mcs"] == 18
+    assert "N ≤ 16" in items["rate_dec_cap_free"]["en"]            # said because N = 1, 4, 16 read the same
+    assert items["range_common_top"]["sc"]["mcs"] == 14 and items["range_common_top"]["ofdm"]["mcs"] == 13
+    assert items["range_slowest_top"]["sc"]["mcs"] == items["range_slowest_top"]["ofdm"]["mcs"] == 1
     assert {i["part"] for i in items.values()} == {"array", "table.ay", "ay"}
     assert all(i["better"] == ("lower" if i["metric"] == "pj_per_bit" else "higher") for i in items.values())
     # a report that is not there takes its items with it, and nothing breaks
@@ -297,6 +300,10 @@ def test_every_baseline_row_carries_term_shares_the_usable_flag_and_the_power_at
     rows = BASELINE["table"]["report"]["rows"]
     assert [r["label"] for r in rows if not r["usable"]] == [
         "be_upclocked 11ac 20M K=1 @60.48 GHz", "be_upclocked 11be 80M K=32 @60.48 GHz"]
+    # on the calibrated chain only the row that cannot catch the CFO is left out; the best rows are usable ones
+    assert [r["label"] for r in rows if not r["usable_cal"]] == ["be_upclocked 11ac 20M K=1 @60.48 GHz"]
+    best = BASELINE["table"]["report"]["be_best_at_calibrated_cap"]
+    assert all(next(r for r in rows if r["label"] == lab)["usable_cal"] for lab in best.values())
     for r in rows:
         assert sum(v for v in r["terms_share"].values() if v is not None) == pytest.approx(1.0)
         assert (r["power_dec_cal"] is None) == (r["dec_mcs_cal"] is None)
