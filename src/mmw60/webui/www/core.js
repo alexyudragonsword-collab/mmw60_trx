@@ -130,8 +130,7 @@ function knobText(k, v) { const a = knobShow(k, v); return plain(a.v) + (a.u ? "
 
 /* ------------------------------------------------------------------ parts, jobs, freshness */
 const JOBNAME = {
-  calibration_be: ["校准序列", "Calibration sequence"], table: ["同台表 · 整表", "Comparison table, full"],
-  table_analytic: ["同台表 · 只算解析列", "Comparison table, analytic columns only"], array: ["阵列", "Array"], ay: ["SC 对 OFDM", "SC against OFDM"],
+  calibration_be: ["校准序列", "Calibration sequence"], table: ["同台表", "Comparison table"], array: ["阵列", "Array"], ay: ["SC 对 OFDM", "SC against OFDM"],
 };
 const REPNAME = { table: ["同台表", "comparison table"], calibration: ["校准", "calibration"], array: ["阵列", "array"], ay: ["SC 对 OFDM", "SC against OFDM"] };
 const jn = id => (JOBNAME[id] ? T(...JOBNAME[id]) : id);
@@ -184,7 +183,7 @@ function freshBanner(parts, reports, opts = {}) {
   const why = [...new Set(stale.flatMap(p => (fp[p].changed || []).map(id => changeText(id, p))))];
   const ups = [...new Set(stale.flatMap(p => fp[p].upstream || []))];
   const upS = ups.filter(u => pstate(u) === "stale"), upO = ups.filter(u => pstate(u) !== "stale");
-  const jobs = [...new Set([...stale.map(p => fp[p].recompute).filter(Boolean), ...missing.flatMap(r => (S.parts ? Object.keys(S.parts.jobs).filter(j => S.parts.jobs[j].report === r && j !== "table_analytic") : []))])];
+  const jobs = [...new Set([...stale.map(p => fp[p].recompute).filter(Boolean), ...missing.flatMap(r => (S.parts ? Object.keys(S.parts.jobs).filter(j => S.parts.jobs[j].report === r) : []))])];
   const stored = [...new Set([...stale, ...ups])].filter(p => fp[p] && fp[p].stored && fp[p].state === "stale");
   const chip = p => `<span class="pchip" data-part="${esc(p)}" data-state="${pstate(p)}">${stateSign(pstate(p))} ${esc(pn(p))}</span>`;
   const runBtn = j => `<button type="button" class="btn" data-act="run" data-job="${esc(j)}">${T("重算", "Recompute")}${P_.c}${jn(j)} · ${expected(j)}</button>`;
@@ -224,7 +223,7 @@ const cmd = c => `<div class="cmd"><code>${esc(c)}</code><button type="button" d
 const st = s => (s === "ok" ? `<span class="ok">✓ ok</span>` : `<span class="dg">▲ ${esc(s)}</span>`);
 const yes = (b, y, n) => (b === null || b === undefined ? `<span class="mut">n/a</span>` : b ? `<span class="ok">✓ ${y || T("是", "yes")}</span>` : `<span class="dg">✕ ${n || T("否", "no")}</span>`);
 const fg = c => `<span class="fg f-${esc(c)}" aria-hidden="true"></span>`;
-const seg = (act, cur, opts) => `<span class="seg" role="group">${opts.map(o => `<button type="button" data-act="${act}" data-v="${esc(o[0])}" aria-pressed="${String(o[0]) === String(cur)}">${o[1]}</button>`).join("")}</span>`;
+const seg = (act, cur, opts, hook) => `<span class="seg" role="group">${opts.map(o => `<button type="button" data-act="${act}" data-v="${esc(o[0])}" ${hook ? `${hook}="${esc(o[0])}"` : ""} aria-pressed="${String(o[0]) === String(cur)}">${o[1]}</button>`).join("")}</span>`;
 const FOOT = {
   ay: ["链上实测", "measured on the chain"],
   be_if_extender: ["芯片残差实测 + 解析和", "chip residual measured + analytic sum"],

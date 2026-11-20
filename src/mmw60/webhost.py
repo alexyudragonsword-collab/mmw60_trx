@@ -378,6 +378,13 @@ class Api:
                 has = arr is not None and arr["result"]["report"].get("ay")
                 out["headline"] = guiutil.sc_vs_ofdm_headline(arr["result"]["report"]) if has else None
                 out["headline_result"] = _meta(arr) if has else None
+                # item by item (rate, range, pJ/bit on each footing), from the three results shown
+                tab = st.store.pick("table", study)
+                out["items"] = guiutil.sc_vs_ofdm_items(None if tab is None else tab["result"]["report"],
+                                                        arr["result"]["report"] if has else None,
+                                                        entry["result"]["report"])
+                out["items_results"] = {"table": None if tab is None else _meta(tab),
+                                        "array": _meta(arr) if has else None, "ay": _meta(entry)}
             return 200, out
         elif route == "row":
             study = self._study(req)

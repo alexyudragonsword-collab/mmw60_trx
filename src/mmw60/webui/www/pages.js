@@ -127,12 +127,38 @@ function renderArray() {
 const signed = (v, d) => (nil(v) ? "—" : (v > 0 ? "+" : "") + fx(v, d));
 const mc = r => `${esc(r.modulation)} ${esc(r.code_rate)}`;
 const never = v => (nil(v) ? `<span class="mut">—</span>` : fx(v, 2));
+/* SC against OFDM item by item: the host computed every pair, its percentage and who is ahead from
+ * the three stored results; each item is stale with the part its numbers come from */
+const ITEM_GROUP = { rate: ["速率", "Rate"], range: ["距离", "Range"], pj_per_bit: ["pJ/bit", "pJ/bit"] };
+function ayItems(W) {
+  const items = W.items || [], IR = W.items_results || {}, gone = ["table", "array", "ay"].filter(k => !IR[k]);
+  const fmt = { rate: v => fx(v, 0), range: v => sig(v), pj_per_bit: v => fx(v, 0) };
+  const side = (it, x) => { const extra = [nil(x.mcs) ? "" : mcs(x.mcs), nil(x.n) || x.n === it.n ? "" : "N = " + plain(x.n), nil(x.backoff_db) ? "" : `${T("回退", "back-off")} ${fx(x.backoff_db, 2)} dB`].filter(Boolean).join(" · ");
+    return `<div class="cellv">${sv(pstate(it.part), `<b>${(fmt[it.metric] || plain)(x.value)}</b>`, it.part)} <span class="mut">${esc(it.unit)}</span>${extra ? `<div class="xs mut">${extra}</div>` : ""}</div>`; };
+  const rows = []; let g = null;
+  for (const it of items) {
+    if (it.metric !== g) { g = it.metric; const nm = ITEM_GROUP[g] ? T(...ITEM_GROUP[g]) : esc(g); rows.push({ __grp: `${nm}${it.unit === nm ? "" : " · " + esc(it.unit)} · ${it.better === "lower" ? T("低者好", "lower is better") : T("高者好", "higher is better")}` }); }
+    rows.push(Object.assign({}, it, { __attr: `data-item="${esc(it.id)}" data-metric="${esc(it.metric)}" data-part="${esc(it.part)}" data-state="${pstate(it.part)}"${it.winner ? ` data-winner="${esc(it.winner)}"` : ""}` }));
+  }
+  const n = w => items.filter(it => it.winner === w).length;
+  return `<section class="blk" id="items"><header><h3>${T("逐项对照：SC 对 OFDM", "Item by item: SC against OFDM")}</h3>
+      <span class="sm">${wfsw("ay_sc")}<b>SC ${T("领先", "ahead")} ${n("ay_sc")}</b> · ${wfsw("ay_ofdm")}OFDM ${T("领先", "ahead")} ${n("ay_ofdm")} <span class="mut">/ ${items.length} ${T("项", "items")}</span></span></header>
+    ${gone.length ? `<p class="note warn" data-items-missing="${esc(gone.join(" "))}">${T("没有存着的结果", "No stored result")}${P_.c}${gone.map(k => T(...REPNAME[k])).join(P_.d)}${T("——来自它的项不在表里。", " — the items that come from it are absent.")}</p>` : ""}
+    ${IR.table && !IR.table.parts.includes("table.ay") ? `<p class="note warn" data-items-missing="table.ay">${T("正在显示的同台表结果里没有 802.11ay 两行——来自它的项不在表里。", "The comparison-table result shown has no 802.11ay rows — the items that come from them are absent.")}</p>` : ""}
+    ${items.length ? tbl([{ h: T("比什么", "What is compared"), f: it => esc(T(it.zh, it.en)) },
+      { h: "SC", r: 1, f: it => side(it, it.sc) }, { h: "OFDM", r: 1, f: it => side(it, it.ofdm) },
+      { h: T("SC 对 OFDM", "SC over OFDM"), r: 1, f: it => sv(pstate(it.part), `<span data-pct>${signed(it.sc_over_ofdm_pct, 1)} %</span>`, it.part) },
+      { h: T("谁领先", "Who is ahead"), f: it => (it.winner ? `<span class="win-sc">${wfsw(it.winner)}${wfn(it.winner)}</span>` : `<span class="mut">—</span>`) },
+      { h: T("取自", "From"), f: it => `<span class="pchip xs" data-state="${pstate(it.part)}">${stateSign(pstate(it.part))} ${esc(pn(it.part))}</span>` }], rows) : `<p class="mut">${T("没有可比的项。", "There is no item to compare.")}</p>`}
+    <p class="xs mut">${T("百分比 = SC 比 OFDM 多（正）或少（负）多少；pJ/bit 一组低者好，所以负的百分比是 SC 领先。没有“打平”一说：数据里没有门限，差多少由百分比说话。", "The percentage is how far SC is above (positive) or below (negative) OFDM; pJ/bit is lower-is-better, so a negative percentage there means SC is ahead. No “tie” is called: the data carry no threshold, the percentage says how close it is.")}</p>
+    <div class="xs" style="display:grid;gap:2px;color:var(--ink2)">${["table", "array", "ay"].filter(k => IR[k]).map(k => `<div>${provLine(IR[k])}</div>`).join("")}</div></section>`;
+}
 function renderAy() {
   const W = S.rep.ay;
   if (!W) return `<div class="page"><div class="loading"><span class="spin"></span>${T("正在读取 SC 对 OFDM 的结果…", "Loading the SC against OFDM result…")}</div></div>`;
-  const parts = ["ay", "array", "thresholds.be", "thresholds.ay"];
+  const parts = ["ay", "array", "table.ay", "thresholds.be", "thresholds.ay"];
   const eyebrow = `<div class="phead"><div><div class="eyebrow">${T("SC 对 OFDM · 802.11ay 两种波形跑在同一套硬件上", "SC against OFDM · the two 802.11ay waveforms on the same hardware")}</div></div></div>`;
-  if (!W.report) return `<div class="page">${eyebrow}${freshBanner(parts, ["ay", "array"], { noJobs: true })}${emptyReport("ay")}</div>`;
+  if (!W.report) return `<div class="page">${eyebrow}${freshBanner(parts, ["ay", "array", "table"], { noJobs: true })}${emptyReport("ay")}</div>`;
   const A = W.report, H = A.header, HL = W.headline, ast = pstate("ay"), m = v => sv(ast, v, "ay"), hm = v => sv(pstate("array"), v, "array"), LB = A.link_budget || {};
   let verdict;
   if (HL) {
@@ -165,7 +191,7 @@ function renderAy() {
   const resCols = (A.residuals || []).flatMap(x => x.waveforms.map(wv => ({ bo: x.backoff_db, wv })));
   const resRows = resCols.length ? [[T("全部校准掉", "everything calibrated away"), c => c.wv.none_evm_db], ...resCols[0].wv.alone.map((al, i) => [al.label, c => (c.wv.alone[i] || {}).evm_db]),
     [T("IQ 与泄漏校准掉的链", "chain with IQ and leak calibrated away"), c => c.wv.calibrated_away_evm_db], [T("功率和核对", "power-sum check"), c => c.wv.power_sum_evm_db], [T("真校准过的链", "the chain as actually calibrated"), c => c.wv.calibrated_chain_evm_db]] : [];
-  const body = `${eyebrow}${freshBanner(parts, ["ay", "array"])}${verdict}
+  const body = `${eyebrow}${freshBanner(parts, ["ay", "array", "table"])}${verdict}${ayItems(W)}
     <div class="g2">
       <section class="blk"><header><h3>${T("单天线：速率对距离", "Single antenna: rate against range")}</h3><span class="mut sm">${A.rate_vs_range.length} ${T("档，各取最佳回退", "steps, each at its best back-off")}</span></header>
         <div class="lg"><span><i style="border-color:var(--sc)"></i>SC flat</span><span><i style="border-color:var(--ofdm)"></i>OFDM flat</span>

@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 import gui_baseline            # tools/ is on sys.path (conftest)
+import pytest
 
 from mmw60 import guistore
 from mmw60 import guiutil as g
@@ -239,3 +240,70 @@ def test_the_headline_and_the_range_column_come_out_of_the_baseline_array():
     ranges = g.single_antenna_ranges(arr)
     labels = {r["label"] for r in BASELINE["table"]["report"]["rows"] + BASELINE["table"]["report"]["ay_rows"]}
     assert ranges and set(ranges) <= labels
+
+
+def test_the_baseline_sensitivity_is_the_accepted_example_04_section():
+    """Which guesses decide the verdict: every knob end, as example 04 prints it."""
+    sens = BASELINE["table"]["report"]["sensitivity"]
+    text = (EXPECTED / "04_comparison_table.txt").read_text(encoding="utf-8").splitlines()
+    start = next(i for i, ln in enumerate(text) if ln.startswith("== 6. sensitivity"))
+    lines = [ln for ln in text[start:] if re.match(r"  \S.* at ", ln)]
+    assert len(lines) == len(sens["knobs"]) == 13
+    assert text[start + 1] == "base pJ/bit ranking (best first): " + " < ".join(sens["base_ranking"])
+    d = BASELINE["table"]["report"]["display"]["pj_ratio"]
+    for ln, k in zip(lines, sens["knobs"]):
+        ratio = f"x{k['pj_ratio_min']:.{d}f} … x{k['pj_ratio_max']:.{d}f}"
+        want = (f"  {k['knob']:<26} at {k['value_text']:<9} conformance cap moved on {len(k['mcs_moved']):>2} row(s), "
+                f"decoder cap on {len(k['dec_mcs_moved']):>2}; pJ/bit {ratio:<18} "
+                f"ranking {'CHANGED' if k['ranking_changed'] else 'same'}")
+        assert ln == want
+    # three knobs move a cap; the two that touch no power block leave the ranking alone
+    assert sens["moves_a_cap"] == ["PA back-off", "calibrated IRR", "decoder-cap margin"]
+    assert set(sens["changes_ranking"]) == {k["knob"] for k in sens["knobs"]} - {"calibrated IRR", "decoder-cap margin"}
+
+
+def test_sc_against_ofdm_item_by_item_is_computed_from_the_baseline_and_reads_as_the_document_does():
+    """``cairn/ay.md`` opens with this table; here it is computed.  The values the document prints
+    (rounded as it rounds them) come out of the three shipped reports."""
+    items = {i["id"]: i for i in g.sc_vs_ofdm_items(BASELINE["table"]["report"], BASELINE["array"]["report"],
+                                                    BASELINE["ay"]["report"])}
+
+    def read(iid, fmt="{:.0f}"):
+        i = items[iid]
+        return fmt.format(i["sc"]["value"]), fmt.format(i["ofdm"]["value"]), round(i["sc_over_ofdm_pct"]), i["winner"]
+    assert read("rate_dec_cap_top") == ("8085", "7659", 6, "ay_sc")
+    assert read("rate_dec_cap_free") == ("8085", "6565", 23, "ay_sc")
+    assert read("rate_conformance_at_limit") == ("5390", "5106", 6, "ay_sc")
+    assert read("rate_conformance_margin") == ("4620", "4742", -3, "ay_ofdm")
+    assert read("range_common_top") == ("322", "316", 2, "ay_sc")
+    assert read("range_slowest_top") == ("742", "676", 10, "ay_sc")
+    assert read("range_common_multipath_top")[:2] == ("297", "296")
+    assert read("range_common_single", "{:.2f}") == ("2.58", "2.18", 18, "ay_sc")
+    assert read("range_slowest_single", "{:.2f}") == ("21.62", "16.23", 33, "ay_sc")
+    assert read("pj_dec_cap_n64") == ("660", "698", -6, "ay_sc")                 # lower is better: SC ahead
+    assert read("pj_dec_cap_n1")[:2] == ("108", "135") and read("pj_dec_cap_n16")[:2] == ("306", "379")
+    assert read("pj_conformance_margin")[:2] == ("189", "188")
+    small = items["pj_smallest_array"]
+    assert (small["sc"]["n"], small["ofdm"]["n"]) == (24, 34) and read("pj_smallest_array")[:2] == ("900", "1023")
+    assert items["rate_dec_cap_top"]["sc"]["mcs"] == 21 and items["rate_dec_cap_free"]["ofdm"]["mcs"] == 18
+    assert "N ≤ 16" in items["rate_dec_cap_free"]["en"]            # said because N = 1, 4, 16 read the same
+    assert items["range_common_top"]["sc"]["mcs"] == 14 and items["range_common_top"]["ofdm"]["mcs"] == 13
+    assert items["range_slowest_top"]["sc"]["mcs"] == items["range_slowest_top"]["ofdm"]["mcs"] == 1
+    assert {i["part"] for i in items.values()} == {"array", "table.ay", "ay"}
+    assert all(i["better"] == ("lower" if i["metric"] == "pj_per_bit" else "higher") for i in items.values())
+    # a report that is not there takes its items with it, and nothing breaks
+    only_table = g.sc_vs_ofdm_items(BASELINE["table"]["report"], None, None)
+    assert {i["part"] for i in only_table} == {"table.ay"} and g.sc_vs_ofdm_items(None, None, None) == []
+
+
+def test_every_baseline_row_carries_term_shares_the_usable_flag_and_the_power_at_its_calibrated_decoder_cap():
+    rows = BASELINE["table"]["report"]["rows"]
+    assert [r["label"] for r in rows if not r["usable"]] == [
+        "be_upclocked 11ac 20M K=1 @60.48 GHz", "be_upclocked 11be 80M K=32 @60.48 GHz"]
+    # on the calibrated chain only the row that cannot catch the CFO is left out; the best rows are usable ones
+    assert [r["label"] for r in rows if not r["usable_cal"]] == ["be_upclocked 11ac 20M K=1 @60.48 GHz"]
+    best = BASELINE["table"]["report"]["be_best_at_calibrated_cap"]
+    assert all(next(r for r in rows if r["label"] == lab)["usable_cal"] for lab in best.values())
+    for r in rows:
+        assert sum(v for v in r["terms_share"].values() if v is not None) == pytest.approx(1.0)
+        assert (r["power_dec_cal"] is None) == (r["dec_mcs_cal"] is None)

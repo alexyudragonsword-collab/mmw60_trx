@@ -67,7 +67,7 @@ ay_sc    π/2-16-QAM                 roll-off 0.35    5.10   5.72
 ay_sc    π/2-64-QAM                 roll-off 0.35    5.53   6.03
 (roll-off 0.25 is assumed.ay_sc_pulse [assumed]; the others are sensitivity rows)
 
-== 3. each impairment alone on the ideal chain, at the preset back-off 7.5 dB (EVM dB, no noise; payload π/2-64-QAM for SC, 16-QAM for OFDM) ==
+== 3. each impairment alone on the ideal chain, at the preset back-off 7.5 dB (EVM dB, no noise; payload π/2-16-QAM for SC, 16-QAM for OFDM) ==
 ideal chain                        SC  -49.85   OFDM  -37.24
 PA                                 SC  -28.38   OFDM  -21.91
 phase noise                        SC  -27.45   OFDM  -27.86

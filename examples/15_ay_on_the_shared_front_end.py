@@ -179,9 +179,10 @@ class Printer:
 
     # ---------------------------------------------------------------- 3. isolation
     def begin_impairments_alone(self):
+        p = self.h["presets"]            # the presets' own payloads (the heading said 64-QAM for SC until 2026-11-20)
         print(f"\n== 3. each impairment alone on the ideal chain, at the preset back-off "
               f"{self.h['preset_backoff_db']:g} dB (EVM dB, "
-              f"no noise; payload π/2-64-QAM for SC, 16-QAM for OFDM) ==")
+              f"no noise; payload {p['ay_sc']['modulation']} for SC, {p['ay_ofdm']['modulation']} for OFDM) ==")
 
     def row_impairments_alone(self, r):
         o_txt = f"{r['ay_ofdm_evm_db']:7.2f}" if r["ay_ofdm_evm_db"] is not None else "      —"

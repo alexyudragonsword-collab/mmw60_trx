@@ -474,3 +474,16 @@ td.cur2{background:var(--sunk)}
 .prov{overflow-wrap:anywhere}
 .fresh .btn{background:var(--panel)}
 .kstrip{grid-template-columns:repeat(6,minmax(0,1fr))}
+/* rows that cannot carry data, the share bar, the sensitivity lines */
+.row[data-usable="false"]>:not(.nm){opacity:.5}
+.row[data-usable="false"] .nm .l1,.row[data-usable="false"] .nm .l2{opacity:.6}
+.shr{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.shr b{font-weight:600;min-width:58px;text-align:right}
+.shrt{display:block;width:90px;height:8px;background:var(--sunk);border-radius:3px;overflow:hidden;flex:none}
+.shrt i{display:block;height:100%;background:var(--ink);min-width:1px}
+details.mv{display:inline-block;vertical-align:top;margin-left:6px}
+details.mv>summary{cursor:pointer;color:var(--ink2);font-size:11px;text-decoration:underline;list-style:none}
+details.mv>summary::-webkit-details-marker{display:none}
+ol.plain{margin:0;padding-left:22px;display:grid;gap:3px}
+.cellv{display:inline-block;min-width:0}
+.dimkey{opacity:.6}
