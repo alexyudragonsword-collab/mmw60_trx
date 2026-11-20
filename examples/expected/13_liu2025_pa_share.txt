@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.2.0; full size; Liu 2025 Table II on a flat channel: PA rapp_11ad OBO 8 dB from psat, PN -93 dBc/Hz at both, CFO 2.94 MHz with the L-STF / L-LTF estimators
+mmw60 0.3.0; full size; Liu 2025 Table II on a flat channel: PA rapp_11ad OBO 8 dB from psat, PN -93 dBc/Hz at both, CFO 2.94 MHz with the L-STF / L-LTF estimators
 
 == 1. what the receiver sees with no noise (data-tone EVM after equalisation, 4 packets, MCS4 frames) ==
 K = 8   all on  -17.74 dB   PA only  -18.30   PN only  -26.90   CFO only < -100

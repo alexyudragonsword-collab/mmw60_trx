@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.2.0; full; profile poweron; front end rapp_11ad Pout 7.1 dBm, TX leak -30 dBc, IQ 150 ps, LO IPN -31.1 dBc; calibrated at back-off 7.5 dB from psat (Psat 14.6 dBm)
+mmw60 0.3.0; full; profile poweron; front end rapp_11ad Pout 7.1 dBm, TX leak -30 dBc, IQ 150 ps, LO IPN -31.1 dBc; calibrated at back-off 7.5 dB from psat (Psat 14.6 dBm)
 
 == K = 1, base 20 MHz -> 20 MHz at 0.04 GS/s ==
   K=1   tx_lpf_corner          ok        fc_err_pct 0.00

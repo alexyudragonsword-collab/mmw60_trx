@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.2.0; Viterbi kernel: numba; full size
+mmw60 0.3.0; Viterbi kernel: numba; full size
 Liu 2025 Table II: VHT 20 MHz x K, 4096 B, fc 73.44 GHz, 20+20 ppm -> CFO 2.938 MHz; PN -93 dBc/Hz (fp 1 MHz, fz 100 MHz) at both; PA rapp_11ad OBO 8 dB from psat; channel tdl_exp 7 ns rms; CFO estimation stf_ltf
 SNR axis: per active subcarrier Es/N0; per-sample SNR is 3.59 dB lower
 K    SCS [MHz]  T_fft [ns]  GI [ns]  STF capture [MHz]  LTF capture [MHz]  CFO [subcarriers]

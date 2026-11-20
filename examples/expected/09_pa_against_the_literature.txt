@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.2.0; full; back-off from psat: presets 7.5 dB (derived.pa60_obo_at_evm_limit_db [derived]), 11ad EM PA 8 dB (liu2025.pa_obo_db [spec])
+mmw60 0.3.0; full; back-off from psat: presets 7.5 dB (derived.pa60_obo_at_evm_limit_db [derived]), 11ad EM PA 8 dB (liu2025.pa_obo_db [spec])
 [spec] = read in the original, quoted in data/spec; [survey, unverified] = read from a search snippet only; [assumed] = this library's choice; [derived] = computed from entries
 
 == 1. measured 60 GHz CMOS PAs, and the 11ad EM PA (the presets' until 2026-11-12) among them ==

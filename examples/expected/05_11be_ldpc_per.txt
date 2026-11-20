@@ -1,5 +1,5 @@
 engine: upclocked wifitrx time-domain baseband (linearised PA / PN models, no cycle-accurate PLL) -- spur / IM conclusions not endorsed
-mmw60 0.2.0; LDPC kernel: numba; full size
+mmw60 0.3.0; LDPC kernel: numba; full size
 11be 80 MHz base x K at 60.48 GHz, 4096 B, 20+20 ppm -> CFO 2.419 MHz; FEC ldpc (max 30 iterations, alpha 0.8); PA rapp_11ad OBO 7.5 dB from psat -> Pout 7.1 dBm; LO IPN -31.1 dBc; channel flat
 K    BW[MHz]  fs_eff[GS/s]  SCS[MHz]  T_sym[ns]  MCS  N_DBPS   symbols/packet  codewords  L   shortened  punctured
 4        320         0.64     0.312       3400  0        490               67         34  1944        218        218
