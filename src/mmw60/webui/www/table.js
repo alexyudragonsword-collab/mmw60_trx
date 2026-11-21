@@ -153,12 +153,12 @@ function loSection(R) {
   const kname = id => { const k = knob(id); return k ? esc(knobLabel(k)) : esc(id); }, lab = o => (o && typeof o === "object" ? T(o.zh, o.en) : o || "");
   const models = LM.models || [...new Set(LM.rows.map(r => r.model))].map(name => Object.assign({ label: { zh: name, en: name } }, LM.rows.find(r => r.model === name)));
   const LAB = [T("带宽", "Bandwidth"), T("相噪 ICI dB", "Phase-noise ICI, dB"), T("解析底板 dB", "Analytic floor, dB"), T("时域 EVM dB", "Time-domain EVM, dB"), T("合规上限", "Conformance cap")];
-  const block = mo => { const rows = LM.rows.filter(r => r.model === mo.model), ipn = `${T("积分相噪 IPN", "integrated PN")} ${fx(mo.ipn_dbc, d.ipn_dbc)} dBc`;
+  const block = mo => { const rows = LM.rows.filter(r => r.model === mo.model);
     return `<div class="lom ${mo.is_preset_model ? "pre" : ""}" data-lo-kind="${esc(mo.kind || "")}" data-lo-head="${esc(mo.model)}"><div class="lomh"><b>${esc(lab(mo.label))}</b>${mo.is_preset_model ? ` <span class="vd best" data-lo-preset>${T("预设用的就是它", "the presets’ own")}</span>` : ""}
         <span>${(mo.sources || []).map(k => tag(k)).join(" ") || `<span class="tag t-none">${T("vendored 的 wifitrx 模型", "vendored wifitrx model")}</span>`}</span></div>
       <div class="lomi"><span data-lo-ipn>${T("积分相噪 IPN", "integrated PN")} <b class="n">${m(fx(mo.ipn_dbc, d.ipn_dbc))} dBc</b></span>${nil(mo.floor_dbchz) ? "" : `<span>${T("倍频器底噪", "multiplier floor")} <b class="n">${plain(mo.floor_dbchz)} dBc/Hz</b></span>`}</div>
       <div class="lok" style="grid-template-columns:minmax(96px,1.3fr) repeat(${rows.length},minmax(56px,1fr))"><div class="lol"><span></span>${LAB.map(l => `<span>${l}</span>`).join("")}</div>
-        ${rows.map(r => `<div class="lov" data-lo-model="${esc(r.model)}" data-k="${esc(r.k)}"><b>K = ${plain(r.k)}<span class="sr"> · ${esc(lab(mo.label))} · ${ipn}</span></b><span>${hz(r.bw_eff_hz)}</span><span>${m(fx(r.pn_ici_db, d.pn_ici_db))}</span><span>${m(fx(r.floor_db, d.floor_db))}</span><span>${m(fx(r.td_evm_db, d.td_evm_db))}</span><span>${m(mcs(r.max_mcs))}</span></div>`).join("")}</div></div>`; };
+        ${rows.map(r => `<div class="lov" data-lo-model="${esc(r.model)}" data-k="${esc(r.k)}"><b>K = ${plain(r.k)}<span class="sr"> · ${esc(lab(mo.label))}</span></b><span>${hz(r.bw_eff_hz)}</span><span>${m(fx(r.pn_ici_db, d.pn_ici_db))}</span><span>${m(fx(r.floor_db, d.floor_db))}</span><span>${m(fx(r.td_evm_db, d.td_evm_db))}</span><span>${m(mcs(r.max_mcs))}</span></div>`).join("")}</div></div>`; };
   /* the LO knobs the form holds now: they describe one LO, this section swaps in each model whatever they say */
   const ed = Object.keys(S.study).filter(k => (LM.form_lo_knobs_ignored || []).includes(k));
   return `<section class="blk" id="lo-models" data-part="${esc(part)}" data-state="${ps}">${head}
@@ -200,7 +200,8 @@ function renderTable() {
   const AS = R.assembled || {}, fromFloor = !!AS.decoder_caps_from_analytic_floor;
   const lower = AS.rows_whose_decoder_cap_may_be_lower, nLower = lower ? lower.length : null;
   const floorNote = T("解码器上限只从解析底板出发（整表会在解析底板与时域 EVM 里取较差的一个），所以一行在这里可能比整表高一档。", "The decoder caps start from the analytic floor alone (a full run takes the worse of that and the time-domain EVM), so a row may read one MCS higher here than a full run will.")
-    + (nLower === null ? "" : T(` 上一次整表说这会落在 ${nLower} 行上，行上标了 ※。`, ` By the last full run this concerns ${nLower} rows, marked ※.`));
+    + (nLower === null ? "" : T(` 上一次整表里时域 EVM 比解析底板差的有 ${nLower} 行：整表在这些行上的上限多半更低。`, ` In the last full run the time-domain EVM read worse than the analytic floor on ${nLower} rows: there a full run’s cap is likely to be lower.`)
+      + (S.basis === "dec" ? T("这些行的上限格带 ※。", " Their cap cells carry ※.") : T("切到解码器口径时，这些行的上限格带 ※。", " With the cap basis on the decoder, their cap cells carry ※.")));
   const bannerNote = fromFloor ? ` <b class="warnt">${T("解析列来自只算解析列的预览：", "The analytic columns come from an analytic-only preview: ")}${floorNote}</b>` : "";
   const body = `
     <div class="phead"><div><h2>${T("同台对比表", "Side-by-side comparison")}</h2>

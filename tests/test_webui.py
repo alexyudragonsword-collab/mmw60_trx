@@ -446,9 +446,16 @@ def test_the_lo_models_the_ay_caps_and_the_preview_that_hides_nothing(host, brow
     assert page.evaluate("document.querySelectorAll('#lo-models [data-lo-model][data-k]').length") == len(lo) == 18
     for r in (lo[2], lo[5], lo[-1]):
         text = page.text_content(f'#lo-models [data-lo-model="{r["model"]}"][data-k="{r["k"]}"]')
-        for key in ("ipn_dbc", "pn_ici_db", "floor_db", "td_evm_db"):
+        for key in ("pn_ici_db", "floor_db", "td_evm_db"):
             assert f"{abs(r[key]):.{d[key]}f}" in text, (r["model"], r["k"], key)
         assert f"MCS{r['max_mcs']}" in text.replace("MCS ", "MCS")
+    # the integrated phase noise is the model's, shown once in its head and not again per K
+    models = table["lo_models"]["models"]
+    assert page.evaluate("document.querySelectorAll('#lo-models [data-lo-ipn]').length") == len(models) == 6
+    for mo in models:
+        head = page.text_content(f'#lo-models [data-lo-head="{mo["model"]}"] [data-lo-ipn]')
+        assert f"{abs(mo['ipn_dbc']):.{d['ipn_dbc']}f}" in head, mo["model"]
+        assert mo["label"]["zh"] in page.text_content(f'#lo-models [data-lo-head="{mo["model"]}"]')
     # 2. an 802.11ay row opens to its own decoder cap
     ay = next(r for r in table["ay_rows"] if r["waveform"] == "ay_sc")
     page.click(f'#screen-table [data-label="{ay["label"]}"]')
@@ -542,8 +549,9 @@ def test_a_failed_job_shows_its_error_a_running_one_can_be_cancelled_and_a_resul
     _set_knob(page, "phy.packet_bytes", 2048)
     page.click("#nav-runs")
     page.click('#screen-runs [data-job="table_analytic"]')
-    page.wait_for_function("!!document.querySelector('[data-field-group=\"table.analytic\"][data-state=\"fresh\"]')",
-                           timeout=30000)
+    # (the analytic columns do not read the packet length, so their freshness says nothing here: until
+    # 2026-11-21 this waited for a field group that was fresh before the job had run)
+    page.wait_for_selector("#screen-runs [data-delete]", state="attached", timeout=30000)
     mine = [e["id"] for e in state.store.entries() if e["origin"] == "user"]
     assert len(mine) == 1
     page.wait_for_selector(f'[data-delete="{mine[0]}"]', state="attached", timeout=15000)

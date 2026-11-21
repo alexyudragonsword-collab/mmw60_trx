@@ -44,7 +44,7 @@ function sysLit(SY) {
     const faint = fx(t.evm_db, 1) === fx(AT.reference_evm_db, 1), name = headOf(T(t.zh, t.en));
     (t.blocks || []).forEach(b => (badges[b] = badges[b] || []).push({ name, v: t.evm_db, dom: t.dominant, faint })); list.push(Object.assign({ name, faint }, t));
   }
-  return { r, ay, topoA, badges, list, ayTerms: AT };
+  return { r, ay, topoA, badges, list, ayTerms: AT, stale: pstate(ay ? "ay" : "table.analytic") === "stale" };
 }
 
 CHARTS.sys = function (wpx) {
@@ -78,8 +78,8 @@ CHARTS.sys = function (wpx) {
       if (l.src) g += stag(q.x + q.w - 17, yy, l.src, l.key);
     });
     if (bd) bd.forEach((b, i) => {
-      const s = `${b.name} ${absent(b.v) ? "—" : fx(b.v, 1) + " dB"}`, bw = tw(s, 9.5) + 14, bx = q.x + q.w - bw, by = y0 - 15 - i * 15;
-      top += `<g ${b.faint ? 'opacity=".45" data-faint="1"' : ""}><rect x="${P(bx)}" y="${P(by)}" width="${P(bw)}" height="13" rx="6.5" fill="${b.dom ? "var(--ink)" : "var(--panel)"}" stroke="var(--ink)" stroke-width="1"/><text x="${P(bx + bw / 2)}" y="${P(by + 9.6)}" text-anchor="middle" style="font-size:9.5px;font-weight:650;fill:${b.dom ? "var(--panel)" : "var(--ink)"}">${esc(s)}</text></g>`;
+      const s = `${stt.stale ? "◷ " : ""}${b.name} ${absent(b.v) ? "—" : fx(b.v, 1) + " dB"}`, bw = tw(s, 9.5) + 14, bx = q.x + q.w - bw, by = y0 - 15 - i * 15;
+      top += `<g ${b.faint ? 'opacity=".45" data-faint="1"' : ""}><rect x="${P(bx)}" y="${P(by)}" width="${P(bw)}" height="13" rx="6.5" fill="${b.dom ? "var(--ink)" : "var(--panel)"}" ${stt.stale ? 'stroke="var(--amber-line)" stroke-width="1.5" stroke-dasharray="3 2" data-state="stale"' : 'stroke="var(--ink)" stroke-width="1"'}/><text x="${P(bx + bw / 2)}" y="${P(by + 9.6)}" text-anchor="middle" style="font-size:9.5px;font-weight:650;fill:${b.dom ? "var(--panel)" : "var(--ink)"}">${esc(s)}</text></g>`;
     });
     const out = { g, x: q.x, y: y0, w: q.w, h, cy: y0 + h / 2, cx: q.x + q.w / 2, r: q.x + q.w, b: y0 + h };
     if (q.as || q.id) box[q.as || q.id] = out;
@@ -235,7 +235,7 @@ function renderSystem() {
       <span><span class="kdl">× K</span> ${T("时钟 × K 走到的范围（斜纹底）", "how far the × K clock reaches (hatched ground)")}</span>
       <span>⟲ ${T("管这一块的校准步骤", "calibration steps that own this block")}</span>
       <span><b class="n">S V A D</b> ${T("出处：spec / survey / assumed / derived（点开看原文）；✎ = 表单改过的值", "source: spec / survey / assumed / derived (click for the citation); ✎ = a value the form changed")}</span>
-      <span><span class="vd best">${T("项 dB", "term dB")}</span> ${T("这一行的 EVM 分项落在哪一块；黑底 = 主导项", "where this row’s EVM terms come from; black = dominant")}</span>
+      <span><span class="vd best">${T("项 dB", "term dB")}</span> ${T("这一行的 EVM 分项落在哪一块；黑底 = 主导项；◷ 虚线框 = 过期的数", "where this row’s EVM terms come from; black = dominant; ◷ dashed = a stale number")}</span>
     </div>
     <div class="sysbox" tabindex="0" aria-label="${T("框图，可左右滚动", "diagram, scrolls sideways")}"><div class="chartbox" data-chart="sys"></div></div>
     <p class="xs mut onlynarrow">${T("← 左右滑动看全图；下面的清单是同一批内容的竖排版本 →", "← swipe sideways for the whole diagram; the list below carries the same content stacked →")}</p>

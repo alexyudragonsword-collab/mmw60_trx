@@ -523,7 +523,7 @@ ol.plain{margin:0;padding-left:22px;display:grid;gap:3px}
 }
 /* self-check card, a failed job's error, the terms of an 802.11ay row */
 .selfc{display:grid;gap:8px;border:1px solid var(--rule);border-radius:6px;padding:8px 10px;font-size:12px;min-width:0}
-.selfc.ok{border-color:var(--ok)} .selfc.bad{border-color:var(--red)}
+.selfc.pass{border-color:var(--ok)} .selfc.fail{border-color:var(--red)}
 .selfstack,.selfn{display:flex;gap:3px 14px;flex-wrap:wrap;min-width:0} .selfstack>span,.selfn>span{min-width:0;overflow-wrap:anywhere}
 .selfchecks{display:grid;gap:3px} .selfchecks .okm{color:var(--ok);font-weight:700} .selfchecks .badm{color:var(--red);font-weight:700}
 .selfd{overflow-wrap:anywhere;color:var(--ink2)} .selfd .dg{white-space:normal}
@@ -534,3 +534,4 @@ ol.plain{margin:0;padding-left:22px;display:grid;gap:3px}
 .ayterms>span[data-ay-term]{border:1px solid var(--rule2);border-radius:5px;padding:1px 6px}
 .ayterms>span.b{border-color:var(--ink)} .ayterms>span.faint{opacity:.5}
 #durations-note .b{display:block;color:var(--ink);margin-top:3px}
+#field-groups{display:grid;gap:3px}

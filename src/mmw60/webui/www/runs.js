@@ -11,7 +11,7 @@ function jobCard(j) {
   return `<div class="job ${run ? "run" : ""} ${j.status === "error" ? "err" : ""}" data-job-id="${esc(j.id)}" data-status="${esc(j.status)}">
     <div class="top"><span class="q">#${esc(j.id)} · ${T(...(STATUS[j.status] || [j.status, j.status]))}</span><span class="nm">${jn(j.job)}</span>
       ${jobActive(j) ? `<button type="button" class="btn" data-act="cancel" data-v="${esc(j.id)}" data-cancel="${esc(j.id)}">${T("取消", "Cancel")}</button>` : ""}</div>
-    <div class="sm">${T("表单", "Form")}${P_.c}${studyCode(j.study)} · ${T("产出", "produces")}${P_.c}${(j.parts || []).map(p => esc(pn(p))).join(P_.d)}</div>
+    <div class="sm">${T("表单", "Form")}${P_.c}${studyCode(j.study)}${(j.parts || []).length ? ` · ${T("产出", "produces")}${P_.c}${j.parts.map(p => esc(pn(p))).join(P_.d)}` : ""}</div>
     ${run ? `<div class="bar2 ${total ? "" : "ind"}"><i ${total ? `style="width:${Math.min(100, 100 * done / total)}%"` : ""}></i></div>` : ""}
     ${run || j.text ? `<div class="sm">${run ? `<span class="spin" style="display:inline-block;vertical-align:-1px"></span> ` : ""}${total ? `${plain(done)} / ${plain(total)}` : run ? plain(done) : ""} ${esc(j.text || "")}</div>` : ""}
     <div class="sm mut">${nil(el) ? "" : `${T("已用", "elapsed")} <b style="color:var(--ink)">${dur(el)}</b> · `}${T("预计", "expected")} ${exp && exp.length ? exp.map(dur).join(" / ") : T("没有记录", "not recorded")}</div>
@@ -22,6 +22,14 @@ function jobCard(j) {
 function jobError(j) {
   const lines = String(j.error).replace(/\s+$/, "").split("\n"), last = lines.pop();
   return `<div class="joberr" data-job-error="${esc(j.id)}"><b>${esc(last)}</b>${lines.length ? `<details><summary>${T("完整的出错栈", "the whole traceback")}</summary><pre>${esc(lines.join("\n"))}</pre></details>` : ""}</div>`;
+}
+/* The table's field groups.  A group whose part a job is about to replace (from the press of the button
+ * until the job ends) says so (data-running); data-state stays what it is everywhere else on the page,
+ * the group's freshness. */
+function fieldGroups() {
+  const busy = new Set([...(S.jobs || []).filter(jobActive).flatMap(j => j.parts || []), ...Object.keys(S.submitting || {}).flatMap(j => ((S.parts.jobs[j] || {}).parts || []))]);
+  return Object.entries(fresh().fields || {}).map(([g, s]) => { const [own, up] = g.split("+"), run = busy.has(own);
+    return `<span class="pchip" data-field-group="${esc(g)}" data-state="${esc(s)}"${run ? ' data-running="true"' : ""}>${stateSign(s)} ${esc(pn(own))}${up ? " + " + esc(pn(up)) : T("（自己读的旋钮）", " (its own knobs)")}${P_.c}${stateWord(s)}${run ? ` · <span class="spin" style="display:inline-block;vertical-align:-1px"></span> ${T("正在重算", "being recomputed")}` : ""}</span>`; }).join("");
 }
 /* ------------------------------------------------------------------ self-check */
 const sci = v => (nil(v) ? "—" : v === 0 ? plain(v) : neg(Number(v).toExponential(1)));
@@ -41,9 +49,9 @@ function selfcheckCard() {
   const SC = S.selfcheck, o = SC && SC.selfcheck, last = o && o.checks.length ? o.checks[o.checks.length - 1].detail : null, cmp = last && typeof last === "object" && !nil(last.numbers) ? last : null;
   const exp = SC && SC.expected_seconds && SC.expected_seconds.length ? SC.expected_seconds.map(dur).join(" / ") : expected("table_analytic");
   const out = !o ? `<div id="selfcheck" class="selfc">${SC ? `<span class="mut">${T("这台机器上还没有跑过自检。", "No self-check has been run on this machine yet.")}</span>` : `<span class="spin"></span>`}</div>`
-    : `<div id="selfcheck" class="selfc ${o.ok ? "ok" : "bad"}" data-ok="${o.ok ? "true" : "false"}">
+    : `<div id="selfcheck" class="selfc ${o.ok ? "pass" : "fail"}" data-ok="${o.ok ? "true" : "false"}">
       <div class="selfv"><span class="vd ${o.ok ? "best" : "no"}">${o.ok ? T("通过", "passed") : T("没通过", "failed")}</span> <span class="n">${when(o.at)}</span> · ${T("用时", "took")} <span class="n">${dur(o.seconds)}</span></div>
-      <div class="selfstack">${Object.entries(o.stack || {}).map(([k, v]) => `<span><span class="mut">${esc(k.replace(/_/g, " "))}</span> <b class="n">${typeof v === "boolean" ? yes(v) : esc(v)}</b></span>`).join("")}</div>
+      <div class="selfstack">${Object.entries(o.stack || {}).map(([k, v]) => `<span><span class="mut">${esc(k.replace(/_/g, " "))}</span> <b class="n">${typeof v === "boolean" ? (v ? T("是", "yes") : T("否", "no")) : esc(v)}</b></span>`).join("")}</div>
       <div class="selfchecks">${o.checks.map(c => `<div data-check="${esc(c.name)}" data-ok="${c.ok ? "true" : "false"}"><span class="${c.ok ? "okm" : "badm"}">${c.ok ? "✓" : "✗"}</span> ${esc(T(c.zh, c.name))}${c.ok ? "" : `<div class="xs selfd">${detailText(c.detail)}</div>`}</div>`).join("")}</div>
       ${cmp ? `<div class="selfn">${T("逐个数比对", "Number by number")}${P_.c}<span>${T("行", "rows")} <b class="n">${plain(cmp.rows)}</b></span><span>${T("比了", "compared")} <b class="n">${plain(cmp.numbers)}</b></span><span>${T("逐位相同", "identical")} <b class="n">${plain(cmp.identical)}</b></span>
         <span>${T("最大相对差", "worst scaled difference")} <b class="n">${sci(cmp.worst_scaled)}</b> ${T("容差", "against a tolerance of")} <b class="n">${sci(nil(cmp.tolerance) ? o.tolerance : cmp.tolerance)}</b></span>
@@ -100,13 +108,13 @@ function renderRuns() {
           <p class="note" id="durations-note">${T("按钮上的时长是引用的：在一台四核台式机上量的，不是这台机器的。这台机器自己跑过的时长，有就写在旁边。", "The durations on the buttons are quoted: measured on a four-core desktop, not on this machine. Where this machine has run a job itself, its own time is beside it.")}
             ${PT.host_speed ? `<span id="host-speed" class="b">${T("这台机器跑", "This machine ran")} ${jn(PT.host_speed.job)} ${T("用了", "in")} <span class="n">${dur(PT.host_speed.seconds_here)}</span>${T("，引用的是", ", against the quoted")} <span class="n">${dur(PT.host_speed.seconds_reference)}</span>${T("；别的任务不按它折算。", "; other jobs are not scaled by it.")}</span>` : ""}</p>
           <div class="runbtns">${runOrder(PT.jobs).map(job => runBtn(job, PT.jobs[job])).join("")}</div>
-          <p class="note">${T("同台表是由三部分拼成的（解析列、时域核对列、802.11ay 两行），各取存着的那份结果。只算解析列的预览只换掉解析列：时域核对列和 802.11ay 两行还是上一次整表的，照样标着过期。", "The comparison table is assembled from three parts (analytic columns, time-domain column, the two 802.11ay rows), each from the result stored for it. The analytic-only preview replaces the analytic columns alone: the time-domain column and the 802.11ay rows stay the last full run’s, still marked stale.")}</p></section>
+          <p class="note">${T("同台表是由几部分拼成的（解析列、时域核对列、本振模型并排、802.11ay 两行），各取存着的那份结果。只算解析列的预览只换掉解析列：其余几部分还是上一次整表的，照样标着过期。", "The comparison table is assembled from several parts (the analytic columns, the time-domain check, the LO models side by side, the two 802.11ay rows), each taken from the result stored for it. The analytic-only preview replaces the analytic columns alone: the other parts stay those of the last full table and stay marked stale.")}</p></section>
       </div>
       <div>
         <section class="blk"><header><h3>${T("新鲜度：每个部分读哪些旋钮、按哪份结果判", "Freshness: which knobs each part reads, and which result it is judged against")}</h3></header>
           ${ledger}
           <div class="fgroups"><div class="eyebrow">${T("同台表的列按字段组过期：一个部分自己的旋钮没动、只是上游过期时，过期的只有建在那个上游上的列", "The table’s columns go stale by field group: when a part’s own knobs hold and only an upstream is stale, only the columns built on that upstream are stale")}</div>
-            ${Object.entries(fresh().fields || {}).map(([g, s]) => { const [own, up] = g.split("+"); return `<span class="pchip" data-field-group="${esc(g)}" data-state="${esc(s)}">${stateSign(s)} ${esc(pn(own))}${up ? " + " + esc(pn(up)) : T("（自己读的旋钮）", " (its own knobs)")}${P_.c}${stateWord(s)}</span>`; }).join("")}</div>
+            <div id="field-groups">${fieldGroups()}</div></div>
           <div class="lg"><span>● ${T("读这个旋钮", "reads the knob")}</span><span>· ${T("不读", "does not read")}</span><span><span class="sw hitsw"></span>${T("读到了改过的旋钮", "reads an edited knob")}</span></div>
           ${matrix}
           <div><div class="eyebrow">${T("依赖链：上游过期，下游跟着过期", "Dependency chains: when upstream goes stale, downstream follows")}</div><div class="chartbox" data-chart="deps" style="margin-top:6px"></div></div>
