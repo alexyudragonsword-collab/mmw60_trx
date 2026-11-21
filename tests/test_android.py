@@ -117,6 +117,22 @@ def test_workflows_build_with_the_same_python_and_count_the_on_device_tests_that
     assert "if: always()" in after[:after.index("check_ondevice_results.py")]
 
 
+def test_the_back_key_test_taps_and_presses_the_real_key():
+    """A click made from JavaScript carries no user activation, and Chromium does not count a
+    history entry left without one: with such a click the back key closed the app from the Runs
+    screen (android run 12, 2026-11-21).  The test must change screens the way a finger does."""
+    body = _code(_text("android/app/src/androidTest/java/com/mmw60/app/OnDeviceTest.kt"))
+    test = body[body.index("fun backLeavesAScreenBeforeItLeavesTheApp()"):body.index("fun rotationKeepsThePage()")]
+    assert 'tap(scenario, "nav-runs")' in test and ".click()" not in test
+    assert test.count("inst.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)") == 2     # back one screen, then out
+    assert "onBackPressed()" not in test                    # not the activity's method called by hand
+    tap = body[body.index("private fun tap("):body.index("private fun eval(")]
+    assert "MotionEvent.ACTION_DOWN" in tap and "MotionEvent.ACTION_UP" in tap and "sendPointerSync(down)" in tap
+    # the shell asks the WebView's own history
+    main = _code(_text("android/app/src/main/java/com/mmw60/app/MainActivity.kt"))
+    assert "if (web.canGoBack()) web.goBack() else super.onBackPressed()" in main
+
+
 def test_the_bridge_path_imports_neither_matplotlib_nor_numba_and_reads_all_four_reports(tmp_path):
     """What the app leaves out must not be needed: in a fresh interpreter where importing either
     raises, the routes the page opens on still answer."""

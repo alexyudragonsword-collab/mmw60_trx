@@ -781,3 +781,65 @@ def test_the_ay_rows_decoder_cap_is_the_array_layers_at_one_element():
         assert r["dec_mcs_cal"] == n1[wf]["cap_mcs"] and r["dec_rate_cal_mbps"] == pytest.approx(n1[wf]["rate_mbps"])
         assert r["dec_mcs"] is not None and r["dec_mcs"] < r["dec_mcs_cal"]          # raw floor: a low cap, not none
         assert r["power_dec_cal"]["pj_per_bit"] == pytest.approx(n1[wf]["pj_per_bit"], rel=1e-6)
+
+
+# ------------------------------------------------------------------ the odds and ends (2026-11-21)
+def test_an_ay_row_lights_blocks_that_exist_and_an_unknown_impairment_is_an_error():
+    from mmw60 import guistore
+    ay = guistore.load_baseline()["ay"]["report"]
+    chain = g.system_report()["topology_b_chain"]            # the ay waveforms are topology B's hardware
+    block_ids = {b["id"] for side in ("tx", "rx") for b in chain[side]}
+    terms = g.ay_block_terms(ay)
+    assert set(terms["waveforms"]) == set(AY_WAVEFORMS) and set(terms["note"]) == {"zh", "en"}
+    for wf, w in terms["waveforms"].items():
+        assert len(w["terms"]) == 6 and w["reference_evm_db"] is not None, wf
+        assert [t["dominant"] for t in w["terms"]] == [True] + [False] * 5
+        evm = [t["evm_db"] for t in w["terms"]]
+        assert evm == sorted(evm, reverse=True)                              # worst first
+        for t in w["terms"]:
+            assert t["blocks"] and set(t["blocks"]) <= block_ids, (wf, t["impairment"])
+            assert t["above_reference_db"] == pytest.approx(t["evm_db"] - w["reference_evm_db"])
+            # the reading is the report's own, not a copy that can drift
+            row = next(r for r in ay["impairments_alone"] if r["impairment"] == t["impairment"])
+            assert t["evm_db"] == row[f"{wf}_evm_db"]
+    # every impairment the report measures is either given its blocks or a reason for having none
+    table = g._system_description()["ay_impairment_to_block"]
+    measured = {r["impairment"] for r in ay["impairments_alone"]}
+    assert measured == set(table["blocks"]) | set(table["no_block"])
+    extra = dict(ay, impairments_alone=ay["impairments_alone"] + [{"impairment": "a new one", "ay_sc_evm_db": -30.0}])
+    with pytest.raises(KeyError, match="a new one"):
+        g.ay_block_terms(extra)
+    assert g.ay_block_terms(None) is None and g.ay_block_terms({"impairments_alone": []}) is None
+
+
+def test_a_sensitivity_end_is_shown_in_the_unit_of_its_source_entry():
+    from mmw60 import guistore
+    knobs = guistore.load_baseline()["table"]["report"]["sensitivity"]["knobs"]
+    lo, hi = (float(v) for v in spec.value("adc_survey.walden_fom_range_fj"))
+    walden = [k for k in knobs if k["knob"] == "Walden FoM"]
+    assert [k["value_display"]["unit"] for k in walden] == ["fJ/conv.-step"] * 2
+    assert [float(k["value_display"]["text"]) for k in walden] == pytest.approx([lo, hi], rel=1e-3)
+    assert [k["value"] for k in walden] == pytest.approx([lo * 1e-15, hi * 1e-15])     # the engine's own value is kept
+    pae = [k for k in knobs if k["knob"] == "PA peak PAE"]
+    assert [k["value_display"]["unit"] for k in pae] == ["%", "%"]
+    assert [float(k["value_display"]["text"]) for k in pae] == pytest.approx([10.0, 30.0])
+    # every other knob is shown as the engine holds it
+    for k in knobs:
+        if k["knob"] not in g.SENS_DISPLAY:
+            assert k["value_display"] == {"text": k["value_text"], "unit": k["unit"]}, k["knob"]
+    assert set(g.SENS_DISPLAY) <= {k["name"] for k in compare.sensitivity_knobs()}
+
+
+def test_a_built_package_says_its_commit_and_a_checkout_its_own(tmp_path, monkeypatch):
+    here = g.commit()
+    assert here is not None and len(here) == 40                  # this checkout
+    assert not g.BUILD_COMMIT_FILE.exists()                      # no checkout carries a stamp (.gitignore)
+    stamp = tmp_path / "build_commit.txt"
+    monkeypatch.setattr(g, "BUILD_COMMIT_FILE", stamp)
+    stamp.write_text("0123456789abcdef0123456789abcdef01234567\n", encoding="utf-8")
+    assert g.commit() == "0123456789abcdef0123456789abcdef01234567"   # the stamp wins: an installed wheel has no git
+    assert g.provenance()["commit"] == "0123456789abcdef0123456789abcdef01234567"
+    stamp.write_text("not a commit\n", encoding="utf-8")
+    assert g.commit() == here                                    # a stamp that is not a commit is not believed
+    assert "data/build_commit.txt" in (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    assert "src/mmw60/data/build_commit.txt" in (REPO / ".gitignore").read_text(encoding="utf-8")
