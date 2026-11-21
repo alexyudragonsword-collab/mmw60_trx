@@ -68,7 +68,7 @@ def test_pick_prefers_the_result_whose_parts_hold_for_the_study_then_the_fuller_
     q = store.add(result("table", {"frontend.pa.obo_db": 11.0}, quick=True))
     assert store.pick("table", {"frontend.pa.obo_db": 11.0})["id"] != q
     env = store.envelopes(OBO)
-    assert set(env) == {"table.analytic", "table.td", "table.ay", "calibration.be"}
+    assert set(env) == {"table.analytic", "table.td", "table.lo", "table.ay", "calibration.be"}
     assert env["table.td"]["study"] == OBO and env["calibration.be"]["study"] == {}
 
 

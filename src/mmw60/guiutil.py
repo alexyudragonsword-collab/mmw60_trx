@@ -36,7 +36,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from . import ENGINE_BANNER, __version__, arrayreport, calcheck, compare, guispec, spec
+from . import ENGINE_BANNER, __version__, arrayreport, calcheck, compare, guispec, guitext, spec
 from .ay import report as ayreport
 from .config import AY_WAVEFORMS, Mmw60Config, zero_if_60ghz
 from .frontend import Frontend60
@@ -44,7 +44,7 @@ from .frontend.array60 import Array60
 from .frontend.grid import pa_isolated_evm_db
 
 #: bump when the shape of a report changes: an envelope of another schema is never fresh
-SCHEMA = 1
+SCHEMA = 2            # 2 (2026-11-21): the LO models are a part of their own (``table.lo``)
 PACKAGE = Path(__file__).resolve().parent
 
 # ------------------------------------------------------------------ the form: row knobs and shared knobs
@@ -165,6 +165,10 @@ PARTS = {p.id: p for p in (
          _S - {"phy.packet_bytes", "rx.ce_smooth_auto", "rx.ce_smooth_tones", "rx.cpe_window_symbols"},
          ("calibration.be", "thresholds.be"), "table"),
     Part("table.td", "同台表 · 时域核对列", "comparison table, time-domain cross-check column", _S, (), "table"),
+    # each LO model sits on a front end of its own, so the form's LO knobs never reach this section
+    # (``lo_models_report`` drops them from the study before it builds anything)
+    Part("table.lo", "同台表 · 本振模型并排", "comparison table, the LO models side by side",
+         _S - frozenset(k for k in SHARED_KNOBS if k.startswith("lo.")), (), "table"),
     Part("table.ay", "同台表 · 802.11ay 两行", "comparison table, the two 802.11ay rows",
          _S - {"phy.packet_bytes", "rx.ce_smooth_auto", "rx.ce_smooth_tones"}, ("thresholds.ay",), "table"),
     # the array link is line of sight on a flat channel whatever the form's channel says (``array_inputs``)
@@ -185,7 +189,8 @@ JOBS = {
                        "example": "python examples/03_calibration_at_k.py", "report": "calibration", "seconds": [42],
                        "seconds_note": "42 s with three other jobs side by side on a 4-core container; "
                                        "12 steps per column, six columns"},
-    "table": {"parts": ("table.analytic", "table.td", "table.ay"), "command": "python tools/gui_report.py table",
+    "table": {"parts": ("table.analytic", "table.td", "table.lo", "table.ay"),
+              "command": "python tools/gui_report.py table",
               "example": "python examples/04_comparison_table.py", "report": "table", "seconds": [55, 126],
               "seconds_note": "55 s alone on a 4-core container, with the sensitivity and LO-model sections; "
                               "106 s with three other jobs side by side before those sections existed"},
@@ -277,14 +282,22 @@ def spec_digest() -> str:
     return h.hexdigest()[:16]
 
 
+#: written by the release workflow before it builds the packages: the commit they were built from
+BUILD_COMMIT_FILE = PACKAGE / "data" / "build_commit.txt"
+
+
 def commit() -> str | None:
-    """The checkout's commit, or None outside a git checkout (an installed wheel)."""
+    """The checkout's commit; outside a git checkout (an installed wheel) the commit the package
+    was built from, when the build stamped one (``BUILD_COMMIT_FILE``); else None."""
     try:
         r = subprocess.run(["git", "-C", str(PACKAGE), "rev-parse", "HEAD"], capture_output=True, text=True,
                            timeout=5)
+        out = r.stdout.strip() if r.returncode == 0 else ""
     except (OSError, subprocess.SubprocessError):
-        return None
-    return r.stdout.strip() if r.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", r.stdout.strip()) else None
+        out = ""
+    if not re.fullmatch(r"[0-9a-f]{40}", out) and BUILD_COMMIT_FILE.is_file():
+        out = BUILD_COMMIT_FILE.read_text(encoding="utf-8").strip()
+    return out if re.fullmatch(r"[0-9a-f]{40}", out) else None
 
 
 def provenance() -> dict:
@@ -398,7 +411,7 @@ def field_states(fresh: dict) -> dict:
     """The state of each group of table fields (``BE_FIELDS``): a plain part's fields are stale only
     when the knobs that part reads moved; a ``part+upstream`` group also when that upstream is."""
     out = {}
-    for group in dict.fromkeys(list(BE_FIELDS) + ["table.ay"]):
+    for group in dict.fromkeys(list(BE_FIELDS) + ["table.ay", "table.lo"]):
         own, _, up = group.partition("+")
         stale = bool(fresh[own]["changed"]) or (bool(up) and up in fresh[own]["upstream"])
         out[group] = "missing" if fresh[own]["state"] == "missing" else "stale" if stale else "fresh"
@@ -410,7 +423,8 @@ def freshness_matrix() -> dict:
     return {"knobs": [{"id": k, "group": KNOB[k].group} for k in SHARED_KNOBS],
             "parts": [{"id": p.id, "zh": p.zh, "en": p.en, "reads": sorted(p.reads), "upstream": list(p.upstream),
                        "job": p.job, "stored": STORED.get(p.id)} for p in PARTS.values()],
-            "jobs": {j: dict(v, parts=list(v["parts"])) for j, v in JOBS.items()}}
+            "jobs": {j: dict(v, parts=list(v["parts"]), seconds_note_zh=guitext.SECONDS_NOTE_ZH[j])
+                     for j, v in JOBS.items()}}
 
 
 # ------------------------------------------------------------------ the form's description, sources and tags
@@ -501,6 +515,10 @@ BE_FIELDS = {
     "table.ay+thresholds.ay": ["dec_mcs", "dec_mcs_cal", "dec_rate_mbps", "dec_rate_cal_mbps", "power_dec",
                                "power_dec_cal", "dec_margin_db"],
 }
+#: which part each section of the table is drawn from (a page names the stored result per section
+#: from this and the host's ``part_results``)
+TABLE_SECTIONS = {"rows": "table.analytic", "sensitivity": "table.analytic", "time_domain_column": "table.td",
+                  "lo_models": "table.lo", "ay_rows": "table.ay"}
 #: decimals the accepted outputs print each field with (one rounding, from the full value)
 DISPLAY = {"floor_db": 1, "floor_cal_db": 1, "td_evm_db": 1, "td_delta_db": 1, "terms_db": 1, "rate_mbps": 0,
            "rate_cal_mbps": 0, "dec_rate_mbps": 0, "dec_rate_cal_mbps": 0, "pj_per_bit": 0, "irr_cal_db": 1,
@@ -517,6 +535,10 @@ def terms_share(terms_db: dict) -> dict:
     return {k: (lin[k] / total if k in lin and total > 0 else None) for k in terms_db}
 
 
+#: knob ends the engine holds in SI or as a fraction, and the unit their source entry is written in
+SENS_DISPLAY = {"Walden FoM": (1e15, "fJ/conv.-step"), "PA peak PAE": (100.0, "%")}
+
+
 def sensitivity_report(sch: list, fe: Frontend60, progress=None) -> dict:
     """Which guesses decide the verdict: ``compare.sensitivity`` (example 04's section) as a page
     reads it — per knob end, the rows whose MCS cap or decoder cap moved, whether the pJ/bit
@@ -526,9 +548,14 @@ def sensitivity_report(sch: list, fe: Frontend60, progress=None) -> dict:
     knobs = []
     for k in sens["knobs"]:
         m = meta[k["knob"]]
+        scale, unit = SENS_DISPLAY.get(k["knob"], (None, m["unit"]))
+        shown = compare.knob_value_text(k["value"] if scale is None else float(k["value"]) * scale)
         knobs.append({"knob": k["knob"], "knob_zh": m["name_zh"], "value": k["value"],
                       "value_text": compare.knob_value_text(k["value"]), "unit": m["unit"], "mode": m["mode"],
+                      # the end in the unit its source entry is written in (fJ, %), for reading beside it
+                      "value_display": {"text": shown, "unit": unit},
                       "source_keys": list(m["sources"]), "source_note": m.get("source_note"),
+                      "source_note_zh": guitext.SOURCE_NOTE_ZH.get(k["knob"]) if m.get("source_note") else None,
                       "mcs_moved": [{"label": lab, "from": a, "to": b} for lab, (a, b) in k["mcs_moved"].items()],
                       "dec_mcs_moved": [{"label": lab, "from": a, "to": b}
                                         for lab, (a, b) in k["dec_mcs_moved"].items()],
@@ -549,15 +576,29 @@ def sensitivity_report(sch: list, fe: Frontend60, progress=None) -> dict:
             "changes_ranking": named(lambda k: k["ranking_changed"])}
 
 
+#: the LO models by kind, in both languages (``compare.lo_models`` names them in English, with the
+#: multiplier floor inside the name; here the floor is a field of its own)
+LO_LABELS = {
+    "pole_zero": {"zh": "单极点单零点（11ad 评估方法的形状，Liu 的数）",
+                  "en": "pole-zero (11ad EM shape, Liu's numbers)"},
+    "wifitrx_wifi7": {"zh": "wifitrx 的 WiFi 7 频综", "en": "wifitrx's WiFi 7 synthesizer"},
+    "pllsim_profile": {"zh": "pllsim 剖面 wu19 经 ×10 倍频", "en": "pllsim profile wu19 through its ×10 multiplier"},
+}
+LO_BASE = {"zh": "11ac 20 MHz 零中频预设", "en": "11ac 20 MHz zero-IF preset"}
+
+
 def lo_models_report(st: dict | None = None, *, time_domain: bool = True, quick: bool = False,
                      progress=None) -> dict:
     """The LO models side by side (example 04's section 5, ``compare.lo_comparison``): each model on
     its own ``Frontend60`` at K = 1, 8 and 32 of the 11ac 20 MHz zero-IF preset, with the study
     applied to everything but the LO — the form's LO knobs describe one LO, this section swaps in
-    each of the models whatever they say.  ``is_preset_model`` marks the presets' own."""
+    each of the models whatever they say.  ``is_preset_model`` marks the presets' own.
+
+    ``models`` says once per model what does not change with K (its label in both languages, the
+    multiplier floor, the integrated phase noise, its sources); ``rows`` is one per (model, K)."""
     stv = study(st)
     not_lo = {k: v for k, v in stv.items() if not k.startswith("lo.")}
-    fe = frontend(stv)
+    fe = frontend(not_lo)
     pa_evm = pa_isolated_evm_db(fe.pa_model, fe.obo_db, fe.obo_reference) if fe.pa_enabled else None
 
     def base(k):
@@ -565,11 +606,17 @@ def lo_models_report(st: dict | None = None, *, time_domain: bool = True, quick:
     preset_kind = zero_if_60ghz().lo.phase_noise.model
     rows = compare.lo_comparison(pa_evm, ks=(8,) if quick else (1, 8, 32), time_domain=time_domain, base=base,
                                  progress=progress)
+    models: dict[str, dict] = {}
     for r in rows:
         r["is_preset_model"] = r["kind"] == preset_kind
-    return _json({"rows": rows, "ks": sorted({r["k"] for r in rows}), "base": "11ac 20 MHz zero-IF preset",
-                  "form_lo_knobs_ignored": sorted(k for k in SHARED_KNOBS if k.startswith("lo.")),
-                  "edited_lo_knobs": sorted(k for k in stv if k.startswith("lo."))})
+        m = models.setdefault(r["model"], {
+            "model": r["model"], "kind": r["kind"], "label": LO_LABELS[r["kind"]], "floor_dbchz": r["floor_dbchz"],
+            "sources": list(r["sources"]), "is_preset_model": r["is_preset_model"], "ipn_dbc": r["ipn_dbc"]})
+        if m["ipn_dbc"] != r["ipn_dbc"]:
+            m["ipn_dbc"] = None                         # not one number for the model: read it per row
+    return _json({"rows": rows, "models": list(models.values()), "ks": sorted({r["k"] for r in rows}),
+                  "base": LO_BASE,
+                  "form_lo_knobs_ignored": sorted(k for k in SHARED_KNOBS if k.startswith("lo."))})
 
 
 def _cap_display(mcs, rng) -> str | None:
@@ -645,6 +692,7 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
         c = checks[r["label"]]
         r = dict(r)
         r.update(footing="be_if_extender" if r["topology"] == "if_extender" else "be_zero_if",
+                 verdict_en=guitext.VERDICT_EN[r["verdict"]], reason_en=guitext.reason_en(r["reason"]),
                  terms_share=terms_share(r["terms_db"]),
                  td_delta_db=c.get("td_delta_db"), td_ok=c.get("td_ok"), budget_delta_db=c.get("budget_delta_db"),
                  dec_cap_display=_cap_display(r["dec_mcs"], r["dec_mcs_range"]),
@@ -665,9 +713,15 @@ def table_report(st: dict | None = None, *, time_domain: bool = True, quick: boo
         best = {"fastest": fast["label"], "fewest_pj_per_bit": cheap["label"]}
     return _json({
         "kind": "table", "study": st, "engine": ENGINE_BANNER, "time_domain": time_domain, "quick": quick,
-        "front_end": front_end_report(fe, st), "footing": FOOTING, "fields": BE_FIELDS, "display": DISPLAY,
-        "rows": rows, "ay_rows": ay_rows, "pending": rep["pending"], "matrix": rep["matrix"],
+        "front_end": front_end_report(fe, st),
+        "footing": {k: dict(v, raw_floor_zh=guitext.FOOTING_ZH[k]["raw_floor"],
+                            cal_floor_zh=guitext.FOOTING_ZH[k]["cal_floor"]) for k, v in FOOTING.items()},
+        "fields": BE_FIELDS, "display": DISPLAY,
+        "rows": rows, "ay_rows": ay_rows,
+        "pending": [dict(p, reason_zh=guitext.PENDING_ZH[p["reason"]]) for p in rep["pending"]],
+        "matrix": rep["matrix"], "as_written": guitext.AS_WRITTEN,
         "be_best_at_calibrated_cap": best, "coefficients": rep["coefficients"],
+        "sections": TABLE_SECTIONS,
         "sensitivity": sensitivity_report(sch, fe) if sensitivity else None,
         "lo_models": lo_models_report(st, time_domain=time_domain, quick=quick) if lo_models else None,
         "irr_table": {"from": "calibration result" if irr_table is not None else "derived.irr_after_cal_measured_db",
@@ -723,41 +777,52 @@ def analytic_agreement(report: dict, reference: dict) -> dict:
 
 def assemble_table(by_part: dict) -> dict | None:
     """The comparison table a page draws, put together from the table report each part is drawn from
-    (``by_part``: ``table.analytic`` / ``table.td`` / ``table.ay`` -> a table report or None).
+    (``by_part``: ``table.analytic`` / ``table.td`` / ``table.lo`` / ``table.ay`` -> a table report
+    or None; ``TABLE_SECTIONS`` says which section comes from which).
 
-    One report for all three is returned as it is.  Otherwise the analytic part's report is the
+    One report for all four is returned as it is.  Otherwise the analytic part's report is the
     base (its rows, its header, its sensitivity section); each row's time-domain fields
-    (``BE_FIELDS["table.td"]``) and the LO-model section come from the time-domain part's report,
-    the 802.11ay rows from theirs.  So an analytic-only run for the form on screen shows new
-    analytic columns next to the last full run's time-domain column and 802.11ay rows — which
-    ``freshness`` marks stale per part.  Nothing is recomputed and nothing is mixed inside a
-    field group.
+    (``BE_FIELDS["table.td"]``) come from the time-domain part's report, the LO-model section from
+    the LO part's, the 802.11ay rows from theirs.  So an analytic-only run for the form on screen
+    shows new analytic columns next to the last full run's time-domain column, LO section and
+    802.11ay rows — which ``freshness`` marks stale per part.  Nothing is recomputed and nothing
+    is mixed inside a field group.
 
     One caveat travels with an analytic-only base (``assembled["decoder_caps_from_analytic_floor"]``):
     its decoder caps start from the analytic floor alone, while a full run takes the worse of that
-    and the time-domain EVM — a row whose time-domain floor is the worse one reads one MCS higher."""
-    ana, td, ay = (by_part.get(k) for k in ("table.analytic", "table.td", "table.ay"))
-    base = ana or td or ay
+    and the time-domain EVM.  Each row says whether that bites (``dec_cap_may_be_lower``): true when
+    the time-domain EVM of the last full run reads worse than the row's new analytic floor (a full
+    run would start from the worse one, so its cap may be lower than the one shown), false when the
+    analytic floor is the worse, None when no time-domain reading is stored for the row."""
+    keys = ("table.analytic", "table.td", "table.lo", "table.ay")
+    ana, td, lo, ay = (by_part.get(k) for k in keys)
+    base = ana or td or lo or ay
     if base is None:
         return None
-    if all(x is base for x in (ana, td, ay)):
+    if all(x is base for x in (ana, td, lo, ay)):
         return base
     out = dict(base)
+    preview = ana is not None and not ana.get("time_domain")
     td_rows = {r["label"]: r for r in (td or {}).get("rows", [])}
-    rows = []
+    rows, bites = [], []
     for r in base["rows"]:
         src = td_rows.get(r["label"])
         r = dict(r)
         if src is not r:
             for f in BE_FIELDS["table.td"]:
                 r[f] = None if src is None else src.get(f)
+        if preview:
+            evm = None if src is None else src.get("td_evm_db")
+            r["dec_cap_may_be_lower"] = (None if evm is None or not r.get("cfo_captured")
+                                         else bool(evm > r["floor_db"]))
+            if r["dec_cap_may_be_lower"]:
+                bites.append(r["label"])
         rows.append(r)
-    preview = ana is not None and not ana.get("time_domain")
-    out.update(rows=rows, ay_rows=list((ay or {}).get("ay_rows", [])), lo_models=(td or {}).get("lo_models"),
+    out.update(rows=rows, ay_rows=list((ay or {}).get("ay_rows", [])), lo_models=(lo or {}).get("lo_models"),
                time_domain=bool(td and td.get("time_domain")),
-               assembled={"parts": {k: v is not None for k, v in (("table.analytic", ana), ("table.td", td),
-                                                                  ("table.ay", ay))},
-                          "analytic_only_base": preview, "decoder_caps_from_analytic_floor": preview})
+               assembled={"parts": {k: v is not None for k, v in zip(keys, (ana, td, lo, ay))},
+                          "analytic_only_base": preview, "decoder_caps_from_analytic_floor": preview,
+                          "rows_whose_decoder_cap_may_be_lower": bites if preview else None})
     return out
 
 
@@ -789,7 +854,8 @@ def calibration_from_runs(runs: list, fe: Frontend60, st: dict | None = None) ->
             cells.append({"status_summary": status, "status_wifitrx": row["wifitrx_by_k"][lab],
                           "metric": metric or None, "unit": metric_unit(metric), "value": value,
                           "detail": detail or None})
-        steps.append({"step": row["step"], "mechanism_zh": row["mechanism"], "cells": cells})
+        steps.append({"step": row["step"], "mechanism_zh": row["mechanism"],
+                      "mechanism_en": guitext.MECHANISM_EN.get(row["step"], ""), "cells": cells})
     cols = []
     for run in runs:
         views = calcheck.loopback_views(run) if run.chains is not None else None
@@ -810,7 +876,10 @@ def calibration_from_runs(runs: list, fe: Frontend60, st: dict | None = None) ->
                         "status_summary": "wifitrx's verdict, and additionally 'degraded' when an ok step's dB metric "
                                           "reads more than 3 dB worse than the first column (this library's rule, "
                                           "calcheck.compare_runs)",
+                        "status_wifitrx_zh": guitext.STATUS_RULE_ZH["status_wifitrx"],
+                        "status_summary_zh": guitext.STATUS_RULE_ZH["status_summary"],
                         "degrade_db": 3.0},
+        "as_written": guitext.AS_WRITTEN,
         "operating_point": {"psat_dbm": fe.psat_dbm, "obo_db": fe.obo_db, "obo_reference": fe.obo_reference,
                             "target_pout_dbm": fe.target_pout_dbm()},
     })
@@ -876,7 +945,7 @@ def eirp_limit_report(fe: Frontend60, base: Mmw60Config, n_max: int = 256) -> di
                   if p + Array60.from_config(array_frontend(base, n), fe).tx_gain_db(0.0, 0.0)[0] >= limit), None)
     return {"limit_avg_dbm": limit, "element_pout_dbm": p, "element_gain_dbi": fe.antenna_gain_tx_dbi,
             "single_element_eirp_dbm": p + fe.antenna_gain_tx_dbi, "binds_from_n": n_min,
-            "law": "EIRP = element EIRP + 20 log10 N (TX gain = 20 log10 N + element gain)",
+            "law": guitext.EIRP_LAW["en"], "law_zh": guitext.EIRP_LAW["zh"],
             "source_key": "fcc15255.eirp_avg_dbm"}
 
 
@@ -1191,6 +1260,44 @@ def _resolve(node, values: dict, st: dict):
         else:
             out[k] = _resolve(v, values, st)
     return out
+
+
+def _system_description() -> dict:
+    """``data/gui/system.yaml`` as written (unresolved)."""
+    import yaml
+    return yaml.safe_load(SYSTEM_FILE.read_text(encoding="utf-8"))
+
+
+def ay_block_terms(ay: dict | None) -> dict | None:
+    """Which blocks an 802.11ay row lights on the system diagram: per waveform, the impairments the
+    SC against OFDM report measured alone (its ``impairments_alone`` section), each with the blocks
+    it belongs to (``system.yaml``'s ``ay_impairment_to_block``), worst first, and the ideal chain's
+    reading as the reference.  None without an ay report.  An impairment the table does not know
+    raises: a new one must be given its block, or its reason for having none."""
+    if not ay or not ay.get("impairments_alone"):
+        return None
+    table = _system_description()["ay_impairment_to_block"]
+    out = {"note": table["note"], "waveforms": {}}
+    for wf in AY_WAVEFORMS:
+        terms, ref = [], None
+        for row in ay["impairments_alone"]:
+            name, evm = row["impairment"], row.get(f"{wf}_evm_db")
+            if name == table["reference"]:
+                ref = evm
+            elif name in table["blocks"]:
+                b = table["blocks"][name]
+                if evm is not None:
+                    terms.append({"impairment": name, "zh": b["zh"], "en": b["en"], "blocks": list(b["blocks"]),
+                                  "evm_db": evm})
+            elif name not in table["no_block"]:
+                raise KeyError(f"system.yaml: ay_impairment_to_block knows no impairment {name!r}")
+        terms.sort(key=lambda t: -t["evm_db"])
+        for i, t in enumerate(terms):
+            t["dominant"] = i == 0
+            # how far the impairment lifts the reading above the receiver's own floor (about 0: it does not show)
+            t["above_reference_db"] = None if ref is None else t["evm_db"] - ref
+        out["waveforms"][wf] = {"reference_evm_db": ref, "terms": terms}
+    return _json(out)
 
 
 def system_report(st: dict | None = None) -> dict:

@@ -51,11 +51,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from . import ENGINE_BANNER, __version__, guistore, guiutil
+from . import ENGINE_BANNER, __version__, guistore, guitext, guiutil, selfcheck
 
 WWW = Path(__file__).resolve().parent / "webui" / "www"
 POST_HEADER = "X-MMW60"
-GET_ROUTES = ("version", "sources", "parts", "jobs", "results")
+GET_ROUTES = ("version", "sources", "parts", "jobs", "results", "selfcheck")
 POST_ROUTES = ("state", "report", "row", "system", "run")
 REPORTS = tuple(guistore.REPORT_JOBS)
 #: the jobs a host queues: the four full ones and the analytic-only table, a preview in seconds.  A
@@ -79,6 +79,11 @@ def execute(job: str, st: dict, params: dict, emit, cancelled=None) -> None:
             emit("progress", [done, total, text])
             if cancelled is not None and cancelled():
                 raise Cancelled()
+        if job == selfcheck.NAME:
+            # its own in-memory host, so the reports are read through the very dispatch a page uses
+            api = Api(State(workers=1, backend="thread", home=None))
+            emit("done", {"selfcheck": selfcheck.run(lambda route, body: api.call(route, body)[1], progress)})
+            return
         emit("done", guiutil.run_job(job, st, quick=bool(params.get("quick")), progress=progress,
                                      calibration=params.get("calibration")))
     except Cancelled:
@@ -125,13 +130,15 @@ class JobQueue:
             threading.Thread(target=self._loop, daemon=True).start()
 
     def submit(self, job: str, st: dict, params: dict | None = None) -> dict:
-        if job not in guiutil.JOBS:
-            raise KeyError(f"no such job {job!r} (have {sorted(guiutil.JOBS)})")
+        check = job == selfcheck.NAME
+        if job not in guiutil.JOBS and not check:
+            raise KeyError(f"no such job {job!r} (have {sorted(guiutil.JOBS)} and {selfcheck.NAME})")
+        timed = guiutil.JOBS[selfcheck.JOB if check else job]
         jid = str(next(self._ids))
-        entry = {"id": jid, "job": job, "study": guiutil.study(st), "status": "queued", "progress": [0, None],
-                 "text": "", "error": None, "created": time.time(), "started": None, "finished": None,
-                 "result_id": None, "expected_seconds": guiutil.JOBS[job]["seconds"],
-                 "parts": list(guiutil.JOBS[job]["parts"]), "_params": dict(params or {}), "cancel": False}
+        entry = {"id": jid, "job": job, "study": {} if check else guiutil.study(st), "status": "queued",
+                 "progress": [0, None], "text": "", "error": None, "created": time.time(), "started": None,
+                 "finished": None, "result_id": None, "expected_seconds": timed["seconds"],
+                 "parts": [] if check else list(timed["parts"]), "_params": dict(params or {}), "cancel": False}
         with self._cv:
             self.jobs[jid] = entry
             self._cv.notify()
@@ -274,14 +281,45 @@ class State:
     def __init__(self, workers: int = 1, backend: str = "process", home: str | Path | None = None,
                  store: guistore.Store | None = None, runner=execute):
         self.store = store if store is not None else guistore.Store(home)
-        self.jobs = JobQueue(workers, backend, on_done=lambda job, result: self.store.add(result), runner=runner,
-                             on_start=self.builds_on)
+        self.jobs = JobQueue(workers, backend, on_done=self._keep, runner=runner, on_start=self.builds_on)
         self.study: dict = {}
+        #: the last self-check's outcome (``selfcheck.run``), kept under ``home`` across restarts
+        self.selfcheck: dict | None = None
+        path = self._selfcheck_file()
+        if path is not None and path.is_file():
+            try:
+                self.selfcheck = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                self.selfcheck = None
+
+    def _selfcheck_file(self) -> Path | None:
+        return None if self.store.home is None else Path(self.store.home) / "selfcheck.json"
+
+    def _keep(self, job: dict, result: dict) -> str:
+        """A finished job's result into the store; a self-check's outcome into ``selfcheck``."""
+        if job["job"] != selfcheck.NAME:
+            return self.store.add(result)
+        self.selfcheck = result["selfcheck"]
+        path = self._selfcheck_file()
+        if path is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(self.selfcheck, ensure_ascii=False), encoding="utf-8")
+        return selfcheck.NAME
+
+    def seconds_here(self) -> dict:
+        """Per job, the durations this host itself measured (its stored results), shortest first:
+        what a page shows beside the quoted ones, which were taken on a 4-core desktop."""
+        out: dict[str, list] = {}
+        for e in self.store.entries():
+            res = e["result"]
+            if e["origin"] == "user" and not res.get("quick") and res.get("seconds") is not None:
+                out.setdefault(res["job"], []).append(res["seconds"])
+        return {j: sorted(v) for j, v in out.items()}
 
     def builds_on(self, job: dict) -> dict:
         """What a job builds on, looked up as it starts: a table takes the calibration stored for
         its study, if there is one (else ``run_job`` looks its IRR up in the accepted table)."""
-        if guiutil.JOBS[job["job"]]["report"] != "table":
+        if job["job"] == selfcheck.NAME or guiutil.JOBS[job["job"]]["report"] != "table":
             return {}
         cal = self.store.pick("calibration", job["study"])
         if cal is not None and (guiutil.signature("calibration.be", cal["result"]["study"])
@@ -313,7 +351,8 @@ def _meta(entry: dict) -> dict:
             "parts": res["parts"], "built_on": res.get("built_on") or {}, "seconds": res.get("seconds"),
             "provenance": res["provenance"],
             # computed on other spec tables / pins than this tree's: the study still matches, the code does not
-            "out_of_step": guistore.stale_reasons(res, baseline=entry["origin"] == "baseline")}
+            "out_of_step": (why := guistore.stale_reasons(res, baseline=entry["origin"] == "baseline")),
+            "out_of_step_zh": guitext.out_of_step_zh(why)}
 
 
 # ------------------------------------------------------------------- api
@@ -337,12 +376,24 @@ class Api:
             return 200, {"ok": True, "sources": guiutil.sources(), "counts": guiutil.source_counts()}
         elif route == "parts":
             m = guiutil.freshness_matrix()
-            m["jobs"] = {j: m["jobs"][j] for j in RUNNABLE}
-            return 200, {"ok": True, **m, "stored": guiutil.STORED}
+            here = st.seconds_here()
+            # the quoted durations were measured on a 4-core desktop with numba; ``seconds_here`` are
+            # this host's own, and ``host_speed`` the last self-check's reading of the analytic table
+            m["jobs"] = {j: dict(m["jobs"][j], seconds_here=here.get(j, [])) for j in RUNNABLE}
+            return 200, {"ok": True, **m, "stored": guiutil.STORED, "as_written": guitext.AS_WRITTEN,
+                         "host_speed": None if st.selfcheck is None else st.selfcheck.get("speed")}
         elif route == "jobs":
             return 200, {"ok": True, "jobs": st.jobs.listing()}
         elif route == "results":
             return 200, {"ok": True, "results": st.store.listing(st.study)}
+        elif route == "selfcheck":
+            running = [j for j in st.jobs.listing() if j["job"] == selfcheck.NAME
+                       and j["status"] in ("queued", "running")]
+            return 200, {"ok": True, "selfcheck": st.selfcheck, "job": selfcheck.NAME, "running": running[-1:],
+                         "tolerance": selfcheck.TOL,
+                         "expected_seconds": guiutil.JOBS[selfcheck.JOB]["seconds"],
+                         "seconds_note": guiutil.JOBS[selfcheck.JOB]["seconds_note"],
+                         "seconds_note_zh": guitext.SECONDS_NOTE_ZH[selfcheck.JOB]}
         elif route.startswith("jobs/"):
             j = st.jobs.get(route[5:])
             return (200, {"ok": True, "job": j}) if j else (404, {"ok": False, "error": "no such job"})
@@ -414,11 +465,16 @@ class Api:
                          "part_results": part_results, "assembled": report.get("assembled"),
                          "freshness": self._fresh(study)}
         elif route == "system":
-            return 200, {"ok": True, **guiutil.system_report(self._study(req))}
+            study = self._study(req)
+            # an 802.11ay row lights the blocks with the impairments its report measured alone
+            ay = st.store.pick("ay", study)
+            return 200, {"ok": True, **guiutil.system_report(study),
+                         "ay_terms": None if ay is None else guiutil.ay_block_terms(ay["result"]["report"]),
+                         "ay_terms_result": None if ay is None else _meta(ay), "freshness": self._fresh(study)}
         elif route == "run":
             job = str(req.get("job"))
-            if job not in RUNNABLE:
-                raise ValueError(f"job must be one of {list(RUNNABLE)}, got {job!r}")
+            if job not in RUNNABLE and job != selfcheck.NAME:
+                raise ValueError(f"job must be one of {[*RUNNABLE, selfcheck.NAME]}, got {job!r}")
             return 200, {"ok": True, "job": st.jobs.submit(job, self._study(req))}
         elif route.startswith("jobs/") and route.endswith("/cancel"):
             ok = st.jobs.cancel(route[5:-7])

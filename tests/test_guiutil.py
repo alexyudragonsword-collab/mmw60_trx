@@ -176,11 +176,15 @@ def test_signature_follows_only_the_knobs_a_part_reads():
 def test_freshness_against_the_accepted_presets():
     f = g.freshness({})
     assert all(v["state"] == "fresh" and v["basis"] == "accepted presets" for v in f.values())
-    # a receiver knob: the time-domain column, the ay rows and the be thresholds; the analytic columns only
-    # through the thresholds
+    # a receiver knob: the time-domain column, the LO section (time-domain runs too), the ay rows and the be
+    # thresholds; the analytic columns only through the thresholds
     f = g.freshness({"rx.cpe_window_symbols": 33})
     stale = {k for k, v in f.items() if v["state"] == "stale"}
-    assert stale == {"table.td", "table.ay", "thresholds.be", "table.analytic", "array", "ay"}
+    assert stale == {"table.td", "table.lo", "table.ay", "thresholds.be", "table.analytic", "array", "ay"}
+    # an LO knob: everything that runs on the form's LO, and not the section that swaps the LO out
+    flo = g.freshness({"lo.phase_noise.psd0_dbchz": -80.0})
+    assert flo["table.td"]["state"] == "stale" and flo["table.lo"]["state"] == "fresh"
+    assert g.field_states(flo)["table.lo"] == "fresh" and g.field_states(flo)["table.td"] == "stale"
     assert f["table.analytic"]["changed"] == [] and f["table.analytic"]["upstream"] == ["thresholds.be"]
     assert f["thresholds.be"]["recompute"] is None
     assert "measure_thresholds.py" in f["thresholds.be"]["stored"]["command"]
@@ -681,10 +685,24 @@ def test_lo_models_report_puts_each_model_on_its_own_front_end_and_ignores_the_f
     wifi7 = by[(models[1]["name"], 32)]
     assert wifi7["ipn_dbc"] < mine["ipn_dbc"] and wifi7["pn_ici_db"] < mine["pn_ici_db"]
     # the form's LO knobs describe one LO; this section swaps in each model whatever they say
+    # ... and that is what the part declares: it reads none of them, so an LO edit leaves it fresh
+    lo_knobs = [k for k in g.SHARED_KNOBS if k.startswith("lo.")]
+    assert rep["form_lo_knobs_ignored"] == sorted(lo_knobs) and not set(lo_knobs) & g.PARTS["table.lo"].reads
+    only_lo = g.lo_models_report({"lo.phase_noise.psd0_dbchz": -80.0, "lo.phase_noise.model": "wifitrx_wifi7"},
+                                 time_domain=False)
+    assert only_lo["rows"] == rep["rows"]
     edited = g.lo_models_report({"lo.phase_noise.psd0_dbchz": -80.0, "frontend.pa.obo_db": 9.5}, time_domain=False)
-    assert edited["edited_lo_knobs"] == ["lo.phase_noise.psd0_dbchz"]
     assert [r["pn_ici_db"] for r in edited["rows"]] == [r["pn_ici_db"] for r in rep["rows"]]
     assert [r["floor_db"] for r in edited["rows"]] != [r["floor_db"] for r in rep["rows"]]       # the PA moved
+    assert "frontend.pa.obo_db" in g.PARTS["table.lo"].reads
+    # once per model: what does not change with K, in both languages, the floor as a field
+    assert [m["model"] for m in rep["models"]] == [m["name"] for m in models]
+    for m in rep["models"]:
+        mine = [r for r in rep["rows"] if r["model"] == m["model"]]
+        assert set(m["label"]) == {"zh", "en"} and m["label"] == g.LO_LABELS[m["kind"]]
+        assert {r["ipn_dbc"] for r in mine} == {m["ipn_dbc"]} and m["floor_dbchz"] == mine[0]["floor_dbchz"]
+    assert [m["is_preset_model"] for m in rep["models"]] == [True] + [False] * (len(models) - 1)
+    assert set(rep["base"]) == {"zh", "en"}
     json.dumps(rep, allow_nan=False)
 
 
