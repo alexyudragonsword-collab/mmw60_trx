@@ -37,7 +37,14 @@ function sysLit(SY) {
     const blocks = ((SY.evm_term_to_block[k] || {}).blocks || []).filter(b => mine.has(b)), dom = k === r.dominant;
     blocks.forEach(b => (badges[b] = badges[b] || []).push({ name: term(k), v, dom })); list.push({ k, name: term(k), v, dom });
   }
-  return { r, ay, topoA, badges, list };
+  /* an 802.11ay row: the impairments its report measured alone, each on the blocks the payload names.
+   * A reading that shows the same as the ideal chain's at the decimals drawn is faint: it does not show. */
+  const AT = ay && SY.ay_terms ? SY.ay_terms.waveforms[r.waveform] : null;
+  if (AT) for (const t of AT.terms) {
+    const faint = fx(t.evm_db, 1) === fx(AT.reference_evm_db, 1), name = headOf(T(t.zh, t.en));
+    (t.blocks || []).forEach(b => (badges[b] = badges[b] || []).push({ name, v: t.evm_db, dom: t.dominant, faint })); list.push(Object.assign({ name, faint }, t));
+  }
+  return { r, ay, topoA, badges, list, ayTerms: AT };
 }
 
 CHARTS.sys = function (wpx) {
@@ -60,7 +67,7 @@ CHARTS.sys = function (wpx) {
     (q.lines || []).forEach(l => wrapTx(l.t, inner - (l.src ? 15 : 0), FS).forEach((t, i) => L.push({ h: 11.5, cls: l.cls || "", t, fs: FS, src: i === 0 ? l.src : null, key: l.key })));
     if (q.cal && q.cal.length) wrapTx("⟲ " + q.cal.join(" · "), inner, 8.5).forEach(t => L.push({ h: 10.5, cls: "q m", t, fs: 8.5 }));
     const h = L.reduce((a, l) => a + l.h, 0) + 11, y0 = q.y !== undefined ? q.y : q.cy - h / 2, col = q.kind === "A" ? cA : q.kind === "B" ? cB : q.kind === "S" ? "var(--ink)" : "var(--rule2)";
-    const bd = stt && q.id && stt.badges[q.id], lit = bd && bd.length, dom = lit && bd.some(b => b.dom);
+    const bd = stt && q.id && stt.badges[q.id], lit = bd && bd.some(b => !b.faint), dom = lit && bd.some(b => b.dom);
     let g = `<rect x="${q.x}" y="${P(y0)}" width="${q.w}" height="${P(h)}" rx="5" fill="${dom ? "var(--amber-bg)" : "var(--panel)"}" stroke="${col}" stroke-width="${lit ? 2.2 : 1.2}" ${q.dash ? 'stroke-dasharray="5 3"' : ""} ${q.id ? `data-block="${esc(q.id)}"` : ""} ${lit ? 'data-lit="1"' : ""} data-tip="${esc(q.tip || "")}"/>`;
     if (q.kind === "S") g += `<rect x="${q.x + 3}" y="${P(y0 + 3)}" width="${q.w - 6}" height="${P(h - 6)}" rx="3" fill="none" stroke="var(--ink)" stroke-width=".6" pointer-events="none"/>`;
     let yy = y0 + 4;
@@ -70,9 +77,9 @@ CHARTS.sys = function (wpx) {
       else g += `<text x="${q.x + 7}" y="${P(yy)}" class="${l.cls}" style="font-size:${l.fs}px" pointer-events="none">${esc(l.t)}</text>`;
       if (l.src) g += stag(q.x + q.w - 17, yy, l.src, l.key);
     });
-    if (lit) bd.forEach((b, i) => {
+    if (bd) bd.forEach((b, i) => {
       const s = `${b.name} ${absent(b.v) ? "—" : fx(b.v, 1) + " dB"}`, bw = tw(s, 9.5) + 14, bx = q.x + q.w - bw, by = y0 - 15 - i * 15;
-      top += `<rect x="${P(bx)}" y="${P(by)}" width="${P(bw)}" height="13" rx="6.5" fill="${b.dom ? "var(--ink)" : "var(--panel)"}" stroke="var(--ink)" stroke-width="1"/><text x="${P(bx + bw / 2)}" y="${P(by + 9.6)}" text-anchor="middle" style="font-size:9.5px;font-weight:650;fill:${b.dom ? "var(--panel)" : "var(--ink)"}">${esc(s)}</text>`;
+      top += `<g ${b.faint ? 'opacity=".45" data-faint="1"' : ""}><rect x="${P(bx)}" y="${P(by)}" width="${P(bw)}" height="13" rx="6.5" fill="${b.dom ? "var(--ink)" : "var(--panel)"}" stroke="var(--ink)" stroke-width="1"/><text x="${P(bx + bw / 2)}" y="${P(by + 9.6)}" text-anchor="middle" style="font-size:9.5px;font-weight:650;fill:${b.dom ? "var(--panel)" : "var(--ink)"}">${esc(s)}</text></g>`;
     });
     const out = { g, x: q.x, y: y0, w: q.w, h, cy: y0 + h / 2, cx: q.x + q.w / 2, r: q.x + q.w, b: y0 + h };
     if (q.as || q.id) box[q.as || q.id] = out;
@@ -189,6 +196,18 @@ function sysCards(SY) {
       ...["sc", "ofdm", "preamble"].filter(k => DB.ay[k]).map(k => card(DB.ay[k], "B"))])
     + grp(T("空口：晶振与 CFO、信道、阵列", "Over the air: crystals and CFO, channel, array"), ["cfo", "channel", "array"].map(k => card(SY.between[k], "N")));
 }
+/* the list beside the diagram for an 802.11ay row: each impairment alone, against the ideal chain's reading */
+function ayStrip(SY, lit, sel) {
+  const ps = pstate("ay"), m = v => sv(ps, v, "ay");
+  if (!SY.ay_terms || !lit || !lit.ayTerms) return `<div class="fresh" data-ay-terms="none"><span class="b">${esc(sel.label)}</span><span>${T("没有存着的 SC 对 OFDM 结果：这一行的各项损伤读数无从点亮。", "No SC against OFDM result is stored: this row’s single-impairment readings cannot be lit.")}</span>
+    <button type="button" class="btn" data-act="run" data-job="ay">${T("重算", "Recompute")}${P_.c}${jn("ay")} · ${expected("ay")}</button></div>`;
+  const AT = lit.ayTerms;
+  return `<div class="fresh ${ps === "stale" ? "stale" : ""}" style="border-color:var(--ink)" data-lit-row="${esc(sel.label)}" data-part="ay" data-state="${ps}"><span class="b">${esc(sel.label)}</span>
+    <span>${T("每个损伤单独开时的 EVM（未校准链）", "EVM with each impairment alone (uncalibrated chain)")}${P_.c}</span>
+    <span class="l2 ayterms">${lit.list.map(t => `<span data-ay-term="${esc(t.impairment)}" class="${t.dominant ? "b" : ""} ${t.faint ? "faint" : ""}" title="${esc(T(t.zh, t.en))} · ${(t.blocks || []).map(esc).join(", ")}">${esc(T(t.zh, t.en))} <span class="n">${m(fx(t.evm_db, 1) + " dB")}</span>${nil(t.above_reference_db) ? "" : ` <span class="mut xs">${T("比参考高", "above the reference by")} ${m(fx(t.above_reference_db, 1) + " dB")}</span>`}${t.dominant ? ` <span class="vd best">${T("主导", "dominant")}</span>` : ""}</span>`).join("")}
+      <span data-ay-reference>${T("参考：理想链", "reference: the ideal chain")} <span class="n">${m(fx(AT.reference_evm_db, 1) + " dB")}</span></span></span>
+    <span class="l2"><span>${esc(bt(SY.ay_terms.note))}</span><span class="mut">${T("变淡的一项 = 读数与参考一样，看不出它", "a faint term = it reads the same as the reference, so it does not show")}</span>${SY.ay_terms_result ? provLine(SY.ay_terms_result) : ""}</span></div>`;
+}
 function renderSystem() {
   const SY = S.system;
   if (!SY) return `<div class="page"><div class="loading"><span class="spin"></span>${T("正在读取框图…", "Loading the diagram…")}</div></div>`;
@@ -208,7 +227,7 @@ function renderSystem() {
       <span>${T("EVM 预算分项（未校准链，解析和）", "EVM budget terms (raw chain, analytic sum)")}${P_.c}</span>
       ${stt.list.map(x => `<span class="${x.dom ? "b" : ""}">${esc(x.name)} <span class="n">${sv(ta, absent(x.v) ? "—" : fx(x.v, 1) + " dB", "table.analytic")}</span>${x.dom ? ` <span class="vd best">${T("主导", "dominant")}</span>` : ""}</span>`).join("")}
       <span class="grow"></span><span>${T("底板", "floor")} <span class="n">${sv(ta, `${fx(stt.r.floor_db, 1)} → <b>${fx(stt.r.floor_cal_db, 1)} dB</b>`, "table.analytic")}</span></span></div>`
-    : sel && isAy(sel) ? `<div class="fresh"><span class="b">${esc(sel.label)}</span><span>${T("这一行没有解析分项（底板是时域读数），所以没有可点亮的块。", "This row has no analytic terms (its floor is a time-domain reading), so there is no block to light.")}</span></div>` : ""}
+    : sel && isAy(sel) ? ayStrip(SY, lit, sel) : ""}
     <div class="lg sysleg">
       <span><span class="sw" style="background:var(--tb)"></span>${T("拓扑 B：升频零中频", "Topology B: upclocked zero-IF")}</span><span><span class="sw" style="background:var(--ta)"></span>${T("拓扑 A：IF 延伸", "Topology A: IF extender")}</span>
       <span><span class="sw dbl"></span>${T("双线框 = 两条拓扑共用的同一个对象", "double frame = the one object both topologies share")}</span>

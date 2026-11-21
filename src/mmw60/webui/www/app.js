@@ -14,7 +14,7 @@ const studyKey = () => JSON.stringify(S.study);
  * that pick changes */
 function repKey(name) {
   const sh = S.state ? S.state.shown : {}, k = m => (m ? m.id + "@" + m.at : "-"), pr = (sh.table && sh.table.part_results) || {};
-  const table = sh.table ? TABLE_PARTS.map(p => k(pr[p])).join("+") : "-";
+  const table = sh.table ? Object.keys(pr).map(p => k(pr[p])).join("+") : "-";
   return [name === "table" ? table : k(sh[name]), ...(name === "table" ? [k(sh.array)] : name === "ay" ? [k(sh.array), table] : [])].join("|");
 }
 function invalidate() {

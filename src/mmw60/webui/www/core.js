@@ -46,26 +46,21 @@ try { const t = localStorage.getItem("mmw60.theme"); if (t === "light" || t === 
 /* ------------------------------------------------------------------ language */
 const T = (zh, en) => (S.lang === "zh" ? zh : en);
 const P_ = { get c() { return T("：", ": "); }, get s() { return T("；", "; "); }, get d() { return T("、", ", "); }, get p() { return T("。", ". "); } };
-/* Words the payloads carry in one language only.  Only strings without result numbers are
- * translated; anything else is shown as the payload has it. */
-const TR = {
-  "能": "works", "不能": "does not work", "PA 限 MCS": "PA limits the MCS", "CFO 捕获": "CFO capture",
-  "IQ 不平衡 限 MCS": "IQ imbalance limits the MCS", "IQ 不平衡": "IQ imbalance", "同上": "same as above", "同 tx_iq": "same as tx_iq",
-  "与 fs 无关": "independent of fs",
-};
-const TR_ZH = {
-  "analytic sum of terms; cross-checked by a time-domain EVM run of the same cell": "各项的解析和；用同一格的时域 EVM 交叉核对",
-  "not measured on this chain: the analytic sum with the IQ image at the IRR the calibration runs measured at that bandwidth (a looked-up value)":
-    "不是在这条链上量的：解析和，其中 IQ 镜像取校准运行在该带宽量到的 IRR（查表值）",
-  "analytic sum of terms; the chip's residual in it is measured after the chip's own calibration, which runs when the chain is built":
-    "各项的解析和；其中芯片残差是芯片自己校准之后实测的，校准在建链时真跑",
-  "the same as the raw floor (the chip is already calibrated)": "与未校准底板相同（芯片已经校准过）",
-  "time-domain EVM on the uncalibrated chain, worst constellation (no analytic sum)": "未校准链上的时域 EVM，取最差星座（没有解析和）",
-  "measured: time-domain EVM on the chain wifitrx's calibration sequence calibrated": "实测：wifitrx 校准序列校准过的链上的时域 EVM",
-  "wifitrx's own verdict of the step on that run": "wifitrx 自己对这一步在这次运行上的判定",
-  "calibration result": "校准结果", "accepted presets": "已验收的预设结果", "envelope": "存着的结果",
-};
-const tr = s => (s === null || s === undefined ? "" : S.lang === "zh" ? (TR_ZH[s] ?? s) : (TR[s] ?? s));
+/* A payload text that comes in both languages: `key` with `key_zh` / `key_en` beside it (whichever
+ * language the bare key is written in, the other one carries the suffix). */
+const bi = (o, key) => (!o ? "" : S.lang === "zh" ? (o[key + "_zh"] ?? o[key] ?? "") : (o[key + "_en"] ?? o[key] ?? ""));
+/* Text the engine composes with numbers inside stays as it wrote it (`lang`: the language the payload
+ * names in `as_written`).  When the page is in the other language it carries a small mark, so it
+ * reads as the engine's own wording and not as something left untranslated by accident. */
+function asWritten(text, lang) {
+  if (nil(text) || text === "") return "";
+  if (!lang || lang === S.lang) return esc(text);
+  return `<span class="aw" data-as-written="${esc(lang)}" lang="${esc(lang)}" title="${T("引擎自己的措辞，原样显示", "the engine’s own wording, shown as written")}">${esc(text)} <span class="awm" aria-hidden="true">※${esc(lang)}</span></span>`;
+}
+const awLang = key => ((S.parts && S.parts.as_written) || {})[key] || null;
+/* the three codes `freshness[...].basis` takes: words for an enumeration, no numbers */
+const BASIS = { "envelope": ["存着的结果", "the stored result"], "accepted presets": ["已验收的预设结果", "the accepted presets"], "nothing stored": ["没有存着的结果", "nothing stored"] };
+const basisWord = b => (BASIS[b] ? T(...BASIS[b]) : esc(b || ""));
 function applyLang() {
   document.documentElement.lang = S.lang === "zh" ? "zh-CN" : "en";
   document.querySelectorAll("[data-zh]").forEach(e => { e.textContent = e.dataset[S.lang] || e.dataset.zh; });
@@ -131,7 +126,7 @@ function knobText(k, v) { const a = knobShow(k, v); return plain(a.v) + (a.u ? "
 /* ------------------------------------------------------------------ parts, jobs, freshness */
 const JOBNAME = {
   calibration_be: ["校准序列", "Calibration sequence"], table: ["同台表", "Comparison table"],
-  table_analytic: ["同台表 · 只算解析列", "Comparison table, analytic columns only"], array: ["阵列", "Array"], ay: ["SC 对 OFDM", "SC against OFDM"],
+  table_analytic: ["同台表 · 只算解析列", "Comparison table, analytic columns only"], selfcheck: ["自检", "Self-check"], array: ["阵列", "Array"], ay: ["SC 对 OFDM", "SC against OFDM"],
 };
 const REPNAME = { table: ["同台表", "comparison table"], calibration: ["校准", "calibration"], array: ["阵列", "array"], ay: ["SC 对 OFDM", "SC against OFDM"] };
 const jn = id => (JOBNAME[id] ? T(...JOBNAME[id]) : id);
@@ -160,9 +155,15 @@ const fieldState = (rep, field, ay) => fresh().fields[fieldGroup(rep, field, ay)
 /* a stale mark around a number: the number stays, hatched */
 const sv = (state, html, part) => (state === "stale" ? `<span class="sv" data-state="stale" data-part="${esc(part || "")}" title="${T("过期：它来自的结果读了改过的旋钮", "stale: the result it comes from reads an edited knob")}">${html}</span>` : html);
 const svField = (rep, field, ay, html) => sv(fieldState(rep, field, ay), html, fieldGroup(rep, field, ay));
+/* a job's quoted durations (measured on the reference desktop, `parts.jobs[job].seconds`) */
 function expected(job) {
   const j = S.parts && S.parts.jobs[job]; if (!j) return "";
   return j.seconds && j.seconds.length ? j.seconds.map(dur).join(" / ") : T("没有记录", "not recorded");
+}
+/* ... and this host's own runs of it, when it has any */
+function secondsHere(job) {
+  const j = S.parts && S.parts.jobs[job], h = (j && j.seconds_here) || [];
+  return h.length ? `<span data-seconds-here="${esc(job)}">${T("本机跑过", "ran here in")} <b>${h.map(dur).join(" / ")}</b></span>` : "";
 }
 function changeText(id, part) {
   const k = knob(id); if (!k) return esc(id);
@@ -172,7 +173,7 @@ function changeText(id, part) {
 /* where a stored result was computed, and whether this code would compute the same */
 function provLine(meta) {
   if (!meta) return "";
-  const p = meta.provenance || {}, bo = Object.entries(meta.built_on || {}), oos = meta.out_of_step || [];
+  const p = meta.provenance || {}, bo = Object.entries(meta.built_on || {}), oos = (S.lang === "zh" && meta.out_of_step_zh) || meta.out_of_step || [];
   return `<span class="prov" data-result="${esc(meta.id)}">${T("结果", "result")} <code>${esc(meta.id)}</code> · ${meta.origin === "baseline" ? T("随包基线", "shipped baseline") : T("本机重算", "computed here") + " " + when(meta.at)}
     · <code>${esc(p.version || meta.version || "")} @ ${short(p.commit || meta.commit)}</code>${nil(meta.seconds) ? "" : " · " + dur(meta.seconds)}${Object.keys(meta.study || {}).length ? " · " + T("表单", "form") + " <code>" + esc(JSON.stringify(meta.study)) + "</code>" : ""}
     ${bo.map(([u, st]) => ` · ${T("建在", "built on")} ${esc(pn(u))} <code>${esc(JSON.stringify(st))}</code>`).join("")}
@@ -180,9 +181,9 @@ function provLine(meta) {
 }
 /* The comparison table's provenance: one line when its three parts come from one stored result,
  * else one line per part (which result, its form, when); a part with no result at all says so. */
-const TABLE_PARTS = ["table.analytic", "table.td", "table.ay"];
 function tableProv(pr) {
   if (!pr) return "";
+  const TABLE_PARTS = Object.keys(pr);                    // the table's parts, as the host lists them
   const ids = TABLE_PARTS.map(p => (pr[p] ? pr[p].id + "@" + pr[p].at : null));
   if (ids.every(i => i !== null && i === ids[0])) return `<span>${provLine(pr[TABLE_PARTS[0]])}${TABLE_PARTS.map(p => `<span data-part-result="${p}" data-result-id="${esc(pr[p].id)}"></span>`).join("")}</span>`;
   return TABLE_PARTS.map(p => (pr[p] ? `<span data-part-result="${p}" data-result-id="${esc(pr[p].id)}"><b>${esc(pn(p))}</b>${P_.c}${provLine(pr[p])}</span>`
@@ -214,7 +215,7 @@ function freshBanner(parts, reports, opts = {}) {
       ${stale.length ? `<span class="hide-s">${T("下面仍是旧表单上算的数字，没有清空。", "The numbers below are still the ones computed for the old form; nothing is blanked.")}</span>` : ""}${opts.note || ""}</span>
     ${any && !opts.noJobs ? jobs.map(runBtn).join("") : ""}
     <span class="l2">${stale.length ? `<span>${T("过期", "Stale")}${P_.c}${stale.map(chip).join(" ")}</span>` : ""}${valid.length ? `<span><span class="ok">${any ? T("仍有效", "Still valid") : T("新鲜", "Fresh")}</span>${P_.c}${valid.map(chip).join(" ")}</span>` : ""}
-      ${stored.map(p => `<span>${esc(pn(p))}${P_.c}${T("这里不能重算（要几小时），命令", "cannot be recomputed here (it takes hours); command")} <code>${esc(fp[p].stored.command)}</code>${fp[p].stored.seconds_note ? " · " + esc(fp[p].stored.seconds_note) : ""}</span>`).join("")}
+      ${stored.map(p => `<span>${esc(pn(p))}${P_.c}${T("这里不能重算（要几小时），命令", "cannot be recomputed here (it takes hours); command")} <code>${esc(fp[p].stored.command)}</code>${bi(fp[p].stored, "seconds_note") ? " · " + esc(bi(fp[p].stored, "seconds_note")) : ""}</span>`).join("")}
       ${prov}</span></div>`;
 }
 /* the placeholder of a screen whose report is not stored for this study */

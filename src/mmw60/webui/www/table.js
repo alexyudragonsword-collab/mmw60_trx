@@ -37,8 +37,8 @@ function homeRow(x, ctx) {
   const { r, m } = x, R = ctx.R, d = R.display, fc = r.footing, ay = m.ay, nm = rowName(r, R), cal = S.chain === "cal", fs = f => fieldState(R, f, ay), svf = (f, html) => svField(R, f, ay, html);
   const chips = [];
   if (!ay) {
-    if (r.usable === false) chips.push(`<span class="vd no">✕ ${T("未校准链不能：", "raw chain fails: ")}${esc(tr(r.reason))}</span>`);
-    else if (r.reason) chips.push(`<span class="vd">${esc(tr(r.reason))}</span>`);
+    if (r.usable === false) chips.push(`<span class="vd no">✕ ${T("未校准链不能：", "raw chain fails: ")}${esc(bi(r, "reason"))}</span>`);
+    else if (r.reason) chips.push(`<span class="vd">${esc(bi(r, "reason"))}</span>`);
     const best = R.be_best_at_calibrated_cap || {};
     if (best.fastest === r.label) chips.push(`<span class="vd best">${T("be 行里最快（校准后合规上限）", "fastest be row (calibrated conformance cap)")}</span>`);
     if (best.fewest_pj_per_bit === r.label) chips.push(`<span class="vd best">${T("be 行里每比特最省（校准后合规上限）", "fewest pJ/bit of the be rows (calibrated conformance cap)")}</span>`);
@@ -77,12 +77,12 @@ function homeRow(x, ctx) {
   const order = ["rate", "pj", "range"], rest = order.filter(k => k !== S.lens);
   const cls = k => (k === S.lens ? "lens" : k === rest[0] ? "m1" : "m2");
   const open = S.open[r.label] ?? (ctx.phone && ctx.first === r.label);
-  return `<div class="row ${S.sel === r.label ? "sel" : ""} ${open ? "open" : ""}" role="row" tabindex="0" data-label="${esc(r.label)}" ${x.usable ? "" : 'data-usable="false"'} data-act="detail" data-v="${esc(r.label)}">
-    <div class="rk" role="cell">${x.rank ?? "–"}</div>
+  return `<div class="row ${S.sel === r.label ? "sel" : ""} ${open ? "open" : ""}" role="row" tabindex="0" data-label="${esc(r.label)}" ${x.usable ? "" : 'data-usable="false"'} ${r.dec_cap_may_be_lower === true ? 'data-may-be-lower="true"' : ""} data-act="detail" data-v="${esc(r.label)}">
+    <div class="rk" role="cell" ${!x.usable && ctx.usableState === "stale" ? "data-usable-stale" : ""}>${!x.usable && ctx.usableState === "stale" ? sv("stale", "–", ctx.usablePart) : (x.rank ?? "–")}</div>
     <div class="nm" role="cell"><div class="l1">${nm.l1}</div><div class="l2">${nm.l2}</div>${chips.length ? `<div class="l3">${chips.join("")}</div>` : ""}</div>
     <div class="ft" role="cell" title="${esc(T(...FOOT[fc]))}">${fg(fc)}<span class="t">${T(...FOOT[fc])}</span></div>
     <div class="cell x1" role="cell"><span class="lab">${T("EVM 底板 未校准 → 校准后", "EVM floor raw → calibrated")}</span>${floor}</div>
-    <div class="cell capc x2" role="cell"><span class="lab">${S.basis === "conf" ? T("合规上限 未校准 → 校准后", "Conformance cap raw → calibrated") : T("解码器上限 未校准 → 校准后", "Decoder cap raw → calibrated")}</span><div class="v">${pair(m.capRaw, m.capCal, m.sRaw, m.sCal)}</div><div class="s">${capS}</div></div>
+    <div class="cell capc x2" role="cell"><span class="lab">${S.basis === "conf" ? T("合规上限 未校准 → 校准后", "Conformance cap raw → calibrated") : T("解码器上限 未校准 → 校准后", "Decoder cap raw → calibrated")}</span><div class="v">${pair(m.capRaw, m.capCal, m.sRaw, m.sCal)}${r.dec_cap_may_be_lower === true && S.basis === "dec" ? ` <span class="dg" data-lower-sign title="${T("整表里这一行的解码器上限可能低一档", "a full run may read this row’s decoder cap one MCS lower")}">※</span>` : ""}</div><div class="s">${capS}</div></div>
     <div class="cell ${cls("rate")}" role="cell">${cells.rate}</div>
     <div class="cell ${cls("pj")}" role="cell">${cells.pj}</div>
     <div class="cell ${cls("range")}" role="cell">${cells.range}</div>
@@ -119,17 +119,18 @@ function feStrip(W, open) {
  * job).  One line per knob end: how many rows' caps moved, how far pJ/bit moved, whether the
  * ranking changed.  It is part of table.analytic and goes stale with it. */
 function sensSection(R) {
-  const SN = R.sensitivity, ps = pstate("table.analytic"), m = v => sv(ps, v, "table.analytic"), d = R.display.pj_ratio;
+  const SN = R.sensitivity, part = (R.sections || {}).sensitivity || "table.analytic", ps = pstate(part), m = v => sv(ps, v, part), d = R.display.pj_ratio;
   const head = `<header><h3>${T("哪些猜测决定结论", "Which guesses decide the verdict")}</h3><span class="mut sm">${T("每个假设拨到它的两头，解析一侧重算一遍；先看这里，再去改表单", "each guess moved to its ends and the analytic side rerun; look here before turning a knob")}</span></header>`;
-  if (!SN) return `<section class="blk" id="sens" data-part="table.analytic" data-state="${ps}">${head}<p class="mut">${T("正在显示的这份结果里没有这一节。排一个同台表任务就有。", "The result shown does not carry this section. A comparison-table job computes it.")}</p>
+  if (!SN) return `<section class="blk" id="sens" data-part="${esc(part)}" data-state="${ps}">${head}<p class="mut">${T("正在显示的这份结果里没有这一节。排一个同台表任务就有。", "The result shown does not carry this section. A comparison-table job computes it.")}</p>
     <span><button type="button" class="btn" data-act="run" data-job="table">${T("重算", "Recompute")}${P_.c}${jn("table")} · ${expected("table")}</button></span></section>`;
   const kn = k => esc(T(k.knob_zh || k.knob, k.knob)), nameOf = n => { const k = SN.knobs.find(x => x.knob === n); return k ? kn(k) : esc(n); };
   /* an end as what it is: a relative step with its sign, a scale as a factor, an absolute value; the unit after it */
-  const end = k => (k.mode === "scale" ? "× " : "") + neg(esc(k.value_text)) + (k.unit ? " " + esc(k.unit) : "") + (k.mode === "relative" ? ` <span class="mut xs">${T("相对预设", "from the preset")}</span>` : "");
-  const srcs = k => (k.source_keys || []).map(key => tag(key)).join(" ") + (k.source_note ? ` <span class="xs mut">${esc(k.source_note)}</span>` : "");
+  const vd = k => k.value_display || { text: k.value_text, unit: k.unit };
+  const end = k => (k.mode === "scale" ? "× " : "") + neg(esc(vd(k).text)) + (vd(k).unit ? " " + esc(vd(k).unit) : "") + (k.mode === "relative" ? ` <span class="mut xs">${T("相对预设", "from the preset")}</span>` : "");
+  const srcs = k => (k.source_keys || []).map(key => tag(key)).join(" ") + (bi(k, "source_note") ? ` <span class="xs mut">${esc(bi(k, "source_note"))}</span>` : "");
   const moved = (list, kind) => `<div class="cellv"><span data-sens-moved="${kind}" class="${list.length ? "" : "mut"}">${m(`<b>${list.length}</b>`)}</span> ${T("行", "rows")}${list.length ? `<details class="mv"><summary>${T("哪几行", "which")}</summary>${list.map(x => `<div class="xs"><code>${esc(x.label)}</code> ${mcs(x.from)} → ${mcs(x.to)}</div>`).join("")}</details>` : ""}</div>`;
   const caps = SN.moves_a_cap || [], ranks = SN.changes_ranking || [], idle = k => !caps.includes(k.knob) && !ranks.includes(k.knob);
-  return `<section class="blk" id="sens" data-part="table.analytic" data-state="${ps}">${head}
+  return `<section class="blk" id="sens" data-part="${esc(part)}" data-state="${ps}">${head}
     <p class="note">${esc(T(SN.decoder_basis.zh, SN.decoder_basis.en))}</p>
     ${tbl([{ h: T("假设（基线值的出处）", "Guess (source of the baseline value)"), f: k => `<span class="cellv">${kn(k)} ${srcs(k)}</span>` },
       { h: T("拨到", "Moved to"), r: 1, f: k => `<span data-sens-end="${esc(k.mode || "")}">${end(k)}</span>` },
@@ -143,32 +144,33 @@ function sensSection(R) {
     <details class="fold"><summary>${T("基准的 pJ/bit 排名（最省在前）", "The base pJ/bit ranking (fewest first)")}</summary><div><ol class="plain">${(SN.base_ranking || []).map(l => `<li><code>${esc(l)}</code></li>`).join("")}</ol></div></details></section>`;
 }
 /* The LO models side by side: each model swapped into the same base on its own front end, at each K.
- * Computed with the table's time-domain part, so it is stale with table.td.  The form's LO knobs do
- * not reach it: it swaps the LO whatever they say. */
+ * A part of its own (table.lo): it reads every knob but the LO's, so an LO edit leaves it fresh. */
 function loSection(R) {
-  const LM = R.lo_models, ps = pstate("table.td"), m = v => sv(ps, v, "table.td"), d = R.display;
+  const LM = R.lo_models, part = (R.sections || {}).lo_models || "table.lo", ps = pstate(part), m = v => sv(ps, v, part), d = R.display;
   const head = `<header><h3>${T("本振模型并排", "The LO models side by side")}</h3><span class="mut sm">${T("同一个基准链换上每一种本振，各看几个 K", "each LO swapped into the same base chain, at several K")}</span></header>`;
-  if (!LM) return `<section class="blk" id="lo-models" data-part="table.td" data-state="${ps}">${head}<p class="mut">${T("正在显示的结果里没有这一节（它跟着时域核对列一起算）。排一个同台表任务就有。", "The result shown does not carry this section (it is computed with the time-domain column). A comparison-table job computes it.")}</p>
+  if (!LM) return `<section class="blk" id="lo-models" data-part="${esc(part)}" data-state="${ps}">${head}<p class="mut">${T("正在显示的结果里没有这一节。排一个同台表任务就有。", "The result shown does not carry this section. A comparison-table job computes it.")}</p>
     <span><button type="button" class="btn" data-act="run" data-job="table">${T("重算", "Recompute")}${P_.c}${jn("table")} · ${expected("table")}</button></span></section>`;
-  const models = [...new Set(LM.rows.map(r => r.model))], kname = id => { const k = knob(id); return k ? esc(knobLabel(k)) : esc(id); };
-  const LAB = [T("带宽", "Bandwidth"), T("积分相噪 IPN dBc", "Integrated PN, dBc"), T("相噪 ICI dB", "Phase-noise ICI, dB"), T("解析底板 dB", "Analytic floor, dB"), T("时域 EVM dB", "Time-domain EVM, dB"), T("合规上限", "Conformance cap")];
-  const block = name => { const rows = LM.rows.filter(r => r.model === name), r0 = rows[0];
-    return `<div class="lom ${r0.is_preset_model ? "pre" : ""}" data-lo-kind="${esc(r0.kind)}"><div class="lomh"><b>${esc(name)}</b>${r0.is_preset_model ? ` <span class="vd best" data-lo-preset>${T("预设用的就是它", "the presets’ own")}</span>` : ""}
-        <span>${(r0.sources || []).map(k => tag(k)).join(" ") || `<span class="tag t-none">${T("vendored 的 wifitrx 模型", "vendored wifitrx model")}</span>`}</span>${nil(r0.floor_dbchz) ? "" : `<span class="xs mut">${T("倍频器底噪", "multiplier floor")} ${plain(r0.floor_dbchz)} dBc/Hz</span>`}</div>
+  const kname = id => { const k = knob(id); return k ? esc(knobLabel(k)) : esc(id); }, lab = o => (o && typeof o === "object" ? T(o.zh, o.en) : o || "");
+  const models = LM.models || [...new Set(LM.rows.map(r => r.model))].map(name => Object.assign({ label: { zh: name, en: name } }, LM.rows.find(r => r.model === name)));
+  const LAB = [T("带宽", "Bandwidth"), T("相噪 ICI dB", "Phase-noise ICI, dB"), T("解析底板 dB", "Analytic floor, dB"), T("时域 EVM dB", "Time-domain EVM, dB"), T("合规上限", "Conformance cap")];
+  const block = mo => { const rows = LM.rows.filter(r => r.model === mo.model), ipn = `${T("积分相噪 IPN", "integrated PN")} ${fx(mo.ipn_dbc, d.ipn_dbc)} dBc`;
+    return `<div class="lom ${mo.is_preset_model ? "pre" : ""}" data-lo-kind="${esc(mo.kind || "")}" data-lo-head="${esc(mo.model)}"><div class="lomh"><b>${esc(lab(mo.label))}</b>${mo.is_preset_model ? ` <span class="vd best" data-lo-preset>${T("预设用的就是它", "the presets’ own")}</span>` : ""}
+        <span>${(mo.sources || []).map(k => tag(k)).join(" ") || `<span class="tag t-none">${T("vendored 的 wifitrx 模型", "vendored wifitrx model")}</span>`}</span></div>
+      <div class="lomi"><span data-lo-ipn>${T("积分相噪 IPN", "integrated PN")} <b class="n">${m(fx(mo.ipn_dbc, d.ipn_dbc))} dBc</b></span>${nil(mo.floor_dbchz) ? "" : `<span>${T("倍频器底噪", "multiplier floor")} <b class="n">${plain(mo.floor_dbchz)} dBc/Hz</b></span>`}</div>
       <div class="lok" style="grid-template-columns:minmax(96px,1.3fr) repeat(${rows.length},minmax(56px,1fr))"><div class="lol"><span></span>${LAB.map(l => `<span>${l}</span>`).join("")}</div>
-        ${rows.map(r => `<div class="lov" data-lo-model="${esc(r.model)}" data-k="${esc(r.k)}"><b>K = ${plain(r.k)}</b><span>${hz(r.bw_eff_hz)}</span><span>${m(fx(r.ipn_dbc, d.ipn_dbc))}</span><span>${m(fx(r.pn_ici_db, d.pn_ici_db))}</span><span>${m(fx(r.floor_db, d.floor_db))}</span><span>${m(fx(r.td_evm_db, d.td_evm_db))}</span><span>${m(mcs(r.max_mcs))}</span></div>`).join("")}</div></div>`; };
-  /* LO knobs edited in the result's own study, and any the form holds now: neither reaches these rows */
-  const ed = [...new Set([...(LM.edited_lo_knobs || []), ...Object.keys(S.study).filter(k => (LM.form_lo_knobs_ignored || []).includes(k))])];
-  return `<section class="blk" id="lo-models" data-part="table.td" data-state="${ps}">${head}
-    <p class="note">${T("每个模型各建一个自己的前端，换进", "Each model sits on its own front end, swapped into")} <span class="n">${esc(LM.base)}</span>${T("；别的都跟着表单。", "; everything else follows the form. ")}<b>${T("表单里的本振旋钮到不了这一节", "The form’s LO knobs do not reach this section")}</b>${P_.c}${(LM.form_lo_knobs_ignored || []).map(kname).join(P_.d)}${P_.p}</p>
-    ${ed.length ? `<p class="note warn" data-lo-edited="${esc(ed.join(" "))}">${T("表单改过这些本振旋钮", "The form has edited these LO knobs")}${P_.c}<b>${ed.map(kname).join(P_.d)}</b> ${tagEdited()}${T("——这一节的各行不理会它们。", " — the rows of this section ignore them.")}</p>` : ""}
+        ${rows.map(r => `<div class="lov" data-lo-model="${esc(r.model)}" data-k="${esc(r.k)}"><b>K = ${plain(r.k)}<span class="sr"> · ${esc(lab(mo.label))} · ${ipn}</span></b><span>${hz(r.bw_eff_hz)}</span><span>${m(fx(r.pn_ici_db, d.pn_ici_db))}</span><span>${m(fx(r.floor_db, d.floor_db))}</span><span>${m(fx(r.td_evm_db, d.td_evm_db))}</span><span>${m(mcs(r.max_mcs))}</span></div>`).join("")}</div></div>`; };
+  /* the LO knobs the form holds now: they describe one LO, this section swaps in each model whatever they say */
+  const ed = Object.keys(S.study).filter(k => (LM.form_lo_knobs_ignored || []).includes(k));
+  return `<section class="blk" id="lo-models" data-part="${esc(part)}" data-state="${ps}">${head}
+    <p class="note">${T("每个模型各建一个自己的前端，换进", "Each model sits on its own front end, swapped into")} <span class="n">${esc(lab(LM.base))}</span>${T("；别的都跟着表单。", "; everything else follows the form. ")}<b>${T("表单里的本振旋钮到不了这一节", "The form’s LO knobs do not reach this section")}</b>${P_.c}${(LM.form_lo_knobs_ignored || []).map(kname).join(P_.d)}${P_.p}</p>
+    ${ed.length ? `<p class="note warn" data-lo-edited="${esc(ed.join(" "))}">${T("表单改过这些本振旋钮", "The form has edited these LO knobs")}${P_.c}<b>${ed.map(kname).join(P_.d)}</b> ${tagEdited()}${T("——这一节的各行不理会它们，所以也不因此过期。", " — the rows of this section ignore them, and are not made stale by them.")}</p>` : ""}
     <div class="loms">${models.map(block).join("")}</div>
-    <p class="xs mut">${T("每块是一种本振，块里一列是一个 K；同一个 K 横着比各模型。", "Each block is one LO and each column in it one K; compare the models across the same K.")}</p></section>`;
+    <p class="xs mut">${T("每块是一种本振：积分相噪是这个模型自己的一个数，写在块头；块里一列是一个 K，同一个 K 横着比各模型。", "Each block is one LO: the integrated phase noise is one number of the model, in the block’s head; each column is one K, so compare the models across the same K.")}</p></section>`;
 }
 function renderTable() {
   const W = S.rep.table;
   if (!W) return `<div class="page"><div class="loading"><span class="spin"></span>${T("正在读取同台表…", "Loading the comparison table…")}</div></div>`;
-  const parts = ["table.analytic", "table.td", "table.ay", "calibration.be", "thresholds.be", "array"];
+  const parts = ["table.analytic", "table.td", "table.lo", "table.ay", "calibration.be", "thresholds.be", "array"].filter(p => p !== "table.lo" || fresh().parts["table.lo"]);
   if (!W.report) return `<div class="page"><div class="phead"><h2>${T("同台对比表", "Side-by-side comparison")}</h2></div>${freshBanner(parts, ["table"], { noJobs: true })}${emptyReport("table")}</div>`;
   const R = W.report, phone = isPhone(), FE = R.front_end;
   const every = tableRows(R).map((r, i) => ({ r, m: rowMetrics(r, W), i }));
@@ -178,12 +180,13 @@ function renderTable() {
   /* a row that cannot carry data on the column on show (usable: the raw chain; usable_cal: the
    * calibrated one) keeps its numbers but comes after the usable rows whatever the sort key, takes
    * no rank and does not set a bar's full width.  A row without the flag (802.11ay) is usable. */
-  every.forEach(x => { x.usable = (S.chain === "cal" ? x.r.usable_cal : x.r.usable) !== false; });
+  const uf = S.chain === "cal" ? "usable_cal" : "usable";
+  every.forEach(x => { x.usable = x.r[uf] !== false; });
   const all = every.filter(x => FILT[S.filt](x.r)), last = (a, b) => (a.usable === b.usable ? 0 : a.usable ? -1 : 1);
   const ranked = [...all].sort((a, b) => last(a, b) || byLens(a, b)); let rk = 0; ranked.forEach(x => { x.rank = !x.usable || nil(key(x)) ? null : ++rk; });
   const shown = S.keep ? [...all].sort((a, b) => last(a, b) || a.i - b.i) : ranked, good = all.filter(x => x.usable);
   const fl = every.flatMap(x => (x.m.ay ? [x.r.floor_raw_worst_db, x.r.floor_cal_worst_db] : [x.r.floor_db, x.r.floor_cal_db]));
-  const ctx = { W, R, phone, first: shown.length ? shown[0].r.label : null, mx: { rate: Math.max(...good.map(x => x.m.rate ?? 0), 1e-9), range: Math.max(...good.map(x => x.m.range ?? 0), 1e-9) },
+  const ctx = { W, R, phone, usableState: fieldState(R, uf, false), usablePart: fieldGroup(R, uf, false), first: shown.length ? shown[0].r.label : null, mx: { rate: Math.max(...good.map(x => x.m.rate ?? 0), 1e-9), range: Math.max(...good.map(x => x.m.range ?? 0), 1e-9) },
     floorDom: span(fl, 2, 1), pjDom: logSpan(every.flatMap(x => [x.m.pjRaw, x.m.pjCal])) };
   const f = fresh().fields, anyStale = Object.values(f).some(v => v === "stale") || pstate("array") === "stale";
   const hs = on => (on ? ` <span class="hst" data-state="stale" title="${T("这一列有过期的格", "this column has stale cells")}">◷</span>` : "");
@@ -195,7 +198,9 @@ function renderTable() {
   /* the table is assembled from up to three results: when its decoder caps start from the analytic floor
    * alone (an analytic-only base), say so in the banner and next to the column */
   const AS = R.assembled || {}, fromFloor = !!AS.decoder_caps_from_analytic_floor;
-  const floorNote = T("解码器上限只从解析底板出发（整表会在解析底板与时域 EVM 里取较差的一个），所以某一行在这里可能比整表高一档。", "The decoder caps start from the analytic floor alone (a full run takes the worse of that and the time-domain EVM), so a row may read one MCS higher here than a full run will.");
+  const lower = AS.rows_whose_decoder_cap_may_be_lower, nLower = lower ? lower.length : null;
+  const floorNote = T("解码器上限只从解析底板出发（整表会在解析底板与时域 EVM 里取较差的一个），所以一行在这里可能比整表高一档。", "The decoder caps start from the analytic floor alone (a full run takes the worse of that and the time-domain EVM), so a row may read one MCS higher here than a full run will.")
+    + (nLower === null ? "" : T(` 上一次整表说这会落在 ${nLower} 行上，行上标了 ※。`, ` By the last full run this concerns ${nLower} rows, marked ※.`));
   const bannerNote = fromFloor ? ` <b class="warnt">${T("解析列来自只算解析列的预览：", "The analytic columns come from an analytic-only preview: ")}${floorNote}</b>` : "";
   const body = `
     <div class="phead"><div><h2>${T("同台对比表", "Side-by-side comparison")}</h2>
@@ -214,10 +219,10 @@ function renderTable() {
       ${anyStale ? `<span class="sm legend-stale"><span class="sv">${T("斜纹底", "hatched")}</span> = ${T("过期的数（它来自的那份结果读了改过的旋钮）；没有底纹的仍然可信", "stale number (the result it comes from reads an edited knob); numbers without the hatch still hold")}</span>` : ""}
     </div>
     <div class="legend" aria-label="${T("口径图例", "Footing legend")}">
-      ${["ay", "be_if_extender", "be_zero_if"].map(c => `<span title="${esc(tr(R.footing[c].cal_floor))}">${fg(c)}<b>${T(...FOOT[c])}</b> · ${cnt(c)} ${T("行", "rows")}<span class="hide-s">${P_.c}${esc(tr(R.footing[c].cal_floor))}</span></span>`).join("")}
+      ${["ay", "be_if_extender", "be_zero_if"].map(c => `<span title="${esc(bi(R.footing[c], "cal_floor"))}">${fg(c)}<b>${T(...FOOT[c])}</b> · ${cnt(c)} ${T("行", "rows")}<span class="hide-s">${P_.c}${esc(bi(R.footing[c], "cal_floor"))}</span></span>`).join("")}
     ${every.some(x => !x.usable) ? `<span class="dimkey">${S.chain === "cal" ? T("变淡的行 = 校准后的链也带不了数据", "dimmed row = even the calibrated chain cannot carry data") : T("变淡的行 = 未校准的链带不了数据", "dimmed row = the raw chain cannot carry data")}${T("：数照旧，排在可用的行之后，不参与排名；看哪条链跟着“取哪一列”走", ": its numbers stay, it sorts after the usable rows and takes no rank; which chain is judged follows the column picked")}</span>` : ""}
     </div>
-    ${fromFloor ? `<p class="note warn" id="assembled-note">※ ${T("解码器上限一列", "Decoder-cap column")}${P_.c}${floorNote}</p>` : ""}
+    ${fromFloor ? `<p class="note warn" id="assembled-note" data-rows="${nLower === null ? "" : nLower}">※ ${T("解码器上限一列", "Decoder-cap column")}${P_.c}${floorNote}</p>` : ""}
     <div class="ct" role="table" aria-label="${T("同台对比表", "Comparison table")}">
       <div class="hrow" role="row"><span></span><span>${T("方案 · 未校准链的结论", "Scheme · verdict on the raw chain")}</span><span>${T("口径", "Footing")}</span>
         <span>${T("EVM 底板 dB　○ 未校准 →", "EVM floor dB　○ raw →")} ${fg("be_zero_if")}${fg("be_if_extender")}${fg("ay")} ${T("校准后", "calibrated")}${hs(["table.analytic", "table.analytic+calibration.be", "table.td", "table.ay"].some(g => f[g] === "stale"))}<span class="ax"><span>${plain(ctx.floorDom[0])}</span><span>${plain(ctx.floorDom[1])}</span></span></span>
@@ -226,7 +231,7 @@ function renderTable() {
         <span><button type="button" data-act="lens" data-v="pj" class="${S.lens === "pj" ? "on" : ""}">pJ/bit${arrow("pj")}</button>${hs(colS)}<span class="ax"><span>${plain(ctx.pjDom[0])}</span><span>${plain(ctx.pjDom[1])}</span></span></span>
         <span><button type="button" data-act="lens" data-v="range" class="${S.lens === "range" ? "on" : ""}">${T("距离", "Range")} m${arrow("range")}</button>${hs(pstate("array") === "stale" && all.some(x => x.m.rg))}</span></div>
       ${shown.map(x => homeRow(x, ctx)).join("")}
-      ${S.filt !== "all" ? "" : R.pending.map(n => `<div class="narow" data-pending="${esc(n.label)}"><code>${esc(n.label)}</code><span>${esc(n.status)}</span><span>${esc(n.reason)}</span></div>`).join("")}
+      ${S.filt !== "all" ? "" : R.pending.map(n => `<div class="narow" data-pending="${esc(n.label)}"><code>${esc(n.label)}</code><span>${esc(n.status)}</span><span>${esc(bi(n, "reason"))}</span></div>`).join("")}
     </div>
     ${sensSection(R)}
     ${loSection(R)}

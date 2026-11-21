@@ -41,7 +41,7 @@ function renderRuns() {
     { h: T("状态", "State"), f: p => `<span class="pchip" data-part="${esc(p.id)}" data-state="${pstate(p.id)}">${stateSign(pstate(p.id))} ${stateWord(pstate(p.id))}</span>` },
     { h: T("是哪个旋钮动了它", "Knobs that moved it"), f: p => (fp[p.id].changed || []).map(id => changeText(id, p.id)).join("<br>") || `<span class="mut">—</span>` },
     { h: T("上游", "Upstream"), f: p => (fp[p.id].upstream || []).map(u => `<span class="dg">${esc(pn(u))}${pstate(u) === "stale" ? "" : " · " + T("不是建在现在这份上", "not built on the one now stored")}</span>`).join("<br>") || (p.upstream.length ? `<span class="mut">${p.upstream.map(u => esc(pn(u))).join(P_.d)}</span>` : `<span class="mut">—</span>`) },
-    { h: T("按什么判", "Judged against"), f: p => { const m = metaOfPart(p.id), c = fp[p.id].computed_at; return `${esc(tr(fp[p.id].basis))}${m ? ` <code>${esc(m.id)}</code>` : ""}${c ? `<div class="xs mut n">${esc(c.version || "")} @ ${short(c.commit)}</div>` : ""}`; } },
+    { h: T("按什么判", "Judged against"), f: p => { const m = metaOfPart(p.id), c = fp[p.id].computed_at; return `${basisWord(fp[p.id].basis)}${m ? ` <code>${esc(m.id)}</code>` : ""}${c ? `<div class="xs mut n">${esc(c.version || "")} @ ${short(c.commit)}</div>` : ""}`; } },
     { h: T("怎么重算", "How to recompute"), f: p => (p.job ? `${jn(p.job)} · ${expected(p.job)}` : p.stored ? `<span class="sm">${T("这里不能重算（要几小时）", "not from this page (it takes hours)")}</span><div class="xs n">${esc(p.stored.command)}</div>${p.stored.seconds_note ? `<div class="xs mut">${esc(p.stored.seconds_note)}</div>` : ""}` : "") },
   ], PT.parts);
   const results = tbl([
