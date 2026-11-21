@@ -791,10 +791,16 @@ def assemble_table(by_part: dict) -> dict | None:
 
     One caveat travels with an analytic-only base (``assembled["decoder_caps_from_analytic_floor"]``):
     its decoder caps start from the analytic floor alone, while a full run takes the worse of that
-    and the time-domain EVM.  Each row says whether that bites (``dec_cap_may_be_lower``): true when
-    the time-domain EVM of the last full run reads worse than the row's new analytic floor (a full
-    run would start from the worse one, so its cap may be lower than the one shown), false when the
-    analytic floor is the worse, None when no time-domain reading is stored for the row."""
+    and the time-domain EVM.  Each row says whether that is likely to bite (``dec_cap_may_be_lower``):
+    true when, in the last full run, the row's time-domain EVM read worse than that run's own
+    analytic floor (``td_delta_db`` > 0: the two engines' disagreement on this row, which a full run
+    of the form on screen would most likely show again, so its cap may be lower than the one shown),
+    false when the analytic floor was the worse, None when no time-domain reading is stored for the
+    row or its CFO is not captured.
+
+    Not the stored time-domain EVM against the *new* analytic floor: that compares two studies, and
+    with any edit that moves the floor it flagged nearly every row (18 of 19 with the back-off moved
+    7.5 -> 9.5 dB, 2026-11-21; by the run's own difference it is 6)."""
     keys = ("table.analytic", "table.td", "table.lo", "table.ay")
     ana, td, lo, ay = (by_part.get(k) for k in keys)
     base = ana or td or lo or ay
@@ -813,9 +819,8 @@ def assemble_table(by_part: dict) -> dict | None:
             for f in BE_FIELDS["table.td"]:
                 r[f] = None if src is None else src.get(f)
         if preview:
-            evm = None if src is None else src.get("td_evm_db")
-            r["dec_cap_may_be_lower"] = (None if evm is None or not r.get("cfo_captured")
-                                         else bool(evm > r["floor_db"]))
+            delta = None if src is None else src.get("td_delta_db")
+            r["dec_cap_may_be_lower"] = None if delta is None or not r.get("cfo_captured") else bool(delta > 0.0)
             if r["dec_cap_may_be_lower"]:
                 bites.append(r["label"])
         rows.append(r)

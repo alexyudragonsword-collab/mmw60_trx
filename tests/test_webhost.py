@@ -195,8 +195,8 @@ def test_an_analytic_only_run_sits_beside_the_full_table_and_hides_nothing():
     that holds it and the table is put together from them."""
     full = g.job_result("table", {}, {
         "kind": "table", "study": {}, "time_domain": True, "fields": g.BE_FIELDS,
-        "rows": [{"label": "row", "floor_db": -20.0, "td_evm_db": -19.5, "td_delta_db": 0.5, "td_ok": True,
-                  "dec_floor_db": -19.5, "dec_mcs": 4, "cfo_captured": True},
+        "rows": [{"label": "row", "floor_db": -17.0, "td_evm_db": -17.5, "td_delta_db": -0.5, "td_ok": True,
+                  "dec_floor_db": -17.0, "dec_mcs": 4, "cfo_captured": True},
                  {"label": "bites", "floor_db": -20.0, "td_evm_db": -17.0, "td_delta_db": 3.0, "td_ok": False,
                   "dec_floor_db": -17.0, "dec_mcs": 3, "cfo_captured": True},
                  {"label": "no cfo", "floor_db": -20.0, "td_evm_db": 6.0, "td_delta_db": 26.0, "td_ok": False,
@@ -214,11 +214,13 @@ def test_an_analytic_only_run_sits_beside_the_full_table_and_hides_nothing():
     assert parts["table.td"]["id"] == parts["table.lo"]["id"] == parts["table.ay"]["id"] == "baseline-table"
     row = rep["rows"][0]
     assert row["floor_db"] == -18.0 and row["dec_mcs"] == 5                    # the preview's analytic columns
-    assert (row["td_evm_db"], row["td_delta_db"], row["dec_floor_db"]) == (-19.5, 0.5, -19.5)   # the full run's
+    assert (row["td_evm_db"], row["td_delta_db"], row["dec_floor_db"]) == (-17.5, -0.5, -17.0)  # the full run's
     assert rep["ay_rows"] == full["report"]["ay_rows"] and rep["lo_models"] == {"rows": [1]}
     assert rep["sensitivity"] == {"knobs": ["preview"]} and rep["time_domain"] is True
     assert rep["assembled"]["analytic_only_base"] and rep["assembled"]["decoder_caps_from_analytic_floor"]
-    # which rows the caveat bites: where the last full run's time-domain EVM is worse than the new analytic floor
+    # which rows the caveat bites: where the last full run's time-domain EVM read worse than that run's own floor
+    # — not where the stored EVM is worse than the preview's new floor: row 0's -17.5 is worse than -18.0, and
+    # that comparison of two studies is not the test
     assert [x["dec_cap_may_be_lower"] for x in rep["rows"]] == [False, True, None]
     assert rep["assembled"]["rows_whose_decoder_cap_may_be_lower"] == ["bites"]
     f = r["freshness"]["parts"]
