@@ -191,7 +191,7 @@ JOBS = {
                                        "12 steps per column, six columns"},
     "table": {"parts": ("table.analytic", "table.td", "table.lo", "table.ay"),
               "command": "python tools/gui_report.py table",
-              "example": "python examples/04_comparison_table.py", "report": "table", "seconds": [55, 126],
+              "example": "python examples/04_comparison_table.py", "report": "table", "seconds": [55, 106],
               "seconds_note": "55 s alone on a 4-core container, with the sensitivity and LO-model sections; "
                               "106 s with three other jobs side by side before those sections existed"},
     "array": {"parts": ("array",), "command": "python tools/gui_report.py array",
@@ -287,16 +287,17 @@ BUILD_COMMIT_FILE = PACKAGE / "data" / "build_commit.txt"
 
 
 def commit() -> str | None:
-    """The checkout's commit; outside a git checkout (an installed wheel) the commit the package
-    was built from, when the build stamped one (``BUILD_COMMIT_FILE``); else None."""
-    try:
-        r = subprocess.run(["git", "-C", str(PACKAGE), "rev-parse", "HEAD"], capture_output=True, text=True,
-                           timeout=5)
-        out = r.stdout.strip() if r.returncode == 0 else ""
-    except (OSError, subprocess.SubprocessError):
-        out = ""
-    if not re.fullmatch(r"[0-9a-f]{40}", out) and BUILD_COMMIT_FILE.is_file():
-        out = BUILD_COMMIT_FILE.read_text(encoding="utf-8").strip()
+    """The commit the numbers come from: the one a built package was stamped with
+    (``BUILD_COMMIT_FILE``, which no checkout has), else the checkout's own, else None (an
+    unstamped install outside a git checkout)."""
+    out = BUILD_COMMIT_FILE.read_text(encoding="utf-8").strip() if BUILD_COMMIT_FILE.is_file() else ""
+    if not re.fullmatch(r"[0-9a-f]{40}", out):
+        try:
+            r = subprocess.run(["git", "-C", str(PACKAGE), "rev-parse", "HEAD"], capture_output=True, text=True,
+                               timeout=5)
+            out = r.stdout.strip() if r.returncode == 0 else ""
+        except (OSError, subprocess.SubprocessError):
+            out = ""
     return out if re.fullmatch(r"[0-9a-f]{40}", out) else None
 
 

@@ -36,6 +36,7 @@ namespaces = true        # vendor/arraytx and vendor/wifitrx/report carry no __i
 
 [tool.setuptools.package-data]
 mmw60 = ["data/spec/*.yaml", "data/clock_profiles/*.yaml", "data/gui/*.yaml", "data/gui/baseline/*.json",
+         "data/build_commit.txt",
          "webui/www/*", "vendor/spec_sources/data/*.yaml"]
 
 [tool.pytest.ini_options]

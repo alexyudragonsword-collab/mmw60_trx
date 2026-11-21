@@ -137,6 +137,59 @@ def test_parts_declare_every_knob_the_ay_rows_read():
     assert _knobs(traced(fn)) <= g.PARTS["table.ay"].reads
 
 
+def _other_settings() -> list[tuple[str, object]]:
+    """Every choice / bool knob of the shared form at each value that is not its preset: the
+    branches a trace at the presets never walks."""
+    ref = g.reference_config()
+    out = []
+    for k in guispec.KNOBS:
+        if k.id not in g.SHARED_KNOBS:
+            continue
+        if k.kind == "choice":
+            out += [(k.id, c) for c in k.choices if c != k.default(ref)]
+        elif k.kind == "bool":
+            out.append((k.id, not k.default(ref)))
+    return out
+
+
+def _trace_table(st: dict, labels: tuple[str, ...], td: bool) -> set[str]:
+    by = {s.label: s for s in g.schemes(st)}
+    picked = [by[lab] for lab in labels]
+    fe = g.frontend(st)
+    return _knobs(traced(lambda: compare.build(picked, fe, time_domain=td)))
+
+
+def test_the_sweep_has_every_switch_of_the_form():
+    """The sweep below is only as good as its list: every choice and bool knob, every other value."""
+    settings = _other_settings()
+    kinds = {k.kind for k in guispec.KNOBS}
+    assert kinds <= {"float", "int", "choice", "bool"}, kinds       # a new kind of switch must join the sweep
+    assert {k for k, _ in settings} == {k.id for k in guispec.KNOBS
+                                        if k.id in g.SHARED_KNOBS and k.kind in ("choice", "bool")}
+    assert len(settings) >= 12
+
+
+@pytest.mark.parametrize("knob,value", _other_settings(), ids=lambda v: str(v))
+def test_parts_declare_what_is_read_behind_every_switch(knob, value):
+    """A read behind a branch (``rx.ce_smooth_tones`` is only read with the automatic span off) is
+    invisible to a trace at the presets.  Every switch thrown one way at a time, the front end and
+    the analytic columns traced again: still traced <= declared."""
+    st = g.study({knob: value})
+    cfg = g.apply_study(g.reference_config(), st)
+    assert _knobs(traced(lambda: Frontend60.from_config(cfg))) <= g.PARTS["calibration.be"].reads
+    assert _trace_table(st, (K1, B8, B32), False) <= g.PARTS["table.analytic"].reads
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("knob,value", _other_settings(), ids=lambda v: str(v))
+def test_parts_declare_what_the_slow_columns_read_behind_every_switch(knob, value):
+    """The same sweep on the columns that cost seconds per setting: the time-domain column of a
+    zero-IF row and topology A's row (which builds the chip and runs its calibration)."""
+    st = g.study({knob: value})
+    assert _trace_table(st, (B8,), True) <= g.PARTS["table.td"].reads
+    assert _trace_table(st, (A80,), False) <= g.PARTS["table.analytic"].reads
+
+
 def test_a_knob_a_part_does_not_read_leaves_its_numbers_alone():
     def numbers(st):
         # everything but the config hash, which follows every field of the config by construction

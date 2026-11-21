@@ -4,9 +4,10 @@ Chromium against the real host on the shipped baseline — the form marks number
 clearing them, a job runs and its result is what the page then shows, the phone layout switches.
 Assertions are on wiring and on numbers landing in the right cell, not on pixels.
 
-Needs Playwright and a Chromium: the browser tests skip without them, except when
+Needs Playwright and a browser: the browser tests skip without them, except when
 MMW60_REQUIRE_BROWSER=1 (CI's test-gui job), where the skip is a failure so a green run that tested
-nothing cannot pass for one that did.
+nothing cannot pass for one that did.  MMW60_BROWSER picks the engine (chromium, the default;
+firefox; webkit — the engine of the phone browsers the layout is for): CI runs one job per engine.
 """
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ import threading
 
 import pytest
 
-from mmw60 import guistore
+from mmw60 import guistore, selfcheck
 from mmw60 import guiutil as g
 from mmw60.webhost import GET_ROUTES, POST_HEADER, POST_ROUTES, WWW, State, make_server
 
@@ -93,8 +94,15 @@ def test_bilingual_markup_is_paired_and_wraps_no_controls():
 
 
 # ------------------------------------------------------------------ the page in a browser
+#: the engines the page is tested in; CI's test-gui job runs one job per engine
+ENGINES = ("chromium", "firefox", "webkit")
+
+
 def _browser():
     required = os.environ.get("MMW60_REQUIRE_BROWSER") == "1"
+    engine = os.environ.get("MMW60_BROWSER", "chromium")
+    if engine not in ENGINES:
+        raise RuntimeError(f"MMW60_BROWSER={engine!r} is not one of {ENGINES}")
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -102,6 +110,14 @@ def _browser():
             raise
         pytest.skip("playwright not installed")
     pw = sync_playwright().start()
+    if engine != "chromium":
+        try:
+            return pw, getattr(pw, engine).launch()
+        except Exception as exc:                # noqa: BLE001 (not installed here)
+            pw.stop()
+            if required:
+                raise RuntimeError(f"no {engine}: {exc}") from exc
+            pytest.skip(f"no {engine}: {exc}")
     # MMW60_CHROMIUM, else Playwright's own download, else any Chromium under PLAYWRIGHT_BROWSERS_PATH
     exes = [os.environ.get("MMW60_CHROMIUM"), None] + sorted(glob.glob(
         os.path.join(os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""), "chromium-*", "chrome-linux*", "chrome")))
@@ -128,11 +144,35 @@ def browser():
     pw.stop()
 
 
+#: packet sizes at which the canned job fails / runs until cancelled
+FAILS_AT, HOLDS_AT = 1300, 1400
+#: what the canned self-check says (the real one runs in ``tests/test_android.py``)
+CHECKED = {
+    "ok": True, "tolerance": selfcheck.TOL, "seconds": 51.5, "at": 1795000000.0, "summary": "ok: canned",
+    "stack": {"python": "3.10.13", "numpy": "1.23.3", "scipy": "1.8.1", "machine": "aarch64", "system": "Linux",
+              "matplotlib_imported": False, "numba_imported": False},
+    "checks": [{"name": "the four shipped reports answer through the page's route", "zh": "四份随包报告读得出来",
+                "ok": True, "detail": {"table": True}},
+               {"name": "every part is fresh on the presets", "zh": "预设下每个部分都是新鲜的", "ok": True,
+                "detail": {}},
+               {"name": "the analytic table recomputed here agrees with the shipped one", "zh": "解析列与随包的一致",
+                "ok": True, "detail": {"rows": 19, "numbers": 777, "identical": 570, "worst_scaled": 3.6e-15,
+                                       "worst": None, "mismatches": [], "tolerance": selfcheck.TOL,
+                                       "job_seconds": 48.25}}],
+    "speed": {"job": selfcheck.JOB, "seconds_here": 48.25, "seconds_reference": 24, "ratio": 48.25 / 24,
+              "reference_note": "24 s on a 4-core container"}}
+
+
 def _canned_runner(job, st, params, emit, cancelled=None):
     """The queue's job for the page tests: the shipped result of that job re-labelled for the study
     (the page is tested on what it does with a result; the real jobs run in ``test_webhost``).
     ``calibration_be`` waits to be let through so the page can be seen while it runs."""
     import time
+    if job == selfcheck.NAME:
+        emit("progress", [1, selfcheck.STEPS, "reading"])
+        time.sleep(0.3)
+        emit("done", {"selfcheck": CHECKED})
+        return
     base = guistore.load_baseline()[job if job != "table_analytic" else "table"]
     for i in range(3):
         emit("progress", [i + 1, 3, f"step {i + 1}"])
@@ -140,6 +180,16 @@ def _canned_runner(job, st, params, emit, cancelled=None):
         if cancelled is not None and cancelled():
             emit("cancelled", None)
             return
+    # two studies the tests use to see a failure and a cancel on the page
+    if st.get("phy.packet_bytes") == FAILS_AT:
+        emit("error", "Traceback (most recent call last):\n  the canned failure\nRuntimeError: no such luck")
+        return
+    t0 = time.time()
+    while st.get("phy.packet_bytes") == HOLDS_AT and time.time() - t0 < 60:
+        if cancelled is not None and cancelled():
+            emit("cancelled", None)
+            return
+        time.sleep(0.05)
     cal = params.get("calibration")
     report = base["report"]
     if job == "table_analytic":                 # what an analytic-only run returns: no time-domain column, no ay rows
@@ -437,3 +487,142 @@ def test_the_lo_models_the_ay_caps_and_the_preview_that_hides_nothing(host, brow
     assert page.evaluate("!!document.getElementById('assembled-note')")
     assert not errors, errors
     page.close()
+
+
+def _set_knob(page, knob, value):
+    if not page.locator(f'[data-knob="{knob}"]').first.is_visible():
+        page.click("#nav-form")
+    box = page.locator(f'[data-knob="{knob}"]').first
+    box.fill(str(value))
+    box.press("Tab")
+
+
+def test_the_self_check_runs_from_the_page_and_says_what_this_machine_said(host, browser):
+    url, state = host
+    page, errors = _open(browser, url)
+    page.click("#nav-runs")
+    page.wait_for_selector("#selfcheck", state="attached")
+    assert page.get_attribute("#selfcheck", "data-ok") in (None, "")              # nothing checked yet: no verdict
+    page.click('#screen-runs [data-job="selfcheck"]')
+    page.wait_for_selector('#selfcheck[data-ok="true"]', timeout=20000)
+    text = page.text_content("#selfcheck")
+    d = CHECKED["checks"][2]["detail"]
+    for word in (CHECKED["stack"]["python"], CHECKED["stack"]["numpy"], CHECKED["stack"]["scipy"],
+                 CHECKED["stack"]["machine"], str(d["numbers"]), str(d["identical"])):
+        assert word in text, word
+    assert page.evaluate("document.querySelectorAll('#selfcheck [data-check]').length") == len(CHECKED["checks"])
+    assert page.evaluate("[...document.querySelectorAll('#selfcheck [data-check]')]"
+                         ".every(e => e.dataset.ok === 'true')")
+    # how fast this machine is: the analytic table's seconds here beside the quoted ones, as the payload gave them
+    speed = page.text_content("#selfcheck-speed")
+    assert "48" in speed and str(g.JOBS[selfcheck.JOB]["seconds"][0]) in speed
+    assert state.selfcheck == CHECKED and not errors, errors
+    page.close()
+
+
+def test_a_failed_job_shows_its_error_a_running_one_can_be_cancelled_and_a_result_deleted(host, browser):
+    url, state = host
+    page, errors = _open(browser, url)
+    # a failure: the card says so and carries the engine's last line; nothing is stored
+    _set_knob(page, "phy.packet_bytes", FAILS_AT)
+    page.click("#nav-runs")
+    page.click('#screen-runs [data-job="table_analytic"]')
+    page.wait_for_selector('#screen-runs [data-job-error]', timeout=20000)
+    assert "no such luck" in page.text_content('#screen-runs [data-job-error]')
+    assert [e for e in state.store.entries() if e["origin"] == "user"] == []
+    # a running job: cancelled from the page, it reads cancelled and stores nothing
+    _set_knob(page, "phy.packet_bytes", HOLDS_AT)
+    page.click("#nav-runs")
+    page.click('#screen-runs [data-job="table_analytic"]')
+    page.wait_for_selector('#screen-runs [data-cancel]', timeout=20000)
+    page.click('#screen-runs [data-cancel]')
+    page.wait_for_selector('#screen-runs [data-status="cancelled"]', timeout=20000)
+    assert [e for e in state.store.entries() if e["origin"] == "user"] == []
+    # a finished one: its result is listed, deleted from the page, and the baseline cannot be
+    _set_knob(page, "phy.packet_bytes", 2048)
+    page.click("#nav-runs")
+    page.click('#screen-runs [data-job="table_analytic"]')
+    page.wait_for_function("!!document.querySelector('[data-field-group=\"table.analytic\"][data-state=\"fresh\"]')",
+                           timeout=30000)
+    mine = [e["id"] for e in state.store.entries() if e["origin"] == "user"]
+    assert len(mine) == 1
+    page.wait_for_selector(f'[data-delete="{mine[0]}"]', state="attached", timeout=15000)
+    assert page.evaluate("document.querySelectorAll('[data-delete^=\"baseline-\"]').length") == 0
+    page.click(f'[data-delete="{mine[0]}"]')
+    page.wait_for_function(f"!document.querySelector('[data-delete=\"{mine[0]}\"]')", timeout=15000)
+    assert [e for e in state.store.entries() if e["origin"] == "user"] == []
+    assert not [e for e in errors if "no such luck" not in e], errors
+    page.close()
+
+
+def test_a_preview_then_a_full_table_come_back_to_one_result(host, browser):
+    url, state = host
+    page, errors = _open(browser, url)
+    _set_knob(page, "frontend.pa.obo_db", 9.5)
+    page.click("#nav-runs")
+    page.click('#screen-runs [data-job="table_analytic"]')
+    page.wait_for_function("!!document.querySelector('[data-field-group=\"table.analytic\"][data-state=\"fresh\"]')",
+                           timeout=30000)
+    page.click("#nav-table")
+    page.wait_for_selector("#assembled-note", state="attached", timeout=15000)
+    # the caveat names rows: the ones the payload flags, no others
+    report, _ = state.table(state.study)
+    flagged = report["assembled"]["rows_whose_decoder_cap_may_be_lower"]
+    drawn = page.evaluate("[...document.querySelectorAll('#screen-table [data-may-be-lower=\"true\"]')]"
+                          ".map(e => e.dataset.label)")
+    assert sorted(drawn) == sorted(flagged) and 0 < len(flagged) < len(report["rows"])
+    # the full table for the same form: four parts, one result, the caveat gone
+    page.click("#nav-runs")
+    page.click('#screen-runs [data-job="table"]')
+    page.wait_for_function("!!document.querySelector('[data-field-group=\"table.td\"][data-state=\"fresh\"]')",
+                           timeout=30000)
+    page.click("#nav-table")
+    page.wait_for_function("!document.getElementById('assembled-note')", timeout=15000)
+    ids = {page.get_attribute(f'#screen-table [data-part-result="{p}"]', "data-result-id")
+           for p in guistore.TABLE_PARTS}
+    assert len(ids) == 1 and next(iter(ids)).startswith("table-")
+    assert page.evaluate("document.querySelectorAll('#screen-table [data-may-be-lower=\"true\"]').length") == 0
+    assert not errors, errors
+    page.close()
+
+
+def test_one_language_at_a_time_and_an_ay_row_lights_its_blocks(host, browser):
+    url, state = host
+    page, errors = _open(browser, url)
+    table = guistore.load_baseline()["table"]["report"]
+    row = next(r for r in table["rows"] if r["label"] == B32)
+    cjk = re.compile(r"[\u4e00-\u9fff]")
+    # English: the row's reason is the payload's English, and no Chinese is left in the row
+    if page.evaluate("document.documentElement.lang") != "en":
+        page.click("#lang-toggle")
+    page.wait_for_function(f"document.querySelector('#screen-table [data-label=\"{B32}\"]').textContent"
+                           f".includes({json.dumps(row['reason_en'])})")
+    assert not cjk.search(_row(page, B32))
+    # ... and the LO section names its models in English, the sensitivity ends in their source's unit
+    lo = table["lo_models"]["models"]
+    text = page.text_content("#lo-models")
+    assert all(m["label"]["en"] in text for m in lo) and not any(m["label"]["zh"] in text for m in lo)
+    walden = next(k for k in table["sensitivity"]["knobs"] if k["knob"] == "Walden FoM")
+    assert walden["value_display"]["unit"] == "fJ/conv.-step"
+    assert walden["value_display"]["text"] in page.text_content(
+        f'#sens [data-sens-knob="{walden["knob"]}|{walden["value_text"]}"]')
+    # Chinese: the same row in Chinese
+    page.click("#lang-toggle")
+    page.wait_for_function(f"document.querySelector('#screen-table [data-label=\"{B32}\"]').textContent"
+                           f".includes({json.dumps(row['reason'])})")
+    assert all(m["label"]["zh"] in page.text_content("#lo-models") for m in lo)
+    # an 802.11ay row selected: the system diagram lights the blocks its report measured alone
+    terms = g.ay_block_terms(guistore.load_baseline()["ay"]["report"])["waveforms"]["ay_sc"]["terms"]
+    ay = next(r for r in table["ay_rows"] if r["waveform"] == "ay_sc")
+    page.click(f'#screen-table [data-label="{ay["label"]}"]')
+    page.click("#nav-system")
+    page.wait_for_selector("#screen-system [data-ay-term]", state="attached", timeout=20000)
+    drawn = page.evaluate("[...new Set([...document.querySelectorAll('#screen-system [data-ay-term]')]"
+                          ".map(e => e.dataset.ayTerm))]")
+    assert sorted(drawn) == sorted(t["impairment"] for t in terms)
+    worst = next(t for t in terms if t["dominant"])
+    assert f"{abs(worst['evm_db']):.1f}" in page.text_content(
+        f'#screen-system [data-ay-term="{worst["impairment"]}"]')
+    assert not errors, errors
+    page.close()
+

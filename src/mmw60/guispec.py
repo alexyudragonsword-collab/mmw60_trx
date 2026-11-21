@@ -57,8 +57,11 @@ KNOBS: tuple[Knob, ...] = (
          help_zh="11ac 20 MHz 基准 0–8（BCC）；11be 基准 0–13（LDPC）",
          help_en="VHT 20 MHz 0-8 (BCC); 11be 0-13 (LDPC)"),
     Knob("phy.packet_bytes", "int", "包长", "packet length", "B", lo=64, hi=65535, step=1),
+    # without "profile": that model needs a profile file and the form has no knob for the path, so
+    # choosing it failed every job ("needs profile_path"; found 2026-11-21 by the sweep that throws
+    # every switch).  The profile models are in the table's LO section, side by side.
     Knob("lo.phase_noise.model", "choice", "相噪模型", "phase-noise model", group="lo",
-         choices=PN_MODELS),
+         choices=tuple(m for m in PN_MODELS if m != "profile")),
     Knob("lo.phase_noise.psd0_dbchz", "float", "相噪 PSD0", "phase-noise PSD0", "dBc/Hz",
          group="lo", lo=-120, hi=-70, step=1),
     Knob("lo.phase_noise.f_pole_hz", "float", "相噪极点", "pole frequency", "Hz", group="lo",

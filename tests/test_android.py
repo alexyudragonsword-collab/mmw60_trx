@@ -43,6 +43,16 @@ def test_manifest_asks_for_no_permission():
     body = re.sub(r"<!--.*?-->", "", m, flags=re.S)
     assert "<uses-permission" not in body and "permission" not in body.lower()
     assert 'android:name=".MainActivity"' in body
+    # the theme is the app's own: light below API 29, the system's day / night from there on
+    assert 'android:theme="@style/AppTheme"' in body
+    day = _text("android/app/src/main/res/values/styles.xml")
+    night = _text("android/app/src/main/res/values-v29/styles.xml")
+    assert 'name="AppTheme" parent="android:Theme.Material.Light.NoActionBar"' in day
+    assert 'name="AppTheme" parent="android:Theme.DeviceDefault.DayNight"' in night
+    # a rotation is handled in place (the page is kept); a change of the system's dark mode is not,
+    # so the activity is rebuilt and reads the theme again
+    changes = re.search(r'android:configChanges="([^"]+)"', body).group(1).split("|")
+    assert "orientation" in changes and "screenSize" in changes and "uiMode" not in changes
     for density in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"):
         assert (ANDROID / f"app/src/main/res/mipmap-{density}/ic_launcher.png").is_file()
 
@@ -100,7 +110,7 @@ def test_workflows_build_with_the_same_python_and_count_the_on_device_tests_that
     tests = len(re.findall(r"^\s*@Test\b", _text("android/app/src/androidTest/java/com/mmw60/app/OnDeviceTest.kt"),
                            flags=re.M))
     counted = re.search(r"check_ondevice_results\.py \S+ (\d+)", android)
-    assert tests == int(counted.group(1)) == 2
+    assert tests == int(counted.group(1)) == 5
     assert "gradle :app:connectedDebugAndroidTest" in android and "check_apk.py" in android
     # the count is checked after the step that can fail, and always
     after = android[android.index("gradle :app:connectedDebugAndroidTest"):]

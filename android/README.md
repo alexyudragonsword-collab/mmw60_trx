@@ -16,7 +16,7 @@ python android/tools/check_apk.py android/app/build/outputs/apk/debug/app-debug.
 ```
 
 库以源码进包（Gradle 的 Python 源目录指向 `../../src`），不经过 pip，所以改了 Python 重新构建就生效，没有要记得重打的 sdist。
-CI 里是 `.github/workflows/android.yml`：构建、读包里到底有什么、再在模拟器上跑两条设备测试；产物 `mmw60-debug-apk` 可侧载。
+CI 里是 `.github/workflows/android.yml`：构建、读包里到底有什么、再在模拟器上跑五条设备测试（自检、页面经桥画出表、返回键先退一屏、旋转不重载页面、系统深色模式页面看得见）；产物 `mmw60-debug-apk` 可侧载。
 
 ## 版本这一组要一起动
 

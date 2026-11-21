@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  From API 29 the app follows the system's dark mode.  The WebView reports the theme's lightness to
+  the page as prefers-color-scheme, which the page's "auto" theme follows; the on-device test
+  autoThemeFollowsTheSystemsDarkMode holds that.
+-->
+<resources>
+    <style name="AppTheme" parent="android:Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
