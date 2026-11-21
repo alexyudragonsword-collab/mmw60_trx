@@ -1,7 +1,11 @@
 package com.mmw60.app
 
 import android.content.pm.ActivityInfo
+import android.os.SystemClock
 import android.util.Log
+import android.view.KeyEvent
+import android.view.MotionEvent
+import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -48,21 +52,43 @@ class OnDeviceTest {
         }
     }
 
-    /** Back leaves a screen of the page before it leaves the app. */
+    /**
+     * Back leaves a screen of the page before it leaves the app, and from the first screen it
+     * leaves the app.
+     *
+     * The screen is changed by a real tap and back by the real key.  A click made from JavaScript
+     * carries no user activation, and Chromium does not count a history entry that was left
+     * without one (WebView.canGoBack() then says false): the first version of this test clicked
+     * from JavaScript, and back closed the app from the Runs screen (2026-11-21).
+     */
     @Test
     fun backLeavesAScreenBeforeItLeavesTheApp() {
+        val inst = InstrumentationRegistry.getInstrumentation()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             assertTrue("the page drew no table row", rowsDrawn(scenario) > 0)
-            eval(scenario, "document.getElementById('nav-runs').click()")
+            val first = eval(scenario, "location.hash")
+            tap(scenario, "nav-runs")
             val there = waitFor(scenario, "location.hash", 20) { it == RUNS }
-            assertEquals("the page did not go to the Runs screen", RUNS, there)
-            scenario.onActivity { it.onBackPressed() }
+            assertEquals("the tap did not take the page to the Runs screen", RUNS, there)
+            inst.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            inst.waitForIdleSync()
+            Thread.sleep(1_500)
+            val alive = scenario.state.isAtLeast(Lifecycle.State.STARTED)
+            Log.i(TAG, "back from $RUNS: app still open $alive")
+            assertTrue("back closed the app instead of going back one screen", alive)
             val back = waitFor(scenario, "location.hash", 20) { it != RUNS }
-            var finishing = true
-            scenario.onActivity { finishing = it.isFinishing }
-            Log.i(TAG, "back: from $RUNS to $back, app closing: $finishing")
-            assertTrue("back did not leave the Runs screen (still $back)", back != RUNS)
-            assertTrue("back closed the app instead of going back one screen", !finishing)
+            Log.i(TAG, "back: $first -> $RUNS -> $back")
+            assertEquals("back did not return to the screen the tap left", first, back)
+            inst.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            inst.waitForIdleSync()
+            var closed = false
+            for (i in 1..20) {
+                closed = scenario.state == Lifecycle.State.DESTROYED
+                if (closed) break
+                Thread.sleep(500)
+            }
+            Log.i(TAG, "back on the first screen: app closed $closed")
+            assertTrue("back on the first screen did not leave the app", closed)
         }
     }
 
@@ -104,6 +130,27 @@ class OnDeviceTest {
         } finally {
             ui.executeShellCommand("cmd uimode night no").close()
         }
+    }
+
+    /** A real tap on the centre of an element of the page (a touch the system delivers, so the
+     *  page has the user activation a finger gives it). */
+    private fun tap(scenario: ActivityScenario<MainActivity>, id: String) {
+        val at = eval(scenario, "(() => { const r = document.getElementById('$id').getBoundingClientRect(); " +
+            "return [r.left + r.width / 2, r.top + r.height / 2, devicePixelRatio].join(' '); })()")
+            .trim('"').split(" ").map { it.toFloat() }
+        val origin = IntArray(2)
+        scenario.onActivity { it.web.getLocationOnScreen(origin) }
+        val x = origin[0] + at[0] * at[2]
+        val y = origin[1] + at[1] * at[2]
+        val inst = InstrumentationRegistry.getInstrumentation()
+        val t = SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0)
+        val up = MotionEvent.obtain(t, t + 60, MotionEvent.ACTION_UP, x, y, 0)
+        inst.sendPointerSync(down)
+        inst.sendPointerSync(up)
+        down.recycle()
+        up.recycle()
+        inst.waitForIdleSync()
     }
 
     /** One JavaScript expression evaluated in the page; its JSON text ("null" when it did not answer). */
