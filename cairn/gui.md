@@ -242,7 +242,9 @@ authoring_mode: ai_generated
 - **页面的一个真 bug**（新测试撞出来的）：改完旋钮马上排任务，任务跑在**上一份表单**上——`state` 请求还没回来。现在表单的改动按顺序一条条送给宿主，排任务先等它。之前两条新测试偶发失败就是它。
 - **我自己两条测试写错了**，子代理指出、我改的测试：① 失败任务那条第三步等字段组 `table.analytic` 变新鲜，可它不读包长，任务没跑就是新鲜的——改成等结果的删除键出现；② 旧的本振测试要求每个 K 列里都有积分相噪，与“每个模型只说一次”矛盾——改成每个模型核一次。
 
-**没有验证的**：Firefox / WebKit（本容器只有 Chromium；CI 的 `test-gui` 三个内核各跑一遍，结果见 LOG）；真机与 Android WebView 上的安全区；`ay_terms: null` 那条分支与自检失败的显示只用假数据看过；复制按钮在非安全来源的 WebView 里可能没有 `navigator.clipboard`，那时它不做事也不报错。
+Firefox 与 WebKit 上同一套 17 条测试在 CI 里通过（PR #88，`d561c11`；本容器只有 Chromium）。
+
+**没有验证的**：真机与 Android WebView 上的安全区；`ay_terms: null` 那条分支与自检失败的显示只用假数据看过；复制按钮在非安全来源的 WebView 里可能没有 `navigator.clipboard`，那时它不做事也不报错。
 载荷里还薄的（没动）：任务进度的文字、`freshness.basis`、自检的环境键名与失败明细、存着的门限的耗时注只有英文；`results[]` 条目没有 `out_of_step_zh`；`row` 载荷不带 `as_written`（页面回落到 `parts` 的）；pllsim 剖面的四个模型共用一个名字，只靠块头的底噪区分；自检不记进 `seconds_here`。
 
 ## 6. 效果图阶段留下的教训
