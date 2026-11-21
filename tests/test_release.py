@@ -23,10 +23,15 @@ V = mmw60.__version__
 
 @pytest.fixture()
 def tree(tmp_path):
-    """A copy of just the files the check reads."""
+    """A copy of just the files the check reads, as they are on release day: whatever the repository
+    has under 未发布 right now (between releases, every merged change) moved out of the way."""
     for rel in ("pyproject.toml", "src/mmw60/__init__.py", "android/app/build.gradle.kts", "CHANGELOG.md"):
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(ROOT / rel, tmp_path / rel)
+    log = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
+    start = log.index(rc.UNRELEASED) + len(rc.UNRELEASED)
+    end = log.index(f"\n## {V} ", start)
+    (tmp_path / "CHANGELOG.md").write_text(log[:start] + "\n" + log[end:], encoding="utf-8")
     for rel in ("src/mmw60/data/gui/baseline", "examples/expected"):
         shutil.copytree(ROOT / rel, tmp_path / rel)
     return tmp_path
@@ -65,6 +70,8 @@ def test_changelog_must_head_with_the_version_and_leave_nothing_unreleased(tree)
     _edit(log, "## 未发布\n", "## 未发布\n\n### something merged after the release notes were written\n- a line\n")
     found = rc.problems(V, tree, tags=set())
     assert len(found) == 1 and "under 未发布" in found[0]
+    # a rehearsal does not ask: between releases the entries are supposed to be there
+    assert rc.problems(V, tree, dry_run=True) == []
     log.write_text(original.replace(f"## {V} ", "## 9.9.9 ", 1), encoding="utf-8")
     found = rc.problems(V, tree, tags=set())
     assert len(found) == 1 and f"newest versioned heading of CHANGELOG.md is not {V}" in found[0]

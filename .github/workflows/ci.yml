@@ -80,24 +80,34 @@ jobs:
   # Without Playwright those tests skip (the matrix above runs them that way);
   # here the skip is a failure (MMW60_REQUIRE_BROWSER=1), so a green run that
   # tested nothing cannot pass for one that did (array_tx's method).
+  # One job per browser engine: the page was only ever looked at in Chromium
+  # until 2026-11-21, and WebKit is what a phone's browser runs.
   test-gui:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install with the page-test extra and a Chromium
+      - name: Install with the page-test extra and the browser
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[gui-test,jit]"
-          python -m playwright install --with-deps chromium
-      - name: Page, host and store tests (real browser, real host)
+          python -m playwright install --with-deps ${{ matrix.browser }}
+      - name: Page tests in ${{ matrix.browser }} (real browser, real host)
         env:
           MMW60_REQUIRE_BROWSER: "1"
-        run: pytest -q tests/test_webui.py tests/test_webhost.py tests/test_guistore.py
+          MMW60_BROWSER: ${{ matrix.browser }}
+        run: pytest -q tests/test_webui.py
+      - name: Host and store tests
+        if: matrix.browser == 'chromium'
+        run: pytest -q tests/test_webhost.py tests/test_guistore.py
 
   # The phone app (android/) is built with the numpy and scipy Chaquopy has for
   # Python 3.10, which are older than the floors pyproject.toml declares, and

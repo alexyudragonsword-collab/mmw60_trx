@@ -68,7 +68,7 @@ def test_pick_prefers_the_result_whose_parts_hold_for_the_study_then_the_fuller_
     q = store.add(result("table", {"frontend.pa.obo_db": 11.0}, quick=True))
     assert store.pick("table", {"frontend.pa.obo_db": 11.0})["id"] != q
     env = store.envelopes(OBO)
-    assert set(env) == {"table.analytic", "table.td", "table.ay", "calibration.be"}
+    assert set(env) == {"table.analytic", "table.td", "table.lo", "table.ay", "calibration.be"}
     assert env["table.td"]["study"] == OBO and env["calibration.be"]["study"] == {}
 
 
@@ -179,6 +179,56 @@ def test_the_baseline_table_is_the_accepted_example_04():
     for r in rep["ay_rows"]:
         f = cells(r["label"])
         assert (f[4], f[5]) == (f"{r['floor_raw_worst_db']:.2f}", f"{r['floor_cal_worst_db']:.2f}"), r["label"]
+
+
+def test_the_baseline_terms_and_power_blocks_are_the_accepted_example_04():
+    """Sections 3 and 4 of example 04: every row's EVM terms and power blocks, rounded the way the
+    report's ``display`` says, are the text the example prints.  ``DISPLAY`` and the example's
+    format strings are two places; this holds them together for the fields the first-section check
+    does not read (149 terms and 151 power cells as of 2026-11-21)."""
+    rep = BASELINE["table"]["report"]
+    d = rep["display"]
+    text = (EXPECTED / "04_comparison_table.txt").read_text(encoding="utf-8").splitlines()
+
+    def section(head):
+        i = next(i for i, ln in enumerate(text) if ln.startswith(head))
+        return text[i + 1:next(j for j in range(i + 1, len(text)) if text[j].startswith("== "))]
+
+    def cells(lines, label):
+        return next(ln for ln in lines if ln.startswith(label + " "))[len(label):].split()
+
+    def db(v):
+        return "—" if v is None or v < -150.0 else f"{v:.{d['terms_db']}f}"
+
+    terms, power = section("== 3. "), section("== 4. ")
+    n_terms = n_power = 0
+    for r in rep["rows"]:
+        f = cells(terms, r["label"])
+        t = r["terms_db"]
+        assert f[0] == f"{r['evm_budget']['pn_ici_db']:.{d['pn_ici_db']}f}" == db(t["phase_noise"]), r["label"]
+        assert f[1] == f"{r['evm_budget']['pn_budget_db']:.1f}", r["label"]
+        assert f[2] == f"{100 * r['evm_budget']['cpe_tracked_fraction']:.1f}%", r["label"]
+        assert f[3:7] == [db(t.get("iq_image")), db(t.get("converters")), db(t["pa"]), db(t.get("isi"))], r["label"]
+        n_terms += 7
+        if "chip" in t:
+            assert f[7:] == ["chip", "residual", db(t["chip"]) + ",", "chip", "LO", db(t["chip_lo"])], r["label"]
+            n_terms += 2
+        if r["power"] is None:
+            assert cells(power, r["label"]) == ["—", "(no", "MCS", "reachable)"], r["label"]
+            continue
+        f = cells(power, r["label"])
+        b = r["power"]["blocks"]
+
+        def pj(name):
+            return "—" if name not in b else f"{b[name]['pj_per_bit']:.{d['pj_per_bit']}f}"
+        assert f[0] == f"{r['power']['bit_rate_bps'] / 1e6:.{d['rate_mbps']}f}", r["label"]
+        assert f[1:7] == [pj(k) for k in ("pa", "lo", "converters", "chip_dpd", "fft", "decoder")], r["label"]
+        assert f[7] == f"{r['power']['pj_per_bit']:.{d['pj_per_bit']}f}", r["label"]
+        n_power += 8
+        if "chip_pa" in b:                                   # the driver is named after the total
+            assert f[-1] == pj("chip_pa"), r["label"]
+            n_power += 1
+    assert (n_terms, n_power) == (7 * 19 + 2 * 8, 8 * 18 + 7)
 
 
 def test_the_baseline_calibration_is_the_accepted_example_03():

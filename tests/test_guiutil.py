@@ -137,6 +137,59 @@ def test_parts_declare_every_knob_the_ay_rows_read():
     assert _knobs(traced(fn)) <= g.PARTS["table.ay"].reads
 
 
+def _other_settings() -> list[tuple[str, object]]:
+    """Every choice / bool knob of the shared form at each value that is not its preset: the
+    branches a trace at the presets never walks."""
+    ref = g.reference_config()
+    out = []
+    for k in guispec.KNOBS:
+        if k.id not in g.SHARED_KNOBS:
+            continue
+        if k.kind == "choice":
+            out += [(k.id, c) for c in k.choices if c != k.default(ref)]
+        elif k.kind == "bool":
+            out.append((k.id, not k.default(ref)))
+    return out
+
+
+def _trace_table(st: dict, labels: tuple[str, ...], td: bool) -> set[str]:
+    by = {s.label: s for s in g.schemes(st)}
+    picked = [by[lab] for lab in labels]
+    fe = g.frontend(st)
+    return _knobs(traced(lambda: compare.build(picked, fe, time_domain=td)))
+
+
+def test_the_sweep_has_every_switch_of_the_form():
+    """The sweep below is only as good as its list: every choice and bool knob, every other value."""
+    settings = _other_settings()
+    kinds = {k.kind for k in guispec.KNOBS}
+    assert kinds <= {"float", "int", "choice", "bool"}, kinds       # a new kind of switch must join the sweep
+    assert {k for k, _ in settings} == {k.id for k in guispec.KNOBS
+                                        if k.id in g.SHARED_KNOBS and k.kind in ("choice", "bool")}
+    assert len(settings) >= 12
+
+
+@pytest.mark.parametrize("knob,value", _other_settings(), ids=lambda v: str(v))
+def test_parts_declare_what_is_read_behind_every_switch(knob, value):
+    """A read behind a branch (``rx.ce_smooth_tones`` is only read with the automatic span off) is
+    invisible to a trace at the presets.  Every switch thrown one way at a time, the front end and
+    the analytic columns traced again: still traced <= declared."""
+    st = g.study({knob: value})
+    cfg = g.apply_study(g.reference_config(), st)
+    assert _knobs(traced(lambda: Frontend60.from_config(cfg))) <= g.PARTS["calibration.be"].reads
+    assert _trace_table(st, (K1, B8, B32), False) <= g.PARTS["table.analytic"].reads
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("knob,value", _other_settings(), ids=lambda v: str(v))
+def test_parts_declare_what_the_slow_columns_read_behind_every_switch(knob, value):
+    """The same sweep on the columns that cost seconds per setting: the time-domain column of a
+    zero-IF row and topology A's row (which builds the chip and runs its calibration)."""
+    st = g.study({knob: value})
+    assert _trace_table(st, (B8,), True) <= g.PARTS["table.td"].reads
+    assert _trace_table(st, (A80,), False) <= g.PARTS["table.analytic"].reads
+
+
 def test_a_knob_a_part_does_not_read_leaves_its_numbers_alone():
     def numbers(st):
         # everything but the config hash, which follows every field of the config by construction
@@ -176,11 +229,15 @@ def test_signature_follows_only_the_knobs_a_part_reads():
 def test_freshness_against_the_accepted_presets():
     f = g.freshness({})
     assert all(v["state"] == "fresh" and v["basis"] == "accepted presets" for v in f.values())
-    # a receiver knob: the time-domain column, the ay rows and the be thresholds; the analytic columns only
-    # through the thresholds
+    # a receiver knob: the time-domain column, the LO section (time-domain runs too), the ay rows and the be
+    # thresholds; the analytic columns only through the thresholds
     f = g.freshness({"rx.cpe_window_symbols": 33})
     stale = {k for k, v in f.items() if v["state"] == "stale"}
-    assert stale == {"table.td", "table.ay", "thresholds.be", "table.analytic", "array", "ay"}
+    assert stale == {"table.td", "table.lo", "table.ay", "thresholds.be", "table.analytic", "array", "ay"}
+    # an LO knob: everything that runs on the form's LO, and not the section that swaps the LO out
+    flo = g.freshness({"lo.phase_noise.psd0_dbchz": -80.0})
+    assert flo["table.td"]["state"] == "stale" and flo["table.lo"]["state"] == "fresh"
+    assert g.field_states(flo)["table.lo"] == "fresh" and g.field_states(flo)["table.td"] == "stale"
     assert f["table.analytic"]["changed"] == [] and f["table.analytic"]["upstream"] == ["thresholds.be"]
     assert f["thresholds.be"]["recompute"] is None
     assert "measure_thresholds.py" in f["thresholds.be"]["stored"]["command"]
@@ -681,10 +738,24 @@ def test_lo_models_report_puts_each_model_on_its_own_front_end_and_ignores_the_f
     wifi7 = by[(models[1]["name"], 32)]
     assert wifi7["ipn_dbc"] < mine["ipn_dbc"] and wifi7["pn_ici_db"] < mine["pn_ici_db"]
     # the form's LO knobs describe one LO; this section swaps in each model whatever they say
+    # ... and that is what the part declares: it reads none of them, so an LO edit leaves it fresh
+    lo_knobs = [k for k in g.SHARED_KNOBS if k.startswith("lo.")]
+    assert rep["form_lo_knobs_ignored"] == sorted(lo_knobs) and not set(lo_knobs) & g.PARTS["table.lo"].reads
+    only_lo = g.lo_models_report({"lo.phase_noise.psd0_dbchz": -80.0, "lo.phase_noise.model": "wifitrx_wifi7"},
+                                 time_domain=False)
+    assert only_lo["rows"] == rep["rows"]
     edited = g.lo_models_report({"lo.phase_noise.psd0_dbchz": -80.0, "frontend.pa.obo_db": 9.5}, time_domain=False)
-    assert edited["edited_lo_knobs"] == ["lo.phase_noise.psd0_dbchz"]
     assert [r["pn_ici_db"] for r in edited["rows"]] == [r["pn_ici_db"] for r in rep["rows"]]
     assert [r["floor_db"] for r in edited["rows"]] != [r["floor_db"] for r in rep["rows"]]       # the PA moved
+    assert "frontend.pa.obo_db" in g.PARTS["table.lo"].reads
+    # once per model: what does not change with K, in both languages, the floor as a field
+    assert [m["model"] for m in rep["models"]] == [m["name"] for m in models]
+    for m in rep["models"]:
+        mine = [r for r in rep["rows"] if r["model"] == m["model"]]
+        assert set(m["label"]) == {"zh", "en"} and m["label"] == g.LO_LABELS[m["kind"]]
+        assert {r["ipn_dbc"] for r in mine} == {m["ipn_dbc"]} and m["floor_dbchz"] == mine[0]["floor_dbchz"]
+    assert [m["is_preset_model"] for m in rep["models"]] == [True] + [False] * (len(models) - 1)
+    assert set(rep["base"]) == {"zh", "en"}
     json.dumps(rep, allow_nan=False)
 
 
@@ -710,3 +781,65 @@ def test_the_ay_rows_decoder_cap_is_the_array_layers_at_one_element():
         assert r["dec_mcs_cal"] == n1[wf]["cap_mcs"] and r["dec_rate_cal_mbps"] == pytest.approx(n1[wf]["rate_mbps"])
         assert r["dec_mcs"] is not None and r["dec_mcs"] < r["dec_mcs_cal"]          # raw floor: a low cap, not none
         assert r["power_dec_cal"]["pj_per_bit"] == pytest.approx(n1[wf]["pj_per_bit"], rel=1e-6)
+
+
+# ------------------------------------------------------------------ the odds and ends (2026-11-21)
+def test_an_ay_row_lights_blocks_that_exist_and_an_unknown_impairment_is_an_error():
+    from mmw60 import guistore
+    ay = guistore.load_baseline()["ay"]["report"]
+    chain = g.system_report()["topology_b_chain"]            # the ay waveforms are topology B's hardware
+    block_ids = {b["id"] for side in ("tx", "rx") for b in chain[side]}
+    terms = g.ay_block_terms(ay)
+    assert set(terms["waveforms"]) == set(AY_WAVEFORMS) and set(terms["note"]) == {"zh", "en"}
+    for wf, w in terms["waveforms"].items():
+        assert len(w["terms"]) == 6 and w["reference_evm_db"] is not None, wf
+        assert [t["dominant"] for t in w["terms"]] == [True] + [False] * 5
+        evm = [t["evm_db"] for t in w["terms"]]
+        assert evm == sorted(evm, reverse=True)                              # worst first
+        for t in w["terms"]:
+            assert t["blocks"] and set(t["blocks"]) <= block_ids, (wf, t["impairment"])
+            assert t["above_reference_db"] == pytest.approx(t["evm_db"] - w["reference_evm_db"])
+            # the reading is the report's own, not a copy that can drift
+            row = next(r for r in ay["impairments_alone"] if r["impairment"] == t["impairment"])
+            assert t["evm_db"] == row[f"{wf}_evm_db"]
+    # every impairment the report measures is either given its blocks or a reason for having none
+    table = g._system_description()["ay_impairment_to_block"]
+    measured = {r["impairment"] for r in ay["impairments_alone"]}
+    assert measured == set(table["blocks"]) | set(table["no_block"])
+    extra = dict(ay, impairments_alone=ay["impairments_alone"] + [{"impairment": "a new one", "ay_sc_evm_db": -30.0}])
+    with pytest.raises(KeyError, match="a new one"):
+        g.ay_block_terms(extra)
+    assert g.ay_block_terms(None) is None and g.ay_block_terms({"impairments_alone": []}) is None
+
+
+def test_a_sensitivity_end_is_shown_in_the_unit_of_its_source_entry():
+    from mmw60 import guistore
+    knobs = guistore.load_baseline()["table"]["report"]["sensitivity"]["knobs"]
+    lo, hi = (float(v) for v in spec.value("adc_survey.walden_fom_range_fj"))
+    walden = [k for k in knobs if k["knob"] == "Walden FoM"]
+    assert [k["value_display"]["unit"] for k in walden] == ["fJ/conv.-step"] * 2
+    assert [float(k["value_display"]["text"]) for k in walden] == pytest.approx([lo, hi], rel=1e-3)
+    assert [k["value"] for k in walden] == pytest.approx([lo * 1e-15, hi * 1e-15])     # the engine's own value is kept
+    pae = [k for k in knobs if k["knob"] == "PA peak PAE"]
+    assert [k["value_display"]["unit"] for k in pae] == ["%", "%"]
+    assert [float(k["value_display"]["text"]) for k in pae] == pytest.approx([10.0, 30.0])
+    # every other knob is shown as the engine holds it
+    for k in knobs:
+        if k["knob"] not in g.SENS_DISPLAY:
+            assert k["value_display"] == {"text": k["value_text"], "unit": k["unit"]}, k["knob"]
+    assert set(g.SENS_DISPLAY) <= {k["name"] for k in compare.sensitivity_knobs()}
+
+
+def test_a_built_package_says_its_commit_and_a_checkout_its_own(tmp_path, monkeypatch):
+    here = g.commit()
+    assert here is not None and len(here) == 40                  # this checkout
+    assert not g.BUILD_COMMIT_FILE.exists()                      # no checkout carries a stamp (.gitignore)
+    stamp = tmp_path / "build_commit.txt"
+    monkeypatch.setattr(g, "BUILD_COMMIT_FILE", stamp)
+    stamp.write_text("0123456789abcdef0123456789abcdef01234567\n", encoding="utf-8")
+    assert g.commit() == "0123456789abcdef0123456789abcdef01234567"   # the stamp wins: an installed wheel has no git
+    assert g.provenance()["commit"] == "0123456789abcdef0123456789abcdef01234567"
+    stamp.write_text("not a commit\n", encoding="utf-8")
+    assert g.commit() == here                                    # a stamp that is not a commit is not believed
+    assert "data/build_commit.txt" in (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    assert "src/mmw60/data/build_commit.txt" in (REPO / ".gitignore").read_text(encoding="utf-8")

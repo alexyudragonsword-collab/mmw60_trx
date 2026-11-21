@@ -1,7 +1,7 @@
 """Is this tree the release it says it is?  And the notes a release page carries.
 
     python tools/release_check.py check 0.3.0            # every place that states the version agrees
-    python tools/release_check.py check 0.3.0 --dry-run  # the same, an existing tag is no problem
+    python tools/release_check.py check 0.3.0 --dry-run  # a rehearsal: what is only true on release day is not asked
     python tools/release_check.py notes 0.3.0            # the release notes, from CHANGELOG.md
 
 ``.github/workflows/release.yml`` runs ``check`` before it builds anything and ``notes`` for the
@@ -15,6 +15,11 @@ release page.  A release is cut from a tree in which
 
 Each of these was done by hand for 0.3.0, and one of them (the examples' version line) was nearly
 missed; this is the list, as code.
+
+A rehearsal (``--dry-run``: a pull request that touches the release workflow) asks everything except
+the two things that are true only on release day: the tag not existing, and nothing under 未发布.
+Between releases 未发布 is where every merged change is written, so the first pull request after
+0.3.0 that touched the workflow failed its rehearsal on its own changelog entry (2026-11-21).
 """
 from __future__ import annotations
 
@@ -73,7 +78,7 @@ def problems(version: str, root: Path = REPO, dry_run: bool = False, tags: set[s
     stated("android/app/build.gradle.kts", r'^\s*versionName = "([^"]+)"', "versionName")
     try:
         _, _, unreleased = changelog_section((root / "CHANGELOG.md").read_text(encoding="utf-8"), version)
-        if unreleased:
+        if unreleased and not dry_run:
             out.append(f"CHANGELOG.md still has entries under 未发布 ({len(unreleased.splitlines())} lines): "
                        "they would ship unannounced; move them under the version")
     except ValueError as exc:
@@ -118,7 +123,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("check")
     c.add_argument("version")
-    c.add_argument("--dry-run", action="store_true", help="rehearsal: an existing tag is not a problem")
+    c.add_argument("--dry-run", action="store_true",
+                   help="rehearsal: an existing tag and entries under 未发布 are not problems")
     n = sub.add_parser("notes")
     n.add_argument("version")
     args = ap.parse_args(argv)
@@ -129,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     for p in found:
         print("PROBLEM:", p)
     print(f"release {args.version}: {'not releasable' if found else 'every statement of the version agrees'}"
-          + (" (dry run: the tag was not looked up)" if args.dry_run else ""))
+          + (" (dry run: the tag and 未发布 were not asked about)" if args.dry_run else ""))
     return 1 if found else 0
 
 

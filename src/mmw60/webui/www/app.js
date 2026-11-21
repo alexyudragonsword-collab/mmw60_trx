@@ -14,14 +14,15 @@ const studyKey = () => JSON.stringify(S.study);
  * that pick changes */
 function repKey(name) {
   const sh = S.state ? S.state.shown : {}, k = m => (m ? m.id + "@" + m.at : "-"), pr = (sh.table && sh.table.part_results) || {};
-  const table = sh.table ? TABLE_PARTS.map(p => k(pr[p])).join("+") : "-";
+  const table = sh.table ? Object.keys(pr).map(p => k(pr[p])).join("+") : "-";
   return [name === "table" ? table : k(sh[name]), ...(name === "table" ? [k(sh.array)] : name === "ay" ? [k(sh.array), table] : [])].join("|");
 }
 function invalidate() {
   for (const name of Object.keys(S.rep)) if (S.repStudy[name] !== repKey(name)) { delete S.rep[name]; delete S.repStudy[name]; }
   if (S.row && S.rowKey !== rowKey()) S.row = null;
-  if (S.system && S.systemStudy !== studyKey()) S.system = null;
+  if (S.system && S.systemStudy !== sysKey()) S.system = null;
 }
+const sysKey = () => studyKey() + "|" + repKey("ay");
 const rowKey = () => [S.sel, repKey("table"), repKey("calibration"), studyKey()].join("|");
 async function loadReport(name) {
   const key = repKey(name);
@@ -39,7 +40,7 @@ async function ensure(screen) {
   else if (screen === "array") { await rep("array"); await rep("table"); }
   else if (screen === "ay") await rep("ay");
   else if (screen === "system") {
-    if (!S.system) { S.system = await api("system", { study: S.study }); S.systemStudy = studyKey(); got = true; }
+    if (!S.system) { S.system = await api("system", { study: S.study }); S.systemStudy = sysKey(); got = true; }
     await rep("table");
   } else if (screen === "row" && S.sel) {
     await rep("table");
@@ -50,7 +51,7 @@ async function ensure(screen) {
       got = true;
     }
     if (S.row && isAy(S.row.row)) await rep("ay");
-  } else if (screen === "runs") { const r = await api("results"); if (S.state) S.state.results = r.results; got = true; }
+  } else if (screen === "runs") { const [r, sc] = await Promise.all([api("results"), api("selfcheck")]); if (S.state) S.state.results = r.results; S.selfcheck = sc; got = true; }
   return got;
 }
 
@@ -98,17 +99,25 @@ function go(screen, replace) {
 }
 
 /* ------------------------------------------------------------------ the form: the study lives on the host */
-async function refreshState(study) {
-  const before = studyKey();
-  const st = await api("state", study === undefined ? {} : { study });
-  S.state = st; S.study = st.study; S.jobs = st.jobs;
-  st.jobs.forEach(j => { if (!(j.id in S.lastJobs)) S.lastJobs[j.id] = j.status; });
-  invalidate();
-  if (before !== studyKey() || study !== undefined || !$("form").contains(document.activeElement)) renderForm();
-  chrome();
+/* Reads and edits of the study go to the host one at a time, in the order they were made: an edit is a
+ * change applied to the study as it stands once the earlier ones have landed, so a second edit made while
+ * the first is in flight does not undo it, and an older answer never overwrites a newer one. */
+let settling = Promise.resolve();
+function refreshState(change) {
+  const p = settling.then(async () => {
+    const before = studyKey(), study = typeof change === "function" ? change(S.study) : change;
+    const st = await api("state", study === undefined ? {} : { study });
+    S.state = st; S.study = st.study; S.jobs = st.jobs;
+    st.jobs.forEach(j => { if (!(j.id in S.lastJobs)) S.lastJobs[j.id] = j.status; });
+    invalidate();
+    if (before !== studyKey() || study !== undefined || !$("form").contains(document.activeElement)) renderForm();
+    chrome();
+  });
+  settling = p.catch(() => {});
+  return p;
 }
-async function setStudy(next, knobId) {
-  try { await refreshState(next); S.knobErr = {}; renderForm(); await show(); }
+async function setStudy(change, knobId) {
+  try { await refreshState(change); S.knobErr = {}; renderForm(); await show(); }
   catch (e) { if (knobId) { S.knobErr = { [knobId]: e.message }; renderForm(); } showError(e); }      // the previous study is kept
 }
 function toggleForm(open) {
@@ -120,7 +129,7 @@ function toggleForm(open) {
 
 /* ------------------------------------------------------------------ jobs */
 const jobDone = s => s === "done" || s === "error" || s === "cancelled";
-function drawQueue() { chrome(); const q = $("runs-queue"); if (q && S.screen === "runs") q.innerHTML = runsQueue(); }
+function drawQueue() { chrome(); const q = $("runs-queue"), c = $("selfcheck-run"); const f = $("field-groups"); if (q && S.screen === "runs") { q.innerHTML = runsQueue(); if (c) c.innerHTML = selfcheckRun(); if (f) f.innerHTML = fieldGroups(); } }
 /* Poll once a second while a job is queued or running, and not otherwise.  A submit sets
  * pollAgain, so a poll that saw the queue idle just before it does not stop. */
 async function poll() {
@@ -136,6 +145,7 @@ async function poll() {
       if (ended.length) {
         ended.filter(x => x.status === "error").forEach(x => showError(jn(x.job) + P_.c + String(x.error || "").trim().split("\n").pop()));
         ended.filter(x => x.status === "done").forEach(x => toast(jn(x.job) + P_.c + T("算完了，结果已存", "done, the result is stored")));
+        S.parts = await api("parts");      /* a finished job leaves its own duration, a self-check the host's speed */
         await refreshState(); await show();
       } else drawQueue();
       if (!S.jobs.some(jobActive) && !S.pollAgain) break;
@@ -144,11 +154,13 @@ async function poll() {
   } catch (e) { showError(e); } finally { S.polling = false; }
 }
 async function runJob(job) {
+  S.submitting = Object.assign({}, S.submitting, { [job]: true }); drawQueue();          /* the press shows at once */
   try {
+    await settling;                    /* an edit still on its way to the host lands first: the job is for the form as typed */
     const r = await api("run", { job, study: S.study });
-    S.lastJobs[r.job.id] = r.job.status; S.jobs = [...(S.jobs || []).filter(x => x.id !== r.job.id), r.job]; S.pollAgain = true;
+    S.lastJobs[r.job.id] = r.job.status; S.jobs = [...(S.jobs || []).filter(x => x.id !== r.job.id), r.job]; S.pollAgain = true; delete S.submitting[job];
     toast(T("已排队", "Queued") + P_.c + jn(job)); drawQueue(); poll();
-  } catch (e) { showError(e); }
+  } catch (e) { delete S.submitting[job]; drawQueue(); showError(e); }
 }
 async function cancelJob(id) { try { await api("jobs/" + id + "/cancel", {}); } catch (e) { showError(e); } S.pollAgain = true; poll(); }
 async function deleteResult(id) { try { await api("results/" + id + "/delete", {}); await refreshState(); await show(); } catch (e) { showError(e); } }
@@ -170,8 +182,8 @@ document.addEventListener("click", e => {
   else if (act === "form") toggleForm();
   else if (act === "lang") { S.lang = S.lang === "zh" ? "en" : "zh"; try { localStorage.setItem("mmw60.lang", S.lang); } catch (err) { /* no storage */ } applyLang(); renderForm(); render(); }
   else if (act === "theme") { S.theme = S.theme === "auto" ? "light" : S.theme === "light" ? "dark" : "auto"; try { localStorage.setItem("mmw60.theme", S.theme); } catch (err) { /* no storage */ } applyTheme(); }
-  else if (act === "resetall") setStudy({});
-  else if (act === "reset") { const next = Object.assign({}, S.study); delete next[v]; setStudy(next, v); }
+  else if (act === "resetall") setStudy(() => ({}));
+  else if (act === "reset") setStudy(st => { const next = Object.assign({}, st); delete next[v]; return next; }, v);
   else if (act === "run") runJob(b.dataset.job);
   else if (act === "cancel") cancelJob(v);
   else if (act === "delres") deleteResult(v);
@@ -191,7 +203,7 @@ document.addEventListener("change", e => {
   const k = knob(el.dataset.knob); if (!k) return;
   let v = k.kind === "bool" ? el.checked : k.kind === "choice" ? el.value : Number((parseFloat(el.value) * (Number(el.dataset.sc) || 1)).toPrecision(12));
   if (typeof v === "number" && !isFinite(v)) { S.knobErr = { [k.id]: T("不是一个数", "not a number") }; renderForm(); return; }
-  setStudy(Object.assign({}, S.study, { [k.id]: v }), k.id);
+  setStudy(st => Object.assign({}, st, { [k.id]: v }), k.id);
 });
 document.addEventListener("input", e => {
   if (e.target.id === "src-q") { S.srcQuery = e.target.value; const l = $("src-list"); if (l) l.innerHTML = sourceRows(); }

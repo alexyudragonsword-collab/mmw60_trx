@@ -41,7 +41,7 @@ REPORT_JOBS = {name: tuple(j for j, v in guiutil.JOBS.items() if v["report"] == 
                for name in sorted({v["report"] for v in guiutil.JOBS.values()})}
 #: the part a report is led by (its provenance line), and the parts the comparison table is drawn from
 REPORT_PART = {"table": "table.analytic", "calibration": "calibration.be", "array": "array", "ay": "ay"}
-TABLE_PARTS = ("table.analytic", "table.td", "table.ay")
+TABLE_PARTS = ("table.analytic", "table.td", "table.lo", "table.ay")
 
 
 def default_home() -> Path:
@@ -158,12 +158,18 @@ class Store:
 
     def pick_part(self, part: str, st: dict | None = None) -> dict | None:
         """The stored result a page draws ``part`` from under study ``st``: among the results that
-        hold the part, the one whose knobs for it still hold, then a fresh one, then a fuller run,
-        then the newest.  None when no result holds the part.  Smoke-size results are never picked.
+        hold the part, one this code would still compute first (same spec tables, same vendored
+        pins: ``stale_reasons``), then the one whose knobs for the part still hold, then a fresh
+        one, then a fuller run, then the newest.  None when no result holds the part.  Smoke-size
+        results are never picked.
 
         Picking per part is what lets a quick partial run sit beside a full one: an analytic-only
         table for the study on screen is drawn for the analytic columns while the time-domain column
-        and the 802.11ay rows stay on the last full run, marked stale — nothing vanishes."""
+        and the 802.11ay rows stay on the last full run, marked stale — nothing vanishes.
+
+        A result computed on other spec tables or pins is still picked when nothing else holds the
+        part (a page marks it, ``out_of_step``); it no longer wins over one that is in step, which
+        ``freshness`` could not tell from it: freshness compares knobs, not code."""
         st = guiutil.study(st)
         best, best_rank = None, None
         for entry in self.entries():
@@ -171,7 +177,8 @@ class Store:
             if part not in res["parts"] or res.get("quick"):
                 continue
             fresh = guiutil.freshness(st, guiutil.envelopes_of(res))[part]
-            rank = (not fresh["changed"], fresh["state"] == "fresh", len(res["parts"]), entry["at"])
+            in_step = not stale_reasons(res, baseline=entry["origin"] == "baseline")
+            rank = (in_step, not fresh["changed"], fresh["state"] == "fresh", len(res["parts"]), entry["at"])
             if best_rank is None or rank > best_rank:
                 best, best_rank = entry, rank
         return best

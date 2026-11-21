@@ -17,7 +17,7 @@ const verdicts = x => `<span class="vv" title="wifitrx · ${T("汇总表", "summ
 const stepVal = (x, d = 1) => (nil(x.value) ? `<small>${T("无指标", "no metric")}</small>` : `${fx(x.value, d)} ${metricUnit(x)} <small>${esc(x.metric || "")}</small>`);
 function statusRule(C) {
   const sr = C.status_rule;
-  return `<b>wifitrx</b>${P_.c}${esc(tr(sr.status_wifitrx))}<br><b>${T("汇总表", "summary table")}</b>${P_.c}${S.lang === "zh" ? `wifitrx 的判定；另外，ok 的一步若 dB 指标比第一列差 ${plain(sr.degrade_db)} dB 以上，也记为 degraded（本库的规则）` : esc(sr.status_summary)}`;
+  return `<b>wifitrx</b>${P_.c}${esc(bi(sr, "status_wifitrx"))}<br><b>${T("汇总表", "summary table")}</b>${P_.c}${esc(bi(sr, "status_summary"))}`;
 }
 function calMatrix(C, col) {
   return `<figure class="calmx"><div class="eyebrow">${C.steps.length} ${T("步", "steps")} × ${C.columns.length} ${T("列：哪一步在哪一列退化", "columns: which step degrades where")}</div><div class="chartbox" data-chart="calmx" data-col="${esc(col || "")}"></div>
@@ -25,7 +25,7 @@ function calMatrix(C, col) {
 }
 function footCard(fc, f) {
   return `<section class="blk"><header><h3>${fg(fc)} ${T("这一行的口径", "How this row is counted")}${P_.c}${T(...FOOT[fc])}</h3></header>
-    <dl class="kv"><dt>${T("未校准底板", "Raw floor")}</dt><dd>${esc(tr(f.raw_floor))}</dd><dt>${T("校准后底板", "Calibrated floor")}</dt><dd>${esc(tr(f.cal_floor))}</dd>
+    <dl class="kv"><dt>${T("未校准底板", "Raw floor")}</dt><dd>${esc(bi(f, "raw_floor"))}</dd><dt>${T("校准后底板", "Calibrated floor")}</dt><dd>${esc(bi(f, "cal_floor"))}</dd>
     <dt>${T("校准在这条链上真跑过", "Calibration actually run on this chain")}</dt><dd>${f.calibration_run_on_this_chain ? `<span class="ok">✓ ${T("是", "yes")}</span>` : `<span class="dg">▲ ${T("否：查表", "no: looked up")}</span>`}</dd>
     <dt>${T("pJ/bit 计解码器", "Decoder counted in pJ/bit")}</dt><dd>${f.decoder_counted_in_pj ? `<span class="ok">✓ ${T("计", "counted")}</span>` : `<span class="dg">▲ ${T("不计", "not counted")}</span>`}</dd></dl></section>`;
 }
@@ -50,7 +50,7 @@ function reproCard(W) {
 }
 function powerTable(p) {
   return tbl([
-    { h: T("功耗块", "Block"), f: r => term(r[0]) }, { h: "mW", r: 1, f: r => sig(r[1].watts * 1e3) }, { h: "pJ/bit", r: 1, f: r => sig(r[1].pj_per_bit) }, { h: T("怎么算的", "How it is counted"), f: r => `<span class="sm">${esc(r[1].note)}</span>` },
+    { h: T("功耗块", "Block"), f: r => term(r[0]) }, { h: "mW", r: 1, f: r => sig(r[1].watts * 1e3) }, { h: "pJ/bit", r: 1, f: r => sig(r[1].pj_per_bit) }, { h: T("怎么算的", "How it is counted"), f: r => `<span class="sm">${asWritten(r[1].note, awLang("power_block_note"))}</span>` },
   ], Object.entries(p.blocks)) + (p.omitted && p.omitted.length ? `<p class="note">${T("没有计入", "Not counted")}${P_.c}${p.omitted.map(esc).join(P_.s)}</p>` : "");
 }
 function renderRow() {
@@ -73,7 +73,7 @@ function renderRow() {
       <div><span class="eyebrow">${T("EVM 底板", "EVM floor")}</span><div class="big"><span class="from">${svf("floor_db", fx(r.floor_db, d.floor_db))} →</span> ${svf("floor_cal_db", fx(r.floor_cal_db, d.floor_db))} <small>dB</small></div>
         <div class="sm mut">${T("解析和", "analytic sum")} · ${svf("td_evm_db", `${T("时域", "time-domain")} ${fx(r.td_evm_db, d.td_evm_db)} dB，${T("差", "Δ")} ${fx(r.td_delta_db, d.td_delta_db)} dB`)} ${yes(r.td_ok, "ok")}</div></div>
       <div><span class="eyebrow">${T("合规上限", "Conformance cap")}</span><div class="big"><span class="from">${svf("max_mcs", mcs(r.max_mcs))} →</span> ${svf("max_mcs_cal", mcs(r.max_mcs_cal))}</div>
-        <div class="sm mut">${fx(r.rate_mbps, d.rate_mbps)} → ${fx(r.rate_cal_mbps, d.rate_mbps)} Mb/s · ${esc(tr(r.verdict))}${r.reason ? P_.c + esc(tr(r.reason)) : ""}</div></div>
+        <div class="sm mut">${fx(r.rate_mbps, d.rate_mbps)} → ${fx(r.rate_cal_mbps, d.rate_mbps)} Mb/s · ${esc(bi(r, "verdict"))}${r.reason ? P_.c + esc(bi(r, "reason")) : ""}</div></div>
       <div><span class="eyebrow">${T("解码器上限", "Decoder cap")}</span><div class="big"><span class="from">${svf("dec_mcs", esc(r.dec_cap_display || "—"))} →</span> ${svf("dec_mcs_cal", esc(r.dec_cap_cal_display || "—"))}</div>
         <div class="sm mut">${fx(r.dec_rate_mbps, d.rate_mbps)} → ${fx(r.dec_rate_cal_mbps, d.rate_mbps)} Mb/s · ${T("离上一档", "to next step")} ${fx(r.dec_next_margin_db, d.dec_next_margin_db)} / ${fx(r.dec_cal_next_margin_db, d.dec_next_margin_db)} dB</div></div>
       <div><span class="eyebrow">pJ/bit · ${T("合规上限处", "at the conformance cap")}</span><div class="big"><span class="from">${svf("power", pj(r.power))} →</span> ${svf("power_cal", pj(r.power_cal))}</div>
@@ -92,7 +92,7 @@ function renderRow() {
       { h: "wifitrx EvmBudget dB", r: 1, f: t => (absent(bk(t[0])) ? `<span class="mut">—</span>` : fx(bk(t[0]), 1)) + (t[0] === "phase_noise" && !nil(b.cpe_tracked_fraction) ? ` <span class="mut sm">CPE ${T("跟掉的比例", "tracked fraction")} ${fx(b.cpe_tracked_fraction, 2)}</span>` : "") },
     ], terms)}
       <p class="note">${T("交叉核对", "Cross-check")}${P_.c}${T("解析和", "analytic sum")} <b class="n">${fx(r.floor_db, d.floor_db)} dB</b> · wifitrx EvmBudget <b class="n">${fx(b.predicted_evm_db, 1)} dB</b> (${T("差", "Δ")} ${fx(r.budget_delta_db, 2)}) · ${T("同一格的时域 EVM", "time-domain EVM of the same cell")} <b class="n">${fx(r.td_evm_db, d.td_evm_db)} dB</b> ${yes(r.td_ok, "ok")} · IPN ${fx(b.ipn_dbc_10k_100m, 1)} dBc</p>
-      ${fc === "be_zero_if" ? `<p class="note warn">${fg(fc)} ${T("校准后", "Calibrated")} <b class="n">${fx(r.floor_cal_db, d.floor_db)} dB</b>${P_.c}${esc(tr(W.footing.cal_floor))}${P_.p}IRR <b class="n">${svf("irr_cal_db", fx(r.irr_cal_db, d.irr_cal_db))} dB</b> @${hz(r.irr_cal_measured_at_hz)}${W.irr_looked_up_from_column ? ` · ${T("查的是校准的这一列", "looked up from calibration column")} <code>${esc(W.irr_looked_up_from_column)}</code>` : ""}${R.irr_table ? ` · ${T("表取自", "table from")} <code>${esc(R.irr_table.from)}</code>` : ""}</p>` : `<p class="note">${fg(fc)} ${esc(tr(W.footing.cal_floor))}</p>`}
+      ${fc === "be_zero_if" ? `<p class="note warn">${fg(fc)} ${T("校准后", "Calibrated")} <b class="n">${fx(r.floor_cal_db, d.floor_db)} dB</b>${P_.c}${esc(bi(W.footing, "cal_floor"))}${P_.p}IRR <b class="n">${svf("irr_cal_db", fx(r.irr_cal_db, d.irr_cal_db))} dB</b> @${hz(r.irr_cal_measured_at_hz)}${W.irr_looked_up_from_column ? ` · ${T("查的是校准的这一列", "looked up from calibration column")} <code>${esc(W.irr_looked_up_from_column)}</code>` : ""}${R.irr_table ? ` · ${T("表取自", "table from")} <code>${esc(R.irr_table.from)}</code>` : ""}</p>` : `<p class="note">${fg(fc)} ${esc(bi(W.footing, "cal_floor"))}</p>`}
     </section>`;
     let cal;
     if (!C) cal = `<section class="blk"><header><h3>${T("校准步骤", "Calibration steps")}</h3></header>${emptyReport("calibration")}</section>`;
@@ -102,14 +102,14 @@ function renderRow() {
         const x = sp.cells[ci]; if (!x) return "";
         const strip = `<div class="kstrip" style="grid-template-columns:repeat(${C.columns.length},minmax(0,1fr))" title="${esc(C.columns.map(c => c.label).join(" | "))}">${sp.cells.map((y, j) => (y ? `<span class="${j === ci ? "cur" : ""} ${y.status_wifitrx !== "ok" ? "d" : y.status_summary !== "ok" ? "d2" : ""}" data-tip="${esc(C.columns[j].label)}: wifitrx ${esc(y.status_wifitrx)} · ${T("汇总表", "summary")} ${esc(y.status_summary)}">${nil(y.value) ? "·" : fx(y.value, 1)}</span>` : "<span>·</span>")).join("")}</div>`;
         return `<div class="step"><span class="no">${i + 1}</span><span class="nm">${esc(sp.step)}</span><span class="vv2">${verdicts(x)}</span>
-          <span class="val">${sv(cst, stepVal(x), "calibration.be")}</span><span class="mech"><span lang="zh">${esc(tr(sp.mechanism_zh))}</span>${x.detail ? `<div class="xs mut">${esc(x.detail)}</div>` : ""}${strip}</span></div>`;
+          <span class="val">${sv(cst, stepVal(x), "calibration.be")}</span><span class="mech"><span>${esc(bi(sp, "mechanism"))}</span>${x.detail ? `<div class="xs mut">${asWritten(x.detail, (C.as_written || {}).calibration_step_detail || awLang("calibration_step_detail"))}</div>` : ""}${strip}</span></div>`;
       }).join("") : "";
       const tv = cc && cc.three_views, mv = cc && cc.modem_view;
       cal = `<section class="blk"><header><h3>${cc ? T("校准步骤 · wifitrx 序列在这条链上真跑的结果", "Calibration steps · the wifitrx sequence as actually run on this chain") : T("校准步骤 · 这一行的链不在校准的各列里", "Calibration steps · this row’s chain is not one of the calibration columns")}</h3>
           ${cc ? `<span class="mut sm">${esc(cc.label)} · ${hz(cc.fs_eff_hz)} · ${T("序列跑", "sequence runs")} ${plain(cc.passes)} ${T("遍", "pass(es)")}</span>` : ""}</header>
         <div class="calhead"><dl class="kv">${cc ? `<dt>${T("评分波形", "Scoring waveform")}</dt><dd>${esc(cc.waveform)}</dd>
           <dt>${T("工作点", "Operating point")}</dt><dd class="n">Pout ${fx(cc.pout_dbm, 1)} dBm · ${T("回退", "back-off")} ${fx(cc.backoff_db, 1)} dB</dd>
-          <dt>${T("回环 EVM", "Loopback EVM")}</dt><dd class="n">${fx(cc.evm_before_db, 1)} → <b>${fx(cc.evm_after_db, 1)} dB</b> <span class="mut">${T("校准前 → 后", "before → after")}</span></dd>` : `<dt>${T("口径", "Footing")}</dt><dd>${esc(tr(W.footing.raw_floor))}</dd>`}
+          <dt>${T("回环 EVM", "Loopback EVM")}</dt><dd class="n">${fx(cc.evm_before_db, 1)} → <b>${fx(cc.evm_after_db, 1)} dB</b> <span class="mut">${T("校准前 → 后", "before → after")}</span></dd>` : `<dt>${T("口径", "Footing")}</dt><dd>${esc(bi(W.footing, "raw_floor"))}</dd>`}
           <dt>${T("两种判定", "Two verdicts")}</dt><dd class="sm">${statusRule(C)}</dd></dl>
           ${calMatrix(C, col)}</div>
         ${cc ? `<div class="xs mut">${T("每步下面的一排格 = 同一步在各列上的读数", "the strip under each step = the same step across the columns")}${P_.c}${C.columns.map((c, j) => `<span class="${j === ci ? "b" : ""}">${esc(c.label)}</span>`).join(" · ")}</div>
@@ -154,14 +154,14 @@ function renderRow() {
     const evm = `<section class="blk"><header><h3>${T("底板逐星座 · 时域 EVM", "Floor by constellation · time-domain EVM")}</h3></header>
         <dl class="kv"><dt>${T("未校准 dB", "Raw, dB")}</dt><dd class="n">${svf("floor_raw_db", by(r.floor_raw_db))}</dd><dt>${T("校准后 dB", "Calibrated, dB")}</dt><dd class="n">${svf("floor_cal_db", by(r.floor_cal_db))}</dd>
         <dt>${T("校准后链上实测", "Measured on the calibrated chain")}</dt><dd class="n">IRR ${fx(r.cal_irr_db, 1)} dB · ${T("LO 泄漏", "LO leak")} ${fx(r.cal_lo_leak_dbc, 1)} dBc</dd></dl>
-        <p class="note">${T("这类行没有解析和：底板直接读时域 EVM。", "These rows have no analytic sum: the floor is read as time-domain EVM.")} ${esc(tr(W.footing.raw_floor))}</p>
+        <p class="note">${T("这类行没有解析和：底板直接读时域 EVM。", "These rows have no analytic sum: the floor is read as time-domain EVM.")} ${esc(bi(W.footing, "raw_floor"))}</p>
       ${A ? `<div class="eyebrow">${T("每个损伤单独开（SC 对 OFDM 那份结果）", "Each impairment switched on alone (from the SC against OFDM result)")}</div><div class="chartbox" data-chart="imp"></div>
         ${rw ? `<div class="eyebrow">${T("校准后的残差逐项", "Residuals on the calibrated chain")} · ${T("回退", "back-off")} ${fx(res.backoff_db, 1)} dB · ${mcs(rw.mcs)}</div>
         ${tbl([{ h: T("只留这一项残差", "Residual left in"), f: x => esc(x[0]) }, { h: "EVM dB", r: 1, f: x => sv(ast, fx(x[1], 2), "ay") }], [[T("全部校准掉", "everything calibrated away"), rw.none_evm_db], ...rw.alone.map(a => [a.label, a.evm_db]), [T("IQ 与泄漏校准掉的链", "chain with IQ and leak calibrated away"), rw.calibrated_away_evm_db], [T("功率和核对", "power-sum check"), rw.power_sum_evm_db], [T("真校准过的链", "the chain as actually calibrated"), rw.calibrated_chain_evm_db]])}` : ""}` : `<p class="mut">${T("没有存着的 SC 对 OFDM 结果：单项损伤与残差无从显示。", "No SC against OFDM result is stored: the single-impairment and residual tables cannot be shown.")}</p>`}</section>`;
     const cc = A ? A.calibration : null;
     const cal = cc ? `<section class="blk"><header><h3>${T("校准步骤 · 在 ay 这条链上真跑的", "Calibration steps · actually run on the ay chain")} ${cc.steps.length} ${T("步", "steps")}</h3><span class="mut sm">${hz(A.header.chain_fs_hz)} · ${T("回退", "back-off")} ${fx(cc.backoff_db, 1)} dB</span></header>
       <dl class="kv"><dt>${T("评分波形", "Scoring waveform")}</dt><dd>${esc(cc.probe)} ${tag("assumed.ay_cal_probe")}</dd></dl>
-      <div class="steps">${cc.steps.map((x, i) => `<div class="step"><span class="no">${i + 1}</span><span class="nm">${esc(x.step)}</span><span>${st(x.status)}</span><span class="val">${sv(ast, nil(x.value) ? `<small>${T("无指标", "no metric")}</small>` : `${fx(x.value, 1)} ${metricUnit(x)} <small>${esc(x.metric || "")}</small>`, "ay")}</span><span class="mech xs mut">${esc(x.detail || "")}</span></div>`).join("")}</div>
+      <div class="steps">${cc.steps.map((x, i) => `<div class="step"><span class="no">${i + 1}</span><span class="nm">${esc(x.step)}</span><span>${st(x.status)}</span><span class="val">${sv(ast, nil(x.value) ? `<small>${T("无指标", "no metric")}</small>` : `${fx(x.value, 1)} ${metricUnit(x)} <small>${esc(x.metric || "")}</small>`, "ay")}</span><span class="mech xs mut">${asWritten(x.detail, awLang("calibration_step_detail"))}</span></div>`).join("")}</div>
       <dl class="kv"><dt>${T("最终核对", "Final check")}</dt><dd class="n">isolation ${fx(cc.final.isolation_evm_db, 1)} dB · modem ${fx(cc.final.modem_evm_db, 1)} dB · TX ${fx(cc.final.tx_modem_evm_db, 1)} dB · RX ${fx(cc.final.rx_modem_evm_db, 1)} dB · Pout ${fx(cc.final.pout_dbm, 1)} dBm</dd></dl>
       <p class="note">${T("这份序列只有 wifitrx 自己的判定（没有汇总表）。", "This sequence carries wifitrx’s own verdict only (there is no summary table for it).")}</p></section>` : "";
     const pts = powerPoints(r).filter(p => p.p), first = pts[0];
@@ -201,7 +201,7 @@ function renderCalibration() {
     <div class="two">
       <div><section class="blk"><header><h3>${T("每一步在每一列上的读数与两种判定", "Every step on every column: the reading and both verdicts")}</h3></header>
         <p class="sm" style="color:var(--ink2)">${statusRule(C)}</p>
-        ${tbl([{ h: T("步", "Step"), f: (sp, i) => `<span class="n">${i + 1}. ${esc(sp.step)}</span><div class="xs mut" lang="zh">${esc(tr(sp.mechanism_zh))}</div>` },
+        ${tbl([{ h: T("步", "Step"), f: (sp, i) => `<span class="n">${i + 1}. ${esc(sp.step)}</span><div class="xs mut">${esc(bi(sp, "mechanism"))}</div>` },
       ...cols.map((c, j) => ({ h: esc(c.label), r: 1, f: sp => { const x = sp.cells[j]; if (!x) return `<span class="mut">·</span>`; return `<div class="cell2" title="${esc(x.detail || "")}"><span>${m(nil(x.value) ? "—" : fx(x.value, 1) + " " + metricUnit(x))}</span><span class="xs" data-v-wifitrx="${esc(x.status_wifitrx)}" data-v-summary="${esc(x.status_summary)}">w ${st(x.status_wifitrx)}</span><span class="xs">${T("汇", "s")} ${st(x.status_summary)}</span></div>`; } }))], C.steps, { cls: "mx" })}
         <p class="xs mut">w = wifitrx · ${T("汇 = 汇总表（本库的规则）", "s = the summary table (this library’s rule)")} · ${T("每格第一行是这一步的指标读数", "the first line of a cell is the step’s metric reading")}</p></section></div>
       <div><section class="blk">${calMatrix(C, "")}</section>

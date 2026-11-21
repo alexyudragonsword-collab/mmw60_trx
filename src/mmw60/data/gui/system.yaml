@@ -316,6 +316,29 @@ evm_term_to_block:
   chip: {blocks: [chip], zh: "芯片残差：芯片自己校准之后实测（只在拓扑 A 的行）", en: "chip residual: measured after the chip's own calibration (topology A rows only)"}
   chip_lo: {blocks: [chip], zh: "芯片本振：芯片 sub-7 频综的 ICI（只在拓扑 A 的行）", en: "chip LO: the ICI of the chip's sub-7 synthesizer (topology A rows only)"}
 
+# The 802.11ay rows have no analytic sum of terms: their floors are time-domain readings.  What the SC
+# against OFDM report does measure is each impairment alone on the uncalibrated chain (its
+# `impairments_alone` section, by the isolation method), and that is what lights the blocks for an ay
+# row.  Readings alone do not add up to the floor (the cross terms are not small): the page says so.
+# An impairment of that section that names no block here must be listed under `no_block`, with why.
+ay_impairment_to_block:
+  blocks:
+    "PA": {blocks: [pa60], zh: "PA：只开 60 GHz PA", en: "PA: the 60 GHz PA alone"}
+    "phase noise": {blocks: [lo60], zh: "相噪：只开本振相噪", en: "phase noise: the LO phase noise alone"}
+    "converters": {blocks: [dac, adc], zh: "转换器：只开 DAC + ADC", en: "converters: DAC + ADC alone"}
+    "IQ mismatch (raw)": {blocks: [iq_mod, iq_demod], zh: "IQ 失配：未校准，只开它", en: "IQ mismatch: uncalibrated, alone"}
+    "TX LO leakage (raw) + CFO": {blocks: [iq_mod], zh: "发射本振泄漏：未校准，带着 CFO", en: "TX LO leakage: uncalibrated, with the CFO"}
+    "RX DC + CFO": {blocks: [iq_demod], zh: "接收直流：带着 CFO", en: "RX DC: with the CFO"}
+  no_block:
+    "ideal chain": {zh: "理想链：接收机自己的底，不属于哪个模块（作为参照显示）", en: "ideal chain: the receiver's own floor, no block's (shown as the reference)"}
+    "CFO (estimated)": {zh: "CFO：由数字接收机估计并补偿，不是哪个射频模块的损伤", en: "CFO: estimated and compensated by the digital receiver, not an RF block's impairment"}
+    "TX LO leakage (raw), no CFO": {zh: "没有 CFO 时本振泄漏落在直流上被去掉；带 CFO 的那一行才是它的读数", en: "without a CFO the leak sits at DC and is removed; the row with the CFO is its reading"}
+    "phase noise, one phase per block": {zh: "相噪的另一种跟踪方式（每块一个相位），与“相噪”是同一个模块的第二个读数", en: "another way of tracking the phase noise (one phase per block): a second reading of the same block as 'phase noise'"}
+  reference: "ideal chain"
+  note:
+    zh: "每个读数是只开这一项时未校准链上的 EVM（隔离法）；各项单独的读数不能相加成底板。"
+    en: "each reading is the EVM of the uncalibrated chain with that impairment alone (isolation); the readings alone do not add up to the floor."
+
 upclock_scope:
   topology_b:
     zh: "拓扑 B：时钟 × K 一直走到模拟——数字基带、DAC / ADC、基带低通都跑在 fs_eff = fs_base × K。所以转换器 ENOB 随采样率下降、IQ 失配在更宽的带上更差，带宽可以超过芯片最宽的信道。"

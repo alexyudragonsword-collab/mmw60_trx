@@ -59,10 +59,11 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # A built APK says nothing about whether the app runs.  The two
-      # instrumented tests start Python on the device, run the library's own
-      # self-check (the analytic table recomputed there against the shipped
-      # one) and open the page in the WebView until it has drawn the table.
+      # A built APK says nothing about whether the app runs.  The instrumented
+      # tests start Python on the device, run the library's own self-check
+      # (the analytic table recomputed there against the shipped one), open the
+      # page in the WebView until it has drawn the table, press back, rotate,
+      # and put the system in dark mode.
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -80,7 +81,7 @@ jobs:
       - name: The on-device tests actually ran
         if: always()
         run: |
-          python android/tools/check_ondevice_results.py android/app/build/outputs/androidTest-results/connected 2
+          python android/tools/check_ondevice_results.py android/app/build/outputs/androidTest-results/connected 5
           # once more at the very end, where a truncated log still reaches: what the APK carries
           python android/tools/check_apk.py android/app/build/outputs/apk/debug/app-debug.apk \
             src/mmw60/webui/www android/phone-stack.txt

@@ -59,6 +59,7 @@ authoring_mode: ai_generated
 | `calibration.be` | 载频、本振 5 个、PA 3 个（就是建 `Frontend60` 读的那些） | — | `calibration_be` |
 | `table.analytic` | 除包长、平滑跨度自动选、固定跨度、CPE 窗口之外的全部 | `calibration.be`、`thresholds.be` | `table` / `table_analytic` |
 | `table.td` | 全部 | — | `table` |
+| `table.lo` | 除本振 5 个之外的全部（每个模型各建自己的前端，表单的本振旋钮到不了它） | — | `table` |
 | `table.ay` | 除包长、两个平滑旋钮之外的全部 | — | `table` |
 | `array` | 除两个平滑旋钮、两个信道旋钮之外的全部 | `thresholds.be`、`thresholds.ay` | `array` |
 | `ay` | 除包长之外的全部（多径一节读信道） | `thresholds.be`、`thresholds.ay` | `ay` |
@@ -75,6 +76,8 @@ authoring_mode: ai_generated
 
 - `dataclasses.replace`、`to_dict()`、`describe()` 会把整个对象的字段读一遍，追踪就成了“全读”。所以预设要在追踪块**外面**建好；`compare.row_dict` 里原来的 `dc.asdict(row)` 连带走了 `scheme.cfg`，为此改成先换掉 scheme 再转（数字不变）。
 - 条件读：`rx.ce_smooth_tones` 只在自动选关掉时才读。预设下追踪不到，所以声明取保守的一侧（时域列读全部），不照追踪结果抄。
+  2026-11-21 起有系统的抓法：`test_parts_declare_what_is_read_behind_every_switch` 把表单上每个 choice / bool 旋钮逐档拨一下（12 种拨法）再追踪——前端与零中频三行的解析列每档不到 1 s（快测），一行的时域列与拓扑 A 一行要几秒（`slow`，12 档全过）。没有新的漏声明；
+  但第一遍就撞出一个表单的错：相噪模型的选项里有 `profile`，它要一个剖面文件，表单没有这个旋钮，选了它任何任务都以 `needs profile_path` 失败。选项已从表单去掉（剖面模型在同台表的本振一节并排）。扫不到的：ay 两行、阵列、SC 对 OFDM（每档几十秒到几分钟）。
 - 整张同台表当一个任务追踪时“几乎全读”，因为拓扑 A 的行建链就要跑芯片校准；按 part 分开追踪才有信息量。
 
 ### 2c. 签名、信封、新鲜度
@@ -117,6 +120,19 @@ authoring_mode: ai_generated
   - `assemble_table(by_part)`：同台表由最多三份结果拼成——解析列一份、时域列与本振一节一份、ay 两行一份（§3 按 part 选）。三份是同一份时原样返回；不是时报告多一个 `assembled`，其中 `decoder_caps_from_analytic_floor` 说的是一件会读错的事：
     只算解析列的结果里，解码器上限只从解析底板出发，完整的结果取“解析底板与时域 EVM 里差的那个”，所以预览里某一行可能比完整结果高一档。页面在那一列和横幅上都写了。
   - `analytic_agreement(report, reference)`：两份同台表的解析列差多少（`BE_FIELDS["table.analytic"]` 的每个数，按 `max(|a|, |b|, 1)` 归一后的最大差；不是数的必须相等）。手机自检用它（§7）。时域列与解码器上限故意不比，理由同上。
+- 2026-11-21 补的（“界面零碎”一轮，`SCHEMA` 1 → 2）：
+  - **本振一节自成一个 part（`table.lo`）**。它原来归 `table.td`，于是改了表单的本振旋钮它跟着标过期，而它自己的注说这些旋钮到不了它。现在它声明不读本振 5 个旋钮；
+    `lo_models.models[]` 每个模型一条（`label {zh, en}`、`floor_dbchz`、`ipn_dbc`、`sources`、`is_preset_model`），积分相噪不再每个 K 重复；`edited_lo_knobs` 去掉了（页面拿表单自己改过的本振旋钮与 `form_lo_knobs_ignored` 取交）。
+    同台表因此由**最多四份**结果拼成，`report.sections`（`TABLE_SECTIONS`）说每一节取自哪个 part。
+  - **预览那句提醒落到行上**：`dec_cap_may_be_lower`（真 / 假 / 空）与 `assembled.rows_whose_decoder_cap_may_be_lower`。判据是**上一份完整结果自己的“时域 EVM − 解析底板”为正**（`td_delta_db > 0`，CFO 没接住或没有时域读数的行给空）。
+    **被推翻的第一版判据**：拿存着的时域 EVM 去比预览的新解析底板——那是两个 study 的数相比，底板一动几乎每行都亮（回退 7.5 → 9.5 dB：19 行亮 18 行；按现在的判据亮 6 行）。它是“多半会再出现”的预测，不是算出来的。
+  - **固定的句子成对**（`mmw60.guitext`）：行的 `verdict` / `reason`、校准的机理、口径、矩阵里“为什么没有这一行”、任务耗时的注、判定规则、EIRP 的式子、敏感度的出处注、结果“与代码不同步”的原因，各配另一种语言（`*_en` / `*_zh`）。
+    引擎带着数字拼出来的句子（功耗分块的 `note`、校准一步的 `detail`）不配，报告用 `as_written` 说它们是哪种语言，页面原样显示并标出来。`tests/test_guitext.py` 守着每张表与它配的原文同键。
+    这条守卫顺手抓到一个错数：同台表任务的 `seconds` 写着 126，两处注和 LOG 都是 106（改了）。
+  - **敏感度旋钮端按出处的单位给**：`value_display {text, unit}`（Walden FoM 3.836e-14 J → 38.36 fJ/conv.-step，PAE 0.1 → 10 %）；引擎自己的值照旧在 `value`。
+  - **ay 行在框图上点亮哪些块**：`ay_block_terms(ay_report)`——SC 对 OFDM 报告“只开一项”那一节的每个损伤属于哪几个模块（`system.yaml` 的 `ay_impairment_to_block`：6 个有模块，4 个写明为什么没有），按读数从差到好，带理想链的读数作参照和 `above_reference_db`。
+    报告里出现表里没有的损伤会报错（新加的损伤必须给模块或给理由）。这些是隔离法的读数，**不能相加成底板**，`note` 两种语言都写了。`system` 路由带上它、它取自哪份 ay 结果、新鲜度。
+  - `commit()` 先读构建时写进包里的 `data/build_commit.txt`（`release.yml` 的 package 作业写，并在干净环境里核对装好的包报的就是那个提交），没有才问 git；检出里没有这个文件（`.gitignore`）。
 
 ### 2e. 一个任务产出什么：`run_job`（2026-11-19 页面那一轮）
 
@@ -146,8 +162,8 @@ authoring_mode: ai_generated
 - **用户的结果**（`<home>/results/<job>-<key>.json`；`home` = `MMW60_HOME`，否则用户缓存目录下的 `mmw60/`）：队列为别的 study 算出来的。键是任务、study、`built_on` 和是否试算的哈希——同一个任务对同一个 study 再跑一遍就是替换自己。
   `home=None` 的仓库只放内存（测试、只读安装）。
 
-**页面画哪一份**只有一条规则，**按 part 选**（`Store.pick_part(part, study)`；2026-11-20 第二轮起）：在含这个 part 的结果里，自己读的旋钮仍与 study 一致的优先，其次新鲜的，其次 part 多的（完整运行先于只算一部分的），其次新的先于旧的。
-`pick(report)` 就是该报告领头那个 part 的选择（`REPORT_PART`）；同台表有三个 part，各选各的（`table_parts`），再由 `guiutil.assemble_table` 拼起来。
+**页面画哪一份**只有一条规则，**按 part 选**（`Store.pick_part(part, study)`；2026-11-20 第二轮起）：在含这个 part 的结果里，**与当前代码同步的优先**（规范表摘要、vendored pin、格式版本都没变；2026-11-21 加在最前，换了规范表或 pin 之后用户目录里的旧结果让位给同步的那份，没有同步的才继续显示旧的并标出原因），其次自己读的旋钮仍与 study 一致的，其次新鲜的，其次 part 多的（完整运行先于只算一部分的），其次新的先于旧的。
+`pick(report)` 就是该报告领头那个 part 的选择（`REPORT_PART`）；同台表有四个 part（2026-11-21 起，多了 `table.lo`），各选各的（`table_parts`），再由 `guiutil.assemble_table` 拼起来。
 所以表单往前走了，页面继续显示最近算的那份（由 `freshness` 标过期），不会空掉；回到预设，基线又是新鲜的。试算规模（`quick`）的结果存着但永远不被选中。
 
 更正（2026-11-20）：第一版按“报告”选一整份（“一致的 part 最多的那份”）。它让只算解析列的结果把完整结果整份顶掉——时域列和 ay 两行从页面上消失（§5 记过），宿主因此一度只排完整任务。按 part 选之后，解析预览只顶掉解析列，别的列留在最近那份完整结果上、标过期。
@@ -157,6 +173,7 @@ authoring_mode: ai_generated
 - `gui_baseline.check`：缺文件、规范表摘要变了、vendored pin 变了、不是预设、是试算——都红。修法是重建，时机就是示例的期望输出重新验收的那一刻。
 - 与已验收输出逐项对：阵列与 SC 对 OFDM 两份直接**把示例 10 / 15 的打印函数在基线报告上重放一遍，要求与 `examples/expected` 逐行相同**（这两个示例本来就只负责印 `build` 返回的东西，
   所以这一条守住了两页上的每一个数）；同台表逐行对示例 04 的底板、时域 EVM、两个上限、速率、pJ/bit；校准逐列逐步对示例 03 的 wifitrx 判定和读数（6 × 12 格）。
+  2026-11-21 加：示例 04 §3 / §4 的每行分项与功耗分块（149 个分项、151 个功耗格）按报告的 `display` 小数位舍入后就是示例印的字——`DISPLAY` 与示例的格式串是两处，这条把它们拴在一起（四种变异各红一次）。没对的还有 §4b 解码器那几列、`terms_share_pct`、`pj_ratio`。
 
 ## 4. 宿主与队列：`src/mmw60/webhost.py`、`src/mmw60/appbridge.py`（2026-11-19）
 
@@ -164,7 +181,7 @@ authoring_mode: ai_generated
 `process`（桌面：每个任务一个 spawn 出来的子进程，取消 = terminate）与 `thread`（手机上 Chaquopy 没有多进程；取消在两个进度步之间生效，正在跑的一步要跑完）。
 启动：`mmw60-gui`（或 `python -m mmw60.webhost`），标准库的 HTTP 服务挂在 127.0.0.1，桌面开 Chromium 系浏览器的 `--app` 窗口，关窗即停。
 
-路由（POST 要带 `X-MMW60: 1`，别的来源的页面加不上这个头）：`version`、`sources`、`parts`、`jobs`、`jobs/<id>`、`results`（GET）；
+路由（POST 要带 `X-MMW60: 1`，别的来源的页面加不上这个头）：`version`、`sources`、`parts`、`jobs`、`jobs/<id>`、`results`、`selfcheck`（GET）；
 `state {study?}`、`report {report, study}`、`row {label, study}`、`system {study}`、`run {job, study}`、`jobs/<id>/cancel`、`results/<id>/delete`（POST）。
 
 - **study 归页面拿着**，每个请求带上；宿主只记住最后一次收到的（重新加载的页面能找回表单）。`state` 一次给全：表单、每个 part 的新鲜度、字段组的状态、每种报告显示的是哪份结果。
@@ -173,6 +190,10 @@ authoring_mode: ai_generated
 - **`run`**：四个完整任务加只算解析列的同台表（`RUNNABLE`；2026-11-20 第二轮起预览回到队列里：按 part 选之后它不再顶掉别的列，约 24 s，完整的同台表约 55 s）。同台表任务**出队时**才去找为本 study 算过的校准结果（没有就查已验收的 IRR 表），所以紧跟在校准后面排的同台表建在那份校准上；结果的 `built_on` 照实记（§2e）。任务读“完成”之前结果已经进了仓库。
 - **新鲜度按仓库里真有的判**：宿主以 `freshness(..., accepted=False)` 问，任务能算的 part 没有存着的结果就是 `missing`（不是“按已验收的预设算新鲜”）；上游缺失本身不让下游过期，下游自己记的 `built_on` 说了算。
 - 一个坑（测试抓到的）：任务的状态先变成“完成”、结束时间后填，页面会读到“完成但没有结束时间”。现在两者在同一把锁里一起写。
+- **自检是队列里的一个任务**（2026-11-21；`mmw60.selfcheck.run`，手机桥与命令行调的是同一个函数）：`run {job: "selfcheck"}` 排进去，结论留在宿主里（有用户目录时写 `selfcheck.json`），`selfcheck` 路由给出最近一次的结论、是否在跑、容差。
+  它不产生报告、不进结果仓库；自己起一个只放内存的 `Api` 去读四份随包报告，所以不受用户目录里结果的影响。结论里带 `speed`：本机重算解析列用了多少秒、引用的桌面数字是多少、两者之比。
+- **耗时有两种，分开给**：`parts.jobs[j].seconds` 是在 4 核容器上量的引用值（`seconds_note` 说每个是怎么量的）；`seconds_here` 是这个宿主自己跑这个任务用过的时间（没跑过就是空的），`host_speed` 是最近一次自检的 `speed`。
+  宿主不拿这个比去折算别的任务——解析列的快慢说明不了阵列任务在这台机器上的快慢。
 
 手机的应用外壳在 §7（2026-11-20 第二轮建）；它调的全部就是 `appbridge.call(route, args_json) -> json` 和线程队列。
 
@@ -209,7 +230,22 @@ authoring_mode: ai_generated
 - 一张表来自最多三份结果：出处按 part 各一行（三份是同一份时还是一行）；解析预览有自己的按钮（运行台与同台表横幅），时长从载荷读；解码器上限那一列与横幅带“只从解析底板出发”的注。
   运行台的新鲜度块里，part 的状态之外另有一行字段组的状态（`data-field-group`）：改了回退只跑预览之后，字段组 `table.analytic` 新鲜而 part `table.analytic` 仍过期（它靠的校准没重做），两样都得看得见。
 
-**没有验证的**：除 Chromium 之外的浏览器（CSS 用了 container query 和 `color-mix`）；页面上取消一个正在跑的任务、失败任务的报错卡；没有本振一节的结果（`lo_models: null`）与某个 part 完全没有结果这两条分支只有代码、没有跑到；预览之后再跑完整同台表、三份重新合成一份的那一步。`window.host` 那条传输见 §7。
+**2026-11-21 “零碎”一轮**（子代理画；我核对：17 条浏览器测试、七张截图、样例逐项）：
+
+- 本振一节随 `table.lo` 过期（改本振旋钮后它仍新鲜、时域列过期），每个模型一块，名字按语言，积分相噪与倍频器底噪在块头上各出现一次。
+- 预览标到行：`data-may-be-lower="true"` 的行就是载荷点名的那些（回退 9.5 dB 的真实预览 6 行），横幅写行数。
+- 一种语言就是一种语言；引擎拼的句子（功耗分块的注、校准一步的明细）原样显示并带 `※en`（`data-as-written`）。敏感度端值用 `value_display`。
+- 选中 ay 行时框图点亮它的模块：每块一个读数徽标、主导项加重，旁边一列按差到好排（`[data-ay-term]`）、理想链作参照、“不能相加”的注、取自哪份 ay 结果；`ay` 过期时整组标过期。读数等于参照（按显示的小数位）的项画淡——这是页面的规则，载荷没有给“可忽略”的标记。
+- 运行台：自检卡（结论、运行环境、三项检查、比了多少个数 / 逐位相同 / 最大差对容差、本机耗时对引用耗时与载荷给的比值；页面上真跑一次 777 / 777、26 s 对 24 s）；任务按钮旁写明时长是 4 核桌面量的引用值，本机跑过的时间另列，不折算。
+- 任务卡：失败的显示栈的最后一行、其余折叠（`[data-job-error]`）；排队 / 运行中的可取消；用户结果可删，基线没有删除键。字段组的状态标记旁，正在被任务重算的另带 `data-running`（`data-state` 只表示新鲜度，全页一个含义）。
+- 400 px：速率 × 距离矩形在 560 px 以下只留标题与图例（数在上面两张卡里）；速率对距离那张图只在“速率越高、距离越短”的地方连线，别处只画点并注明。安全区 `env(safe-area-inset-*)` 加在顶栏、引擎条、页边、抽屉、底部导航与提示条。主题“自动”跟着 `prefers-color-scheme` 实时变；改尺寸不重载。
+- **页面的一个真 bug**（新测试撞出来的）：改完旋钮马上排任务，任务跑在**上一份表单**上——`state` 请求还没回来。现在表单的改动按顺序一条条送给宿主，排任务先等它。之前两条新测试偶发失败就是它。
+- **我自己两条测试写错了**，子代理指出、我改的测试：① 失败任务那条第三步等字段组 `table.analytic` 变新鲜，可它不读包长，任务没跑就是新鲜的——改成等结果的删除键出现；② 旧的本振测试要求每个 K 列里都有积分相噪，与“每个模型只说一次”矛盾——改成每个模型核一次。
+
+Firefox 与 WebKit 上同一套 17 条测试在 CI 里通过（PR #88，`d561c11`；本容器只有 Chromium）。
+
+**没有验证的**：真机与 Android WebView 上的安全区；`ay_terms: null` 那条分支与自检失败的显示只用假数据看过；复制按钮在非安全来源的 WebView 里可能没有 `navigator.clipboard`，那时它不做事也不报错。
+载荷里还薄的（没动）：任务进度的文字、`freshness.basis`、自检的环境键名与失败明细、存着的门限的耗时注只有英文；`results[]` 条目没有 `out_of_step_zh`；`row` 载荷不带 `as_written`（页面回落到 `parts` 的）；pllsim 剖面的四个模型共用一个名字，只靠块头的底噪区分；自检不记进 `seconds_here`。
 
 ## 6. 效果图阶段留下的教训
 
@@ -244,6 +280,12 @@ authoring_mode: ai_generated
 
 **CI 真的把它跑起来**（`.github/workflows/android.yml`，改 `android/`、`appbridge.py`、`pyproject.toml` 时与手动触发；一次约 4 分钟）：构建 APK → `android/tools/check_apk.py` 读包里到底有什么 →
 模拟器上两条设备测试：自检的结论、页面经桥画出同台表（等到 `#screen-table [data-label]` 出现；量到 21 行 = 19 + 2）。设备测试的条数按**精确值**核对，设备说的话印在日志末尾。
+2026-11-21 起五条，多了三条外壳自己的行为（android 第 13 轮，`6b3c645`，5 条 0 失败）：
+**返回键**先退一屏、在第一屏才退出应用（设备说：`"#table" -> "#runs" -> "#table"`，第一次按后应用还开着，第二次按后关了）；**旋转**不重载页面（同一个 WebView，21 → 21 行；Manifest 的 `configChanges` 接住方向与尺寸）；
+**系统深色模式**页面看得见（`prefers-color-scheme: dark` 为真；主题从 API 29 起是 `Theme.DeviceDefault.DayNight`，`uiMode` 不在 `configChanges` 里，系统切换时 Activity 重建、重新读主题）。
+
+**被推翻的判断（返回键测试的第一版，2026-11-21）**：测试用 JS 的 `.click()` 换到运行台再按返回，结果**应用直接退出**（第 12 轮，5 条里红这一条）。不是外壳坏了：JS 发起的点击不带用户手势，
+Chromium 不把“没有用户手势就离开的历史条目”算数（防止页面劫持返回键），`WebView.canGoBack()` 因此答否。改成往导航元素的坐标注入真实触摸、发真实的 `KEYCODE_BACK`，第 13 轮通过。`tests/test_android.py` 守着测试不许退回 JS 点击。
 
 **被推翻的判断（我自己的第一版）**：为了绕开声明的下限，第一次构建用 `--no-deps` 把 numpy、scipy、mmw60 的 sdist 一起装。**APK 构建成功，包内容检查也过了**；模拟器上两条都红——
 `dlopen failed: library "libopenblas.so" not found`：Chaquopy 的 numpy wheel 依赖它自己的 OpenBLAS 运行库包，`--no-deps` 把它丢了。
@@ -254,5 +296,5 @@ Gradle / 两个工作流的 Python 版本相同；`phone-stack.txt` 是精确版
 在一个“导入 matplotlib / numba 就报错”的解释器里四份报告照样读得出来。
 
 **没有验证的**：真机（只有 x86_64 模拟器）；arm64 上的数值（另一套 libm / BLAS 内核，自检就是为它准备的，没跑过）；手机上各任务要多久——界面上的预计时长是桌面 4 核量的，
-手机上没有 numba、线程后端一次一个任务，只会更慢，慢多少没量；完整规模的任务在手机内存里跑不跑得下；返回键、横竖屏、刘海安全区、深色模式跟随系统（主题写死了浅色，页面自己的开关能切）。
+手机上没有 numba、线程后端一次一个任务，只会更慢，慢多少没量；完整规模的任务在手机内存里跑不跑得下；刘海 / 手势条安全区（页面加了 `viewport-fit=cover` 与 `env(safe-area-inset-*)`，模拟器没有刘海）。返回键、横竖屏、深色模式跟随系统 2026-11-21 在模拟器上验过（上文）。arm64 的数值现在有地方点了：页面运行台上的自检入口。
 

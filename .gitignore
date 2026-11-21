@@ -9,3 +9,5 @@ dist/
 .coverage
 # fingerprints are recorded per machine, never committed
 fingerprint*.json
+# written by the release workflow before it builds the packages
+src/mmw60/data/build_commit.txt

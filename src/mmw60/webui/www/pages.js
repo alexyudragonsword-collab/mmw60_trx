@@ -56,7 +56,7 @@ function renderArray() {
   const body = `
     <div class="phead"><div><div class="eyebrow">${T("阵列 · 两端各一列 N 个单元，每个单元都是同一个前端", "Array · one row of N elements at both ends, every element the same front end")}</div>
       <h2 style="margin-top:3px">${nil(L.binds_from_n) ? T("EIRP 上限在算过的阵列大小里不起作用", "The EIRP limit does not bind within the sizes searched") : T(`EIRP 上限从 N = ${L.binds_from_n} 个单元开始起作用`, `The EIRP limit starts to bind at N = ${L.binds_from_n} elements`)}</h2>
-      <p class="sub"><span class="n">${esc(L.law)}</span> · ${T("平均上限", "average limit")} ${fx(L.limit_avg_dbm, 1)} dBm ${tag(L.source_key)} · ${T("单个单元", "one element")} ${fx(L.single_element_eirp_dbm, 1)} dBm</p></div></div>
+      <p class="sub"><span class="n">${esc(bi(L, "law"))}</span> · ${T("平均上限", "average limit")} ${fx(L.limit_avg_dbm, 1)} dBm ${tag(L.source_key)} · ${T("单个单元", "one element")} ${fx(L.single_element_eirp_dbm, 1)} dBm</p></div></div>
     ${freshBanner(parts, ["array"])}
     <div class="stats">
       <div><span class="eyebrow">${T("顶到上限的最小阵列", "Smallest array at the limit")}</span><div class="big">N = ${m(plain(L.binds_from_n))}</div>

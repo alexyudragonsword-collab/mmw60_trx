@@ -44,7 +44,12 @@ class MainActivity : Activity() {
         web.loadUrl("file:///android_asset/www/index.html")
     }
 
-    /** Back leaves a screen of the page before it leaves the app (the page navigates by hash). */
+    /**
+     * Back leaves a screen of the page before it leaves the app (the page pushes a history entry
+     * per screen).  canGoBack() counts an entry only if the user touched the page before leaving
+     * it (Chromium's rule against pages that trap the back key), which every tap on the page's
+     * own navigation satisfies; the on-device test taps and presses the real key for that reason.
+     */
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (web.canGoBack()) web.goBack() else super.onBackPressed()

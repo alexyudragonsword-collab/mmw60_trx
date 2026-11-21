@@ -43,6 +43,16 @@ def test_manifest_asks_for_no_permission():
     body = re.sub(r"<!--.*?-->", "", m, flags=re.S)
     assert "<uses-permission" not in body and "permission" not in body.lower()
     assert 'android:name=".MainActivity"' in body
+    # the theme is the app's own: light below API 29, the system's day / night from there on
+    assert 'android:theme="@style/AppTheme"' in body
+    day = _text("android/app/src/main/res/values/styles.xml")
+    night = _text("android/app/src/main/res/values-v29/styles.xml")
+    assert 'name="AppTheme" parent="android:Theme.Material.Light.NoActionBar"' in day
+    assert 'name="AppTheme" parent="android:Theme.DeviceDefault.DayNight"' in night
+    # a rotation is handled in place (the page is kept); a change of the system's dark mode is not,
+    # so the activity is rebuilt and reads the theme again
+    changes = re.search(r'android:configChanges="([^"]+)"', body).group(1).split("|")
+    assert "orientation" in changes and "screenSize" in changes and "uiMode" not in changes
     for density in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"):
         assert (ANDROID / f"app/src/main/res/mipmap-{density}/ic_launcher.png").is_file()
 
@@ -100,11 +110,27 @@ def test_workflows_build_with_the_same_python_and_count_the_on_device_tests_that
     tests = len(re.findall(r"^\s*@Test\b", _text("android/app/src/androidTest/java/com/mmw60/app/OnDeviceTest.kt"),
                            flags=re.M))
     counted = re.search(r"check_ondevice_results\.py \S+ (\d+)", android)
-    assert tests == int(counted.group(1)) == 2
+    assert tests == int(counted.group(1)) == 5
     assert "gradle :app:connectedDebugAndroidTest" in android and "check_apk.py" in android
     # the count is checked after the step that can fail, and always
     after = android[android.index("gradle :app:connectedDebugAndroidTest"):]
     assert "if: always()" in after[:after.index("check_ondevice_results.py")]
+
+
+def test_the_back_key_test_taps_and_presses_the_real_key():
+    """A click made from JavaScript carries no user activation, and Chromium does not count a
+    history entry left without one: with such a click the back key closed the app from the Runs
+    screen (android run 12, 2026-11-21).  The test must change screens the way a finger does."""
+    body = _code(_text("android/app/src/androidTest/java/com/mmw60/app/OnDeviceTest.kt"))
+    test = body[body.index("fun backLeavesAScreenBeforeItLeavesTheApp()"):body.index("fun rotationKeepsThePage()")]
+    assert 'tap(scenario, "nav-runs")' in test and ".click()" not in test
+    assert test.count("inst.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)") == 2     # back one screen, then out
+    assert "onBackPressed()" not in test                    # not the activity's method called by hand
+    tap = body[body.index("private fun tap("):body.index("private fun eval(")]
+    assert "MotionEvent.ACTION_DOWN" in tap and "MotionEvent.ACTION_UP" in tap and "sendPointerSync(down)" in tap
+    # the shell asks the WebView's own history
+    main = _code(_text("android/app/src/main/java/com/mmw60/app/MainActivity.kt"))
+    assert "if (web.canGoBack()) web.goBack() else super.onBackPressed()" in main
 
 
 def test_the_bridge_path_imports_neither_matplotlib_nor_numba_and_reads_all_four_reports(tmp_path):
