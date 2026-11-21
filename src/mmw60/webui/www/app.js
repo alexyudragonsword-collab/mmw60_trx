@@ -20,8 +20,9 @@ function repKey(name) {
 function invalidate() {
   for (const name of Object.keys(S.rep)) if (S.repStudy[name] !== repKey(name)) { delete S.rep[name]; delete S.repStudy[name]; }
   if (S.row && S.rowKey !== rowKey()) S.row = null;
-  if (S.system && S.systemStudy !== studyKey()) S.system = null;
+  if (S.system && S.systemStudy !== sysKey()) S.system = null;
 }
+const sysKey = () => studyKey() + "|" + repKey("ay");
 const rowKey = () => [S.sel, repKey("table"), repKey("calibration"), studyKey()].join("|");
 async function loadReport(name) {
   const key = repKey(name);
@@ -39,7 +40,7 @@ async function ensure(screen) {
   else if (screen === "array") { await rep("array"); await rep("table"); }
   else if (screen === "ay") await rep("ay");
   else if (screen === "system") {
-    if (!S.system) { S.system = await api("system", { study: S.study }); S.systemStudy = studyKey(); got = true; }
+    if (!S.system) { S.system = await api("system", { study: S.study }); S.systemStudy = sysKey(); got = true; }
     await rep("table");
   } else if (screen === "row" && S.sel) {
     await rep("table");
@@ -50,7 +51,7 @@ async function ensure(screen) {
       got = true;
     }
     if (S.row && isAy(S.row.row)) await rep("ay");
-  } else if (screen === "runs") { const r = await api("results"); if (S.state) S.state.results = r.results; got = true; }
+  } else if (screen === "runs") { const [r, sc] = await Promise.all([api("results"), api("selfcheck")]); if (S.state) S.state.results = r.results; S.selfcheck = sc; got = true; }
   return got;
 }
 
@@ -120,7 +121,7 @@ function toggleForm(open) {
 
 /* ------------------------------------------------------------------ jobs */
 const jobDone = s => s === "done" || s === "error" || s === "cancelled";
-function drawQueue() { chrome(); const q = $("runs-queue"); if (q && S.screen === "runs") q.innerHTML = runsQueue(); }
+function drawQueue() { chrome(); const q = $("runs-queue"), c = $("selfcheck-run"); if (q && S.screen === "runs") { q.innerHTML = runsQueue(); if (c) c.innerHTML = selfcheckRun(); } }
 /* Poll once a second while a job is queued or running, and not otherwise.  A submit sets
  * pollAgain, so a poll that saw the queue idle just before it does not stop. */
 async function poll() {
@@ -136,6 +137,7 @@ async function poll() {
       if (ended.length) {
         ended.filter(x => x.status === "error").forEach(x => showError(jn(x.job) + P_.c + String(x.error || "").trim().split("\n").pop()));
         ended.filter(x => x.status === "done").forEach(x => toast(jn(x.job) + P_.c + T("算完了，结果已存", "done, the result is stored")));
+        S.parts = await api("parts");      /* a finished job leaves its own duration, a self-check the host's speed */
         await refreshState(); await show();
       } else drawQueue();
       if (!S.jobs.some(jobActive) && !S.pollAgain) break;

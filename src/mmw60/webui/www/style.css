@@ -508,3 +508,29 @@ ol.plain{margin:0;padding-left:22px;display:grid;gap:3px}
 .lov>b{position:relative}
 /* the engine's own wording, shown as written when the page is in the other language */
 .aw .awm{font:600 9px var(--f-mono);color:var(--ink3);border:1px solid var(--rule2);border-radius:3px;padding:0 3px;vertical-align:1px;white-space:nowrap}
+/* safe areas: nothing under a notch, a rounded corner or the gesture bar (the page asks for viewport-fit=cover) */
+.appbar{padding-top:max(8px,env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.engine{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.page{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:max(16px,env(safe-area-inset-bottom,0px))}
+.drawer{padding-top:env(safe-area-inset-top,0px);padding-right:env(safe-area-inset-right,0px);padding-bottom:max(24px,env(safe-area-inset-bottom,0px))}
+@media (max-width:760px){
+  .appbar{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+  .engine{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+  .page{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));padding-bottom:12px}
+  #main{padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  .drawer{padding-left:env(safe-area-inset-left,0px);padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+}
+/* self-check card, a failed job's error, the terms of an 802.11ay row */
+.selfc{display:grid;gap:8px;border:1px solid var(--rule);border-radius:6px;padding:8px 10px;font-size:12px;min-width:0}
+.selfc.ok{border-color:var(--ok)} .selfc.bad{border-color:var(--red)}
+.selfstack,.selfn{display:flex;gap:3px 14px;flex-wrap:wrap;min-width:0} .selfstack>span,.selfn>span{min-width:0;overflow-wrap:anywhere}
+.selfchecks{display:grid;gap:3px} .selfchecks .okm{color:var(--ok);font-weight:700} .selfchecks .badm{color:var(--red);font-weight:700}
+.selfd{overflow-wrap:anywhere;color:var(--ink2)} .selfd .dg{white-space:normal}
+.joberr{border:1px solid var(--red);border-radius:5px;padding:6px 8px;display:grid;gap:4px;min-width:0}
+.joberr>b{color:var(--red);font:600 11.5px/1.4 var(--f-mono);overflow-wrap:anywhere}
+.joberr summary{font-size:11px;color:var(--ink2);cursor:pointer}
+.ayterms{gap:4px 8px}
+.ayterms>span[data-ay-term]{border:1px solid var(--rule2);border-radius:5px;padding:1px 6px}
+.ayterms>span.b{border-color:var(--ink)} .ayterms>span.faint{opacity:.5}
+#durations-note .b{display:block;color:var(--ink);margin-top:3px}

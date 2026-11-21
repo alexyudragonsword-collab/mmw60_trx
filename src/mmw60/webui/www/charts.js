@@ -149,7 +149,7 @@ const CHARTS = {
     o += ln(ml, y1(Lm.limit_avg_dbm), w - mr, y1(Lm.limit_avg_dbm), "axis", 'style="stroke:var(--amber-line);stroke-width:2"');
     o += tx(ml + 4, y1(Lm.limit_avg_dbm) - 5, `${fx(Lm.limit_avg_dbm, 1)} dBm ${T("平均上限", "average limit")}`, { c: "k" });
     o += path(a.rows.map(r => [x(r.n), y1(r.eirp_dbm)]), col);
-    a.rows.forEach(r => { o += dot(x(r.n), y1(r.eirp_dbm), col, `N = ${r.n}: EIRP ${fx(r.eirp_dbm, 1)} dBm`) + tx(x(r.n) + 7, y1(r.eirp_dbm) + 13, fx(r.eirp_dbm, 1), { c: "m" }); });
+    a.rows.forEach(r => { o += dot(x(r.n), y1(r.eirp_dbm), col, `N = ${r.n}: EIRP ${fx(r.eirp_dbm, 1)} dBm`) + (nar && r === a.rows[a.rows.length - 1] ? tx(x(r.n) - 7, y1(r.eirp_dbm) + 15, fx(r.eirp_dbm, 1), { c: "m", a: "end" }) : tx(x(r.n) + 7, y1(r.eirp_dbm) + 13, fx(r.eirp_dbm, 1), { c: "m" })); });
     /* 2: output per element */
     const pe = a.rows.map(r => [r.n, r.element_pout_dbm, r.obo_db]).concat(a.small ? [[a.small.n, a.small.element_pout_dbm, a.small.operating_obo_db, 1]] : []).sort((p, q) => p[0] - q[0]);
     const d2 = span(pe.map(p => p[1]), 4, 1), y2 = lin(d2[0], d2[1], t2 + H2, t2); o += panel(t2, H2, T("每单元输出 dBm 与回退", "Output per element, dBm, and back-off"), ticks(d2[0], d2[1], 4), y2);
@@ -190,23 +190,26 @@ const CHARTS = {
     let o = F.s;
     const rect = (p, c, tip) => (nil(p.range_m) || nil(p.rate_bps) ? "" : `<rect x="${P(F.x(0))}" y="${P(F.y(p.rate_bps / 1e9))}" width="${P(F.x(p.range_m) - F.x(0))}" height="${P(F.y(0) - F.y(p.rate_bps / 1e9))}" fill="${c}" fill-opacity=".10" stroke="${c}" stroke-width="2" data-tip="${tip}: ${gbps(p.rate_bps)} Gb/s × ${fx(p.range_m, 0)} m"/>`);
     o += rect(A.ay_ofdm, "var(--ofdm)", "OFDM 16-QAM 3/4") + rect(A.ay_sc, "var(--sc)", "SC 16-QAM 3/4") + rect(B.ay_ofdm, "var(--ofdm)", "OFDM " + mcs(B.mcs.ay_ofdm)) + rect(B.ay_sc, "var(--sc)", "SC " + mcs(B.mcs.ay_sc));
-    const lab = (p, title, x0, anchor) => (nil(p.ay_ofdm.range_m) ? "" : tx(x0, F.y(p.ay_ofdm.rate_bps / 1e9) + 15, title, { a: anchor, c: "k" }) + tx(x0, F.y(p.ay_ofdm.rate_bps / 1e9) + 29, `SC ${gbps(p.ay_sc.rate_bps)} Gb/s · ${fx(p.ay_sc.range_m, 0)} m`, { a: anchor, c: "m" }) + tx(x0, F.y(p.ay_ofdm.rate_bps / 1e9) + 42, `OFDM ${gbps(p.ay_ofdm.rate_bps)} Gb/s · ${fx(p.ay_ofdm.range_m, 0)} m`, { a: anchor, c: "m" }));
+    const nar = w < 560, lab = (p, title, x0, anchor) => (nil(p.ay_ofdm.range_m) ? "" : tx(x0, F.y(p.ay_ofdm.rate_bps / 1e9) + 15, title, { a: anchor, c: "k" }) + (nar ? "" : tx(x0, F.y(p.ay_ofdm.rate_bps / 1e9) + 29, `SC ${gbps(p.ay_sc.rate_bps)} Gb/s · ${fx(p.ay_sc.range_m, 0)} m`, { a: anchor, c: "m" }) + tx(x0, F.y(p.ay_ofdm.rate_bps / 1e9) + 42, `OFDM ${gbps(p.ay_ofdm.rate_bps)} Gb/s · ${fx(p.ay_ofdm.range_m, 0)} m`, { a: anchor, c: "m" })));
     o += lab(A, "16-QAM 3/4", F.x(A.ay_ofdm.range_m || 0) - 8, "end") + lab(B, T("解码器上限", "decoder cap"), F.x(0) + 6, "start");
-    return svg(w, F.h, o, T("速率 × 距离", "rate × range"));
+    return `<div class="lg"><span><i style="border-color:var(--sc)"></i>SC</span><span><i style="border-color:var(--ofdm)"></i>OFDM</span>${nar ? `<span class="mut">${T("数在上面两张卡片里", "the numbers are in the two cards above")}</span>` : ""}</div>` + svg(w, F.h, o, T("速率 × 距离", "rate × range"));
   },
   /* single antenna: every MCS of both waveforms at its best back-off */
   rr(w) {
     const A = S.rep.ay.report, rows = A.rate_vs_range, pos = v => num(v) > 0;
     const F = frame(w, { ml: 34, mr: 14, top: 8, h: 220, xlog: 1, xd: logSpan(rows.flatMap(p => [p.best_range_m, p.multipath_best_range_m])), yd: [0, span(rows.map(p => p.rate_bps / 1e9), 1, 0.3)[1]], xl: T("距离 m（对数）", "range, m (log)"), yl: "Gb/s" });
     let o = F.s;
-    const line = (wf, key) => rows.filter(p => p.waveform === wf && pos(p[key])).sort((a, b) => a.rate_bps - b.rate_bps).map(p => [F.x(p[key]), F.y(p.rate_bps / 1e9), p]);
-    [["ay_ofdm", "var(--ofdm)", "1.5 4"], ["ay_sc", "var(--sc)", "5 4"]].forEach(s => { o += path(line(s[0], "multipath_best_range_m"), s[1], `stroke-dasharray="${s[2]}" stroke-width="1.5" opacity=".8"`); });
+    const line = (wf, key) => rows.filter(p => p.waveform === wf && pos(p[key])).sort((a, b) => a.rate_bps - b.rate_bps).map(p => [F.x(p[key]), F.y(p.rate_bps / 1e9), p, p[key]]);
+    /* runs of the series in which each higher rate reaches less far; a point outside any run stands alone */
+    let broken = 0;
+    const runs = f => { const out = []; f.forEach((q, i) => { if (i && q[3] < f[i - 1][3]) out[out.length - 1].push(q); else { if (i) broken++; out.push([q]); } }); return out; };
+    [["ay_ofdm", "var(--ofdm)", "1.5 4"], ["ay_sc", "var(--sc)", "5 4"]].forEach(s => { runs(line(s[0], "multipath_best_range_m")).forEach(r => { o += r.length > 1 ? path(r, s[1], `stroke-dasharray="${s[2]}" stroke-width="1.5" opacity=".8"`) : `<circle cx="${P(r[0][0])}" cy="${P(r[0][1])}" r="2" fill="none" stroke="${s[1]}" stroke-width="1.5" opacity=".8"/>`; }); });
     [["ay_ofdm", "var(--ofdm)", "OFDM"], ["ay_sc", "var(--sc)", "SC"]].forEach(s => {
-      const f = line(s[0], "best_range_m"); o += path(f, s[1]);
+      const f = line(s[0], "best_range_m"); runs(f).forEach(r => { o += path(r, s[1]); });
       f.forEach(q => { const p = q[2]; o += dot(q[0], q[1], s[1], `${s[2]} ${mcs(p.mcs)} ${p.modulation} ${p.code_rate}: ${gbps(p.rate_bps)} Gb/s → ${sig(p.best_range_m)} m (${T("回退", "back-off")} ${fx(p.best_backoff_db, 1)} dB)`, 3); });
-      if (f.length) o += tx(f[0][0] + 6, f[0][1] - 5, s[2], { c: "k" });
     });
-    return svg(w, F.h, o, T("速率对距离", "rate against range"));
+    const note = broken ? `<p class="xs mut" data-rr-broken>${T("按速率次序连线；速率更高、距离却没有更短的地方不连线，点照画。", "Points are joined in rate order; where a higher rate does not reach less far the line is left open and the points stand alone.")}</p>` : "";
+    return svg(w, F.h, o, T("速率对距离", "rate against range")) + note;
   },
   /* EVM against back-off with IQ and leakage calibrated away: the 16-QAM and 64-QAM payloads */
   evmbo(w) {
