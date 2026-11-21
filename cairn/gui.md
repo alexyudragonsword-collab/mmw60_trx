@@ -265,6 +265,12 @@ authoring_mode: ai_generated
 
 **CI 真的把它跑起来**（`.github/workflows/android.yml`，改 `android/`、`appbridge.py`、`pyproject.toml` 时与手动触发；一次约 4 分钟）：构建 APK → `android/tools/check_apk.py` 读包里到底有什么 →
 模拟器上两条设备测试：自检的结论、页面经桥画出同台表（等到 `#screen-table [data-label]` 出现；量到 21 行 = 19 + 2）。设备测试的条数按**精确值**核对，设备说的话印在日志末尾。
+2026-11-21 起五条，多了三条外壳自己的行为（android 第 13 轮，`6b3c645`，5 条 0 失败）：
+**返回键**先退一屏、在第一屏才退出应用（设备说：`"#table" -> "#runs" -> "#table"`，第一次按后应用还开着，第二次按后关了）；**旋转**不重载页面（同一个 WebView，21 → 21 行；Manifest 的 `configChanges` 接住方向与尺寸）；
+**系统深色模式**页面看得见（`prefers-color-scheme: dark` 为真；主题从 API 29 起是 `Theme.DeviceDefault.DayNight`，`uiMode` 不在 `configChanges` 里，系统切换时 Activity 重建、重新读主题）。
+
+**被推翻的判断（返回键测试的第一版，2026-11-21）**：测试用 JS 的 `.click()` 换到运行台再按返回，结果**应用直接退出**（第 12 轮，5 条里红这一条）。不是外壳坏了：JS 发起的点击不带用户手势，
+Chromium 不把“没有用户手势就离开的历史条目”算数（防止页面劫持返回键），`WebView.canGoBack()` 因此答否。改成往导航元素的坐标注入真实触摸、发真实的 `KEYCODE_BACK`，第 13 轮通过。`tests/test_android.py` 守着测试不许退回 JS 点击。
 
 **被推翻的判断（我自己的第一版）**：为了绕开声明的下限，第一次构建用 `--no-deps` 把 numpy、scipy、mmw60 的 sdist 一起装。**APK 构建成功，包内容检查也过了**；模拟器上两条都红——
 `dlopen failed: library "libopenblas.so" not found`：Chaquopy 的 numpy wheel 依赖它自己的 OpenBLAS 运行库包，`--no-deps` 把它丢了。
@@ -275,5 +281,5 @@ Gradle / 两个工作流的 Python 版本相同；`phone-stack.txt` 是精确版
 在一个“导入 matplotlib / numba 就报错”的解释器里四份报告照样读得出来。
 
 **没有验证的**：真机（只有 x86_64 模拟器）；arm64 上的数值（另一套 libm / BLAS 内核，自检就是为它准备的，没跑过）；手机上各任务要多久——界面上的预计时长是桌面 4 核量的，
-手机上没有 numba、线程后端一次一个任务，只会更慢，慢多少没量；完整规模的任务在手机内存里跑不跑得下；返回键、横竖屏、刘海安全区、深色模式跟随系统（主题写死了浅色，页面自己的开关能切）。
+手机上没有 numba、线程后端一次一个任务，只会更慢，慢多少没量；完整规模的任务在手机内存里跑不跑得下；刘海 / 手势条安全区（页面加了 `viewport-fit=cover` 与 `env(safe-area-inset-*)`，模拟器没有刘海）。返回键、横竖屏、深色模式跟随系统 2026-11-21 在模拟器上验过（上文）。arm64 的数值现在有地方点了：页面运行台上的自检入口。
 
