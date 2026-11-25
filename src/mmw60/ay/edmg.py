@@ -35,6 +35,7 @@ import numpy as np
 
 from .. import spec
 from ..vendor.wifitrx.units import KT_DBM_HZ
+from . import preamble
 from .ofdm import OfdmNumerology
 from .sc import ScNumerology
 
@@ -273,7 +274,47 @@ def chain_rate() -> dict:
             "sc_samples_per_chip": int(a["sc_samples_per_chip"])}
 
 
+def golay_pair_128() -> tuple[np.ndarray, np.ndarray]:
+    """The standard's ``(Ga128, Gb128)`` (spec_sources ``dmg.golay_sequences``): the sequences as
+    the entry lists them, which must be what its own recursion gives -- the entry states both, and
+    a table whose two statements disagree is not read."""
+    e = spec.value("dmg.golay_sequences")
+    ga, gb = np.asarray(e["ga128"], dtype=float), np.asarray(e["gb128"], dtype=float)
+    ra, rb = preamble.pair_from_recursion(e["d_128"], e["w_128"])
+    if not (np.array_equal(ga, ra) and np.array_equal(gb, rb)):
+        raise ValueError("dmg.golay_sequences: Ga128 / Gb128 as listed are not what d_128 / w_128 generate")
+    return ga, gb
+
+
+def _l_cef_parts(waveform: str):
+    if waveform not in WAVEFORMS:
+        raise ValueError(f"waveform must be one of {WAVEFORMS}, got {waveform!r}")
+    layout = spec.value("dmg.cef_golay_layout")
+    gu, gv = preamble.gu_gv(*golay_pair_128(), layout["gu512"], layout["gv512"])
+    return gu, gv, list(layout["ofdm_order" if waveform == "ay_ofdm" else "sc_order"]), int(layout["cef_chips"])
+
+
+def l_cef(waveform: str = "ay_sc", rotated: bool = True) -> np.ndarray:
+    """The legacy channel-estimation field of a DMG / EDMG PPDU, chips at 1.76 GHz, in the order the
+    waveform's PPDU sends it (spec_sources ``dmg.cef_golay_layout``).  This library does not
+    transmit it yet (the legacy part of the PPDU is not built, ROADMAP milestone 3); the waveform
+    itself is ``ay.preamble``, which other libraries copy."""
+    gu, gv, order, chips = _l_cef_parts(waveform)
+    field = preamble.cef(gu, gv, order, rotated)
+    if field.size != chips:
+        raise ValueError(f"dmg.cef_golay_layout: the field built is {field.size} chips, the entry says {chips}")
+    return field
+
+
+def l_cef_prefix(waveform: str = "ay_sc", rotated: bool = True) -> np.ndarray:
+    """The 128 chips that stand before ``l_cef`` (the cyclic prefix of the sequence it opens with:
+    ``-Ga128`` for both orders)."""
+    gu, gv, order, _ = _l_cef_parts(waveform)
+    return preamble.cyclic_prefix(gu, gv, order, rotated)
+
+
 __all__ = ["GIS", "WAVEFORMS", "AyMcs", "channel_spacing_hz", "channel_of", "ofdm_numerology", "sc_numerology",
+           "golay_pair_128", "l_cef", "l_cef_prefix",
            "mcs_table", "mcs_entry", "conformance_cap", "chain_rate", "dmg_twin", "ideal_threshold_db",
            "THRESHOLD_RULES", "threshold_db",
            "dmg_threshold_db", "control_threshold_db"]
