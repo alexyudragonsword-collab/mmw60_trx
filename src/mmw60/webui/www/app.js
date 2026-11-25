@@ -158,7 +158,8 @@ async function runJob(job) {
   try {
     await settling;                    /* an edit still on its way to the host lands first: the job is for the form as typed */
     const r = await api("run", { job, study: S.study });
-    S.lastJobs[r.job.id] = r.job.status; S.jobs = [...(S.jobs || []).filter(x => x.id !== r.job.id), r.job]; S.pollAgain = true; delete S.submitting[job];
+    /* remembered as queued whatever the answer says: a job that is over by the first poll must still read as one that ended */
+    S.lastJobs[r.job.id] = "queued"; S.jobs = [...(S.jobs || []).filter(x => x.id !== r.job.id), r.job]; S.pollAgain = true; delete S.submitting[job];
     toast(T("已排队", "Queued") + P_.c + jn(job)); drawQueue(); poll();
   } catch (e) { delete S.submitting[job]; drawQueue(); showError(e); }
 }

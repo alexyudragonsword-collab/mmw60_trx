@@ -245,6 +245,31 @@ def _preview_runner(job, st, params, emit, cancelled=None):
     emit("done", out)
 
 
+def test_the_answer_to_run_says_queued_however_fast_the_job_is(monkeypatch):
+    """The job's state is copied while the queue's lock is held.  Copied after it, a job that ran
+    in the meantime answered "running" or "done" to its own submission, and a page that remembers
+    the answered status never sees that job end (reproduced 2026-11-25 with the copy slowed)."""
+    def instant(job, st, params, emit, cancelled=None):
+        emit("done", g.job_result(job, st, {"kind": "table", "study": g.study(st), "time_domain": False,
+                                            "fields": g.BE_FIELDS, "rows": [], "ay_rows": [],
+                                            "sensitivity": {"knobs": []}, "lo_models": None},
+                                  seconds=0.0, parts=["table.analytic"]))
+    real = JobQueue.public
+
+    def slow(job):
+        if threading.current_thread() is threading.main_thread():
+            time.sleep(0.2)                 # the answering thread dawdles; the worker does not
+        return real(job)
+    monkeypatch.setattr(JobQueue, "public", staticmethod(slow))
+    said = []
+    for _ in range(3):
+        st = State(backend="thread", store=guistore.Store(None, {}), runner=instant)
+        code, r = Api(st).call("run", {"job": "table_analytic", "study": {}})
+        said.append((code, r["job"]["status"]))
+        wait(lambda: not st.jobs.busy())
+    assert said == [(200, "queued")] * 3
+
+
 def test_the_cheap_routes_answer_and_unknown_routes_are_404():
     api = Api(state())
     code, v = api.call("version")

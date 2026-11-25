@@ -504,6 +504,34 @@ def _set_knob(page, knob, value):
     box.press("Tab")
 
 
+def _what_happened(page, state, errors) -> str:
+    """Where a job that should have shown on the page got to: what the host ran and stored, and what
+    the page holds.  A timeout alone says none of this (two Firefox runs of 2026-11-25 failed here
+    with nothing but the selector they were waiting for)."""
+    host_jobs = [(j["id"], j["job"], j["status"], j["study"]) for j in state.jobs.listing()]
+    stored = [(e["id"], e["origin"]) for e in state.store.entries()]
+    try:
+        held = page.evaluate("""() => JSON.stringify({
+            study: S.study, screen: S.screen, polling: !!S.polling, pollAgain: !!S.pollAgain, lastJobs: S.lastJobs,
+            submitting: Object.keys(S.submitting || {}), jobs: (S.jobs || []).map(j => [j.id, j.job, j.status]),
+            toast: [document.getElementById('toast').hidden, document.getElementById('toast').textContent],
+            chips: [...document.querySelectorAll('[data-field-group]')].map(
+                e => [e.dataset.fieldGroup, e.dataset.state, e.dataset.running || '']),
+            deletes: [...document.querySelectorAll('[data-delete]')].map(e => e.dataset.delete)})""")
+    except Exception as exc:                # noqa: BLE001 (the page may be past answering)
+        held = f"(the page did not answer: {exc})"
+    return f"host jobs {host_jobs}; stored {stored}; page {held}; page errors {errors[-6:]}"
+
+
+def _shown(page, state, errors, wait) -> None:
+    """``wait()``, and when it times out, the timeout with what happened instead."""
+    try:
+        wait()
+    except Exception as exc:                # noqa: BLE001
+        first = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+        raise AssertionError(f"{first} -- {_what_happened(page, state, errors)}") from None
+
+
 def test_the_self_check_runs_from_the_page_and_says_what_this_machine_said(host, browser):
     url, state = host
     page, errors = _open(browser, url)
@@ -534,7 +562,7 @@ def test_a_failed_job_shows_its_error_a_running_one_can_be_cancelled_and_a_resul
     _set_knob(page, "phy.packet_bytes", FAILS_AT)
     page.click("#nav-runs")
     page.click('#screen-runs [data-job="table_analytic"]')
-    page.wait_for_selector('#screen-runs [data-job-error]', timeout=20000)
+    _shown(page, state, errors, lambda: page.wait_for_selector('#screen-runs [data-job-error]', timeout=20000))
     assert "no such luck" in page.text_content('#screen-runs [data-job-error]')
     assert [e for e in state.store.entries() if e["origin"] == "user"] == []
     # a running job: cancelled from the page, it reads cancelled and stores nothing
@@ -543,7 +571,7 @@ def test_a_failed_job_shows_its_error_a_running_one_can_be_cancelled_and_a_resul
     page.click('#screen-runs [data-job="table_analytic"]')
     page.wait_for_selector('#screen-runs [data-cancel]', timeout=20000)
     page.click('#screen-runs [data-cancel]')
-    page.wait_for_selector('#screen-runs [data-status="cancelled"]', timeout=20000)
+    _shown(page, state, errors, lambda: page.wait_for_selector('#screen-runs [data-status="cancelled"]', timeout=20000))
     assert [e for e in state.store.entries() if e["origin"] == "user"] == []
     # a finished one: its result is listed, deleted from the page, and the baseline cannot be
     _set_knob(page, "phy.packet_bytes", 2048)
@@ -551,7 +579,8 @@ def test_a_failed_job_shows_its_error_a_running_one_can_be_cancelled_and_a_resul
     page.click('#screen-runs [data-job="table_analytic"]')
     # (the analytic columns do not read the packet length, so their freshness says nothing here: until
     # 2026-11-21 this waited for a field group that was fresh before the job had run)
-    page.wait_for_selector("#screen-runs [data-delete]", state="attached", timeout=30000)
+    _shown(page, state, errors,
+           lambda: page.wait_for_selector("#screen-runs [data-delete]", state="attached", timeout=30000))
     mine = [e["id"] for e in state.store.entries() if e["origin"] == "user"]
     assert len(mine) == 1
     page.wait_for_selector(f'[data-delete="{mine[0]}"]', state="attached", timeout=15000)
@@ -569,10 +598,11 @@ def test_a_preview_then_a_full_table_come_back_to_one_result(host, browser):
     _set_knob(page, "frontend.pa.obo_db", 9.5)
     page.click("#nav-runs")
     page.click('#screen-runs [data-job="table_analytic"]')
-    page.wait_for_function("!!document.querySelector('[data-field-group=\"table.analytic\"][data-state=\"fresh\"]')",
-                           timeout=30000)
+    _shown(page, state, errors, lambda: page.wait_for_function(
+        "!!document.querySelector('[data-field-group=\"table.analytic\"][data-state=\"fresh\"]')", timeout=30000))
     page.click("#nav-table")
-    page.wait_for_selector("#assembled-note", state="attached", timeout=15000)
+    _shown(page, state, errors,
+           lambda: page.wait_for_selector("#assembled-note", state="attached", timeout=15000))
     # the caveat names rows: the ones the payload flags, no others
     report, _ = state.table(state.study)
     flagged = report["assembled"]["rows_whose_decoder_cap_may_be_lower"]
@@ -582,8 +612,8 @@ def test_a_preview_then_a_full_table_come_back_to_one_result(host, browser):
     # the full table for the same form: four parts, one result, the caveat gone
     page.click("#nav-runs")
     page.click('#screen-runs [data-job="table"]')
-    page.wait_for_function("!!document.querySelector('[data-field-group=\"table.td\"][data-state=\"fresh\"]')",
-                           timeout=30000)
+    _shown(page, state, errors, lambda: page.wait_for_function(
+        "!!document.querySelector('[data-field-group=\"table.td\"][data-state=\"fresh\"]')", timeout=30000))
     page.click("#nav-table")
     page.wait_for_function("!document.getElementById('assembled-note')", timeout=15000)
     ids = {page.get_attribute(f'#screen-table [data-part-result="{p}"]', "data-result-id")

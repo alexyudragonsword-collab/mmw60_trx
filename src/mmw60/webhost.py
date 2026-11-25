@@ -141,8 +141,9 @@ class JobQueue:
                  "parts": [] if check else list(timed["parts"]), "_params": dict(params or {}), "cancel": False}
         with self._cv:
             self.jobs[jid] = entry
+            said = self.public(entry)       # copied before a worker can touch it: the answer says "queued"
             self._cv.notify()
-        return self.public(entry)
+        return said
 
     def cancel(self, jid: str) -> bool:
         with self._lock:
