@@ -113,6 +113,15 @@ fmcw_radar 从 0.2.8 起（它的 main@`7685bb3`，fmcw_radar#11）vendor 本库
 
 `Frontend60` 上的三个面（`rx_front`、`tx_rx_isolation_db`、两个天线增益）目前没有下游在读，消费者是本库自己的示例 08 与链路预算。对方没有读天线增益与接收增益档，理由是天线增益是设计选择：本库读到的封装内 2 dBi 与它读到的板上 8 元阵约 12 dBi 都不是 MIMO 的单个阵元。
 
+### jcas60 读本库的什么（2026-11-24 起，mmw60_trx#89；它 pin 在 `cfb401a`）
+
+不由本库的测试守（它整份 vendor、逐字节核对，重新 pin 时自己会看到变化）；记在这里是为了改这几处之前知道有人在读：
+
+- `src/mmw60/data/spec/survey.yaml` 整份（用 spec_sources 的 `load_table` 按键读）：`assumed.ay_sc_pulse`（滚降 0.25）、`assumed.converter_enob_ref` / `converter_bits_per_octave` / `converter_backoff_db`（10 bit / 0.5 bit 每倍频程 / 12 dB）。
+- `examples/expected/04_comparison_table.txt` 整份：读 `ay_sc EDMG channel 2` 一行校准后的速率（MCS14，4620 Mb/s）。**这一行的格式要变时在 CHANGELOG 里提一句**（它的请求）。
+- `src/mmw60/ay/golay.py`（逐字 vendor）；`src/mmw60/ay/preamble.py` 是为它建的（`cairn/ay.md` §9g），合并后它重新 pin 再拷。
+- 它没有 vendor `Frontend60`：“同一套前端”在它那里指同一组数字，不是同一个对象（fmcw_radar 0.2.8 的同一个决定）。
+
 ## 原文没给、从别处拿的（survey，未核实）
 
 - Rapp 参数：IEEE 802.11-09/0296r16（TGad EM）CMOS PA，g = 4.65、Asat = 0.58、p = 0.81、α = 2560、β = 0.114、q1 = 2.4、q2 = 2.3——来自搜索命中的文档摘录，.doc 原文未读（r09 版是 5 / 0.6 / 0.71）。公式形状按记忆。
